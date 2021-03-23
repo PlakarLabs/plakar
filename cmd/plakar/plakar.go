@@ -39,10 +39,10 @@ func main() {
 	namespace = strings.ToLower(namespace)
 	hostname = strings.ToLower(hostname)
 
-	pstore := &fs.FSStore{}
-	pstore.Namespace = namespace
-	pstore.Repository = storeloc
-	pstore.Init()
+	store := &fs.FSStore{}
+	store.Namespace = namespace
+	store.Repository = storeloc
+	store.Init()
 
 	if len(flag.Args()) == 0 {
 		fmt.Println("valid subcommands:")
@@ -62,28 +62,28 @@ func main() {
 	command, args := flag.Arg(0), flag.Args()[1:]
 	switch command {
 	case "cat":
-		cmd_cat(pstore, args)
+		cmd_cat(store, args)
+
+	case "check":
+		cmd_check(store, args)
 
 	case "diff":
-		cmd_diff(pstore, args)
+		cmd_diff(store, args)
 
 	case "ls":
-		cmd_ls(pstore, args)
+		cmd_ls(store, args)
 
 	case "pull":
-		cmd_pull(pstore, args)
+		cmd_pull(store, args)
 
 	case "push":
-		cmd_push(pstore, args)
+		cmd_push(store, args)
 
 	case "rm":
-		cmd_rm(pstore, args)
-
-	case "verify":
-		cmd_verify(pstore, args)
+		cmd_rm(store, args)
 
 	case "version":
-		cmd_version(pstore, args)
+		cmd_version(store, args)
 
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)

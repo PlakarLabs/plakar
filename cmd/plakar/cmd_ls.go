@@ -14,14 +14,14 @@ import (
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_ls(pstore repository.Store, args []string) {
+func cmd_ls(store repository.Store, args []string) {
 	if len(args) == 0 {
-		list_snapshots(pstore)
+		list_snapshots(store)
 		return
 	}
 
 	snapshots := make([]string, 0)
-	for id := range pstore.Snapshots() {
+	for id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -38,7 +38,7 @@ func cmd_ls(pstore repository.Store, args []string) {
 	for _, arg := range args {
 		prefix, pattern := parseSnapshotID(arg)
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := pstore.Snapshot(res[0])
+		snapshot, err := store.Snapshot(res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
@@ -69,8 +69,8 @@ func cmd_ls(pstore repository.Store, args []string) {
 	}
 }
 
-func list_snapshots(pstore repository.Store) {
-	snapshots := pstore.Snapshots()
+func list_snapshots(store repository.Store) {
+	snapshots := store.Snapshots()
 	ids := make([]string, 0)
 	for id := range snapshots {
 		ids = append(ids, id)
@@ -81,7 +81,7 @@ func list_snapshots(pstore repository.Store) {
 	})
 	for _, id := range ids {
 		fi := snapshots[id]
-		snapshot, err := pstore.Snapshot(id)
+		snapshot, err := store.Snapshot(id)
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
 		}

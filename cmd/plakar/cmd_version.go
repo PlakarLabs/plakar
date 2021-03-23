@@ -8,7 +8,7 @@ import (
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_version(pstore repository.Store, args []string) {
+func cmd_version(store repository.Store, args []string) {
 	if len(args) != 0 {
 		log.Fatalf("%s: no parameter expected for version", flag.CommandLine.Name())
 	}

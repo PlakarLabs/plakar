@@ -10,13 +10,13 @@ import (
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_cat(pstore repository.Store, args []string) {
+func cmd_cat(store repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID and file or object to cat", flag.CommandLine.Name())
 	}
 
 	snapshots := make([]string, 0)
-	for id := range pstore.Snapshots() {
+	for id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -34,7 +34,7 @@ func cmd_cat(pstore repository.Store, args []string) {
 
 		if !strings.HasPrefix(pattern, "/") {
 			objects := make([]string, 0)
-			snapshot, err := pstore.Snapshot(res[0])
+			snapshot, err := store.Snapshot(res[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 			}
@@ -53,7 +53,7 @@ func cmd_cat(pstore repository.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := pstore.Snapshot(res[0])
+		snapshot, err := store.Snapshot(res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
@@ -67,7 +67,7 @@ func cmd_cat(pstore repository.Store, args []string) {
 			checksum = tmp
 		} else {
 			objects := make([]string, 0)
-			snapshot, err := pstore.Snapshot(res[0])
+			snapshot, err := store.Snapshot(res[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 			}

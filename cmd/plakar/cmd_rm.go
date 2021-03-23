@@ -9,13 +9,13 @@ import (
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_rm(pstore repository.Store, args []string) {
+func cmd_rm(store repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
 	snapshots := make([]string, 0)
-	for id := range pstore.Snapshots() {
+	for id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -32,7 +32,7 @@ func cmd_rm(pstore repository.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, _ := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := pstore.Snapshot(res[0])
+		snapshot, err := store.Snapshot(res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}

@@ -34,13 +34,13 @@ func fiToDiff(fi repository.FileInfo) string {
 		fi.ModTime.UTC())
 }
 
-func cmd_diff(pstore repository.Store, args []string) {
+func cmd_diff(store repository.Store, args []string) {
 	if len(args) < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
 	snapshots := make([]string, 0)
-	for id := range pstore.Snapshots() {
+	for id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -69,11 +69,11 @@ func cmd_diff(pstore repository.Store, args []string) {
 			prefix2, _ := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := pstore.Snapshot(res1[0])
+			snapshot1, err := store.Snapshot(res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := pstore.Snapshot(res2[0])
+			snapshot2, err := store.Snapshot(res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -118,11 +118,11 @@ func cmd_diff(pstore repository.Store, args []string) {
 			prefix2, file2 := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := pstore.Snapshot(res1[0])
+			snapshot1, err := store.Snapshot(res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := pstore.Snapshot(res2[0])
+			snapshot2, err := store.Snapshot(res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -138,11 +138,11 @@ func cmd_diff(pstore repository.Store, args []string) {
 		prefix2, _ := parseSnapshotID(args[1])
 		res1 := findSnapshotByPrefix(snapshots, prefix1)
 		res2 := findSnapshotByPrefix(snapshots, prefix2)
-		snapshot1, err := pstore.Snapshot(res1[0])
+		snapshot1, err := store.Snapshot(res1[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 		}
-		snapshot2, err := pstore.Snapshot(res2[0])
+		snapshot2, err := store.Snapshot(res2[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}

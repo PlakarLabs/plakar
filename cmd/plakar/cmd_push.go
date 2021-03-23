@@ -7,13 +7,13 @@ import (
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_push(pstore repository.Store, args []string) {
+func cmd_push(store repository.Store, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	snapshot := pstore.Transaction().Snapshot()
+	snapshot := store.Transaction().Snapshot()
 	if len(args) == 0 {
 		snapshot.Push(dir)
 	} else {

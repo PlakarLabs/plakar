@@ -78,7 +78,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
-		data, err := snapshot.BackingStore.ObjectGet(checksum)
+		data, err := snapshot.pstore.ObjectGet(checksum)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: missing object %s\n", file, checksum)
 			continue
@@ -99,7 +99,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 
 		objectHash := sha256.New()
 		for _, chunk := range object.Chunks {
-			data, err := snapshot.BackingStore.ChunkGet(chunk.Checksum)
+			data, err := snapshot.pstore.ChunkGet(chunk.Checksum)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: missing chunk %s\n", file, chunk.Checksum)
 				continue
@@ -176,7 +176,7 @@ func (snapshot *Snapshot) Push(root string) {
 					chunks[chunk.Checksum] = chunk
 				}
 
-				res := snapshot.BackingTransaction.ChunksMark(checksums)
+				res := snapshot.ptransaction.ChunksMark(checksums)
 				for checksum, exists := range res {
 					chunk := chunks[checksum]
 					if exists {
@@ -192,11 +192,11 @@ func (snapshot *Snapshot) Push(root string) {
 						}
 						tmp := make(map[string]string)
 						tmp[checksum] = string(compression.Deflate(buf))
-						snapshot.BackingTransaction.ChunksPut(tmp)
+						snapshot.ptransaction.ChunksPut(tmp)
 					}
 				}
 
-				exists := snapshot.BackingTransaction.ObjectMark(object.Checksum)
+				exists := snapshot.ptransaction.ObjectMark(object.Checksum)
 				if !exists {
 					jobject, err := json.Marshal(object)
 					if err != nil {
@@ -205,7 +205,7 @@ func (snapshot *Snapshot) Push(root string) {
 					}
 
 					jobject = compression.Deflate(jobject)
-					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
+					err = snapshot.ptransaction.ObjectPut(object.Checksum, string(jobject))
 					if err != nil {
 						chanError <- err
 						return
@@ -294,20 +294,20 @@ func (snapshot *Snapshot) Commit() error {
 	jsnapshot, _ := json.Marshal(snapshot)
 	jsnapshot = compression.Deflate(jsnapshot)
 
-	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
+	snapshot.ptransaction.IndexPut(string(jsnapshot))
 
 	// commit transaction to store
-	snapshot.BackingTransaction.Commit(snapshot)
+	snapshot.ptransaction.Commit(snapshot)
 
 	return nil
 }
 
 func (snapshot *Snapshot) Purge() error {
-	return snapshot.BackingStore.Purge(snapshot.Uuid)
+	return snapshot.pstore.Purge(snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
-	data, err := snapshot.BackingStore.ObjectGet(checksum)
+	data, err := snapshot.pstore.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
-	data, err := snapshot.BackingStore.ChunkGet(checksum)
+	data, err := snapshot.pstore.ChunkGet(checksum)
 	if err != nil {
 		return nil, err
 	}

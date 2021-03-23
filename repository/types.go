@@ -32,6 +32,9 @@ type Transaction interface {
 	Commit(snapshot *Snapshot) (*Snapshot, error)
 }
 
+type Snapshotter interface {
+}
+
 type FileInfo struct {
 	Name    string
 	Size    int64
@@ -73,10 +76,6 @@ type Snapshot struct {
 
 	Size     uint64
 	RealSize uint64
-
-	BackingStore       Store
-	BackingTransaction Transaction
-	SkipDirs           []string
 }
 
 type SnapshotSummary struct {

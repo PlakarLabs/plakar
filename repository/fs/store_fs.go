@@ -22,7 +22,7 @@ type FSStore struct {
 	Repository string
 	root       string
 
-	SkipDirs []string
+	skipDirs []string
 
 	repository.Store
 }
@@ -32,13 +32,13 @@ type FSTransaction struct {
 	store    *FSStore
 	prepared bool
 
-	SkipDirs []string
+	skipDirs []string
 
 	repository.Transaction
 }
 
 func (store *FSStore) Init() {
-	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
+	store.skipDirs = append(store.skipDirs, path.Clean(store.Repository))
 	store.root = fmt.Sprintf("%s/%s", store.Repository, store.Namespace)
 
 	os.MkdirAll(store.root, 0700)
@@ -54,7 +54,7 @@ func (store *FSStore) Transaction() repository.Transaction {
 	tx.Uuid = uuid.New().String()
 	tx.store = store
 	tx.prepared = false
-	tx.SkipDirs = store.SkipDirs
+	tx.skipDirs = store.skipDirs
 	return tx
 }
 
@@ -71,7 +71,8 @@ func (store *FSStore) Snapshot(id string) (*repository.Snapshot, error) {
 	if err = json.Unmarshal(index, &snapshot); err != nil {
 		return nil, err
 	}
-	snapshot.BackingStore = store
+
+	snapshot.pstore = store
 
 	return &snapshot, nil
 }
@@ -188,8 +189,8 @@ func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 		Objects:      make(map[string]*repository.Object),
 		Chunks:       make(map[string]*repository.Chunk),
 
-		BackingTransaction: transaction,
-		SkipDirs:           transaction.SkipDirs,
+		backingTransaction: transaction,
+		skipDirs:           transaction.skipDirs,
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/poolpOrg/plakar/repository/compression"
+
 	"github.com/iafan/cwalk"
 	"github.com/restic/chunker"
 )
@@ -82,7 +84,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
-		data, err = Inflate(data)
+		data, err = compression.Inflate(data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: corrupt object %s\n", file, checksum)
 			continue
@@ -102,7 +104,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 				fmt.Fprintf(os.Stderr, "%s: missing chunk %s\n", file, chunk.Checksum)
 				continue
 			}
-			data, err = Inflate(data)
+			data, err = compression.Inflate(data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s\n", file, chunk.Checksum)
 				continue
@@ -189,7 +191,7 @@ func (snapshot *Snapshot) Push(root string) {
 							continue
 						}
 						tmp := make(map[string]string)
-						tmp[checksum] = string(Deflate(buf))
+						tmp[checksum] = string(compression.Deflate(buf))
 						snapshot.BackingTransaction.ChunksPut(tmp)
 					}
 				}
@@ -202,7 +204,7 @@ func (snapshot *Snapshot) Push(root string) {
 						return
 					}
 
-					jobject = Deflate(jobject)
+					jobject = compression.Deflate(jobject)
 					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
 					if err != nil {
 						chanError <- err
@@ -290,7 +292,7 @@ func (snapshot *Snapshot) Push(root string) {
 func (snapshot *Snapshot) Commit() error {
 	// commit index to transaction
 	jsnapshot, _ := json.Marshal(snapshot)
-	jsnapshot = Deflate(jsnapshot)
+	jsnapshot = compression.Deflate(jsnapshot)
 
 	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
 
@@ -310,7 +312,7 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 		return nil, err
 	}
 
-	data, err = Inflate(data)
+	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +328,7 @@ func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
 		return nil, err
 	}
 
-	data, err = Inflate(data)
+	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
 	}

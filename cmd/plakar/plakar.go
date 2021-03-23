@@ -16,6 +16,8 @@ var hostname string
 var storeloc string
 var quiet bool
 
+const VERSION = "0.0.1"
+
 func main() {
 	hostbuf, err := os.Hostname()
 	if err != nil {
@@ -78,6 +80,9 @@ func main() {
 
 	case "verify":
 		cmd_verify(pstore, args)
+
+	case "version":
+		cmd_version(pstore, args)
 
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)

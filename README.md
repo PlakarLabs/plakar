@@ -5,6 +5,13 @@ THIS IS WORK IN PROGRESS, DO NOT USE, YOU WILL LOSE STUFF
 
 ## Quickstart
 
+### Installing the CLI
+
+```
+$ go get github.com/poolpOrg/plakar/cmd/plakar
+```
+
+
 ### Pushing snapshots
 
 `plakar` works by creating a snapshot of filesystem hierachies and storing them in an efficient way.

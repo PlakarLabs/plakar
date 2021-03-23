@@ -32,9 +32,6 @@ type Transaction interface {
 	Commit(snapshot *Snapshot) (*Snapshot, error)
 }
 
-type Snapshotter interface {
-}
-
 type FileInfo struct {
 	Name    string
 	Size    int64
@@ -62,6 +59,22 @@ type Object struct {
 	path string
 }
 
+type SnapshotStorage struct {
+	Uuid         string
+	CreationTime time.Time
+	Version      string
+
+	Directories map[string]*FileInfo
+	Files       map[string]*FileInfo
+	NonRegular  map[string]*FileInfo
+	Sums        map[string]string
+	Objects     map[string]*Object
+	Chunks      map[string]*Chunk
+
+	Size     uint64
+	RealSize uint64
+}
+
 type Snapshot struct {
 	Uuid         string
 	CreationTime time.Time
@@ -76,6 +89,10 @@ type Snapshot struct {
 
 	Size     uint64
 	RealSize uint64
+
+	BackingStore       Store
+	BackingTransaction Transaction
+	SkipDirs           []string
 }
 
 type SnapshotSummary struct {

@@ -22,7 +22,7 @@ type FSStore struct {
 	Repository string
 	root       string
 
-	skipDirs []string
+	SkipDirs []string
 
 	repository.Store
 }
@@ -32,13 +32,13 @@ type FSTransaction struct {
 	store    *FSStore
 	prepared bool
 
-	skipDirs []string
+	SkipDirs []string
 
 	repository.Transaction
 }
 
 func (store *FSStore) Init() {
-	store.skipDirs = append(store.skipDirs, path.Clean(store.Repository))
+	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
 	store.root = fmt.Sprintf("%s/%s", store.Repository, store.Namespace)
 
 	os.MkdirAll(store.root, 0700)
@@ -54,7 +54,7 @@ func (store *FSStore) Transaction() repository.Transaction {
 	tx.Uuid = uuid.New().String()
 	tx.store = store
 	tx.prepared = false
-	tx.skipDirs = store.skipDirs
+	tx.SkipDirs = store.SkipDirs
 	return tx
 }
 
@@ -66,13 +66,25 @@ func (store *FSStore) Snapshot(id string) (*repository.Snapshot, error) {
 
 	index, _ = compression.Inflate(index)
 
-	var snapshot repository.Snapshot
+	var snapshotStorage repository.SnapshotStorage
 
-	if err = json.Unmarshal(index, &snapshot); err != nil {
+	if err = json.Unmarshal(index, &snapshotStorage); err != nil {
 		return nil, err
 	}
 
-	snapshot.pstore = store
+	snapshot := repository.Snapshot{}
+	snapshot.Uuid = snapshotStorage.Uuid
+	snapshot.CreationTime = snapshotStorage.CreationTime
+	snapshot.Version = snapshotStorage.Version
+	snapshot.Directories = snapshotStorage.Directories
+	snapshot.Files = snapshotStorage.Files
+	snapshot.NonRegular = snapshotStorage.NonRegular
+	snapshot.Sums = snapshotStorage.Sums
+	snapshot.Objects = snapshotStorage.Objects
+	snapshot.Chunks = snapshotStorage.Chunks
+	snapshot.Size = snapshotStorage.Size
+	snapshot.RealSize = snapshotStorage.RealSize
+	snapshot.BackingStore = store
 
 	return &snapshot, nil
 }
@@ -189,8 +201,8 @@ func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 		Objects:      make(map[string]*repository.Object),
 		Chunks:       make(map[string]*repository.Chunk),
 
-		backingTransaction: transaction,
-		skipDirs:           transaction.skipDirs,
+		BackingTransaction: transaction,
+		SkipDirs:           transaction.SkipDirs,
 	}
 }
 

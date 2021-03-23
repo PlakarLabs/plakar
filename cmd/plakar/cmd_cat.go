@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_cat(pstore store.Store, args []string) {
+func cmd_cat(pstore repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID and file or object to cat", flag.CommandLine.Name())
 	}

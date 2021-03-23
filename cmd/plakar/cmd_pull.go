@@ -5,10 +5,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_pull(pstore store.Store, args []string) {
+func cmd_pull(pstore repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}

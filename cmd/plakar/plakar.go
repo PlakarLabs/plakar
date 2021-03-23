@@ -8,7 +8,7 @@ import (
 	"os/user"
 	"strings"
 
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository/fs"
 )
 
 var namespace string
@@ -39,7 +39,7 @@ func main() {
 	namespace = strings.ToLower(namespace)
 	hostname = strings.ToLower(hostname)
 
-	pstore := &store.FSStore{}
+	pstore := &fs.FSStore{}
 	pstore.Namespace = namespace
 	pstore.Repository = storeloc
 	pstore.Init()

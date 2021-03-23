@@ -7,10 +7,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_verify(pstore store.Store, args []string) {
+func cmd_verify(pstore repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to check", flag.CommandLine.Name())
 	}

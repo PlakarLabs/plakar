@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_ls(pstore store.Store, args []string) {
+func cmd_ls(pstore repository.Store, args []string) {
 	if len(args) == 0 {
 		list_snapshots(pstore)
 		return
@@ -69,7 +69,7 @@ func cmd_ls(pstore store.Store, args []string) {
 	}
 }
 
-func list_snapshots(pstore store.Store) {
+func list_snapshots(pstore repository.Store) {
 	snapshots := pstore.Snapshots()
 	ids := make([]string, 0)
 	for id := range snapshots {

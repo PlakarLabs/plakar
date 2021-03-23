@@ -6,10 +6,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/store"
+	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_rm(pstore store.Store, args []string) {
+func cmd_rm(pstore repository.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}

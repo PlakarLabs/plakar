@@ -30,7 +30,7 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	return ss
 }
 
-func (self *Snapshot) Pull(root string, pattern string) {
+func (snapshot *Snapshot) Pull(root string, pattern string) {
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -43,14 +43,14 @@ func (self *Snapshot) Pull(root string, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := self.Files[fpattern]; ok {
+	if _, ok := snapshot.Files[fpattern]; ok {
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
 		}
 	}
 
-	for directory, fi := range self.Directories {
+	for directory, fi := range snapshot.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
@@ -61,7 +61,7 @@ func (self *Snapshot) Pull(root string, pattern string) {
 		os.Chown(dest, int(fi.Uid), int(fi.Gid))
 	}
 
-	for file, fi := range self.Files {
+	for file, fi := range snapshot.Files {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue
@@ -69,14 +69,14 @@ func (self *Snapshot) Pull(root string, pattern string) {
 
 		dest = fmt.Sprintf("%s/%s", root, file)
 
-		checksum := self.Sums[file]
+		checksum := snapshot.Sums[file]
 
 		f, err := os.Create(dest)
 		if err != nil {
 			continue
 		}
 
-		data, err := self.store.ObjectGet(checksum)
+		data, err := snapshot.store.ObjectGet(checksum)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: missing object %s\n", file, checksum)
 			continue
@@ -97,7 +97,7 @@ func (self *Snapshot) Pull(root string, pattern string) {
 
 		objectHash := sha256.New()
 		for _, chunk := range object.Chunks {
-			data, err := self.store.ChunkGet(chunk.Checksum)
+			data, err := snapshot.store.ChunkGet(chunk.Checksum)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: missing chunk %s\n", file, chunk.Checksum)
 				continue
@@ -134,7 +134,7 @@ func (self *Snapshot) Pull(root string, pattern string) {
 	}
 }
 
-func (self *Snapshot) Push(root string) {
+func (snapshot *Snapshot) Push(root string) {
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
@@ -149,22 +149,22 @@ func (self *Snapshot) Push(root string) {
 			select {
 			case fi := <-chanInode:
 				if fi.Mode.IsDir() {
-					self.Directories[fi.path] = fi
+					snapshot.Directories[fi.path] = fi
 				} else if fi.Mode.IsRegular() {
-					self.Files[fi.path] = fi
+					snapshot.Files[fi.path] = fi
 				} else {
-					self.NonRegular[fi.path] = fi
+					snapshot.NonRegular[fi.path] = fi
 				}
 
 			case err := <-chanError:
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 
 			case chunk := <-chanChunk:
-				if _, ok := self.Chunks[chunk.Checksum]; !ok {
-					self.Chunks[chunk.Checksum] = chunk.Chunk
-					self.RealSize += uint64(chunk.Length)
+				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
+					snapshot.Chunks[chunk.Checksum] = chunk.Chunk
+					snapshot.RealSize += uint64(chunk.Length)
 				}
-				self.Size += uint64(chunk.Length)
+				snapshot.Size += uint64(chunk.Length)
 
 			case object := <-chanObject:
 				checksums := make([]string, 0)
@@ -174,7 +174,7 @@ func (self *Snapshot) Push(root string) {
 					chunks[chunk.Checksum] = chunk
 				}
 
-				res := self.transaction.ChunksMark(checksums)
+				res := snapshot.transaction.ChunksMark(checksums)
 				for checksum, exists := range res {
 					chunk := chunks[checksum]
 					if exists {
@@ -186,14 +186,15 @@ func (self *Snapshot) Push(root string) {
 						buf := make([]byte, chunk.Length)
 						_, err := object.fp.Read(buf)
 						if err != nil {
+							continue
 						}
 						tmp := make(map[string]string)
 						tmp[checksum] = string(Deflate(buf))
-						self.transaction.ChunksPut(tmp)
+						snapshot.transaction.ChunksPut(tmp)
 					}
 				}
 
-				exists := self.transaction.ObjectMark(object.Checksum)
+				exists := snapshot.transaction.ObjectMark(object.Checksum)
 				if !exists {
 					jobject, err := json.Marshal(object)
 					if err != nil {
@@ -202,15 +203,15 @@ func (self *Snapshot) Push(root string) {
 					}
 
 					jobject = Deflate(jobject)
-					err = self.transaction.ObjectPut(object.Checksum, string(jobject))
+					err = snapshot.transaction.ObjectPut(object.Checksum, string(jobject))
 					if err != nil {
 						chanError <- err
 						return
 					}
 				}
 
-				self.Objects[object.Checksum] = object
-				self.Sums[object.path] = object.Checksum
+				snapshot.Objects[object.Checksum] = object
+				snapshot.Sums[object.path] = object.Checksum
 				object.fp.Close()
 			}
 		}
@@ -218,7 +219,7 @@ func (self *Snapshot) Push(root string) {
 
 	cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
 
-		for _, skipPath := range self.skipDirs {
+		for _, skipPath := range snapshot.skipDirs {
 			if strings.HasPrefix(fmt.Sprintf("%s/%s", root, path), skipPath) {
 				return nil
 			}
@@ -283,35 +284,34 @@ func (self *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
-	fmt.Println(self.Uuid)
+	fmt.Println(snapshot.Uuid)
 }
 
-func (self *Snapshot) Commit() error {
+func (snapshot *Snapshot) Commit() error {
 	// commit index to transaction
-	jsnapshot, _ := json.Marshal(self)
+	jsnapshot, _ := json.Marshal(snapshot)
 	jsnapshot = Deflate(jsnapshot)
 
-	self.transaction.IndexPut(string(jsnapshot))
+	snapshot.transaction.IndexPut(string(jsnapshot))
 
 	// commit transaction to store
-	self.transaction.Commit(self)
+	snapshot.transaction.Commit(snapshot)
 
 	return nil
 }
 
-func (self *Snapshot) Purge() error {
-	return self.store.Purge(self.Uuid)
+func (snapshot *Snapshot) Purge() error {
+	return snapshot.store.Purge(snapshot.Uuid)
 }
 
-func (self *Snapshot) ObjectGet(checksum string) (*Object, error) {
-	data, err := self.store.ObjectGet(checksum)
+func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
+	data, err := snapshot.store.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
 	}
 
 	data, err = Inflate(data)
 	if err != nil {
-		// prepare for when inflate can fail
 		return nil, err
 	}
 
@@ -320,8 +320,8 @@ func (self *Snapshot) ObjectGet(checksum string) (*Object, error) {
 	return object, err
 }
 
-func (self *Snapshot) ChunkGet(checksum string) ([]byte, error) {
-	data, err := self.store.ChunkGet(checksum)
+func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
+	data, err := snapshot.store.ChunkGet(checksum)
 	if err != nil {
 		return nil, err
 	}

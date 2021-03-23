@@ -1,0 +1,11 @@
+{{template "base" .}}
+
+{{define "title"}}Home{{end}}
+
+{{define "main"}}
+<h2>{{.Uuid}}</h2>
+
+    {{range .Directories}}
+    {{.}}
+    {{end}}
+{{end}}

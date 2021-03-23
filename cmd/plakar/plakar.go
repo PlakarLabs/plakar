@@ -98,6 +98,9 @@ func main() {
 	case "rm":
 		cmd_rm(store, args)
 
+	case "ui":
+		cmd_ui(store, args)
+
 	case "version":
 		cmd_version(store, args)
 

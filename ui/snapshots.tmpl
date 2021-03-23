@@ -1,0 +1,28 @@
+{{template "base" .}}
+
+{{define "title"}}Home{{end}}
+
+{{define "main"}}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Uuid</th>
+                <th scope="col">Date</th>
+                <th scope="col">Directories</th>
+                <th scope="col">Files</th>
+                <th scope="col">Size</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Snapshots}}
+            <tr>
+                <th scope="row"><a href="/snapshot/{{.Uuid}}">{{.Uuid}}</a></th>
+                <td>{{.CreationTime }}</td>
+                <td>{{.Directories}}</td>
+                <td>{{.Files}}</td>
+                <td>{{.Size}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+{{end}}

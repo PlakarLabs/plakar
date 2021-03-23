@@ -71,7 +71,7 @@ func cmd_cat(pstore store.Store, args []string) {
 
 		object, err := snapshot.ObjectGet(checksum)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open object")
+			fmt.Fprintf(os.Stderr, "%s: could not open object", flag.CommandLine.Name())
 			continue
 		}
 

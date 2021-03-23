@@ -116,7 +116,7 @@ func (self *Snapshot) Pull(root string, pattern string) {
 				chunkHash := sha256.New()
 				chunkHash.Write(data)
 				if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
-					fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s: checksum mismatch\n", file, chunk.Checksum, chunkHash.Sum(nil))
+					fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s: checksum mismatch\n", file, chunk.Checksum)
 					continue
 				}
 			}

@@ -37,10 +37,10 @@ type FileInfo struct {
 	Size    int64
 	Mode    os.FileMode
 	ModTime time.Time
-	Dev     int32
+	Dev     uint64
 	Ino     uint64
-	Uid     uint32
-	Gid     uint32
+	Uid     uint64
+	Gid     uint64
 
 	path string
 }

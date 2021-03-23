@@ -229,10 +229,10 @@ func (self *Snapshot) Push(root string) {
 			Size:    f.Size(),
 			Mode:    f.Mode(),
 			ModTime: f.ModTime(),
-			Dev:     f.Sys().(*syscall.Stat_t).Dev,
-			Ino:     f.Sys().(*syscall.Stat_t).Ino,
-			Uid:     f.Sys().(*syscall.Stat_t).Uid,
-			Gid:     f.Sys().(*syscall.Stat_t).Gid,
+			Dev:     uint64(f.Sys().(*syscall.Stat_t).Dev),
+			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
+			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
+			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
 			path:    fmt.Sprintf("%s/%s", root, path),
 		}
 

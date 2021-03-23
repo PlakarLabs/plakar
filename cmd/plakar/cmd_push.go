@@ -17,7 +17,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/poolpOrg/plakar/repository"
@@ -26,7 +26,8 @@ import (
 func cmd_push(store repository.Store, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
 	}
 
 	snapshot := store.Transaction().Snapshot()
@@ -37,5 +38,12 @@ func cmd_push(store repository.Store, args []string) {
 			snapshot.Push(args[i])
 		}
 	}
-	snapshot.Commit()
+
+	err = snapshot.Commit()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n", snapshot.Uuid)
 }

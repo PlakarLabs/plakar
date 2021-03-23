@@ -106,6 +106,8 @@ type Snapshot struct {
 	Size     uint64
 	RealSize uint64
 
+	Quiet bool
+
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string

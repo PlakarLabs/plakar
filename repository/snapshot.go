@@ -302,7 +302,6 @@ func (snapshot *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
-	fmt.Println(snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Commit() error {

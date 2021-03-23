@@ -5,6 +5,11 @@ THIS IS WORK IN PROGRESS, DO NOT USE, YOU WILL LOSE STUFF
 
 ## Quickstart
 
+### Requirement
+
+`plakar` requires Go 1.16 or higher.
+
+
 ### Installing the CLI
 
 ```

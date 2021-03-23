@@ -16,7 +16,7 @@ func cmd_verify(pstore store.Store, args []string) {
 	}
 
 	snapshots := make([]string, 0)
-	for id, _ := range pstore.Snapshots() {
+	for id := range pstore.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -41,7 +41,10 @@ func cmd_verify(pstore store.Store, args []string) {
 
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot := pstore.Snapshot(res[0])
+		snapshot, err := pstore.Snapshot(res[0])
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+		}
 
 		if pattern != "" {
 			checksum, ok := snapshot.Sums[pattern]
@@ -94,7 +97,7 @@ func cmd_verify(pstore store.Store, args []string) {
 			}
 
 			oCount := 0
-			for checksum, _ := range snapshot.Objects {
+			for checksum := range snapshot.Objects {
 				object, err := snapshot.ObjectGet(checksum)
 				if err != nil {
 					missingObjects = append(missingObjects, checksum)
@@ -130,7 +133,7 @@ func cmd_verify(pstore store.Store, args []string) {
 			}
 
 			fCount := 0
-			for file, _ := range snapshot.Files {
+			for file := range snapshot.Files {
 				checksum, ok := snapshot.Sums[file]
 				if !ok {
 					unlistedFile = append(unlistedFile, file)
@@ -158,6 +161,7 @@ func cmd_verify(pstore store.Store, args []string) {
 			errors += len(missingObjects)
 			errors += len(corruptedObjects)
 			errors += len(unlistedChunk)
+			errors += len(unlistedFile)
 
 			key := snapshot.Uuid
 			if pattern != "" {

@@ -34,31 +34,31 @@ type FSTransaction struct {
 	Transaction
 }
 
-func (self *FSStore) Init() {
-	self.skipDirs = append(self.skipDirs, path.Clean(self.Repository))
-	self.root = fmt.Sprintf("%s/%s", self.Repository, self.Namespace)
+func (store *FSStore) Init() {
+	store.skipDirs = append(store.skipDirs, path.Clean(store.Repository))
+	store.root = fmt.Sprintf("%s/%s", store.Repository, store.Namespace)
 
-	os.MkdirAll(fmt.Sprintf("%s", self.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/chunks", self.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/objects", self.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/transactions", self.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/snapshots", self.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/purge", self.root), 0700)
+	os.MkdirAll(store.root, 0700)
+	os.MkdirAll(fmt.Sprintf("%s/chunks", store.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/objects", store.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/transactions", store.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
 }
 
-func (self *FSStore) Transaction() Transaction {
+func (store *FSStore) Transaction() Transaction {
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
-	tx.store = self
+	tx.store = store
 	tx.prepared = false
-	tx.skipDirs = self.skipDirs
-
+	tx.skipDirs = store.skipDirs
 	return tx
 }
 
-func (self *FSStore) Snapshot(id string) *Snapshot {
-	index, err := self.IndexGet(id)
+func (store *FSStore) Snapshot(id string) (*Snapshot, error) {
+	index, err := store.IndexGet(id)
 	if err != nil {
+		return nil, err
 	}
 
 	index, _ = Inflate(index)
@@ -66,69 +66,69 @@ func (self *FSStore) Snapshot(id string) *Snapshot {
 	var snapshot Snapshot
 
 	if err = json.Unmarshal(index, &snapshot); err != nil {
-
+		return nil, err
 	}
-	snapshot.store = self
+	snapshot.store = store
 
-	return &snapshot
+	return &snapshot, nil
 }
 
-func (self *FSStore) PathPurge() string {
-	return fmt.Sprintf("%s/purge", self.root)
+func (store *FSStore) PathPurge() string {
+	return fmt.Sprintf("%s/purge", store.root)
 }
 
-func (self *FSStore) PathChunks() string {
-	return fmt.Sprintf("%s/chunks", self.root)
+func (store *FSStore) PathChunks() string {
+	return fmt.Sprintf("%s/chunks", store.root)
 }
 
-func (self *FSStore) PathObjects() string {
-	return fmt.Sprintf("%s/objects", self.root)
+func (store *FSStore) PathObjects() string {
+	return fmt.Sprintf("%s/objects", store.root)
 }
 
-func (self *FSStore) PathTransactions() string {
-	return fmt.Sprintf("%s/transactions", self.root)
+func (store *FSStore) PathTransactions() string {
+	return fmt.Sprintf("%s/transactions", store.root)
 }
 
-func (self *FSStore) PathSnapshots() string {
-	return fmt.Sprintf("%s/snapshots", self.root)
+func (store *FSStore) PathSnapshots() string {
+	return fmt.Sprintf("%s/snapshots", store.root)
 }
 
-func (self *FSStore) PathChunkBucket(checksum string) string {
-	return fmt.Sprintf("%s/chunks/%s", self.root, checksum[0:2])
+func (store *FSStore) PathChunkBucket(checksum string) string {
+	return fmt.Sprintf("%s/chunks/%s", store.root, checksum[0:2])
 }
 
-func (self *FSStore) PathObjectBucket(checksum string) string {
-	return fmt.Sprintf("%s/objects/%s", self.root, checksum[0:2])
+func (store *FSStore) PathObjectBucket(checksum string) string {
+	return fmt.Sprintf("%s/objects/%s", store.root, checksum[0:2])
 }
 
-func (self *FSStore) PathSnapshotBucket(checksum string) string {
-	return fmt.Sprintf("%s/snapshots/%s", self.root, checksum[0:2])
+func (store *FSStore) PathSnapshotBucket(checksum string) string {
+	return fmt.Sprintf("%s/snapshots/%s", store.root, checksum[0:2])
 }
 
-func (self *FSStore) PathChunk(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathChunkBucket(checksum), checksum)
+func (store *FSStore) PathChunk(checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathChunkBucket(checksum), checksum)
 }
 
-func (self *FSStore) PathObject(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathObjectBucket(checksum), checksum)
+func (store *FSStore) PathObject(checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathObjectBucket(checksum), checksum)
 }
 
-func (self *FSStore) PathSnapshot(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathSnapshotBucket(checksum), checksum)
+func (store *FSStore) PathSnapshot(checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathSnapshotBucket(checksum), checksum)
 }
 
-func (self *FSStore) ObjectExists(checksum string) bool {
-	return pathnameExists(self.PathObject(checksum))
+func (store *FSStore) ObjectExists(checksum string) bool {
+	return pathnameExists(store.PathObject(checksum))
 }
 
-func (self *FSStore) ChunkExists(checksum string) bool {
-	return pathnameExists(self.PathChunk(checksum))
+func (store *FSStore) ChunkExists(checksum string) bool {
+	return pathnameExists(store.PathChunk(checksum))
 }
 
-func (self *FSStore) Snapshots() map[string]os.FileInfo {
+func (store *FSStore) Snapshots() map[string]os.FileInfo {
 	ret := make(map[string]os.FileInfo)
 
-	filepath.Walk(self.PathSnapshots(), func(path string, f os.FileInfo, err error) error {
+	filepath.Walk(store.PathSnapshots(), func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -145,21 +145,21 @@ func (self *FSStore) Snapshots() map[string]os.FileInfo {
 	return ret
 }
 
-func (self *FSStore) IndexGet(Uuid string) ([]byte, error) {
-	return ioutil.ReadFile(fmt.Sprintf("%s/INDEX", self.PathSnapshot(Uuid)))
+func (store *FSStore) IndexGet(Uuid string) ([]byte, error) {
+	return ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathSnapshot(Uuid)))
 }
 
-func (self *FSStore) ObjectGet(checksum string) ([]byte, error) {
-	return ioutil.ReadFile(fmt.Sprintf("%s", self.PathObject(checksum)))
+func (store *FSStore) ObjectGet(checksum string) ([]byte, error) {
+	return ioutil.ReadFile(store.PathObject(checksum))
 }
 
-func (self *FSStore) ChunkGet(checksum string) ([]byte, error) {
-	return ioutil.ReadFile(fmt.Sprintf("%s", self.PathChunk(checksum)))
+func (store *FSStore) ChunkGet(checksum string) ([]byte, error) {
+	return ioutil.ReadFile(store.PathChunk(checksum))
 }
 
-func (self *FSStore) Purge(id string) error {
-	dest := fmt.Sprintf("%s/%s", self.PathPurge(), id)
-	err := os.Rename(self.PathSnapshot(id), dest)
+func (store *FSStore) Purge(id string) error {
+	dest := fmt.Sprintf("%s/%s", store.PathPurge(), id)
+	err := os.Rename(store.PathSnapshot(id), dest)
 	if err != nil {
 		return err
 	}
@@ -169,15 +169,15 @@ func (self *FSStore) Purge(id string) error {
 		return err
 	}
 
-	self.Tidy()
+	store.Tidy()
 
 	return nil
 }
 
-func (self *FSStore) Tidy() {
-	cwalk.Walk(self.PathObjects(), func(path string, f os.FileInfo, err error) error {
-		object := fmt.Sprintf("%s/%s", self.PathObjects(), path)
-		if filepath.Clean(object) == filepath.Clean(self.PathObjects()) {
+func (store *FSStore) Tidy() {
+	cwalk.Walk(store.PathObjects(), func(path string, f os.FileInfo, err error) error {
+		object := fmt.Sprintf("%s/%s", store.PathObjects(), path)
+		if filepath.Clean(object) == filepath.Clean(store.PathObjects()) {
 			return nil
 		}
 		if !f.IsDir() {
@@ -188,9 +188,9 @@ func (self *FSStore) Tidy() {
 		return nil
 	})
 
-	cwalk.Walk(self.PathChunks(), func(path string, f os.FileInfo, err error) error {
-		chunk := fmt.Sprintf("%s/%s", self.PathChunks(), path)
-		if filepath.Clean(chunk) == filepath.Clean(self.PathChunks()) {
+	cwalk.Walk(store.PathChunks(), func(path string, f os.FileInfo, err error) error {
+		chunk := fmt.Sprintf("%s/%s", store.PathChunks(), path)
+		if filepath.Clean(chunk) == filepath.Clean(store.PathChunks()) {
 			return nil
 		}
 
@@ -205,22 +205,19 @@ func (self *FSStore) Tidy() {
 
 func pathnameExists(pathname string) bool {
 	_, err := os.Stat(pathname)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
+	return !os.IsNotExist(err)
 }
 
-func (self *FSTransaction) prepare() {
-	os.MkdirAll(self.store.root, 0700)
-	os.MkdirAll(fmt.Sprintf("%s/%s", self.store.PathTransactions(),
-		self.Uuid[0:2]), 0700)
-	os.MkdirAll(fmt.Sprintf("%s", self.Path()), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/chunks", self.Path()), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/objects", self.Path()), 0700)
+func (transaction *FSTransaction) prepare() {
+	os.MkdirAll(transaction.store.root, 0700)
+	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.store.PathTransactions(),
+		transaction.Uuid[0:2]), 0700)
+	os.MkdirAll(transaction.Path(), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/chunks", transaction.Path()), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/objects", transaction.Path()), 0700)
 }
 
-func (self *FSTransaction) Snapshot() *Snapshot {
+func (transaction *FSTransaction) Snapshot() *Snapshot {
 	return &Snapshot{
 		Uuid:         uuid.New().String(),
 		CreationTime: time.Now(),
@@ -232,59 +229,59 @@ func (self *FSTransaction) Snapshot() *Snapshot {
 		Objects:      make(map[string]*Object),
 		Chunks:       make(map[string]*Chunk),
 
-		transaction: self,
-		skipDirs:    self.skipDirs,
+		transaction: transaction,
+		skipDirs:    transaction.skipDirs,
 	}
 }
 
-func (self *FSTransaction) Path() string {
-	return fmt.Sprintf("%s/%s/%s", self.store.PathTransactions(),
-		self.Uuid[0:2], self.Uuid)
+func (transaction *FSTransaction) Path() string {
+	return fmt.Sprintf("%s/%s/%s", transaction.store.PathTransactions(),
+		transaction.Uuid[0:2], transaction.Uuid)
 }
 
-func (self *FSTransaction) PathObjects() string {
-	return fmt.Sprintf("%s/objects", self.Path())
+func (transaction *FSTransaction) PathObjects() string {
+	return fmt.Sprintf("%s/objects", transaction.Path())
 }
 
-func (self *FSTransaction) PathObjectBucket(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathObjects(), checksum[0:2])
+func (transaction *FSTransaction) PathObjectBucket(checksum string) string {
+	return fmt.Sprintf("%s/%s", transaction.PathObjects(), checksum[0:2])
 }
 
-func (self *FSTransaction) PathObject(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathObjectBucket(checksum), checksum)
+func (transaction *FSTransaction) PathObject(checksum string) string {
+	return fmt.Sprintf("%s/%s", transaction.PathObjectBucket(checksum), checksum)
 }
 
-func (self *FSTransaction) PathChunks() string {
-	return fmt.Sprintf("%s/chunks", self.Path())
+func (transaction *FSTransaction) PathChunks() string {
+	return fmt.Sprintf("%s/chunks", transaction.Path())
 }
 
-func (self *FSTransaction) PathChunkBucket(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathChunks(), checksum[0:2])
+func (transaction *FSTransaction) PathChunkBucket(checksum string) string {
+	return fmt.Sprintf("%s/%s", transaction.PathChunks(), checksum[0:2])
 }
 
-func (self *FSTransaction) PathChunk(checksum string) string {
-	return fmt.Sprintf("%s/%s", self.PathChunkBucket(checksum), checksum)
+func (transaction *FSTransaction) PathChunk(checksum string) string {
+	return fmt.Sprintf("%s/%s", transaction.PathChunkBucket(checksum), checksum)
 }
 
-func (self *FSTransaction) ObjectsCheck(keys []string) map[string]bool {
+func (transaction *FSTransaction) ObjectsCheck(keys []string) map[string]bool {
 	ret := make(map[string]bool)
 
 	for _, key := range keys {
-		ret[key] = self.store.ObjectExists(key)
+		ret[key] = transaction.store.ObjectExists(key)
 	}
 
 	return ret
 }
 
-func (self *FSTransaction) ChunksMark(keys []string) map[string]bool {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ChunksMark(keys []string) map[string]bool {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 
 	ret := make(map[string]bool)
 	for _, key := range keys {
-		os.Mkdir(self.PathChunkBucket(key), 0700)
-		err := os.Link(self.store.PathChunk(key), self.PathChunk(key))
+		os.Mkdir(transaction.PathChunkBucket(key), 0700)
+		err := os.Link(transaction.store.PathChunk(key), transaction.PathChunk(key))
 		if err != nil {
 			if os.IsNotExist(err) {
 				ret[key] = false
@@ -299,24 +296,24 @@ func (self *FSTransaction) ChunksMark(keys []string) map[string]bool {
 	return ret
 }
 
-func (self *FSTransaction) ChunksCheck(keys []string) map[string]bool {
+func (transaction *FSTransaction) ChunksCheck(keys []string) map[string]bool {
 	ret := make(map[string]bool)
 
 	for _, key := range keys {
-		ret[key] = self.store.ChunkExists(key)
+		ret[key] = transaction.store.ChunkExists(key)
 	}
 
 	return ret
 }
 
-func (self *FSTransaction) ObjectMark(key string) bool {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ObjectMark(key string) bool {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 
 	ret := false
-	os.Mkdir(self.PathObjectBucket(key), 0700)
-	err := os.Link(self.store.PathObject(key), self.PathObject(key))
+	os.Mkdir(transaction.PathObjectBucket(key), 0700)
+	err := os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
 	if err != nil {
 		if os.IsNotExist(err) {
 			ret = false
@@ -329,16 +326,16 @@ func (self *FSTransaction) ObjectMark(key string) bool {
 	return ret
 }
 
-func (self *FSTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 	err := error(nil)
 	recorded := false
-	if self.ChunkExists(checksum) {
-		err = self.ObjectLink(checksum)
+	if transaction.ChunkExists(checksum) {
+		err = transaction.ObjectLink(checksum)
 	} else {
-		err = self.ObjectPut(checksum, buf)
+		err = transaction.ObjectPut(checksum, buf)
 		if err == nil {
 			recorded = true
 		}
@@ -346,12 +343,12 @@ func (self *FSTransaction) ObjectRecord(checksum string, buf string) (bool, erro
 	return recorded, err
 }
 
-func (self *FSTransaction) ObjectPut(checksum string, buf string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ObjectPut(checksum string, buf string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
-	os.Mkdir(self.PathObjectBucket(checksum), 0700)
-	f, err := os.Create(self.PathObject(checksum))
+	os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
+	f, err := os.Create(transaction.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -361,25 +358,25 @@ func (self *FSTransaction) ObjectPut(checksum string, buf string) error {
 	return nil
 }
 
-func (self *FSTransaction) ObjectLink(checksum string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ObjectLink(checksum string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
-	os.Mkdir(self.PathObjectBucket(checksum), 0700)
-	os.Link(self.store.PathObject(checksum), self.PathObject(checksum))
+	os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
+	os.Link(transaction.store.PathObject(checksum), transaction.PathObject(checksum))
 	return nil
 }
 
-func (self *FSTransaction) ChunkRecord(checksum string, buf string) (bool, error) {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ChunkRecord(checksum string, buf string) (bool, error) {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 	err := error(nil)
 	recorded := false
-	if self.ChunkExists(checksum) {
-		err = self.ChunkLink(checksum)
+	if transaction.ChunkExists(checksum) {
+		err = transaction.ChunkLink(checksum)
 	} else {
-		err = self.ChunkPut(checksum, buf)
+		err = transaction.ChunkPut(checksum, buf)
 		if err == nil {
 			recorded = true
 		}
@@ -387,14 +384,14 @@ func (self *FSTransaction) ChunkRecord(checksum string, buf string) (bool, error
 	return recorded, err
 }
 
-func (self *FSTransaction) ChunksPut(chunks map[string]string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ChunksPut(chunks map[string]string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 
 	for checksum, value := range chunks {
-		os.Mkdir(self.PathChunkBucket(checksum), 0700)
-		f, err := os.Create(self.PathChunk(checksum))
+		os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
+		f, err := os.Create(transaction.PathChunk(checksum))
 		if err != nil {
 			return err
 		}
@@ -406,12 +403,12 @@ func (self *FSTransaction) ChunksPut(chunks map[string]string) error {
 	return nil
 }
 
-func (self *FSTransaction) ChunkPut(checksum string, buf string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ChunkPut(checksum string, buf string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
-	os.Mkdir(self.PathChunkBucket(checksum), 0700)
-	f, err := os.Create(self.PathChunk(checksum))
+	os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
+	f, err := os.Create(transaction.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -421,24 +418,24 @@ func (self *FSTransaction) ChunkPut(checksum string, buf string) error {
 	return nil
 }
 
-func (self *FSTransaction) ChunkExists(checksum string) bool {
-	return self.store.ChunkExists(checksum)
+func (transaction *FSTransaction) ChunkExists(checksum string) bool {
+	return transaction.store.ChunkExists(checksum)
 }
 
-func (self *FSTransaction) ChunkLink(checksum string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) ChunkLink(checksum string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
-	os.Mkdir(self.PathChunkBucket(checksum), 0700)
-	os.Link(self.store.PathChunk(checksum), self.PathChunk(checksum))
+	os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
+	os.Link(transaction.store.PathChunk(checksum), transaction.PathChunk(checksum))
 	return nil
 }
 
-func (self *FSTransaction) IndexPut(buf string) error {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) IndexPut(buf string) error {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
-	f, err := os.Create(fmt.Sprintf("%s/INDEX", self.Path()))
+	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
 	if err != nil {
 		return err
 	}
@@ -448,36 +445,36 @@ func (self *FSTransaction) IndexPut(buf string) error {
 	return nil
 }
 
-func (self *FSTransaction) Commit(snapshot *Snapshot) (*Snapshot, error) {
-	if !self.prepared {
-		self.prepare()
+func (transaction *FSTransaction) Commit(snapshot *Snapshot) (*Snapshot, error) {
+	if !transaction.prepared {
+		transaction.prepare()
 	}
 
 	// first pass, link chunks to store
 	for chunk := range snapshot.Chunks {
-		if !self.store.ChunkExists(chunk) {
-			os.Mkdir(self.store.PathChunkBucket(chunk), 0700)
-			os.Rename(self.PathChunk(chunk), self.store.PathChunk(chunk))
+		if !transaction.store.ChunkExists(chunk) {
+			os.Mkdir(transaction.store.PathChunkBucket(chunk), 0700)
+			os.Rename(transaction.PathChunk(chunk), transaction.store.PathChunk(chunk))
 		} else {
-			os.Remove(self.PathChunk(chunk))
+			os.Remove(transaction.PathChunk(chunk))
 		}
-		os.Link(self.store.PathChunk(chunk), self.PathChunk(chunk))
+		os.Link(transaction.store.PathChunk(chunk), transaction.PathChunk(chunk))
 	}
 
 	// second pass, link objects to store
 	for object := range snapshot.Objects {
-		if !self.store.ObjectExists(object) {
-			os.Mkdir(self.store.PathObjectBucket(object), 0700)
-			os.Rename(self.PathObject(object), self.store.PathObject(object))
+		if !transaction.store.ObjectExists(object) {
+			os.Mkdir(transaction.store.PathObjectBucket(object), 0700)
+			os.Rename(transaction.PathObject(object), transaction.store.PathObject(object))
 		} else {
-			os.Remove(self.PathObject(object))
+			os.Remove(transaction.PathObject(object))
 		}
-		os.Link(self.store.PathObject(object), self.PathObject(object))
+		os.Link(transaction.store.PathObject(object), transaction.PathObject(object))
 	}
 
 	// final pass, move snapshot to store
-	os.Mkdir(self.store.PathSnapshotBucket(snapshot.Uuid), 0700)
-	os.Rename(self.Path(), self.store.PathSnapshot(snapshot.Uuid))
+	os.Mkdir(transaction.store.PathSnapshotBucket(snapshot.Uuid), 0700)
+	os.Rename(transaction.Path(), transaction.store.PathSnapshot(snapshot.Uuid))
 
 	return snapshot, nil
 }

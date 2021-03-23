@@ -19,7 +19,7 @@ func cmd_pull(pstore store.Store, args []string) {
 	}
 
 	snapshots := make([]string, 0)
-	for id, _ := range pstore.Snapshots() {
+	for id := range pstore.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -36,7 +36,10 @@ func cmd_pull(pstore store.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot := pstore.Snapshot(res[0])
+		snapshot, err := pstore.Snapshot(res[0])
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+		}
 		snapshot.Pull(dir, pattern)
 	}
 }

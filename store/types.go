@@ -9,7 +9,7 @@ import (
 type Store interface {
 	Init()
 	Transaction() Transaction
-	Snapshot(id string) *Snapshot
+	Snapshot(id string) (*Snapshot, error)
 	Snapshots() map[string]fs.FileInfo
 
 	IndexGet(id string) ([]byte, error)

@@ -21,7 +21,7 @@ func cmd_ls(pstore store.Store, args []string) {
 	}
 
 	snapshots := make([]string, 0)
-	for id, _ := range pstore.Snapshots() {
+	for id := range pstore.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -38,7 +38,10 @@ func cmd_ls(pstore store.Store, args []string) {
 	for _, arg := range args {
 		prefix, pattern := parseSnapshotID(arg)
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot := pstore.Snapshot(res[0])
+		snapshot, err := pstore.Snapshot(res[0])
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+		}
 		for name, fi := range snapshot.Files {
 			if !strings.HasPrefix(name, pattern) {
 				continue
@@ -69,7 +72,7 @@ func cmd_ls(pstore store.Store, args []string) {
 func list_snapshots(pstore store.Store) {
 	snapshots := pstore.Snapshots()
 	ids := make([]string, 0)
-	for id, _ := range snapshots {
+	for id := range snapshots {
 		ids = append(ids, id)
 	}
 
@@ -78,7 +81,10 @@ func list_snapshots(pstore store.Store) {
 	})
 	for _, id := range ids {
 		fi := snapshots[id]
-		snapshot := pstore.Snapshot(id)
+		snapshot, err := pstore.Snapshot(id)
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
+		}
 		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
 			id,
 			fi.ModTime().UTC().Format(time.RFC3339),

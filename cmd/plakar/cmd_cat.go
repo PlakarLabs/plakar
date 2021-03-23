@@ -16,7 +16,7 @@ func cmd_cat(pstore store.Store, args []string) {
 	}
 
 	snapshots := make([]string, 0)
-	for id, _ := range pstore.Snapshots() {
+	for id := range pstore.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 
@@ -34,8 +34,11 @@ func cmd_cat(pstore store.Store, args []string) {
 
 		if !strings.HasPrefix(pattern, "/") {
 			objects := make([]string, 0)
-			snapshot := pstore.Snapshot(res[0])
-			for id, _ := range snapshot.Objects {
+			snapshot, err := pstore.Snapshot(res[0])
+			if err != nil {
+				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+			}
+			for id := range snapshot.Objects {
 				objects = append(objects, id)
 			}
 			res = findObjectByPrefix(objects, pattern)
@@ -50,7 +53,10 @@ func cmd_cat(pstore store.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot := pstore.Snapshot(res[0])
+		snapshot, err := pstore.Snapshot(res[0])
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+		}
 
 		var checksum string
 		if strings.HasPrefix(pattern, "/") {
@@ -61,8 +67,11 @@ func cmd_cat(pstore store.Store, args []string) {
 			checksum = tmp
 		} else {
 			objects := make([]string, 0)
-			snapshot := pstore.Snapshot(res[0])
-			for id, _ := range snapshot.Objects {
+			snapshot, err := pstore.Snapshot(res[0])
+			if err != nil {
+				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+			}
+			for id := range snapshot.Objects {
 				objects = append(objects, id)
 			}
 			res = findObjectByPrefix(objects, pattern)

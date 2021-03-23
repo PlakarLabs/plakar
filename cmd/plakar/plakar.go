@@ -55,6 +55,7 @@ func main() {
 		fmt.Println("\tpull <snapshot> [<snapshot> ...]")
 		fmt.Println("\tpush <path> [<path> ...]")
 		fmt.Println("\trm <snapshot> [<snapshot> ...]")
+		fmt.Println("\tversion")
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
 	}
 

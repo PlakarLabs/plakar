@@ -24,6 +24,8 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/client"
 	"github.com/poolpOrg/plakar/repository/fs"
 )
 
@@ -55,9 +57,20 @@ func main() {
 	namespace = strings.ToLower(namespace)
 	hostname = strings.ToLower(hostname)
 
-	store := &fs.FSStore{}
-	store.Namespace = namespace
-	store.Repository = storeloc
+	var store repository.Store
+	if strings.HasPrefix(storeloc, "plakar://") {
+		pstore := &client.ClientStore{}
+		pstore.Namespace = namespace
+		pstore.Repository = storeloc
+		store = pstore
+
+	} else {
+		pstore := &fs.FSStore{}
+		pstore.Namespace = namespace
+		pstore.Repository = storeloc
+		store = pstore
+	}
+
 	store.Init()
 
 	if len(flag.Args()) == 0 {
@@ -97,6 +110,9 @@ func main() {
 
 	case "rm":
 		cmd_rm(store, args)
+
+	case "server":
+		cmd_server(store, args)
 
 	case "version":
 		cmd_version(store, args)

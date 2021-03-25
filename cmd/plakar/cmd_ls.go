@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"sort"
 	"strings"
 	"time"
 
@@ -42,22 +41,18 @@ func cmd_ls(store repository.Store, args []string) {
 func list_snapshots(store repository.Store) {
 	snapshots := store.Snapshots()
 	ids := make([]string, 0)
-	for id := range snapshots {
+	for _, id := range snapshots {
 		ids = append(ids, id)
 	}
 
-	sort.Slice(ids, func(i, j int) bool {
-		return snapshots[ids[i]].ModTime().Before(snapshots[ids[j]].ModTime())
-	})
 	for _, id := range ids {
-		fi := snapshots[id]
 		snapshot, err := store.Snapshot(id)
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
 		}
 		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
 			id,
-			fi.ModTime().UTC().Format(time.RFC3339),
+			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			humanize.Bytes(snapshot.Size),
 			len(snapshot.Files),
 			len(snapshot.Directories))
@@ -66,7 +61,7 @@ func list_snapshots(store repository.Store) {
 
 func list_snapshot(store repository.Store, args []string) {
 	snapshots := make([]string, 0)
-	for id := range store.Snapshots() {
+	for _, id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 

@@ -206,9 +206,7 @@ func (snapshot *Snapshot) Push(root string) {
 						if err != nil {
 							continue
 						}
-						tmp := make(map[string]string)
-						tmp[checksum] = string(compression.Deflate(buf))
-						snapshot.BackingTransaction.ChunksPut(tmp)
+						snapshot.BackingTransaction.ChunkPut(checksum, string(compression.Deflate(buf)))
 					}
 				}
 

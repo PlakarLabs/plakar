@@ -17,7 +17,6 @@
 package repository
 
 import (
-	"io/fs"
 	"os"
 	"time"
 )
@@ -26,7 +25,7 @@ type Store interface {
 	Init()
 	Transaction() Transaction
 	Snapshot(id string) (*Snapshot, error)
-	Snapshots() map[string]fs.FileInfo
+	Snapshots() []string
 
 	IndexGet(id string) ([]byte, error)
 	ObjectGet(checksum string) ([]byte, error)
@@ -42,7 +41,7 @@ type Transaction interface {
 	ObjectPut(checksum string, buf string) error
 
 	ChunksMark(keys []string) map[string]bool
-	ChunksPut(map[string]string) error
+	ChunkPut(checksum string, buf string) error
 
 	IndexPut(buf string) error
 	Commit(snapshot *Snapshot) (*Snapshot, error)

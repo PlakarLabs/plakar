@@ -32,7 +32,7 @@ func cmd_cat(store repository.Store, args []string) {
 	}
 
 	snapshots := make([]string, 0)
-	for id := range store.Snapshots() {
+	for _, id := range store.Snapshots() {
 		snapshots = append(snapshots, id)
 	}
 

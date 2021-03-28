@@ -196,9 +196,9 @@ func (snapshot *Snapshot) Push(root string) {
 				for checksum, exists := range res {
 					chunk := chunks[checksum]
 					if exists {
-						//fmt.Printf("\rskip: %s %s [%d:%d]", checksum, object.path, chunk.Start, chunk.Length)
+						//fmt.Printf("skip: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
 					} else {
-						//fmt.Printf("\rpush: %s %s [%d:%d]", checksum, object.path, chunk.Start, chunk.Length)
+						//fmt.Printf("push: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
 						object.fp.Seek(int64(chunk.Start), 0)
 
 						buf := make([]byte, chunk.Length)

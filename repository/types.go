@@ -25,7 +25,7 @@ type Store interface {
 	Init()
 	Transaction() Transaction
 	Snapshot(id string) (*Snapshot, error)
-	Snapshots() []string
+	Snapshots() ([]string, error)
 
 	IndexGet(id string) ([]byte, error)
 	ObjectGet(checksum string) ([]byte, error)

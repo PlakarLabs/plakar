@@ -39,13 +39,12 @@ func cmd_ls(store repository.Store, args []string) {
 }
 
 func list_snapshots(store repository.Store) {
-	snapshots := store.Snapshots()
-	ids := make([]string, 0)
-	for _, id := range snapshots {
-		ids = append(ids, id)
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	for _, id := range ids {
+	for _, id := range snapshots {
 		snapshot, err := store.Snapshot(id)
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
@@ -53,16 +52,16 @@ func list_snapshots(store repository.Store) {
 		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
 			id,
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
-			humanize.Bytes(snapshot.Size),
+			humanize.Bytes(snapshot.RealSize),
 			len(snapshot.Files),
 			len(snapshot.Directories))
 	}
 }
 
 func list_snapshot(store repository.Store, args []string) {
-	snapshots := make([]string, 0)
-	for _, id := range store.Snapshots() {
-		snapshots = append(snapshots, id)
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for i := 0; i < len(args); i++ {

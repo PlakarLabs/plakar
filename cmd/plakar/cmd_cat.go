@@ -31,9 +31,9 @@ func cmd_cat(store repository.Store, args []string) {
 		log.Fatalf("%s: need at least one snapshot ID and file or object to cat", flag.CommandLine.Name())
 	}
 
-	snapshots := make([]string, 0)
-	for _, id := range store.Snapshots() {
-		snapshots = append(snapshots, id)
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for i := 0; i < len(args); i++ {

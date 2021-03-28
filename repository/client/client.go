@@ -62,45 +62,6 @@ func (store *ClientStore) Init() {
 
 	store.conn = conn
 	store.serverReader = bufio.NewReader(conn)
-
-	//conn.Write([]byte("test\n"))
-	//fmt.Println(serverReader.ReadBytes('\n'))
-
-	/*
-			for {
-			// Waiting for the client request
-			clientRequest, err := clientReader.ReadString('\n')
-
-			switch err {
-			case nil:
-				clientRequest := strings.TrimSpace(clientRequest)
-				if _, err = con.Write([]byte(clientRequest + "\n")); err != nil {
-					log.Printf("failed to send the client request: %v\n", err)
-				}
-			case io.EOF:
-				log.Println("client closed the connection")
-				return
-			default:
-				log.Printf("client error: %v\n", err)
-				return
-			}
-
-			// Waiting for the server response
-			serverResponse, err := serverReader.ReadString('\n')
-
-			switch err {
-			case nil:
-				log.Println(strings.TrimSpace(serverResponse))
-			case io.EOF:
-				log.Println("server closed the connection")
-				return
-			default:
-				log.Printf("server error: %v\n", err)
-				return
-			}
-		}
-	*/
-
 }
 
 func (store *ClientStore) Transaction() repository.Transaction {
@@ -161,19 +122,23 @@ func (store *ClientStore) ChunkExists(checksum string) bool {
 	return false
 }
 
-func (store *ClientStore) Snapshots() []string {
-	ret := make([]string, 0)
-
+func (store *ClientStore) Snapshots() ([]string, error) {
 	store.conn.Write([]byte("Snapshots\n"))
-	data, _ := store.serverReader.ReadBytes('\n')
-
-	var snapshots struct{ Snapshots []string }
-	err := json.Unmarshal(data, &snapshots)
+	data, err := store.serverReader.ReadBytes('\n')
 	if err != nil {
-		return ret
+		return nil, err
 	}
 
-	return snapshots.Snapshots
+	var snapshots struct {
+		Snapshots []string
+		Error     error
+	}
+	err = json.Unmarshal(data, &snapshots)
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshots.Snapshots, snapshots.Error
 }
 
 func (store *ClientStore) IndexGet(Uuid string) ([]byte, error) {
@@ -244,24 +209,12 @@ func (transaction *ClientTransaction) Snapshot() *repository.Snapshot {
 	}
 }
 
-func (transaction *ClientTransaction) ObjectsCheck(keys []string) map[string]bool {
-	fmt.Println("ObjectsCheck")
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ObjectExists(key)
-	}
-
-	return ret
-}
-
 func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool {
-	fmt.Println("ChunksMark")
 	store := transaction.store
 
 	data, _ := json.Marshal(&struct{ Checksums []string }{keys})
 
-	store.conn.Write([]byte(fmt.Sprintf("ChunksMark\n")))
+	store.conn.Write([]byte("ChunksMark\n"))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
 
@@ -274,19 +227,7 @@ func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool 
 	return res.Res
 }
 
-func (transaction *ClientTransaction) ChunksCheck(keys []string) map[string]bool {
-	fmt.Println("ChunksCheck")
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ChunkExists(key)
-	}
-
-	return ret
-}
-
 func (transaction *ClientTransaction) ObjectMark(checksum string) bool {
-	fmt.Println("ObjectMark")
 	store := transaction.store
 
 	store.conn.Write([]byte(fmt.Sprintf("ObjectMark:%s\n", checksum)))
@@ -301,13 +242,7 @@ func (transaction *ClientTransaction) ObjectMark(checksum string) bool {
 	return res.Res
 }
 
-func (transaction *ClientTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
-	fmt.Println("ObjectRecord")
-	return false, nil
-}
-
 func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) error {
-	fmt.Println("ObjectPut")
 	store := transaction.store
 
 	data, _ := json.Marshal(&struct{ Data []byte }{[]byte(buf)})
@@ -326,7 +261,6 @@ func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) err
 }
 
 func (transaction *ClientTransaction) ChunkPut(checksum string, buf string) error {
-	fmt.Println("ChunkPut")
 	store := transaction.store
 	data, _ := json.Marshal(&struct{ Data []byte }{[]byte(buf)})
 
@@ -343,18 +277,12 @@ func (transaction *ClientTransaction) ChunkPut(checksum string, buf string) erro
 	return result.Error
 }
 
-func (transaction *ClientTransaction) ChunkExists(checksum string) bool {
-	fmt.Println("ChunkExists")
-	return transaction.store.ChunkExists(checksum)
-}
-
 func (transaction *ClientTransaction) IndexPut(buf string) error {
-	fmt.Println("IndexPut")
 	store := transaction.store
 
 	data, _ := json.Marshal(&struct{ Index []byte }{[]byte(buf)})
 
-	store.conn.Write([]byte(fmt.Sprintf("IndexPut\n")))
+	store.conn.Write([]byte("IndexPut\n"))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
 
@@ -368,7 +296,6 @@ func (transaction *ClientTransaction) IndexPut(buf string) error {
 }
 
 func (transaction *ClientTransaction) Commit(snapshot *repository.Snapshot) (*repository.Snapshot, error) {
-	fmt.Println("Commit")
 	store := transaction.store
 
 	store.conn.Write([]byte("Commit\n"))

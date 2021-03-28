@@ -45,5 +45,5 @@ func cmd_push(store repository.Store, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s\n", snapshot.Uuid)
+	fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
 }

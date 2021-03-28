@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -34,9 +35,9 @@ func cmd_pull(store repository.Store, args []string) {
 		log.Fatal(err)
 	}
 
-	snapshots := make([]string, 0)
-	for _, id := range store.Snapshots() {
-		snapshots = append(snapshots, id)
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -57,5 +58,6 @@ func cmd_pull(store repository.Store, args []string) {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 		snapshot.Pull(dir, pattern)
+		fmt.Printf("%s: OK\n", res[0])
 	}
 }

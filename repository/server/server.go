@@ -100,15 +100,7 @@ func (store *ServerStore) Snapshot(id string) (*repository.Snapshot, error) {
 	return &snapshot, nil
 }
 
-func (store *ServerStore) ObjectExists(checksum string) bool {
-	return false
-}
-
-func (store *ServerStore) ChunkExists(checksum string) bool {
-	return false
-}
-
-func (store *ServerStore) Snapshots() []string {
+func (store *ServerStore) Snapshots() ([]string, error) {
 	return store.BackingStore.Snapshots()
 }
 
@@ -145,48 +137,20 @@ func (transaction *ServerTransaction) Snapshot() *repository.Snapshot {
 	}
 }
 
-func (transaction *ServerTransaction) ObjectsCheck(keys []string) map[string]bool {
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ObjectExists(key)
-	}
-
-	return ret
-}
-
-func (transaction *ServerTransaction) ChunksMark(keys []string) map[string]bool {
-	return transaction.BackingTransaction.ChunksMark(keys)
-}
-
-func (transaction *ServerTransaction) ChunksCheck(keys []string) map[string]bool {
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ChunkExists(key)
-	}
-
-	return ret
-}
-
 func (transaction *ServerTransaction) ObjectMark(checksum string) bool {
 	return transaction.BackingTransaction.ObjectMark(checksum)
-}
-
-func (transaction *ServerTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
-	return false, nil
 }
 
 func (transaction *ServerTransaction) ObjectPut(checksum string, buf string) error {
 	return transaction.BackingTransaction.ObjectPut(checksum, buf)
 }
 
-func (transaction *ServerTransaction) ChunkPut(checksum string, buf string) error {
-	return transaction.BackingTransaction.ChunkPut(checksum, buf)
+func (transaction *ServerTransaction) ChunksMark(keys []string) map[string]bool {
+	return transaction.BackingTransaction.ChunksMark(keys)
 }
 
-func (transaction *ServerTransaction) ChunkExists(checksum string) bool {
-	return transaction.store.ChunkExists(checksum)
+func (transaction *ServerTransaction) ChunkPut(checksum string, buf string) error {
+	return transaction.BackingTransaction.ChunkPut(checksum, buf)
 }
 
 func (transaction *ServerTransaction) IndexPut(buf string) error {
@@ -230,12 +194,18 @@ func Server(host string, store repository.Store) {
 				case nil:
 					clientRequest := strings.TrimSpace(clientRequest)
 					if clientRequest == "Snapshots" {
-						snapshots := lstore.Snapshots()
+						snapshots, err := lstore.Snapshots()
 						ret := make([]string, 0)
-						for _, snapshot := range snapshots {
-							ret = append(ret, snapshot)
+						if err == nil {
+							for _, snapshot := range snapshots {
+								ret = append(ret, snapshot)
+							}
 						}
-						data, _ := json.Marshal(&struct{ Snapshots []string }{ret})
+						print(snapshots)
+						data, _ := json.Marshal(&struct {
+							Snapshots []string
+							Error     error
+						}{ret, err})
 						if _, err = conn.Write(data); err != nil {
 							log.Printf("failed to respond to client: %v\n", err)
 						}

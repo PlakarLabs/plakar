@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/poolpOrg/plakar/repository"
@@ -66,20 +67,79 @@ func snapshots(w http.ResponseWriter, r *http.Request) {
 		res = append(res, repository.SnapshotToSummary(snapshot))
 	}
 
-	templates["snapshots"].Execute(w, &struct{ Snapshots []*repository.SnapshotSummary }{res})
+	ctx := &struct{ Snapshots []*repository.SnapshotSummary }{res}
+
+	templates["snapshots"].Execute(w, ctx)
 }
 
 func snapshot(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
-	fmt.Println(id)
+	path := vars["path"]
+
 	snapshot, err := lstore.Snapshot(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	templates["snapshot"].Execute(w, snapshot)
+	file, ok := snapshot.Sums[path]
+	if ok {
+		fmt.Println("FILE: ", path, file)
+		templates["snapshot"].Execute(w, snapshot)
+		return
+	}
+
+	_, ok = snapshot.Directories[path]
+	if !ok && path != "/" {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	directories := make([]*repository.FileInfo, 0)
+	for directory, fi := range snapshot.Directories {
+		if directory == path {
+			continue
+		}
+		if !strings.HasPrefix(directory, path) {
+			continue
+		}
+
+		if strings.Count(directory[len(path):], "/") != 1 {
+			fmt.Println("skipping")
+			continue
+		}
+		directories = append(directories, fi)
+	}
+	sort.Slice(directories, func(i, j int) bool {
+		return strings.Compare(directories[i].Name, directories[j].Name) < 0
+	})
+
+	files := make([]*repository.FileInfo, 0)
+	for file, fi := range snapshot.Files {
+		if !strings.HasPrefix(file, path) {
+			continue
+		}
+
+		if strings.Count(file[len(path):], "/") != 0 {
+			continue
+		}
+
+		files = append(files, fi)
+	}
+	sort.Slice(files, func(i, j int) bool {
+		return strings.Compare(files[i].Name, files[j].Name) < 0
+	})
+
+	ctx := &struct {
+		Path        string
+		SplitPath   []string
+		Snapshot    *repository.Snapshot
+		Directories []*repository.FileInfo
+		Files       []*repository.FileInfo
+	}{path, strings.Split(path, "/"), snapshot, directories, files}
+
+	templates["snapshot"].Execute(w, ctx)
 }
 
 func Ui(store repository.Store) {
@@ -119,7 +179,7 @@ func Ui(store repository.Store) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", snapshots)
-	r.HandleFunc("/snapshot/{snapshot}", snapshot)
+	r.HandleFunc("/snapshot/{snapshot}{path:.+}", snapshot)
 
 	http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 }

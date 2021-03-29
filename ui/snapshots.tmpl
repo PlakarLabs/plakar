@@ -16,11 +16,11 @@
         <tbody>
             {{range .Snapshots}}
             <tr>
-                <th scope="row"><a href="/snapshot/{{.Uuid}}">{{.Uuid}}</a></th>
+                <th scope="row"><a href="/snapshot/{{.Uuid}}/">{{.Uuid}}</a></th>
                 <td>{{.CreationTime }}</td>
                 <td>{{.Directories}}</td>
                 <td>{{.Files}}</td>
-                <td>{{.Size}}</td>
+                <td>{{.HumanSize }}</td>
             </tr>
             {{end}}
         </tbody>

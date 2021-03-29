@@ -19,6 +19,8 @@ package repository
 import (
 	"os"
 	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 type Store interface {
@@ -127,4 +129,16 @@ type SnapshotSummary struct {
 
 	Size     uint64
 	RealSize uint64
+}
+
+func (fi *FileInfo) HumanSize() string {
+	return humanize.Bytes(uint64(fi.Size))
+}
+
+func (snapshot *SnapshotSummary) HumanSize() string {
+	return humanize.Bytes(snapshot.Size)
+}
+
+func (snapshot *SnapshotSummary) HumanRealSize() string {
+	return humanize.Bytes(snapshot.RealSize)
 }

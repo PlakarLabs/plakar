@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,13 +45,24 @@ func list_snapshots(store repository.Store) {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
+	snapshotsList := make([]*repository.Snapshot, 0)
 	for _, id := range snapshots {
 		snapshot, err := store.Snapshot(id)
 		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
+			/* failed to lookup snapshot */
+			continue
 		}
+		snapshotsList = append(snapshotsList, snapshot)
+	}
+
+	sort.Slice(snapshotsList, func(i, j int) bool {
+		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
+	})
+
+	for _, snapshot := range snapshotsList {
+
 		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
-			id,
+			snapshot.Uuid,
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			humanize.Bytes(snapshot.RealSize),
 			len(snapshot.Files),
@@ -81,7 +93,17 @@ func list_snapshot(store repository.Store, args []string) {
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
-		for name, fi := range snapshot.Files {
+
+		filenames := make([]string, 0)
+		for name, _ := range snapshot.Files {
+			filenames = append(filenames, name)
+		}
+		sort.Slice(filenames, func(i, j int) bool {
+			return strings.Compare(filenames[i], filenames[j]) < 0
+		})
+
+		for _, name := range filenames {
+			fi := snapshot.Files[name]
 			if !strings.HasPrefix(name, pattern) {
 				continue
 			}

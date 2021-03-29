@@ -1,0 +1,78 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Snapshot.Uuid}}{{end}}
+
+{{define "main"}}
+    {{$Snapshot:=.Snapshot}}
+    {{$Path:=.Path}}
+    {{$Navigation:=.Navigation}}
+    {{$Directories:=.Directories}}
+    {{$Files:=.Files}}
+
+    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">plakar</a></li>
+        <li class="breadcrumb-item"><a href="/snapshot/{{$Snapshot.Uuid}}">{{$Snapshot.Uuid}}</a></li>
+        {{range $atom := $Navigation }}
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{$atom}}/">{{$atom}}</a></li>
+        {{end}}
+    </ol>
+    </nav>
+
+    {{if len $Directories}}
+    <h2>Directories</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Uid</th>
+                <th scope="col">Gid</th>
+                <th scope="col">Date</th>
+                <th scope="col">Size</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $fi := .Directories}}        
+            <tr>
+                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$Path}}/{{$fi.Name}}/">{{$fi.Name}}</a></td>
+                <td>{{.Mode }}</td>
+                <td>{{.Uid }}</td>
+                <td>{{.Gid }}</td>
+                <td>{{.ModTime }}</td>
+                <td>{{.HumanSize }}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+
+    {{if len $Files}}
+    <h2>Files</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Uid</th>
+                <th scope="col">Gid</th>
+                <th scope="col">Date</th>
+                <th scope="col">Size</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $fi := .Files}}            
+            <tr>
+                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$Path}}/{{$fi.Name}}">{{$fi.Name}}</a></td>
+                <td>{{.Mode }}</td>
+                <td>{{.Uid }}</td>
+                <td>{{.Gid }}</td>
+                <td>{{.ModTime }}</td>
+                <td>{{.HumanSize }}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+
+{{end}}

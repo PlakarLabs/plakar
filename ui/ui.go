@@ -20,11 +20,8 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
-	"log"
 	"math/rand"
 	"net/http"
-	"os/exec"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -42,6 +39,12 @@ var snapshotsTemplate string
 
 //go:embed snapshot.tmpl
 var snapshotTemplate string
+
+//go:embed browse.tmpl
+var browseTemplate string
+
+//go:embed object.tmpl
+var objectTemplate string
 
 var templates map[string]*template.Template
 
@@ -75,6 +78,48 @@ func snapshots(w http.ResponseWriter, r *http.Request) {
 func snapshot(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
+
+	snapshot, err := lstore.Snapshot(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	roots := make(map[string]struct{})
+	for directory, _ := range snapshot.Directories {
+		tmp := strings.Split(directory, "/")
+		root := ""
+		for i := 0; i < len(tmp); i++ {
+			if i == 0 {
+				root = tmp[i]
+			} else {
+				root = strings.Join([]string{root, tmp[i]}, "/")
+			}
+			if _, ok := snapshot.Directories[root+"/"]; ok {
+				roots[root] = struct{}{}
+				break
+			}
+		}
+	}
+	rootsList := make([]string, 0)
+	for root, _ := range roots {
+		rootsList = append(rootsList, root)
+	}
+	sort.Slice(rootsList, func(i, j int) bool {
+		return strings.Compare(rootsList[i], rootsList[j]) < 0
+	})
+
+	ctx := &struct {
+		Snapshot *repository.Snapshot
+		Roots    []string
+	}{snapshot, rootsList}
+
+	templates["snapshot"].Execute(w, ctx)
+}
+
+func browse(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["snapshot"]
 	path := vars["path"]
 
 	snapshot, err := lstore.Snapshot(id)
@@ -83,22 +128,18 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, ok := snapshot.Sums[path]
-	if ok {
-		fmt.Println("FILE: ", path, file)
-		templates["snapshot"].Execute(w, snapshot)
-		return
-	}
-
-	_, ok = snapshot.Directories[path]
-	if !ok && path != "/" {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	_, ok := snapshot.Directories[path]
+	if !ok {
+		_, ok := snapshot.Directories[path+"/"]
+		if !ok {
+			http.Error(w, "", http.StatusNotFound)
+			return
+		}
 	}
 
 	directories := make([]*repository.FileInfo, 0)
 	for directory, fi := range snapshot.Directories {
-		if directory == path {
+		if directory == path+"/" {
 			continue
 		}
 		if !strings.HasPrefix(directory, path) {
@@ -106,7 +147,6 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if strings.Count(directory[len(path):], "/") != 1 {
-			fmt.Println("skipping")
 			continue
 		}
 		directories = append(directories, fi)
@@ -121,7 +161,7 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if strings.Count(file[len(path):], "/") != 0 {
+		if strings.Count(file[len(path):], "/") != 1 {
 			continue
 		}
 
@@ -131,15 +171,122 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(files[i].Name, files[j].Name) < 0
 	})
 
+	root := ""
+	for _, atom := range strings.Split(path, "/") {
+		root = root + atom + "/"
+		if _, ok := snapshot.Directories[root]; ok {
+			break
+		}
+	}
+
+	nav := make([]string, 0)
+	nav = append(nav, root[:len(root)-1])
+	buf := ""
+	for _, atom := range strings.Split(path, "/")[1:] {
+		buf = buf + atom + "/"
+		if len(buf) > len(root) {
+			nav = append(nav, atom)
+		}
+	}
+
 	ctx := &struct {
-		Path        string
-		SplitPath   []string
 		Snapshot    *repository.Snapshot
 		Directories []*repository.FileInfo
 		Files       []*repository.FileInfo
-	}{path, strings.Split(path, "/"), snapshot, directories, files}
+		Root        string
+		Path        string
+		Navigation  []string
+	}{snapshot, directories, files, root, path, nav}
+	templates["browse"].Execute(w, ctx)
 
-	templates["snapshot"].Execute(w, ctx)
+}
+
+func object(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["snapshot"]
+	path := vars["path"]
+
+	snapshot, err := lstore.Snapshot(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	checksum, ok := snapshot.Sums[path]
+	if !ok {
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+
+	object := snapshot.Objects[checksum]
+	info := snapshot.Files[path]
+
+	root := ""
+	for _, atom := range strings.Split(path, "/") {
+		root = root + atom + "/"
+		if _, ok := snapshot.Directories[root]; ok {
+			break
+		}
+	}
+
+	nav := make([]string, 0)
+	nav = append(nav, root[:len(root)-1])
+	buf := ""
+	for _, atom := range strings.Split(path, "/")[1:] {
+		buf = buf + atom + "/"
+		if len(buf) > len(root) {
+			nav = append(nav, atom)
+		}
+	}
+
+	enableViewer := false
+	if strings.HasPrefix(object.ContentType, "text/") ||
+		strings.HasPrefix(object.ContentType, "image/") ||
+		strings.HasPrefix(object.ContentType, "audio/") ||
+		strings.HasPrefix(object.ContentType, "video/") ||
+		object.ContentType == "application/pdf" {
+		enableViewer = true
+	}
+
+	ctx := &struct {
+		Snapshot     *repository.Snapshot
+		Object       *repository.Object
+		Info         *repository.FileInfo
+		Root         string
+		Path         string
+		Navigation   []string
+		EnableViewer bool
+	}{snapshot, object, info, root, path, nav, enableViewer}
+	templates["object"].Execute(w, ctx)
+}
+
+func raw(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["snapshot"]
+	path := vars["path"]
+
+	snapshot, err := lstore.Snapshot(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	checksum, ok := snapshot.Sums[path]
+	if !ok {
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+
+	object := snapshot.Objects[checksum]
+
+	w.Header().Add("Content-Type", object.ContentType)
+	for _, chunk := range object.Chunks {
+		data, err := snapshot.ChunkGet(chunk.Checksum)
+		if err != nil {
+		}
+		w.Write(data)
+	}
+	return
 }
 
 func Ui(store repository.Store) {
@@ -159,27 +306,42 @@ func Ui(store repository.Store) {
 	}
 	templates[t.Name()] = t
 
+	t, err = template.New("browse").Parse(baseTemplate + browseTemplate)
+	if err != nil {
+		panic(err)
+	}
+	templates[t.Name()] = t
+
+	t, err = template.New("object").Parse(baseTemplate + objectTemplate)
+	if err != nil {
+		panic(err)
+	}
+	templates[t.Name()] = t
+
 	port := rand.Uint32() % 0xffff
 	fmt.Println("Launched UI on port", port)
-	url := fmt.Sprintf("http://localhost:%d", port)
 
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	/*
+		url := fmt.Sprintf("http://localhost:%d", port)
+		switch runtime.GOOS {
+		case "linux":
+			err = exec.Command("xdg-open", url).Start()
+		case "windows":
+			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		case "darwin":
+			err = exec.Command("open", url).Start()
+		default:
+			err = fmt.Errorf("unsupported platform")
+		}
+		_ = err
+	*/
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", snapshots)
-	r.HandleFunc("/snapshot/{snapshot}{path:.+}", snapshot)
+	r.HandleFunc("/snapshot/{snapshot}", snapshot)
+	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
+	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
+	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)
 
 	http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 }

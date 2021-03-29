@@ -1,66 +1,19 @@
 {{template "base" .}}
 
-{{define "title"}}Home{{end}}
+{{define "title"}}{{.Snapshot.Uuid}}{{end}}
 
 {{define "main"}}
-{{$Snapshot:=.Snapshot}}
-{{$SnapshotUuid:=.Snapshot.Uuid}}
-{{$SnapshotPath:=.Path}}
-{{$SnapshotSplitPath:=.SplitPath}}
-<div>
-    <ul class="breadcrumb">
-        <li><a href="/snapshot/{{$SnapshotUuid}}">{{$SnapshotUuid}}</a>:
-        {{range $atom := .SplitPath}}
-        <li><a href="">{{$atom}}</a> <span class="divider">/</span></li>
-        {{end}}
-    </ul>
+    {{$Snapshot:=.Snapshot}}
+    {{$Roots:=.Roots}}
 
-    {{if len .Directories}}
-    <h2>Directories</h2>
+    <h2>Browse</h2>
     <table class="table table-striped">
-        <thead>
-            <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Mode</th>
-            </tr>
-        </thead>
         <tbody>
-            {{range $fi := .Directories}}            
+            {{range $root := $Roots}}     
             <tr>
-                <td><a href="/snapshot/{{$SnapshotUuid}}/{{$SnapshotPath}}/{{$fi.Name}}/">{{$fi.Name}}</a></td>
-                <td>{{.Mode }}</td>
+                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$root}}/">{{$root}}</a></td>
             </tr>
             {{end}}
         </tbody>
     </table>
-    {{end}}
-
-    {{if len .Files}}
-    <h2>Files</h2>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Mode</th>
-                <th scope="col">Uid</th>
-                <th scope="col">Gid</th>
-                <th scope="col">Date</th>
-                <th scope="col">Size</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range $fi := .Files}}            
-            <tr>
-                <td><a href="/snapshot/{{$SnapshotUuid}}/{{$SnapshotPath}}/{{$fi.Name}}">{{$fi.Name}}</a></td>
-                <td>{{.Mode }}</td>
-                <td>{{.Uid }}</td>
-                <td>{{.Gid }}</td>
-                <td>{{.ModTime }}</td>
-                <td>{{.HumanSize }}</td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{end}}
-</div>
 {{end}}

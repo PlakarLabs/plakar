@@ -1,6 +1,6 @@
 {{template "base" .}}
 
-{{define "title"}}Home{{end}}
+{{define "title"}}Plakar{{end}}
 
 {{define "main"}}
     <table class="table table-striped">
@@ -16,7 +16,7 @@
         <tbody>
             {{range .Snapshots}}
             <tr>
-                <th scope="row"><a href="/snapshot/{{.Uuid}}/">{{.Uuid}}</a></th>
+                <th scope="row"><a href="/snapshot/{{.Uuid}}">{{.Uuid}}</a></th>
                 <td>{{.CreationTime }}</td>
                 <td>{{.Directories}}</td>
                 <td>{{.Files}}</td>

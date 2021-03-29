@@ -28,6 +28,7 @@ import (
 
 	"github.com/poolpOrg/plakar/repository/compression"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"
 	"github.com/restic/chunker"
 )
@@ -196,9 +197,9 @@ func (snapshot *Snapshot) Push(root string) {
 				for checksum, exists := range res {
 					chunk := chunks[checksum]
 					if exists {
-						//fmt.Printf("\rskip: %s %s [%d:%d]", checksum, object.path, chunk.Start, chunk.Length)
+						//fmt.Printf("skip: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
 					} else {
-						//fmt.Printf("\rpush: %s %s [%d:%d]", checksum, object.path, chunk.Start, chunk.Length)
+						//fmt.Printf("push: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
 						object.fp.Seek(int64(chunk.Start), 0)
 
 						buf := make([]byte, chunk.Length)
@@ -206,9 +207,7 @@ func (snapshot *Snapshot) Push(root string) {
 						if err != nil {
 							continue
 						}
-						tmp := make(map[string]string)
-						tmp[checksum] = string(compression.Deflate(buf))
-						snapshot.BackingTransaction.ChunksPut(tmp)
+						snapshot.BackingTransaction.ChunkPut(checksum, string(compression.Deflate(buf)))
 					}
 				}
 
@@ -269,6 +268,7 @@ func (snapshot *Snapshot) Push(root string) {
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
 			buf := make([]byte, 16*1024*1024)
+			firstChunk := true
 			for {
 				cdcChunk, err := chk.Next(buf)
 				if err == io.EOF {
@@ -277,6 +277,10 @@ func (snapshot *Snapshot) Push(root string) {
 				if err != nil {
 					chanError <- err
 					return nil
+				}
+				if firstChunk {
+					object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+					firstChunk = false
 				}
 
 				objectHash.Write(cdcChunk.Data)
@@ -302,7 +306,6 @@ func (snapshot *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
-	fmt.Println(snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Commit() error {

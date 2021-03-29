@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"sort"
 	"strings"
 	"time"
 
@@ -36,9 +35,33 @@ func cmd_ls(store repository.Store, args []string) {
 		return
 	}
 
-	snapshots := make([]string, 0)
-	for id := range store.Snapshots() {
-		snapshots = append(snapshots, id)
+	list_snapshot(store, args)
+}
+
+func list_snapshots(store repository.Store) {
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+	}
+
+	for _, id := range snapshots {
+		snapshot, err := store.Snapshot(id)
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
+		}
+		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
+			id,
+			snapshot.CreationTime.UTC().Format(time.RFC3339),
+			humanize.Bytes(snapshot.RealSize),
+			len(snapshot.Files),
+			len(snapshot.Directories))
+	}
+}
+
+func list_snapshot(store repository.Store, args []string) {
+	snapshots, err := store.Snapshots()
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for i := 0; i < len(args); i++ {
@@ -82,30 +105,5 @@ func cmd_ls(store repository.Store, args []string) {
 				humanize.Bytes(uint64(fi.Size)),
 				name)
 		}
-	}
-}
-
-func list_snapshots(store repository.Store) {
-	snapshots := store.Snapshots()
-	ids := make([]string, 0)
-	for id := range snapshots {
-		ids = append(ids, id)
-	}
-
-	sort.Slice(ids, func(i, j int) bool {
-		return snapshots[ids[i]].ModTime().Before(snapshots[ids[j]].ModTime())
-	})
-	for _, id := range ids {
-		fi := snapshots[id]
-		snapshot, err := store.Snapshot(id)
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), id)
-		}
-		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
-			id,
-			fi.ModTime().UTC().Format(time.RFC3339),
-			humanize.Bytes(snapshot.Size),
-			len(snapshot.Files),
-			len(snapshot.Directories))
 	}
 }

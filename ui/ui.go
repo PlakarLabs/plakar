@@ -20,8 +20,11 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"log"
 	"math/rand"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"sort"
 
 	"github.com/gorilla/mux"
@@ -42,23 +45,25 @@ var snapshotTemplate string
 var templates map[string]*template.Template
 
 func snapshots(w http.ResponseWriter, r *http.Request) {
-	snapshots := lstore.Snapshots()
+	snapshots, _ := lstore.Snapshots()
 
-	ids := make([]string, 0)
-	for id, _ := range snapshots {
-		ids = append(ids, id)
+	snapshotsList := make([]*repository.Snapshot, 0)
+	for _, id := range snapshots {
+		snapshot, err := lstore.Snapshot(id)
+		if err != nil {
+			/* failed to lookup snapshot */
+			continue
+		}
+		snapshotsList = append(snapshotsList, snapshot)
 	}
 
-	sort.Slice(ids, func(i, j int) bool {
-		return snapshots[ids[i]].ModTime().Before(snapshots[ids[j]].ModTime())
+	sort.Slice(snapshotsList, func(i, j int) bool {
+		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
 	})
 
 	res := make([]*repository.SnapshotSummary, 0)
-	for _, id := range ids {
-		snapshot, err := lstore.Snapshot(id)
-		if err == nil {
-			res = append(res, repository.SnapshotToSummary(snapshot))
-		}
+	for _, snapshot := range snapshotsList {
+		res = append(res, repository.SnapshotToSummary(snapshot))
 	}
 
 	templates["snapshots"].Execute(w, &struct{ Snapshots []*repository.SnapshotSummary }{res})
@@ -96,6 +101,21 @@ func Ui(store repository.Store) {
 
 	port := rand.Uint32() % 0xffff
 	fmt.Println("Launched UI on port", port)
+	url := fmt.Sprintf("http://localhost:%d", port)
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", snapshots)

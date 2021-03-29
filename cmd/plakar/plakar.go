@@ -24,6 +24,8 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/client"
 	"github.com/poolpOrg/plakar/repository/fs"
 )
 
@@ -35,6 +37,7 @@ var quiet bool
 const VERSION = "0.0.1"
 
 func main() {
+
 	hostbuf, err := os.Hostname()
 	if err != nil {
 		hostbuf = "localhost"
@@ -55,11 +58,6 @@ func main() {
 	namespace = strings.ToLower(namespace)
 	hostname = strings.ToLower(hostname)
 
-	store := &fs.FSStore{}
-	store.Namespace = namespace
-	store.Repository = storeloc
-	store.Init()
-
 	if len(flag.Args()) == 0 {
 		fmt.Println("valid subcommands:")
 		fmt.Println("\tcat <snapshot>:<file>")
@@ -76,6 +74,38 @@ func main() {
 	}
 
 	command, args := flag.Arg(0), flag.Args()[1:]
+
+	if len(args) > 1 {
+		if command != "init" {
+			if command == "push" {
+				if args[len(args)-2] == "to" {
+					storeloc = args[len(args)-1]
+					args = args[:len(args)-2]
+				}
+			} else {
+				if args[len(args)-2] == "from" {
+					storeloc = args[len(args)-1]
+					args = args[:len(args)-2]
+				}
+			}
+		}
+	}
+
+	var store repository.Store
+	if strings.HasPrefix(storeloc, "plakar://") {
+		pstore := &client.ClientStore{}
+		pstore.Namespace = namespace
+		pstore.Repository = storeloc
+		store = pstore
+
+	} else {
+		pstore := &fs.FSStore{}
+		pstore.Namespace = namespace
+		pstore.Repository = storeloc
+		store = pstore
+	}
+	store.Init()
+
 	switch command {
 	case "cat":
 		cmd_cat(store, args)
@@ -97,6 +127,9 @@ func main() {
 
 	case "rm":
 		cmd_rm(store, args)
+
+	case "server":
+		cmd_server(store, args)
 
 	case "ui":
 		cmd_ui(store, args)

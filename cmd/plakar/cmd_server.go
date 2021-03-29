@@ -17,33 +17,16 @@
 package main
 
 import (
-	"fmt"
-	"os"
+	"flag"
+	"log"
 
 	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/server"
 )
 
-func cmd_push(store repository.Store, args []string) {
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	snapshot := store.Transaction().Snapshot()
+func cmd_server(store repository.Store, args []string) {
 	if len(args) == 0 {
-		snapshot.Push(dir)
-	} else {
-		for i := 0; i < len(args); i++ {
-			snapshot.Push(args[i])
-		}
+		log.Fatalf("%s: need a hostname/IP:port to listen on", flag.CommandLine.Name())
 	}
-
-	err = snapshot.Commit()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
+	server.Server(args[0], store)
 }

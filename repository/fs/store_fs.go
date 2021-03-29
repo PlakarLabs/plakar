@@ -113,24 +113,20 @@ func (store *FSStore) ChunkExists(checksum string) bool {
 	return pathnameExists(store.PathChunk(checksum))
 }
 
-func (store *FSStore) Snapshots() map[string]os.FileInfo {
-	ret := make(map[string]os.FileInfo)
+func (store *FSStore) Snapshots() ([]string, error) {
+	ret := make([]string, 0)
 
-	filepath.Walk(store.PathSnapshots(), func(path string, f os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
+	err := filepath.Walk(store.PathSnapshots(), func(path string, f os.FileInfo, err error) error {
 		_, err = uuid.Parse(f.Name())
 		if err != nil {
 			return nil
 		}
 
-		ret[f.Name()] = f
+		ret = append(ret, f.Name())
 		return nil
 	})
 
-	return ret
+	return ret, err
 }
 
 func (store *FSStore) IndexGet(Uuid string) ([]byte, error) {
@@ -207,7 +203,7 @@ func (transaction *FSTransaction) prepare() {
 
 func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 	return &repository.Snapshot{
-		Uuid:         uuid.New().String(),
+		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
 		Directories:  make(map[string]*repository.FileInfo),
@@ -341,25 +337,6 @@ func (transaction *FSTransaction) ChunkRecord(checksum string, buf string) (bool
 		}
 	}
 	return recorded, err
-}
-
-func (transaction *FSTransaction) ChunksPut(chunks map[string]string) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
-	for checksum, value := range chunks {
-		os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
-		f, err := os.Create(transaction.PathChunk(checksum))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		f.WriteString(value)
-
-	}
-	return nil
 }
 
 func (transaction *FSTransaction) ChunkPut(checksum string, buf string) error {

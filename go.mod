@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/dustin/go-humanize v1.0.0
+	github.com/gabriel-vasile/mimetype v1.2.0 // indirect
 	github.com/gliderlabs/ssh v0.3.2 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711

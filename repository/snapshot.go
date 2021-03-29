@@ -28,6 +28,7 @@ import (
 
 	"github.com/poolpOrg/plakar/repository/compression"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"
 	"github.com/restic/chunker"
 )
@@ -267,6 +268,7 @@ func (snapshot *Snapshot) Push(root string) {
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
 			buf := make([]byte, 16*1024*1024)
+			firstChunk := true
 			for {
 				cdcChunk, err := chk.Next(buf)
 				if err == io.EOF {
@@ -275,6 +277,10 @@ func (snapshot *Snapshot) Push(root string) {
 				if err != nil {
 					chanError <- err
 					return nil
+				}
+				if firstChunk {
+					object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+					firstChunk = false
 				}
 
 				objectHash.Write(cdcChunk.Data)

@@ -67,8 +67,9 @@ type Chunk struct {
 }
 
 type Object struct {
-	Checksum string
-	Chunks   []*Chunk
+	Checksum    string
+	Chunks      []*Chunk
+	ContentType string
 
 	fp   *os.File
 	path string

@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 
 	"github.com/google/uuid"
@@ -32,11 +33,12 @@ import (
 )
 
 type FSStore struct {
-	Namespace  string
 	Repository string
 	root       string
 
 	SkipDirs []string
+
+	Ctx *plakar.Plakar
 
 	repository.Store
 }
@@ -53,7 +55,7 @@ type FSTransaction struct {
 
 func (store *FSStore) Init() {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
-	store.root = fmt.Sprintf("%s/%s", store.Repository, store.Namespace)
+	store.root = store.Repository
 
 	os.MkdirAll(store.root, 0700)
 	os.MkdirAll(fmt.Sprintf("%s/chunks", store.root), 0700)
@@ -61,6 +63,10 @@ func (store *FSStore) Init() {
 	os.MkdirAll(fmt.Sprintf("%s/transactions", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
+}
+
+func (store *FSStore) Context() *plakar.Plakar {
+	return store.Ctx
 }
 
 func (store *FSStore) Transaction() repository.Transaction {
@@ -191,6 +197,7 @@ func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 		Chunks:       make(map[string]*repository.Chunk),
 
 		BackingTransaction: transaction,
+		BackingStore:       transaction.store,
 		SkipDirs:           transaction.SkipDirs,
 	}
 }

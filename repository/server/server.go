@@ -32,7 +32,6 @@ import (
 )
 
 type ServerStore struct {
-	Namespace  string
 	Repository string
 
 	SkipDirs []string

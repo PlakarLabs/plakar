@@ -26,14 +26,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 )
 
 type ClientStore struct {
-	Namespace  string
 	Repository string
 
 	SkipDirs []string
+
+	Ctx *plakar.Plakar
 
 	conn         net.Conn
 	serverReader *bufio.Reader
@@ -61,6 +63,10 @@ func (store *ClientStore) Init() {
 
 	store.conn = conn
 	store.serverReader = bufio.NewReader(conn)
+}
+
+func (store *ClientStore) Context() *plakar.Plakar {
+	return store.Ctx
 }
 
 func (store *ClientStore) Transaction() repository.Transaction {
@@ -183,6 +189,7 @@ func (transaction *ClientTransaction) Snapshot() *repository.Snapshot {
 		Chunks:       make(map[string]*repository.Chunk),
 
 		BackingTransaction: transaction,
+		BackingStore:       transaction.store,
 		SkipDirs:           transaction.SkipDirs,
 	}
 }

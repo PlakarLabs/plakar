@@ -21,10 +21,13 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/poolpOrg/plakar"
 )
 
 type Store interface {
 	Init()
+	Context() *plakar.Plakar
+
 	Transaction() Transaction
 	Snapshot(id string) (*Snapshot, error)
 	Snapshots() ([]string, error)
@@ -113,8 +116,6 @@ type Snapshot struct {
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string
-
-	encryptionKey []byte
 }
 
 type SnapshotSummary struct {

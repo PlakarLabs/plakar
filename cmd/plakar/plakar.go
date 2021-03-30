@@ -23,20 +23,55 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"syscall"
 
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 	"github.com/poolpOrg/plakar/repository/client"
+	"github.com/poolpOrg/plakar/repository/encryption"
 	"github.com/poolpOrg/plakar/repository/fs"
+	"github.com/poolpOrg/plakar/repository/local"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-var namespace string
+var localdir string
 var hostname string
 var storeloc string
 var quiet bool
+var skipKeygen bool
 
 const VERSION = "0.0.1"
 
+func keypairGenerate() ([]byte, error) {
+	keypair, err := encryption.Keygen()
+	if err != nil {
+		return nil, err
+	}
+
+	passphrase := []byte("")
+	for {
+		fmt.Printf("passphrase: ")
+		passphrase1, _ := terminal.ReadPassword(syscall.Stdin)
+		fmt.Printf("\npassphrase (confirm): ")
+		passphrase2, _ := terminal.ReadPassword(syscall.Stdin)
+		if string(passphrase1) != string(passphrase2) {
+			fmt.Printf("\npassphrases mismatch, try again.\n")
+			continue
+		}
+		fmt.Printf("\n")
+		passphrase = passphrase1
+		break
+	}
+	pem, err := keypair.Encrypt(passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	return pem, err
+}
+
 func main() {
+	ctx := plakar.Plakar{}
 
 	hostbuf, err := os.Hostname()
 	if err != nil {
@@ -48,45 +83,74 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), pwUser.Username)
 	}
 
+	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
 	flag.StringVar(&storeloc, "store", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "data store")
-	flag.StringVar(&namespace, "namespace", "default", "storage namespace")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.BoolVar(&quiet, "quiet", false, "quiet mode")
+	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
 
 	flag.Parse()
 
-	namespace = strings.ToLower(namespace)
-	hostname = strings.ToLower(hostname)
+	/* first thing first, initialize a plakar repository if none */
+	local.Init(localdir)
+
+	/* load keypair from plakar */
+	data, err := local.GetEncryptedKeypair(localdir)
+	if err != nil && !skipKeygen {
+		if !os.IsNotExist(err) {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		fmt.Println("generating plakar keypair")
+		data, err = keypairGenerate()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		err = local.SetEncryptedKeypair(localdir, data)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Println("keypair saved to local store")
+	}
+
+	var keypair *encryption.Keypair
+	for {
+		fmt.Printf("passphrase: ")
+		passphrase, _ := terminal.ReadPassword(syscall.Stdin)
+		keypair, err = encryption.Keyload(passphrase, data)
+		if err != nil {
+			fmt.Println()
+			fmt.Println(err)
+			continue
+		}
+		fmt.Println()
+		break
+	}
+
+	/* PlakarCTX */
+	ctx.Hostname = strings.ToLower(hostname)
+	ctx.Username = pwUser.Username
+	ctx.Keypair = keypair
 
 	if len(flag.Args()) == 0 {
-		fmt.Println("valid subcommands:")
-		fmt.Println("\tcat <snapshot>:<file>")
-		fmt.Println("\tcat <snapshot>:<object>")
-		fmt.Println("\tcheck <snapshot> [<snapshot>]")
-		fmt.Println("\tdiff <snapshot> <snapshot>")
-		fmt.Println("\tdiff <snapshot> <snapshot> <file>")
-		fmt.Println("\tls <snapshot> <snapshot> <file>")
-		fmt.Println("\tpull <snapshot> [<snapshot> ...]")
-		fmt.Println("\tpush <path> [<path> ...]")
-		fmt.Println("\trm <snapshot> [<snapshot> ...]")
-		fmt.Println("\tversion")
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
 	}
 
 	command, args := flag.Arg(0), flag.Args()[1:]
 
 	if len(args) > 1 {
-		if command != "init" && command != "keygen" && command != "keytest" {
-			if command == "push" {
-				if args[len(args)-2] == "to" {
-					storeloc = args[len(args)-1]
-					args = args[:len(args)-2]
-				}
-			} else {
-				if args[len(args)-2] == "from" {
-					storeloc = args[len(args)-1]
-					args = args[:len(args)-2]
-				}
+		if command == "push" {
+			if args[len(args)-2] == "to" {
+				storeloc = args[len(args)-1]
+				args = args[:len(args)-2]
+			}
+		} else {
+			if args[len(args)-2] == "from" {
+				storeloc = args[len(args)-1]
+				args = args[:len(args)-2]
 			}
 		}
 	}
@@ -94,13 +158,13 @@ func main() {
 	var store repository.Store
 	if strings.HasPrefix(storeloc, "plakar://") {
 		pstore := &client.ClientStore{}
-		pstore.Namespace = namespace
+		pstore.Ctx = &ctx
 		pstore.Repository = storeloc
 		store = pstore
 
 	} else {
 		pstore := &fs.FSStore{}
-		pstore.Namespace = namespace
+		pstore.Ctx = &ctx
 		pstore.Repository = storeloc
 		store = pstore
 	}
@@ -108,40 +172,34 @@ func main() {
 
 	switch command {
 	case "cat":
-		cmd_cat(store, args)
+		cmd_cat(ctx, store, args)
 
 	case "check":
-		cmd_check(store, args)
+		cmd_check(ctx, store, args)
 
 	case "diff":
-		cmd_diff(store, args)
-
-	case "keygen":
-		cmd_keygen(store, args)
-
-	case "keytest":
-		cmd_keytest(store, args)
+		cmd_diff(ctx, store, args)
 
 	case "ls":
-		cmd_ls(store, args)
+		cmd_ls(ctx, store, args)
 
 	case "pull":
-		cmd_pull(store, args)
+		cmd_pull(ctx, store, args)
 
 	case "push":
-		cmd_push(store, args)
+		cmd_push(ctx, store, args)
 
 	case "rm":
-		cmd_rm(store, args)
+		cmd_rm(ctx, store, args)
 
 	case "server":
-		cmd_server(store, args)
+		cmd_server(ctx, store, args)
 
 	case "ui":
-		cmd_ui(store, args)
+		cmd_ui(ctx, store, args)
 
 	case "version":
-		cmd_version(store, args)
+		cmd_version(ctx, store, args)
 
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)

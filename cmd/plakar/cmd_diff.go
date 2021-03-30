@@ -26,6 +26,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 )
 
@@ -50,7 +51,7 @@ func fiToDiff(fi repository.FileInfo) string {
 		fi.ModTime.UTC())
 }
 
-func cmd_diff(store repository.Store, args []string) {
+func cmd_diff(ctx plakar.Plakar, store repository.Store, args []string) {
 	if len(args) < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}

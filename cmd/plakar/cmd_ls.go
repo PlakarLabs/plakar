@@ -27,10 +27,11 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_ls(store repository.Store, args []string) {
+func cmd_ls(ctx plakar.Plakar, store repository.Store, args []string) {
 	if len(args) == 0 {
 		list_snapshots(store)
 		return

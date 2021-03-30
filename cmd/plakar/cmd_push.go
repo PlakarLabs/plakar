@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_push(store repository.Store, args []string) {
+func cmd_push(ctx plakar.Plakar, store repository.Store, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)

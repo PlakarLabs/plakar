@@ -17,10 +17,11 @@
 package main
 
 import (
+	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
 	"github.com/poolpOrg/plakar/ui"
 )
 
-func cmd_ui(store repository.Store, args []string) {
+func cmd_ui(ctx plakar.Plakar, store repository.Store, args []string) {
 	ui.Ui(store)
 }

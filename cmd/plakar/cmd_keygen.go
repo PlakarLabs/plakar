@@ -26,12 +26,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/compression"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -58,18 +60,19 @@ func cmd_keygen(store repository.Store, args []string) {
 	base64master := base64.StdEncoding.EncodeToString(masterKey)
 
 	type SerializedKeypair struct {
-		Name    string
+		Uuid    string
 		Private string
 		Public  string
 		Master  string
 	}
 	var keypair SerializedKeypair
-	keypair.Name = uuid.NewString()
+	keypair.Uuid = uuid.NewString()
 	keypair.Private = base64priv
 	keypair.Public = base64pub
 	keypair.Master = base64master
 
 	data, _ := json.Marshal(keypair)
+	data = compression.Deflate(data)
 
 	password := []byte("")
 	for {
@@ -96,6 +99,13 @@ func cmd_keygen(store repository.Store, args []string) {
 	rand.Read(nonce)
 	ciphertext := append(salt[:], aesGCM.Seal(nonce, nonce, data, nil)[:]...)
 
-	fmt.Printf("%s\n", base64.StdEncoding.EncodeToString(ciphertext))
-	fmt.Fprintf(os.Stderr, "keypair %s generated\n", keypair.Name)
+	pemdata := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PLAKAR KEYPAIR",
+			Bytes: ciphertext,
+		},
+	)
+
+	fmt.Printf("%s", pemdata)
+	fmt.Fprintf(os.Stderr, "keypair %s generated\n", keypair.Uuid)
 }

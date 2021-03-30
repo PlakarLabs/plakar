@@ -21,13 +21,15 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"syscall"
 
 	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/compression"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -35,12 +37,12 @@ import (
 func cmd_keytest(store repository.Store, args []string) {
 	file, _ := os.Open(args[0])
 	reader := bufio.NewReader(file)
-	encodedciphertext, _ := reader.ReadString('\n')
+	b, _ := ioutil.ReadAll(reader)
+	pembuf, _ := pem.Decode(b)
+	ciphertext := pembuf.Bytes
 
 	fmt.Fprintf(os.Stderr, "password: ")
 	password, _ := terminal.ReadPassword(syscall.Stdin)
-
-	ciphertext, _ := base64.StdEncoding.DecodeString(encodedciphertext)
 
 	salt, ciphertext := ciphertext[:16], ciphertext[16:]
 	dk := pbkdf2.Key(password, salt, 4096, 32, sha256.New)
@@ -48,20 +50,25 @@ func cmd_keytest(store repository.Store, args []string) {
 	block, err := aes.NewCipher(dk)
 	aesGCM, err := cipher.NewGCM(block)
 	nonce, ciphertext := ciphertext[:aesGCM.NonceSize()], ciphertext[aesGCM.NonceSize():]
+
 	cleartext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\ninvalid passphrase, can't decrypt keypair\n")
 		return
 	}
+
+	cleartext, _ = compression.Inflate(cleartext)
+
 	type SerializedKeypair struct {
-		Name    string
+		Uuid    string
 		Private string
 		Public  string
 		Master  string
 	}
 	var keypair SerializedKeypair
 	json.Unmarshal(cleartext, &keypair)
-	fmt.Println("Name:", keypair.Name)
+	fmt.Println()
+	fmt.Println("Uuid:", keypair.Uuid)
 	fmt.Println("Private:", keypair.Private)
 	fmt.Println("Public:", keypair.Public)
 	fmt.Println("Master:", keypair.Master)

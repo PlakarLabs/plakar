@@ -39,6 +39,7 @@ var hostname string
 var storeloc string
 var quiet bool
 var skipKeygen bool
+var cleartext bool
 
 const VERSION = "0.0.1"
 
@@ -88,6 +89,7 @@ func main() {
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.BoolVar(&quiet, "quiet", false, "quiet mode")
 	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
+	flag.BoolVar(&cleartext, "cleartext", false, "disable encryption")
 
 	flag.Parse()
 
@@ -134,6 +136,7 @@ func main() {
 	ctx.Hostname = strings.ToLower(hostname)
 	ctx.Username = pwUser.Username
 	ctx.Keypair = keypair
+	ctx.DisableEncryption = cleartext
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())

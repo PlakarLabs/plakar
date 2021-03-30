@@ -53,11 +53,17 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 }
 
 func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error) {
-	encryptionKey := store.Context().Keypair.MasterKey
+	keypair := store.Context().Keypair
 
-	data, _ = encryption.Decrypt(encryptionKey, data)
-	data, _ = compression.Inflate(data)
+	tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+	if err == nil {
+		data = tmp
+	}
 
+	data, err = compression.Inflate(data)
+	if err != nil {
+		return nil, err
+	}
 	var snapshotStorage SnapshotStorage
 
 	if err := json.Unmarshal(data, &snapshotStorage); err != nil {
@@ -83,7 +89,7 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 }
 
 func (snapshot *Snapshot) Pull(root string, pattern string) {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
 
 	var dest string
 
@@ -136,7 +142,13 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
-		data, _ = encryption.Decrypt(encryptionKey, data)
+		if snapshot.Encrypted {
+			data, err = encryption.Decrypt(keypair.MasterKey, data)
+			if err != nil {
+				continue
+			}
+		}
+
 		data, err = compression.Inflate(data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: corrupt object %s\n", file, checksum)
@@ -158,7 +170,14 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 				continue
 			}
 
-			data, _ = encryption.Decrypt(encryptionKey, data)
+			if snapshot.Encrypted {
+				data, err = encryption.Decrypt(keypair.MasterKey, data)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s: could not decrypt chunk %s\n", file, chunk.Checksum)
+					continue
+				}
+			}
+
 			data, err = compression.Inflate(data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s\n", file, chunk.Checksum)
@@ -192,7 +211,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
@@ -247,8 +266,13 @@ func (snapshot *Snapshot) Push(root string) {
 							continue
 						}
 						buf = compression.Deflate(buf)
-						buf, _ = encryption.Encrypt(encryptionKey, buf)
 
+						if snapshot.Encrypted {
+							buf, err = encryption.Encrypt(keypair.MasterKey, buf)
+							if err != nil {
+								continue
+							}
+						}
 						snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
 					}
 				}
@@ -262,7 +286,13 @@ func (snapshot *Snapshot) Push(root string) {
 					}
 
 					jobject = compression.Deflate(jobject)
-					jobject, _ = encryption.Encrypt(encryptionKey, jobject)
+					if snapshot.Encrypted {
+						jobject, err = encryption.Encrypt(keypair.MasterKey, jobject)
+						if err != nil {
+							chanError <- err
+						}
+					}
+
 					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
 					if err != nil {
 						chanError <- err
@@ -352,13 +382,19 @@ func (snapshot *Snapshot) Push(root string) {
 }
 
 func (snapshot *Snapshot) Commit() error {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
 
 	// commit index to transaction
 	jsnapshot, _ := json.Marshal(snapshot)
 
 	jsnapshot = compression.Deflate(jsnapshot)
-	jsnapshot, _ = encryption.Encrypt(encryptionKey, jsnapshot)
+	if snapshot.Encrypted {
+		tmp, err := encryption.Encrypt(keypair.MasterKey, jsnapshot)
+		if err != nil {
+			return err
+		}
+		jsnapshot = tmp
+	}
 
 	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
 
@@ -374,14 +410,18 @@ func (snapshot *Snapshot) Purge() error {
 }
 
 func (snapshot *Snapshot) IndexGet() (*Object, error) {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
 
 	data, err := snapshot.BackingStore.IndexGet(snapshot.Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	data, _ = encryption.Decrypt(encryptionKey, data)
+	tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+	if err == nil {
+		data = tmp
+	}
+
 	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
@@ -393,13 +433,19 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 }
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
+
 	data, err := snapshot.BackingStore.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
 	}
+	if snapshot.Encrypted {
+		data, err = encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	data, _ = encryption.Decrypt(encryptionKey, data)
 	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
@@ -411,13 +457,20 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
-	encryptionKey := snapshot.BackingStore.Context().Keypair.MasterKey
+	keypair := snapshot.BackingStore.Context().Keypair
+
 	data, err := snapshot.BackingStore.ChunkGet(checksum)
 	if err != nil {
 		return nil, err
 	}
 
-	data, _ = encryption.Decrypt(encryptionKey, data)
+	if snapshot.Encrypted {
+		data, err = encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err

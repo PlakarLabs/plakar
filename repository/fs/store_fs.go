@@ -201,6 +201,8 @@ func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 		BackingTransaction: transaction,
 		BackingStore:       transaction.store,
 		SkipDirs:           transaction.SkipDirs,
+
+		Encrypted: transaction.store.Ctx.DisableEncryption,
 	}
 }
 

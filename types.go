@@ -24,5 +24,7 @@ type Plakar struct {
 	Hostname string
 	Username string
 
+	DisableEncryption bool
+
 	Keypair *encryption.Keypair
 }

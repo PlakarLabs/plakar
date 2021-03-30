@@ -27,6 +27,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -203,6 +204,9 @@ func Encrypt(key []byte, buf []byte) ([]byte, error) {
 
 func Decrypt(key []byte, buf []byte) ([]byte, error) {
 	pembuf, _ := pem.Decode(buf)
+	if pembuf == nil {
+		return nil, errors.New("Invalid PEM")
+	}
 	buf = pembuf.Bytes
 
 	ecb, err := aes.NewCipher(key)

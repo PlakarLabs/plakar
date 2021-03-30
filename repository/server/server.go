@@ -29,8 +29,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/repository"
-	"github.com/poolpOrg/plakar/repository/compression"
-	"github.com/poolpOrg/plakar/repository/encryption"
 )
 
 type ServerStore struct {
@@ -70,37 +68,14 @@ func (store *ServerStore) Transaction() repository.Transaction {
 	return tx
 }
 
-func (store *ServerStore) Snapshot(id string) (*repository.Snapshot, error) {
-	index, err := store.IndexGet(id)
+func (store *ServerStore) Snapshot(Uuid string) (*repository.Snapshot, error) {
+	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	encryptionKey := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	index, _ = encryption.Decrypt(encryptionKey, index)
-	index, _ = compression.Inflate(index)
-
-	var snapshotStorage repository.SnapshotStorage
-
-	if err = json.Unmarshal(index, &snapshotStorage); err != nil {
-		return nil, err
-	}
-
 	snapshot := repository.Snapshot{}
-	snapshot.Uuid = snapshotStorage.Uuid
-	snapshot.CreationTime = snapshotStorage.CreationTime
-	snapshot.Version = snapshotStorage.Version
-	snapshot.Directories = snapshotStorage.Directories
-	snapshot.Files = snapshotStorage.Files
-	snapshot.NonRegular = snapshotStorage.NonRegular
-	snapshot.Sums = snapshotStorage.Sums
-	snapshot.Objects = snapshotStorage.Objects
-	snapshot.Chunks = snapshotStorage.Chunks
-	snapshot.Size = snapshotStorage.Size
-	snapshot.RealSize = snapshotStorage.RealSize
-	snapshot.BackingStore = store
-
-	return &snapshot, nil
+	return snapshot.FromBuffer(store, index)
 }
 
 func (store *ServerStore) Snapshots() ([]string, error) {

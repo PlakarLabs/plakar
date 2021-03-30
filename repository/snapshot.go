@@ -50,6 +50,34 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	return ss
 }
 
+func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error) {
+	encryptionKey := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+	data, _ = encryption.Decrypt(encryptionKey, data)
+	data, _ = compression.Inflate(data)
+
+	var snapshotStorage SnapshotStorage
+
+	if err := json.Unmarshal(data, &snapshotStorage); err != nil {
+		return nil, err
+	}
+
+	snapshot.Uuid = snapshotStorage.Uuid
+	snapshot.CreationTime = snapshotStorage.CreationTime
+	snapshot.Version = snapshotStorage.Version
+	snapshot.Directories = snapshotStorage.Directories
+	snapshot.Files = snapshotStorage.Files
+	snapshot.NonRegular = snapshotStorage.NonRegular
+	snapshot.Sums = snapshotStorage.Sums
+	snapshot.Objects = snapshotStorage.Objects
+	snapshot.Chunks = snapshotStorage.Chunks
+	snapshot.Size = snapshotStorage.Size
+	snapshot.RealSize = snapshotStorage.RealSize
+	snapshot.BackingStore = store
+
+	return snapshot, nil
+}
+
 func (snapshot *Snapshot) Pull(root string, pattern string) {
 	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
@@ -336,6 +364,25 @@ func (snapshot *Snapshot) Commit() error {
 func (snapshot *Snapshot) Purge() error {
 	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	return snapshot.BackingStore.Purge(snapshot.Uuid)
+}
+
+func (snapshot *Snapshot) IndexGet() (*Object, error) {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
+	data, err := snapshot.BackingStore.IndexGet(snapshot.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	data, _ = encryption.Decrypt(snapshot.encryptionKey, data)
+	data, err = compression.Inflate(data)
+	if err != nil {
+		return nil, err
+	}
+
+	object := &Object{}
+	err = json.Unmarshal(data, &object)
+	return object, err
 }
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {

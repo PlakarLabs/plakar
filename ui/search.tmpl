@@ -21,7 +21,7 @@
             {{range $directory := $Directories}}
             <tr>
                 <td><a href="/snapshot/{{$directory.Snapshot}}">{{$directory.Snapshot}}</a></td>
-                <td><a href="/snapshot/{{$directory.Snapshot}}:{{$directory.Path}}">{{$directory.Path}}</a></td>
+                <td><a href="/snapshot/{{$directory.Snapshot}}:{{$directory.Path}}">{{$directory.Path}}/</a></td>
             </tr>
             {{end}}
         </tbody>

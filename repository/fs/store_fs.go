@@ -28,6 +28,7 @@ import (
 
 	"github.com/poolpOrg/plakar/repository"
 	"github.com/poolpOrg/plakar/repository/compression"
+	"github.com/poolpOrg/plakar/repository/encryption"
 
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
@@ -80,6 +81,8 @@ func (store *FSStore) Snapshot(id string) (*repository.Snapshot, error) {
 		return nil, err
 	}
 
+	encryptionKey := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	index, _ = encryption.Decrypt(encryptionKey, index)
 	index, _ = compression.Inflate(index)
 
 	var snapshotStorage repository.SnapshotStorage

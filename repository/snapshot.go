@@ -27,6 +27,7 @@ import (
 	"syscall"
 
 	"github.com/poolpOrg/plakar/repository/compression"
+	"github.com/poolpOrg/plakar/repository/encryption"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"
@@ -50,6 +51,8 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 }
 
 func (snapshot *Snapshot) Pull(root string, pattern string) {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -101,6 +104,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
+		data, _ = encryption.Decrypt(snapshot.encryptionKey, data)
 		data, err = compression.Inflate(data)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: corrupt object %s\n", file, checksum)
@@ -121,6 +125,8 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 				fmt.Fprintf(os.Stderr, "%s: missing chunk %s\n", file, chunk.Checksum)
 				continue
 			}
+
+			data, _ = encryption.Decrypt(snapshot.encryptionKey, data)
 			data, err = compression.Inflate(data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s\n", file, chunk.Checksum)
@@ -154,6 +160,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
@@ -207,7 +214,10 @@ func (snapshot *Snapshot) Push(root string) {
 						if err != nil {
 							continue
 						}
-						snapshot.BackingTransaction.ChunkPut(checksum, string(compression.Deflate(buf)))
+						buf = compression.Deflate(buf)
+						buf, _ = encryption.Encrypt(snapshot.encryptionKey, buf)
+
+						snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
 					}
 				}
 
@@ -220,6 +230,7 @@ func (snapshot *Snapshot) Push(root string) {
 					}
 
 					jobject = compression.Deflate(jobject)
+					jobject, _ = encryption.Encrypt(snapshot.encryptionKey, jobject)
 					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
 					if err != nil {
 						chanError <- err
@@ -312,6 +323,7 @@ func (snapshot *Snapshot) Commit() error {
 	// commit index to transaction
 	jsnapshot, _ := json.Marshal(snapshot)
 	jsnapshot = compression.Deflate(jsnapshot)
+	jsnapshot, _ = encryption.Encrypt(snapshot.encryptionKey, jsnapshot)
 
 	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
 
@@ -322,15 +334,18 @@ func (snapshot *Snapshot) Commit() error {
 }
 
 func (snapshot *Snapshot) Purge() error {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	return snapshot.BackingStore.Purge(snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	data, err := snapshot.BackingStore.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
 	}
 
+	data, _ = encryption.Decrypt(snapshot.encryptionKey, data)
 	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
@@ -342,11 +357,13 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
+	snapshot.encryptionKey = []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	data, err := snapshot.BackingStore.ChunkGet(checksum)
 	if err != nil {
 		return nil, err
 	}
 
+	data, _ = encryption.Decrypt(snapshot.encryptionKey, data)
 	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err

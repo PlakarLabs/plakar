@@ -113,6 +113,8 @@ type Snapshot struct {
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string
+
+	encryptionKey []byte
 }
 
 type SnapshotSummary struct {

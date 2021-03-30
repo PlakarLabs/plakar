@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/repository"
 	"github.com/poolpOrg/plakar/repository/compression"
+	"github.com/poolpOrg/plakar/repository/encryption"
 )
 
 type ClientStore struct {
@@ -89,6 +90,8 @@ func (store *ClientStore) Snapshot(id string) (*repository.Snapshot, error) {
 		return nil, err
 	}
 
+	encryptionKey := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	index, _ = encryption.Decrypt(encryptionKey, index)
 	index, _ = compression.Inflate(index)
 
 	var snapshotStorage repository.SnapshotStorage

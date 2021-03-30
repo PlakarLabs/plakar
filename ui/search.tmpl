@@ -1,0 +1,50 @@
+{{template "base" .}}
+
+{{define "title"}}{{end}}
+
+{{define "main"}}
+    {{$Directories := .Directories}}
+    {{$Files := .Files}}
+    {{$SearchTerms := .SearchTerms}}
+    <h1>Results for "{{$SearchTerms}}"</h1>
+
+    {{if $Directories}}
+    <h2>Directories</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Snapshot</th>
+                <th scope="col">Path</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $directory := $Directories}}
+            <tr>
+                <td><a href="/snapshot/{{$directory.Snapshot}}">{{$directory.Snapshot}}</a></td>
+                <td><a href="/snapshot/{{$directory.Snapshot}}:{{$directory.Path}}">{{$directory.Path}}</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+
+    {{if $Files}}
+    <h2>Files</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Snapshot</th>
+                <th scope="col">Path</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $file := $Files}}
+            <tr>
+                <td><a href="/snapshot/{{$file.Snapshot}}">{{$file.Snapshot}}</a></td>
+                <td><a href="/snapshot/{{$file.Snapshot}}:{{$file.Path}}">{{$file.Path}}</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+{{end}}

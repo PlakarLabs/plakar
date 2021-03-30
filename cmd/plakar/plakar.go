@@ -76,7 +76,7 @@ func main() {
 	command, args := flag.Arg(0), flag.Args()[1:]
 
 	if len(args) > 1 {
-		if command != "init" {
+		if command != "init" && command != "keygen" && command != "keytest" {
 			if command == "push" {
 				if args[len(args)-2] == "to" {
 					storeloc = args[len(args)-1]
@@ -115,6 +115,12 @@ func main() {
 
 	case "diff":
 		cmd_diff(store, args)
+
+	case "keygen":
+		cmd_keygen(store, args)
+
+	case "keytest":
+		cmd_keytest(store, args)
 
 	case "ls":
 		cmd_ls(store, args)

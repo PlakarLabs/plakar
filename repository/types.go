@@ -84,6 +84,8 @@ type SnapshotStorage struct {
 	Uuid         string
 	CreationTime time.Time
 	Version      string
+	Hostname     string
+	Username     string
 
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
@@ -100,6 +102,8 @@ type Snapshot struct {
 	Uuid         string
 	CreationTime time.Time
 	Version      string
+	Hostname     string
+	Username     string
 
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
@@ -122,6 +126,8 @@ type SnapshotSummary struct {
 	Uuid         string
 	CreationTime time.Time
 	Version      string
+	Hostname     string
+	Username     string
 
 	Directories uint64
 	Files       uint64

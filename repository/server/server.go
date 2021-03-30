@@ -102,6 +102,8 @@ func (transaction *ServerTransaction) Snapshot() *repository.Snapshot {
 		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
+		Hostname:     "",
+		Username:     "",
 		Directories:  make(map[string]*repository.FileInfo),
 		Files:        make(map[string]*repository.FileInfo),
 		NonRegular:   make(map[string]*repository.FileInfo),

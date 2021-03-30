@@ -39,6 +39,8 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	ss.Uuid = snapshot.Uuid
 	ss.CreationTime = snapshot.CreationTime
 	ss.Version = snapshot.Version
+	ss.Hostname = snapshot.Hostname
+	ss.Username = snapshot.Username
 	ss.Directories = uint64(len(snapshot.Directories))
 	ss.Files = uint64(len(snapshot.Files))
 	ss.NonRegular = uint64(len(snapshot.NonRegular))
@@ -65,6 +67,8 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 	snapshot.Uuid = snapshotStorage.Uuid
 	snapshot.CreationTime = snapshotStorage.CreationTime
 	snapshot.Version = snapshotStorage.Version
+	snapshot.Hostname = snapshotStorage.Hostname
+	snapshot.Username = snapshotStorage.Username
 	snapshot.Directories = snapshotStorage.Directories
 	snapshot.Files = snapshotStorage.Files
 	snapshot.NonRegular = snapshotStorage.NonRegular
@@ -352,6 +356,7 @@ func (snapshot *Snapshot) Commit() error {
 
 	// commit index to transaction
 	jsnapshot, _ := json.Marshal(snapshot)
+
 	jsnapshot = compression.Deflate(jsnapshot)
 	jsnapshot, _ = encryption.Encrypt(encryptionKey, jsnapshot)
 

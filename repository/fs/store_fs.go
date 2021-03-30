@@ -189,6 +189,8 @@ func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
 		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
+		Hostname:     transaction.store.Ctx.Hostname,
+		Username:     transaction.store.Ctx.Username,
 		Directories:  make(map[string]*repository.FileInfo),
 		Files:        make(map[string]*repository.FileInfo),
 		NonRegular:   make(map[string]*repository.FileInfo),

@@ -172,34 +172,34 @@ func main() {
 
 	switch command {
 	case "cat":
-		cmd_cat(ctx, store, args)
+		cmd_cat(store, args)
 
 	case "check":
-		cmd_check(ctx, store, args)
+		cmd_check(store, args)
 
 	case "diff":
-		cmd_diff(ctx, store, args)
+		cmd_diff(store, args)
 
 	case "ls":
-		cmd_ls(ctx, store, args)
+		cmd_ls(store, args)
 
 	case "pull":
-		cmd_pull(ctx, store, args)
+		cmd_pull(store, args)
 
 	case "push":
-		cmd_push(ctx, store, args)
+		cmd_push(store, args)
 
 	case "rm":
-		cmd_rm(ctx, store, args)
+		cmd_rm(store, args)
 
 	case "server":
-		cmd_server(ctx, store, args)
+		cmd_server(store, args)
 
 	case "ui":
-		cmd_ui(ctx, store, args)
+		cmd_ui(store, args)
 
 	case "version":
-		cmd_version(ctx, store, args)
+		cmd_version(store, args)
 
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)

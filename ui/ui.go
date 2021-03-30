@@ -46,6 +46,9 @@ var browseTemplate string
 //go:embed object.tmpl
 var objectTemplate string
 
+//go:embed search.tmpl
+var searchTemplate string
+
 var templates map[string]*template.Template
 
 func snapshots(w http.ResponseWriter, r *http.Request) {
@@ -289,6 +292,75 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func search_snapshots(w http.ResponseWriter, r *http.Request) {
+	urlParams := r.URL.Query()
+	q := urlParams["q"][0]
+
+	snapshots, err := lstore.Snapshots()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	snapshotsList := make([]*repository.Snapshot, 0)
+	for _, id := range snapshots {
+		snapshot, err := lstore.Snapshot(id)
+		if err != nil {
+			/* failed to lookup snapshot */
+			continue
+		}
+		snapshotsList = append(snapshotsList, snapshot)
+	}
+	sort.Slice(snapshotsList, func(i, j int) bool {
+		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
+	})
+
+	directories := make([]struct {
+		Snapshot string
+		Path     string
+	}, 0)
+	files := make([]struct {
+		Snapshot string
+		Path     string
+	}, 0)
+	for _, snapshot := range snapshotsList {
+		for directory := range snapshot.Directories {
+			if strings.Contains(directory, q) {
+				directories = append(directories, struct {
+					Snapshot string
+					Path     string
+				}{snapshot.Uuid, directory})
+			}
+		}
+		for file := range snapshot.Sums {
+			if strings.Contains(file, q) {
+				files = append(files, struct {
+					Snapshot string
+					Path     string
+				}{snapshot.Uuid, file})
+			}
+		}
+	}
+	sort.Slice(directories, func(i, j int) bool {
+		return strings.Compare(directories[i].Path, directories[j].Path) < 0
+	})
+	sort.Slice(files, func(i, j int) bool {
+		return strings.Compare(files[i].Path, files[j].Path) < 0
+	})
+
+	ctx := &struct {
+		SearchTerms string
+		Directories []struct {
+			Snapshot string
+			Path     string
+		}
+		Files []struct {
+			Snapshot string
+			Path     string
+		}
+	}{q, directories, files}
+	templates["search"].Execute(w, ctx)
+}
+
 func Ui(store repository.Store) {
 	lstore = store
 
@@ -318,6 +390,12 @@ func Ui(store repository.Store) {
 	}
 	templates[t.Name()] = t
 
+	t, err = template.New("search").Parse(baseTemplate + searchTemplate)
+	if err != nil {
+		panic(err)
+	}
+	templates[t.Name()] = t
+
 	port := rand.Uint32() % 0xffff
 	fmt.Println("Launched UI on port", port)
 
@@ -342,6 +420,8 @@ func Ui(store repository.Store) {
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)
+
+	r.HandleFunc("/search", search_snapshots)
 
 	http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 }

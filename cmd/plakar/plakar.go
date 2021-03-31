@@ -38,6 +38,7 @@ var hostname string
 var storeloc string
 var skipKeygen bool
 var nocache bool
+var outputLog string
 
 const VERSION = "0.0.1"
 
@@ -89,12 +90,16 @@ func main() {
 	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
-	flag.BoolVar(&nocache, "nocache", false, "do not use local cache")
+	flag.StringVar(&outputLog, "log", "", "show progress")
+
+	if outputLog != "" && outputLog != "full" && outputLog != "progress" {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	flag.Parse()
 
 	storeloc = fmt.Sprintf("%s/store", localdir)
-
-	progress := true
 
 	doneChannel := make(chan bool)
 	ctx.StdoutChannel = make(chan interface{})
@@ -108,21 +113,26 @@ func main() {
 					doneChannel <- true
 					return
 				}
-				if progress {
+				if outputLog == "progress" {
 					clearline(linesize)
 					fmt.Printf("\r%s", msg)
 					if len(msg.(string)) > linesize {
 						linesize = len(msg.(string))
 					}
 				}
+				if outputLog == "full" {
+					fmt.Printf("%s\n", msg)
+				}
 
 			case msg := <-ctx.StderrChannel:
-				if progress {
+				if outputLog == "progress" {
 					clearline(linesize)
 					fmt.Fprintf(os.Stderr, "\r%s\n", msg)
 					if len(msg.(string)) > linesize {
 						linesize = len(msg.(string))
 					}
+				} else {
+					fmt.Fprintf(os.Stderr, "%s\n", msg)
 				}
 			}
 		}

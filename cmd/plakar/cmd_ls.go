@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/repository"
 )
 
@@ -46,18 +47,15 @@ func list_snapshots(store repository.Store) {
 	}
 
 	snapshotsList := make([]*repository.Snapshot, 0)
-	for _, id := range snapshots {
-		snapshot, err := store.Snapshot(id)
+	for _, Uuid := range snapshots {
+		snapshot, err := store.Snapshot(Uuid)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
 		}
 		snapshotsList = append(snapshotsList, snapshot)
 	}
-
-	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
-	})
+	helpers.SnapshotsSortedByDate(snapshotsList)
 
 	for _, snapshot := range snapshotsList {
 

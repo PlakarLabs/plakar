@@ -6,8 +6,12 @@ import (
 	"os"
 )
 
+type Cache struct {
+}
+
 func Init(localdir string) {
 	os.MkdirAll(localdir, 0700)
+	os.MkdirAll(fmt.Sprintf("%s/cache", localdir), 0700)
 }
 
 func GetEncryptedKeypair(localdir string) ([]byte, error) {

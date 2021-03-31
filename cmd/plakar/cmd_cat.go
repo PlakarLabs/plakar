@@ -19,74 +19,99 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	"github.com/poolpOrg/plakar/repository"
 )
 
-func cmd_cat(store repository.Store, args []string) {
-	if len(args) == 0 {
-		log.Fatalf("%s: need at least one snapshot ID and file or object to cat", flag.CommandLine.Name())
+func cmd_cat(store repository.Store, args []string) int {
+	flags := flag.NewFlagSet("plakar cat", flag.ExitOnError)
+	flags.Parse(args)
+
+	if len(flags.Args()) == 0 {
+		fmt.Fprintf(os.Stderr, "%s: need at list one parameter\n", flag.CommandLine.Name())
+		return 1
 	}
 
 	snapshots, err := store.Snapshots()
 	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+		fmt.Fprintf(os.Stderr, "%s: could not obtain list of snapshots\n", flag.CommandLine.Name())
+		return 1
 	}
 
+	mapSnapshots := make(map[string]*repository.Snapshot)
+
+	errors := 0
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
 		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+			fmt.Fprintf(os.Stderr, "%s: no snapshot with prefix: %s\n", flag.CommandLine.Name(), prefix)
+			errors++
+			continue
 		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
+			fmt.Fprintf(os.Stderr, "%s: snapshot prefix is ambiguous: %s (matches %d snapshots)\n", flag.CommandLine.Name(), prefix, len(res))
+			errors++
+			continue
 		}
+
 		if pattern == "" {
-			log.Fatalf("%s: missing filename.", flag.CommandLine.Name())
+			fmt.Fprintf(os.Stderr, "%s: missing filename\n", flag.CommandLine.Name())
+			errors++
+			continue
+		}
+
+		snapshot, ok := mapSnapshots[res[0]]
+		if !ok {
+			snapshot, err = store.Snapshot(res[0])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not open snapshot: %s\n", flag.CommandLine.Name(), res[0])
+				errors++
+				continue
+			}
+			mapSnapshots[snapshot.Uuid] = snapshot
 		}
 
 		if !strings.HasPrefix(pattern, "/") {
 			objects := make([]string, 0)
-			snapshot, err := store.Snapshot(res[0])
-			if err != nil {
-				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-			}
 			for id := range snapshot.Objects {
 				objects = append(objects, id)
 			}
 			res = findObjectByPrefix(objects, pattern)
 			if len(res) == 0 {
-				log.Fatalf("%s: no object has prefix: %s", flag.CommandLine.Name(), pattern)
+				fmt.Fprintf(os.Stderr, "%s: no object with prefix: %s\n", flag.CommandLine.Name(), res[0])
+				errors++
+				continue
 			} else if len(res) > 1 {
-				log.Fatalf("%s: object ID is ambigous: %s (matches %d objects)", flag.CommandLine.Name(), pattern, len(res))
+				fmt.Fprintf(os.Stderr, "%s: object prefix is ambiguous: %s (matches %d objects)\n", flag.CommandLine.Name(), prefix, len(res))
+				errors++
+				continue
 			}
 		}
 	}
+	if errors != 0 {
+		return 1
+	}
 
+	errors = 0
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
+
+		snapshot := mapSnapshots[res[0]]
 
 		var checksum string
 		if strings.HasPrefix(pattern, "/") {
 			tmp, ok := snapshot.Sums[pattern]
 			if !ok {
-				log.Fatalf("%s: %s: no such file in snapshot.", flag.CommandLine.Name(), pattern)
+				fmt.Fprintf(os.Stderr, "%s: %s:%s: %s\n", flag.CommandLine.Name(), res[0], pattern, os.ErrNotExist)
+				errors++
+				continue
 			}
 			checksum = tmp
 		} else {
 			objects := make([]string, 0)
-			snapshot, err := store.Snapshot(res[0])
-			if err != nil {
-				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-			}
 			for id := range snapshot.Objects {
 				objects = append(objects, id)
 			}
@@ -96,16 +121,23 @@ func cmd_cat(store repository.Store, args []string) {
 
 		object, err := snapshot.ObjectGet(checksum)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open object", flag.CommandLine.Name())
+			fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain object %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, checksum)
+			errors++
 			continue
 		}
 
 		for _, chunk := range object.Chunks {
 			data, err := snapshot.ChunkGet(chunk.Checksum)
 			if err != nil {
-				log.Fatalf("%s: %s: failed to obtain chunk %s.", flag.CommandLine.Name(), pattern, chunk.Checksum)
+				fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain chunk %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, chunk.Checksum)
+				errors++
+				continue
 			}
 			os.Stdout.Write(data)
 		}
 	}
+	if errors != 0 {
+		return 1
+	}
+	return 0
 }

@@ -39,6 +39,7 @@ var hostname string
 var storeloc string
 var quiet bool
 var skipKeygen bool
+var nocache bool
 
 const VERSION = "0.0.1"
 
@@ -87,12 +88,17 @@ func main() {
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.BoolVar(&quiet, "quiet", false, "quiet mode")
 	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
+	flag.BoolVar(&nocache, "nocache", false, "do not use local cache")
 	flag.Parse()
 
 	storeloc = fmt.Sprintf("%s/store", localdir)
 
 	/* first thing first, initialize a plakar repository if none */
 	local.Init(localdir)
+
+	if !nocache {
+		ctx.Cache = &local.Cache{}
+	}
 
 	/* load keypair from plakar */
 	encryptedKeypair, err := local.GetEncryptedKeypair(localdir)

@@ -18,6 +18,7 @@ package plakar
 
 import (
 	"github.com/poolpOrg/plakar/repository/encryption"
+	"github.com/poolpOrg/plakar/repository/local"
 )
 
 type Plakar struct {
@@ -28,4 +29,6 @@ type Plakar struct {
 
 	EncryptedKeypair []byte
 	Keypair          *encryption.Keypair
+
+	Cache *local.Cache
 }

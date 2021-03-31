@@ -120,15 +120,15 @@ func main() {
 
 	var keypair *encryption.Keypair
 	for {
-		fmt.Printf("passphrase: ")
+		fmt.Fprintf(os.Stderr, "passphrase: ")
 		passphrase, _ := terminal.ReadPassword(syscall.Stdin)
 		keypair, err = encryption.Keyload(passphrase, data)
 		if err != nil {
-			fmt.Println()
-			fmt.Println(err)
+			fmt.Fprintf(os.Stderr, "\n")
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			continue
 		}
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		break
 	}
 
@@ -174,6 +174,7 @@ func main() {
 	store.Init()
 
 	switch command {
+
 	case "cat":
 		cmd_cat(store, args)
 
@@ -197,6 +198,12 @@ func main() {
 
 	case "server":
 		cmd_server(store, args)
+
+		//	case "sync":
+		//		cmd_sync(store, args)
+
+	case "tarball":
+		cmd_tarball(store, args)
 
 	case "ui":
 		cmd_ui(store, args)

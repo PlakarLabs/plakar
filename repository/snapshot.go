@@ -420,8 +420,10 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 		return nil, err
 	}
 
+	snapshot.Encrypted = false
 	tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 	if err == nil {
+		snapshot.Encrypted = true
 		data = tmp
 	}
 
@@ -442,11 +444,14 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if snapshot.Encrypted {
-		data, err = encryption.Decrypt(keypair.MasterKey, data)
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
+			fmt.Println(err)
 			return nil, err
 		}
+		data = tmp
 	}
 
 	data, err = compression.Inflate(data)

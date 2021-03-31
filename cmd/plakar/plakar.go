@@ -39,7 +39,6 @@ var hostname string
 var storeloc string
 var quiet bool
 var skipKeygen bool
-var cleartext bool
 
 const VERSION = "0.0.1"
 
@@ -85,19 +84,18 @@ func main() {
 	}
 
 	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
-	flag.StringVar(&storeloc, "store", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "data store")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.BoolVar(&quiet, "quiet", false, "quiet mode")
 	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
-	flag.BoolVar(&cleartext, "cleartext", false, "disable encryption")
-
 	flag.Parse()
+
+	storeloc = fmt.Sprintf("%s/store", localdir)
 
 	/* first thing first, initialize a plakar repository if none */
 	local.Init(localdir)
 
 	/* load keypair from plakar */
-	data, err := local.GetEncryptedKeypair(localdir)
+	encryptedKeypair, err := local.GetEncryptedKeypair(localdir)
 	if err != nil && !skipKeygen {
 		if !os.IsNotExist(err) {
 			fmt.Println(err)
@@ -105,12 +103,12 @@ func main() {
 		}
 
 		fmt.Println("generating plakar keypair")
-		data, err = keypairGenerate()
+		encryptedKeypair, err = keypairGenerate()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		err = local.SetEncryptedKeypair(localdir, data)
+		err = local.SetEncryptedKeypair(localdir, encryptedKeypair)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -118,32 +116,16 @@ func main() {
 		fmt.Println("keypair saved to local store")
 	}
 
-	var keypair *encryption.Keypair
-	for {
-		fmt.Fprintf(os.Stderr, "passphrase: ")
-		passphrase, _ := terminal.ReadPassword(syscall.Stdin)
-		keypair, err = encryption.Keyload(passphrase, data)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "\n")
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-		}
-		fmt.Fprintf(os.Stderr, "\n")
-		break
-	}
-
 	/* PlakarCTX */
 	ctx.Hostname = strings.ToLower(hostname)
 	ctx.Username = pwUser.Username
-	ctx.Keypair = keypair
-	ctx.DisableEncryption = cleartext
+	ctx.EncryptedKeypair = encryptedKeypair
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
 	}
 
 	command, args := flag.Arg(0), flag.Args()[1:]
-
 	if len(args) > 1 {
 		if command == "push" {
 			if args[len(args)-2] == "to" {
@@ -156,6 +138,12 @@ func main() {
 				args = args[:len(args)-2]
 			}
 		}
+	}
+
+	if command == "init" {
+		/* special handling for init */
+		cmd_init(ctx, args)
+		return
 	}
 
 	var store repository.Store
@@ -171,7 +159,34 @@ func main() {
 		pstore.Repository = storeloc
 		store = pstore
 	}
+
 	store.Init()
+	err = store.Open()
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar init`\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+		}
+		return
+	}
+
+	if store.Configuration().Encrypted != "" {
+		var keypair *encryption.Keypair
+		for {
+			fmt.Fprintf(os.Stderr, "passphrase: ")
+			passphrase, _ := terminal.ReadPassword(syscall.Stdin)
+			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "\n")
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+			break
+		}
+		ctx.Keypair = keypair
+	}
 
 	switch command {
 

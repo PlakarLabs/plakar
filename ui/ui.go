@@ -34,8 +34,8 @@ var lstore repository.Store
 //go:embed base.tmpl
 var baseTemplate string
 
-//go:embed snapshots.tmpl
-var snapshotsTemplate string
+//go:embed store.tmpl
+var storeTemplate string
 
 //go:embed snapshot.tmpl
 var snapshotTemplate string
@@ -51,7 +51,7 @@ var searchTemplate string
 
 var templates map[string]*template.Template
 
-func snapshots(w http.ResponseWriter, r *http.Request) {
+func viewStore(w http.ResponseWriter, r *http.Request) {
 	snapshots, _ := lstore.Snapshots()
 
 	snapshotsList := make([]*repository.Snapshot, 0)
@@ -73,9 +73,15 @@ func snapshots(w http.ResponseWriter, r *http.Request) {
 		res = append(res, repository.SnapshotToSummary(snapshot))
 	}
 
-	ctx := &struct{ Snapshots []*repository.SnapshotSummary }{res}
+	ctx := &struct {
+		Store     repository.StoreConfig
+		Snapshots []*repository.SnapshotSummary
+	}{
+		lstore.Configuration(),
+		res,
+	}
 
-	templates["snapshots"].Execute(w, ctx)
+	templates["store"].Execute(w, ctx)
 }
 
 func snapshot(w http.ResponseWriter, r *http.Request) {
@@ -366,7 +372,7 @@ func Ui(store repository.Store) {
 
 	templates = make(map[string]*template.Template)
 
-	t, err := template.New("snapshots").Parse(baseTemplate + snapshotsTemplate)
+	t, err := template.New("store").Parse(baseTemplate + storeTemplate)
 	if err != nil {
 		panic(err)
 	}
@@ -415,7 +421,7 @@ func Ui(store repository.Store) {
 	*/
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", snapshots)
+	r.HandleFunc("/", viewStore)
 	r.HandleFunc("/snapshot/{snapshot}", snapshot)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)

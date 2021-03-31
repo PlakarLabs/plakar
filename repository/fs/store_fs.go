@@ -17,6 +17,7 @@
 package fs
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,12 +28,15 @@ import (
 
 	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/repository/compression"
 
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
 )
 
 type FSStore struct {
+	config repository.StoreConfig
+
 	Repository string
 	root       string
 
@@ -56,13 +60,66 @@ type FSTransaction struct {
 func (store *FSStore) Init() {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
 	store.root = store.Repository
+}
 
-	os.MkdirAll(store.root, 0700)
+func (store *FSStore) Initialize(config repository.StoreConfig) error {
+	store.root = store.Repository
+
+	err := os.Mkdir(store.root, 0700)
+	if err != nil {
+		return err
+	}
 	os.MkdirAll(fmt.Sprintf("%s/chunks", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/objects", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/transactions", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
+
+	f, err := os.Create(fmt.Sprintf("%s/CONFIG", store.root))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	jconfig, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(compression.Deflate(jconfig))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) Open() error {
+	store.root = store.Repository
+
+	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", store.root))
+	if err != nil {
+		return err
+	}
+
+	jconfig, err := compression.Inflate(compressed)
+	if err != nil {
+		return err
+	}
+
+	config := repository.StoreConfig{}
+	err = json.Unmarshal(jconfig, &config)
+	if err != nil {
+		return err
+	}
+
+	store.config = config
+
+	return nil
+}
+
+func (store *FSStore) Configuration() repository.StoreConfig {
+	return store.config
 }
 
 func (store *FSStore) Context() *plakar.Plakar {

@@ -26,6 +26,12 @@ import (
 
 type Store interface {
 	Init()
+
+	Initialize(StoreConfig) error
+	Open() error
+
+	Configuration() StoreConfig
+
 	Context() *plakar.Plakar
 
 	Transaction() Transaction
@@ -50,6 +56,11 @@ type Transaction interface {
 
 	IndexPut(buf string) error
 	Commit(snapshot *Snapshot) (*Snapshot, error)
+}
+
+type StoreConfig struct {
+	Uuid      string
+	Encrypted string
 }
 
 type FileInfo struct {

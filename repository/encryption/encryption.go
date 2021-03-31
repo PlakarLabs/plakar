@@ -26,8 +26,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,10 +53,8 @@ func Keygen() (*Keypair, error) {
 }
 
 func Keyload(passphrase []byte, data []byte) (*Keypair, error) {
-	pem, _ := pem.Decode(data)
-
 	keypair := &Keypair{}
-	data, err := keypair.Decrypt(passphrase, pem.Bytes)
+	data, err := keypair.Decrypt(passphrase, data)
 	if err != nil {
 		return nil, err
 	}
@@ -143,14 +139,7 @@ func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
 	aesGCM, err := cipher.NewGCM(block)
 	nonce := make([]byte, aesGCM.NonceSize())
 	rand.Read(nonce)
-	ciphertext := append(salt[:], aesGCM.Seal(nonce, nonce, data, nil)[:]...)
-
-	return pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "PLAKAR KEYPAIR",
-			Bytes: ciphertext,
-		},
-	), nil
+	return append(salt[:], aesGCM.Seal(nonce, nonce, data, nil)[:]...), nil
 }
 
 func (keypair *Keypair) Decrypt(passphrase []byte, data []byte) ([]byte, error) {
@@ -192,23 +181,10 @@ func Encrypt(key []byte, buf []byte) ([]byte, error) {
 	nonce := make([]byte, aesGCM.NonceSize())
 	rand.Read(nonce)
 
-	pemdata := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "ENCRYPTED DATA",
-			Bytes: append(encsubkey[:], aesGCM.Seal(nonce, nonce, buf, nil)[:]...),
-		},
-	)
-
-	return pemdata, nil
+	return append(encsubkey[:], aesGCM.Seal(nonce, nonce, buf, nil)[:]...), nil
 }
 
 func Decrypt(key []byte, buf []byte) ([]byte, error) {
-	pembuf, _ := pem.Decode(buf)
-	if pembuf == nil {
-		return nil, errors.New("Invalid PEM")
-	}
-	buf = pembuf.Bytes
-
 	ecb, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

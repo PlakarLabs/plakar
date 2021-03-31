@@ -26,5 +26,6 @@ type Plakar struct {
 
 	DisableEncryption bool
 
-	Keypair *encryption.Keypair
+	EncryptedKeypair []byte
+	Keypair          *encryption.Keypair
 }

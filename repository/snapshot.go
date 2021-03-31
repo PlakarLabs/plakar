@@ -54,16 +54,16 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 }
 
 func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error) {
-	keypair := store.Context().Keypair
-
-	encrypted := false
-	tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-	if err == nil {
+	if store.Configuration().Encrypted != "" {
+		keypair := store.Context().Keypair
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			return nil, err
+		}
 		data = tmp
-		encrypted = true
 	}
 
-	data, err = compression.Inflate(data)
+	data, err := compression.Inflate(data)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 	snapshot.Size = snapshotStorage.Size
 	snapshot.RealSize = snapshotStorage.RealSize
 	snapshot.BackingStore = store
-	snapshot.Encrypted = encrypted
+	snapshot.Encrypted = store.Configuration().Encrypted != ""
 	return snapshot, nil
 }
 
@@ -145,11 +145,12 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
-		if snapshot.Encrypted {
-			data, err = encryption.Decrypt(keypair.MasterKey, data)
+		if snapshot.BackingStore.Configuration().Encrypted != "" {
+			tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 			if err != nil {
 				continue
 			}
+			data = tmp
 		}
 
 		data, err = compression.Inflate(data)
@@ -173,12 +174,13 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 				continue
 			}
 
-			if snapshot.Encrypted {
-				data, err = encryption.Decrypt(keypair.MasterKey, data)
+			if snapshot.BackingStore.Configuration().Encrypted != "" {
+				tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not decrypt chunk %s\n", file, chunk.Checksum)
 					continue
 				}
+				data = tmp
 			}
 
 			data, err = compression.Inflate(data)
@@ -270,11 +272,12 @@ func (snapshot *Snapshot) Push(root string) {
 						}
 						buf = compression.Deflate(buf)
 
-						if snapshot.Encrypted {
-							buf, err = encryption.Encrypt(keypair.MasterKey, buf)
+						if snapshot.BackingStore.Configuration().Encrypted != "" {
+							tmp, err := encryption.Encrypt(keypair.MasterKey, buf)
 							if err != nil {
 								continue
 							}
+							buf = tmp
 						}
 						snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
 					}
@@ -289,11 +292,12 @@ func (snapshot *Snapshot) Push(root string) {
 					}
 
 					jobject = compression.Deflate(jobject)
-					if snapshot.Encrypted {
-						jobject, err = encryption.Encrypt(keypair.MasterKey, jobject)
+					if snapshot.BackingStore.Configuration().Encrypted != "" {
+						tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
 						if err != nil {
 							chanError <- err
 						}
+						jobject = tmp
 					}
 
 					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
@@ -391,7 +395,7 @@ func (snapshot *Snapshot) Commit() error {
 	jsnapshot, _ := json.Marshal(snapshot)
 
 	jsnapshot = compression.Deflate(jsnapshot)
-	if snapshot.Encrypted {
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, jsnapshot)
 		if err != nil {
 			return err
@@ -420,10 +424,12 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 		return nil, err
 	}
 
-	snapshot.Encrypted = false
-	tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-	if err == nil {
-		snapshot.Encrypted = true
+	snapshot.Encrypted = snapshot.BackingStore.Configuration().Encrypted != ""
+	if snapshot.Encrypted {
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			return nil, err
+		}
 		data = tmp
 	}
 
@@ -445,10 +451,9 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 		return nil, err
 	}
 
-	if snapshot.Encrypted {
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
 		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
-			fmt.Println(err)
 			return nil, err
 		}
 		data = tmp
@@ -472,11 +477,12 @@ func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
 		return nil, err
 	}
 
-	if snapshot.Encrypted {
-		data, err = encryption.Decrypt(keypair.MasterKey, data)
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
 			return nil, err
 		}
+		data = tmp
 	}
 
 	data, err = compression.Inflate(data)

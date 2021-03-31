@@ -31,4 +31,7 @@ type Plakar struct {
 	Keypair          *encryption.Keypair
 
 	Cache *local.Cache
+
+	StdoutChannel chan interface{}
+	StderrChannel chan interface{}
 }

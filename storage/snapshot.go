@@ -19,6 +19,7 @@ package storage
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -94,6 +95,9 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 func (snapshot *Snapshot) Pull(root string, pattern string) {
 	keypair := snapshot.BackingStore.Context().Keypair
 
+	outchan := snapshot.BackingStore.Context().StdoutChannel
+	errchan := snapshot.BackingStore.Context().StderrChannel
+
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -136,18 +140,20 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 
 		f, err := os.Create(dest)
 		if err != nil {
+			errchan <- err.Error()
 			continue
 		}
 
 		data, err := snapshot.BackingStore.ObjectGet(checksum)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: missing object %s\n", file, checksum)
+			errchan <- err.Error()
 			continue
 		}
 
 		if snapshot.BackingStore.Configuration().Encrypted != "" {
 			tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 			if err != nil {
+				errchan <- err.Error()
 				continue
 			}
 			data = tmp
@@ -155,49 +161,34 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 
 		data, err = compression.Inflate(data)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: corrupt object %s\n", file, checksum)
+			errchan <- err.Error()
 			continue
 		}
 
 		object := Object{}
 		err = json.Unmarshal(data, &object)
 		if err != nil {
+			errchan <- err.Error()
 			f.Close()
 			continue
 		}
 
 		objectHash := sha256.New()
 		for _, chunk := range object.Chunks {
-			data, err := snapshot.BackingStore.ChunkGet(chunk.Checksum)
+			data, err := snapshot.ChunkGet(chunk.Checksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: missing chunk %s\n", file, chunk.Checksum)
-				continue
-			}
-
-			if snapshot.BackingStore.Configuration().Encrypted != "" {
-				tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not decrypt chunk %s\n", file, chunk.Checksum)
-					continue
-				}
-				data = tmp
-			}
-
-			data, err = compression.Inflate(data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s\n", file, chunk.Checksum)
+				errchan <- err.Error()
 				continue
 			}
 
 			if len(data) != int(chunk.Length) {
-				fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s: invalid length (%d should be %d)\n",
-					file, chunk.Checksum, len(data), chunk.Length)
+				errchan <- errors.New("chunk length mismatches with record")
 				continue
 			} else {
 				chunkHash := sha256.New()
 				chunkHash.Write(data)
 				if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
-					fmt.Fprintf(os.Stderr, "%s: corrupt chunk %s: checksum mismatch\n", file, chunk.Checksum)
+					errchan <- errors.New("chunk checksum mismatches with record")
 					continue
 				}
 			}
@@ -206,17 +197,20 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			f.Write(data)
 		}
 		if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
-			fmt.Fprintf(os.Stderr, "%s: corrupt file: checksum mismatch\n", file)
+			errchan <- errors.New("object checksum mismatches with record")
 		}
 
 		f.Close()
 		os.Chmod(dest, fi.Mode)
 		os.Chown(dest, int(fi.Uid), int(fi.Gid))
 	}
+	outchan <- fmt.Sprintf("pull %s: OK", snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Push(root string) {
 	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
+	errchan := snapshot.BackingStore.Context().StderrChannel
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
@@ -239,7 +233,7 @@ func (snapshot *Snapshot) Push(root string) {
 				}
 
 			case err := <-chanError:
-				fmt.Fprintf(os.Stderr, "%s\n", err)
+				errchan <- err.Error()
 
 			case chunk := <-chanChunk:
 				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
@@ -260,9 +254,8 @@ func (snapshot *Snapshot) Push(root string) {
 				for checksum, exists := range res {
 					chunk := chunks[checksum]
 					if exists {
-						//fmt.Printf("skip: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
+						outchan <- fmt.Sprintf("skip chunk %s", checksum)
 					} else {
-						//fmt.Printf("push: %s %s [%d:%d]\n", checksum, object.path, chunk.Start, chunk.Length)
 						object.fp.Seek(int64(chunk.Start), 0)
 
 						buf := make([]byte, chunk.Length)
@@ -270,21 +263,18 @@ func (snapshot *Snapshot) Push(root string) {
 						if err != nil {
 							continue
 						}
-						buf = compression.Deflate(buf)
 
-						if snapshot.BackingStore.Configuration().Encrypted != "" {
-							tmp, err := encryption.Encrypt(keypair.MasterKey, buf)
-							if err != nil {
-								continue
-							}
-							buf = tmp
+						err = snapshot.ChunkPut(checksum, buf)
+						if err != nil {
+							continue
 						}
-						snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
 					}
 				}
 
 				exists := snapshot.BackingTransaction.ObjectMark(object.Checksum)
-				if !exists {
+				if exists {
+					outchan <- fmt.Sprintf("skip object %s", object.Checksum)
+				} else {
 					jobject, err := json.Marshal(object)
 					if err != nil {
 						chanError <- err
@@ -386,18 +376,42 @@ func (snapshot *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
+	outchan <- fmt.Sprintf("push %s: OK", snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Commit() error {
 	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
+	errchan := snapshot.BackingStore.Context().StderrChannel
+
+	outchan <- fmt.Sprintf("commit %s: in progress", snapshot.Uuid)
+	snapshotStorage := SnapshotStorage{}
+	snapshotStorage.Uuid = snapshot.Uuid
+	snapshotStorage.CreationTime = snapshot.CreationTime
+	snapshotStorage.Version = snapshot.Version
+	snapshotStorage.Hostname = snapshot.Hostname
+	snapshotStorage.Username = snapshot.Username
+	snapshotStorage.Directories = snapshot.Directories
+	snapshotStorage.Files = snapshot.Files
+	snapshotStorage.NonRegular = snapshot.NonRegular
+	snapshotStorage.Sums = snapshot.Sums
+	snapshotStorage.Objects = snapshot.Objects
+	snapshotStorage.Chunks = snapshot.Chunks
+	snapshotStorage.Size = snapshot.Size
+	snapshotStorage.RealSize = snapshot.RealSize
 
 	// commit index to transaction
-	jsnapshot, _ := json.Marshal(snapshot)
+	jsnapshot, err := json.Marshal(snapshotStorage)
+	if err != nil {
+		errchan <- err.Error()
+		return err
+	}
 
 	jsnapshot = compression.Deflate(jsnapshot)
 	if snapshot.BackingStore.Configuration().Encrypted != "" {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, jsnapshot)
 		if err != nil {
+			errchan <- err.Error()
 			return err
 		}
 		jsnapshot = tmp
@@ -406,8 +420,12 @@ func (snapshot *Snapshot) Commit() error {
 	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
 
 	// commit transaction to store
-	snapshot.BackingTransaction.Commit(snapshot)
-
+	_, err = snapshot.BackingTransaction.Commit(snapshot)
+	if err != nil {
+		errchan <- err.Error()
+		return err
+	}
+	outchan <- fmt.Sprintf("commit %s: OK", snapshot.Uuid)
 	return nil
 }
 
@@ -418,7 +436,9 @@ func (snapshot *Snapshot) Purge() error {
 
 func (snapshot *Snapshot) IndexGet() (*Object, error) {
 	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
 
+	outchan <- fmt.Sprintf("get index %s", snapshot.Uuid)
 	data, err := snapshot.BackingStore.IndexGet(snapshot.Uuid)
 	if err != nil {
 		return nil, err
@@ -445,7 +465,9 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
 
+	outchan <- fmt.Sprintf("get object %s", checksum)
 	data, err := snapshot.BackingStore.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
@@ -469,9 +491,28 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 	return object, err
 }
 
+func (snapshot *Snapshot) ChunkPut(checksum string, buf []byte) error {
+	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
+
+	buf = compression.Deflate(buf)
+
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
+		tmp, err := encryption.Encrypt(keypair.MasterKey, buf)
+		if err != nil {
+			return nil
+		}
+		buf = tmp
+	}
+	outchan <- fmt.Sprintf("put chunk %s", checksum)
+	return snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
+}
+
 func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
 	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
 
+	outchan <- fmt.Sprintf("get chunk %s", checksum)
 	data, err := snapshot.BackingStore.ChunkGet(checksum)
 	if err != nil {
 		return nil, err

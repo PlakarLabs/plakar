@@ -36,7 +36,6 @@ import (
 var localdir string
 var hostname string
 var storeloc string
-var quiet bool
 var skipKeygen bool
 var nocache bool
 
@@ -66,6 +65,14 @@ func keypairGenerate() ([]byte, error) {
 	return pem, err
 }
 
+func clearline(length int) {
+	buf := make([]byte, length)
+	for i := 0; i < length; i++ {
+		buf[i] = byte(' ')
+	}
+	fmt.Fprintf(os.Stdin, "\r%s", string(buf))
+}
+
 func main() {
 	ctx := plakar.Plakar{}
 
@@ -81,12 +88,45 @@ func main() {
 
 	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
-	flag.BoolVar(&quiet, "quiet", false, "quiet mode")
 	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
 	flag.BoolVar(&nocache, "nocache", false, "do not use local cache")
 	flag.Parse()
 
 	storeloc = fmt.Sprintf("%s/store", localdir)
+
+	progress := true
+
+	doneChannel := make(chan bool)
+	ctx.StdoutChannel = make(chan interface{})
+	ctx.StderrChannel = make(chan interface{})
+	go func() {
+		linesize := 0
+		for {
+			select {
+			case msg, more := <-ctx.StdoutChannel:
+				if !more {
+					doneChannel <- true
+					return
+				}
+				if progress {
+					clearline(linesize)
+					fmt.Printf("\r%s", msg)
+					if len(msg.(string)) > linesize {
+						linesize = len(msg.(string))
+					}
+				}
+
+			case msg := <-ctx.StderrChannel:
+				if progress {
+					clearline(linesize)
+					fmt.Fprintf(os.Stderr, "\r%s\n", msg)
+					if len(msg.(string)) > linesize {
+						linesize = len(msg.(string))
+					}
+				}
+			}
+		}
+	}()
 
 	/* first thing first, initialize a plakar local if none */
 	local.Init(localdir)
@@ -232,4 +272,6 @@ func main() {
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
+	close(ctx.StdoutChannel)
+	<-doneChannel
 }

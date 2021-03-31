@@ -22,6 +22,8 @@ import (
 	"html/template"
 	"math/rand"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -405,20 +407,18 @@ func Ui(store storage.Store) {
 	port := rand.Uint32() % 0xffff
 	fmt.Println("Launched UI on port", port)
 
-	/*
-		url := fmt.Sprintf("http://localhost:%d", port)
-		switch runtime.GOOS {
-		case "linux":
-			err = exec.Command("xdg-open", url).Start()
-		case "windows":
-			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-		case "darwin":
-			err = exec.Command("open", url).Start()
-		default:
-			err = fmt.Errorf("unsupported platform")
-		}
-		_ = err
-	*/
+	url := fmt.Sprintf("http://localhost:%d", port)
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	_ = err
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)

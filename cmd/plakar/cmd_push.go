@@ -41,9 +41,6 @@ func cmd_push(store storage.Store, args []string) {
 
 	err = snapshot.Commit()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
 }

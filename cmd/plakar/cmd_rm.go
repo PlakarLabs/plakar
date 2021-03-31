@@ -53,8 +53,6 @@ func cmd_rm(store storage.Store, args []string) {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 		snapshot.Purge()
-		if !quiet {
-			fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
-		}
+		fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
 	}
 }

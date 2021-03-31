@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -58,6 +57,5 @@ func cmd_pull(store storage.Store, args []string) {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 		snapshot.Pull(dir, pattern)
-		fmt.Printf("%s: OK\n", res[0])
 	}
 }

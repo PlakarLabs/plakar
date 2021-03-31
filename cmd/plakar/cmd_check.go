@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -105,12 +104,6 @@ func cmd_check(store storage.Store, args []string) {
 					continue
 				}
 				cCount += 1
-
-				if !quiet {
-					fmt.Fprintf(os.Stdout, "\r%s: chunks: %2d%%",
-						snapshot.Uuid,
-						(cCount*100)/len(snapshot.Chunks))
-				}
 			}
 
 			oCount := 0
@@ -142,11 +135,6 @@ func cmd_check(store storage.Store, args []string) {
 				}
 
 				oCount += 1
-				if !quiet {
-					fmt.Fprintf(os.Stdout, "\r%s: objects: %2d%%",
-						snapshot.Uuid,
-						(oCount*100)/len(snapshot.Objects))
-				}
 			}
 
 			fCount := 0
@@ -163,34 +151,27 @@ func cmd_check(store storage.Store, args []string) {
 				}
 
 				fCount += 1
-				if !quiet {
-					fmt.Fprintf(os.Stdout, "\r%s: files: %2d%%  ",
-						snapshot.Uuid,
-						(fCount*100)/len(snapshot.Files))
-				}
 			}
 		}
 
-		if !quiet {
-			errors := 0
-			errors += len(missingChunks)
-			errors += len(corruptedChunks)
-			errors += len(missingObjects)
-			errors += len(corruptedObjects)
-			errors += len(unlistedObject)
-			errors += len(unlistedChunk)
-			errors += len(unlistedFile)
+		errors := 0
+		errors += len(missingChunks)
+		errors += len(corruptedChunks)
+		errors += len(missingObjects)
+		errors += len(corruptedObjects)
+		errors += len(unlistedObject)
+		errors += len(unlistedChunk)
+		errors += len(unlistedFile)
 
-			key := snapshot.Uuid
-			if pattern != "" {
-				key = fmt.Sprintf("%s:%s", snapshot.Uuid, pattern)
-			}
+		key := snapshot.Uuid
+		if pattern != "" {
+			key = fmt.Sprintf("%s:%s", snapshot.Uuid, pattern)
+		}
 
-			if errors == 0 {
-				fmt.Fprintf(os.Stdout, "\r%s: OK         \n", key)
-			} else {
-				fmt.Fprintf(os.Stdout, "\r%s: KO         \n", key)
-			}
+		if errors == 0 {
+			store.Context().StdoutChannel <- fmt.Sprintf("%s: OK", key)
+		} else {
+			store.Context().StdoutChannel <- fmt.Sprintf("%s: KO", key)
 		}
 	}
 }

@@ -92,7 +92,7 @@ func list_snapshot(store storage.Store, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		for name, _ := range snapshot.Files {
+		for name := range snapshot.Files {
 			filenames = append(filenames, name)
 		}
 		sort.Slice(filenames, func(i, j int) bool {

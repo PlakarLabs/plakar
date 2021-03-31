@@ -29,7 +29,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 func cmd_init(ctx plakar.Plakar, args []string) {
@@ -45,7 +45,7 @@ func cmd_init(ctx plakar.Plakar, args []string) {
 		for {
 			var keypair *encryption.Keypair
 			fmt.Fprintf(os.Stderr, "passphrase: ")
-			passphrase, _ := terminal.ReadPassword(syscall.Stdin)
+			passphrase, _ := term.ReadPassword(syscall.Stdin)
 			keypair, err := encryption.Keyload(passphrase, ctx.EncryptedKeypair)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\n")

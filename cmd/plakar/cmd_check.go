@@ -177,6 +177,7 @@ func cmd_check(store storage.Store, args []string) {
 			errors += len(corruptedChunks)
 			errors += len(missingObjects)
 			errors += len(corruptedObjects)
+			errors += len(unlistedObject)
 			errors += len(unlistedChunk)
 			errors += len(unlistedFile)
 

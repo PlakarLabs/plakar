@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_version(store repository.Store, args []string) {
+func cmd_version(store storage.Store, args []string) {
 	if len(args) != 0 {
 		log.Fatalf("%s: no parameter expected for version", flag.CommandLine.Name())
 	}

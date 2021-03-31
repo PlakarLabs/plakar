@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 type ServerStore struct {
@@ -36,9 +36,9 @@ type ServerStore struct {
 
 	SkipDirs []string
 
-	BackingStore repository.Store
+	BackingStore storage.Store
 
-	repository.Store
+	storage.Store
 }
 
 type ServerTransaction struct {
@@ -48,16 +48,16 @@ type ServerTransaction struct {
 
 	SkipDirs []string
 
-	BackingTransaction repository.Transaction
+	BackingTransaction storage.Transaction
 
-	repository.Transaction
+	storage.Transaction
 }
 
 func (store *ServerStore) Init() {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
 }
 
-func (store *ServerStore) Transaction() repository.Transaction {
+func (store *ServerStore) Transaction() storage.Transaction {
 	tx := &ServerTransaction{}
 	tx.BackingTransaction = store.BackingStore.Transaction()
 	tx.Uuid = tx.BackingTransaction.Snapshot().Uuid
@@ -67,13 +67,13 @@ func (store *ServerStore) Transaction() repository.Transaction {
 	return tx
 }
 
-func (store *ServerStore) Snapshot(Uuid string) (*repository.Snapshot, error) {
+func (store *ServerStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
 	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot := repository.Snapshot{}
+	snapshot := storage.Snapshot{}
 	return snapshot.FromBuffer(store, index)
 }
 
@@ -97,19 +97,19 @@ func (store *ServerStore) Purge(id string) error {
 	return store.BackingStore.Purge(id)
 }
 
-func (transaction *ServerTransaction) Snapshot() *repository.Snapshot {
-	return &repository.Snapshot{
+func (transaction *ServerTransaction) Snapshot() *storage.Snapshot {
+	return &storage.Snapshot{
 		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
 		Hostname:     "",
 		Username:     "",
-		Directories:  make(map[string]*repository.FileInfo),
-		Files:        make(map[string]*repository.FileInfo),
-		NonRegular:   make(map[string]*repository.FileInfo),
+		Directories:  make(map[string]*storage.FileInfo),
+		Files:        make(map[string]*storage.FileInfo),
+		NonRegular:   make(map[string]*storage.FileInfo),
 		Sums:         make(map[string]string),
-		Objects:      make(map[string]*repository.Object),
-		Chunks:       make(map[string]*repository.Chunk),
+		Objects:      make(map[string]*storage.Object),
+		Chunks:       make(map[string]*storage.Chunk),
 
 		BackingTransaction: transaction,
 		SkipDirs:           transaction.SkipDirs,
@@ -136,11 +136,11 @@ func (transaction *ServerTransaction) IndexPut(buf string) error {
 	return transaction.BackingTransaction.IndexPut(buf)
 }
 
-func (transaction *ServerTransaction) Commit(snapshot *repository.Snapshot) (*repository.Snapshot, error) {
+func (transaction *ServerTransaction) Commit(snapshot *storage.Snapshot) (*storage.Snapshot, error) {
 	return transaction.BackingTransaction.Commit(snapshot)
 }
 
-func Server(host string, store repository.Store) {
+func Server(host string, store storage.Store) {
 	lstore := &ServerStore{}
 	lstore.BackingStore = store
 
@@ -162,8 +162,8 @@ func Server(host string, store repository.Store) {
 			defer conn.Close()
 
 			clientReader := bufio.NewReader(conn)
-			var currentTransaction repository.Transaction
-			var currentSnapshot *repository.Snapshot
+			var currentTransaction storage.Transaction
+			var currentSnapshot *storage.Snapshot
 
 			for {
 				// Waiting for the client request

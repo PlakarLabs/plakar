@@ -23,10 +23,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_check(store repository.Store, args []string) {
+func cmd_check(store storage.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to check", flag.CommandLine.Name())
 	}

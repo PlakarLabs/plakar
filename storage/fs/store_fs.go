@@ -27,15 +27,15 @@ import (
 	"time"
 
 	"github.com/poolpOrg/plakar"
-	"github.com/poolpOrg/plakar/repository"
-	"github.com/poolpOrg/plakar/repository/compression"
+	"github.com/poolpOrg/plakar/compression"
+	"github.com/poolpOrg/plakar/storage"
 
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
 )
 
 type FSStore struct {
-	config repository.StoreConfig
+	config storage.StoreConfig
 
 	Repository string
 	root       string
@@ -44,7 +44,7 @@ type FSStore struct {
 
 	Ctx *plakar.Plakar
 
-	repository.Store
+	storage.Store
 }
 
 type FSTransaction struct {
@@ -54,7 +54,7 @@ type FSTransaction struct {
 
 	SkipDirs []string
 
-	repository.Transaction
+	storage.Transaction
 }
 
 func (store *FSStore) Init() {
@@ -62,7 +62,7 @@ func (store *FSStore) Init() {
 	store.root = store.Repository
 }
 
-func (store *FSStore) Initialize(config repository.StoreConfig) error {
+func (store *FSStore) Initialize(config storage.StoreConfig) error {
 	store.root = store.Repository
 
 	err := os.Mkdir(store.root, 0700)
@@ -107,7 +107,7 @@ func (store *FSStore) Open() error {
 		return err
 	}
 
-	config := repository.StoreConfig{}
+	config := storage.StoreConfig{}
 	err = json.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (store *FSStore) Open() error {
 	return nil
 }
 
-func (store *FSStore) Configuration() repository.StoreConfig {
+func (store *FSStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
@@ -126,7 +126,7 @@ func (store *FSStore) Context() *plakar.Plakar {
 	return store.Ctx
 }
 
-func (store *FSStore) Transaction() repository.Transaction {
+func (store *FSStore) Transaction() storage.Transaction {
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = store
@@ -135,13 +135,13 @@ func (store *FSStore) Transaction() repository.Transaction {
 	return tx
 }
 
-func (store *FSStore) Snapshot(Uuid string) (*repository.Snapshot, error) {
+func (store *FSStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
 	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot := repository.Snapshot{}
+	snapshot := storage.Snapshot{}
 	return snapshot.FromBuffer(store, index)
 }
 
@@ -241,19 +241,19 @@ func (transaction *FSTransaction) prepare() {
 	os.MkdirAll(fmt.Sprintf("%s/objects", transaction.Path()), 0700)
 }
 
-func (transaction *FSTransaction) Snapshot() *repository.Snapshot {
-	return &repository.Snapshot{
+func (transaction *FSTransaction) Snapshot() *storage.Snapshot {
+	return &storage.Snapshot{
 		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
 		Hostname:     transaction.store.Ctx.Hostname,
 		Username:     transaction.store.Ctx.Username,
-		Directories:  make(map[string]*repository.FileInfo),
-		Files:        make(map[string]*repository.FileInfo),
-		NonRegular:   make(map[string]*repository.FileInfo),
+		Directories:  make(map[string]*storage.FileInfo),
+		Files:        make(map[string]*storage.FileInfo),
+		NonRegular:   make(map[string]*storage.FileInfo),
 		Sums:         make(map[string]string),
-		Objects:      make(map[string]*repository.Object),
-		Chunks:       make(map[string]*repository.Chunk),
+		Objects:      make(map[string]*storage.Object),
+		Chunks:       make(map[string]*storage.Chunk),
 
 		BackingTransaction: transaction,
 		BackingStore:       transaction.store,
@@ -426,7 +426,7 @@ func (transaction *FSTransaction) IndexPut(buf string) error {
 	return nil
 }
 
-func (transaction *FSTransaction) Commit(snapshot *repository.Snapshot) (*repository.Snapshot, error) {
+func (transaction *FSTransaction) Commit(snapshot *storage.Snapshot) (*storage.Snapshot, error) {
 	if !transaction.prepared {
 		transaction.prepare()
 	}

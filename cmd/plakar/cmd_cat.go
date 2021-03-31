@@ -22,10 +22,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_cat(store repository.Store, args []string) int {
+func cmd_cat(store storage.Store, args []string) int {
 	flags := flag.NewFlagSet("plakar cat", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,7 +40,7 @@ func cmd_cat(store repository.Store, args []string) int {
 		return 1
 	}
 
-	mapSnapshots := make(map[string]*repository.Snapshot)
+	mapSnapshots := make(map[string]*storage.Snapshot)
 
 	errors := 0
 	for i := 0; i < len(args); i++ {

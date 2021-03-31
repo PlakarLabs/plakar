@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package repository
+package storage
 
 import (
 	"crypto/sha256"
@@ -26,8 +26,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/poolpOrg/plakar/repository/compression"
-	"github.com/poolpOrg/plakar/repository/encryption"
+	"github.com/poolpOrg/plakar/compression"
+	"github.com/poolpOrg/plakar/encryption"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"

@@ -25,12 +25,12 @@ import (
 	"strings"
 
 	"github.com/poolpOrg/plakar"
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/repository"
-	"github.com/poolpOrg/plakar/repository/client"
-	"github.com/poolpOrg/plakar/repository/encryption"
-	"github.com/poolpOrg/plakar/repository/fs"
-	"github.com/poolpOrg/plakar/repository/local"
+	"github.com/poolpOrg/plakar/local"
+	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/client"
+	"github.com/poolpOrg/plakar/storage/fs"
 )
 
 var localdir string
@@ -88,7 +88,7 @@ func main() {
 
 	storeloc = fmt.Sprintf("%s/store", localdir)
 
-	/* first thing first, initialize a plakar repository if none */
+	/* first thing first, initialize a plakar local if none */
 	local.Init(localdir)
 
 	if !nocache {
@@ -147,7 +147,7 @@ func main() {
 		return
 	}
 
-	var store repository.Store
+	var store storage.Store
 	if strings.HasPrefix(storeloc, "plakar://") {
 		pstore := &client.ClientStore{}
 		pstore.Ctx = &ctx

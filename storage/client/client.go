@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar"
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 type ClientStore struct {
@@ -40,7 +40,7 @@ type ClientStore struct {
 	conn         net.Conn
 	serverReader *bufio.Reader
 
-	repository.Store
+	storage.Store
 }
 
 type ClientTransaction struct {
@@ -50,7 +50,7 @@ type ClientTransaction struct {
 
 	SkipDirs []string
 
-	repository.Transaction
+	storage.Transaction
 }
 
 func (store *ClientStore) Init() {
@@ -69,7 +69,7 @@ func (store *ClientStore) Context() *plakar.Plakar {
 	return store.Ctx
 }
 
-func (store *ClientStore) Transaction() repository.Transaction {
+func (store *ClientStore) Transaction() storage.Transaction {
 
 	store.conn.Write([]byte("Transaction\n"))
 	data, _ := store.serverReader.ReadBytes('\n')
@@ -88,13 +88,13 @@ func (store *ClientStore) Transaction() repository.Transaction {
 	return tx
 }
 
-func (store *ClientStore) Snapshot(Uuid string) (*repository.Snapshot, error) {
+func (store *ClientStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
 	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshot := repository.Snapshot{}
+	snapshot := storage.Snapshot{}
 	return snapshot.FromBuffer(store, index)
 }
 
@@ -176,19 +176,19 @@ func (store *ClientStore) Purge(id string) error {
 	return result.Error
 }
 
-func (transaction *ClientTransaction) Snapshot() *repository.Snapshot {
-	return &repository.Snapshot{
+func (transaction *ClientTransaction) Snapshot() *storage.Snapshot {
+	return &storage.Snapshot{
 		Uuid:         transaction.Uuid,
 		CreationTime: time.Now(),
 		Version:      "0.1.0",
 		Hostname:     transaction.store.Ctx.Hostname,
 		Username:     transaction.store.Ctx.Username,
-		Directories:  make(map[string]*repository.FileInfo),
-		Files:        make(map[string]*repository.FileInfo),
-		NonRegular:   make(map[string]*repository.FileInfo),
+		Directories:  make(map[string]*storage.FileInfo),
+		Files:        make(map[string]*storage.FileInfo),
+		NonRegular:   make(map[string]*storage.FileInfo),
 		Sums:         make(map[string]string),
-		Objects:      make(map[string]*repository.Object),
-		Chunks:       make(map[string]*repository.Chunk),
+		Objects:      make(map[string]*storage.Object),
+		Chunks:       make(map[string]*storage.Chunk),
 
 		BackingTransaction: transaction,
 		BackingStore:       transaction.store,
@@ -282,7 +282,7 @@ func (transaction *ClientTransaction) IndexPut(buf string) error {
 	return result.Error
 }
 
-func (transaction *ClientTransaction) Commit(snapshot *repository.Snapshot) (*repository.Snapshot, error) {
+func (transaction *ClientTransaction) Commit(snapshot *storage.Snapshot) (*storage.Snapshot, error) {
 	store := transaction.store
 
 	store.conn.Write([]byte("Commit\n"))

@@ -17,8 +17,8 @@
 package plakar
 
 import (
-	"github.com/poolpOrg/plakar/repository/encryption"
-	"github.com/poolpOrg/plakar/repository/local"
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/local"
 )
 
 type Plakar struct {

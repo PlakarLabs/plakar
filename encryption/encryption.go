@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/repository/compression"
+	"github.com/poolpOrg/plakar/compression"
 	"golang.org/x/crypto/pbkdf2"
 )
 

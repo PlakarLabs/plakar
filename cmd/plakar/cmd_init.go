@@ -25,10 +25,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar"
-	"github.com/poolpOrg/plakar/repository"
-	"github.com/poolpOrg/plakar/repository/client"
-	"github.com/poolpOrg/plakar/repository/encryption"
-	"github.com/poolpOrg/plakar/repository/fs"
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/client"
+	"github.com/poolpOrg/plakar/storage/fs"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -39,7 +39,7 @@ func cmd_init(ctx plakar.Plakar, args []string) {
 	flags.BoolVar(&cleartext, "cleartext", false, "disable transparent encryption")
 	flags.Parse(args)
 
-	storeConfig := repository.StoreConfig{}
+	storeConfig := storage.StoreConfig{}
 	storeConfig.Uuid = uuid.NewString()
 	if !cleartext {
 		for {
@@ -78,8 +78,8 @@ func cmd_init(ctx plakar.Plakar, args []string) {
 	}
 }
 
-func initializeStore(ctx plakar.Plakar, storeLocation string, storeConfig repository.StoreConfig) error {
-	var nstore repository.Store
+func initializeStore(ctx plakar.Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
+	var nstore storage.Store
 	if strings.HasPrefix(storeLocation, "plakar://") {
 		pstore := &client.ClientStore{}
 		pstore.Ctx = &ctx

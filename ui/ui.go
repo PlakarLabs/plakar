@@ -26,10 +26,10 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-var lstore repository.Store
+var lstore storage.Store
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -54,7 +54,7 @@ var templates map[string]*template.Template
 func viewStore(w http.ResponseWriter, r *http.Request) {
 	snapshots, _ := lstore.Snapshots()
 
-	snapshotsList := make([]*repository.Snapshot, 0)
+	snapshotsList := make([]*storage.Snapshot, 0)
 	for _, id := range snapshots {
 		snapshot, err := lstore.Snapshot(id)
 		if err != nil {
@@ -68,14 +68,14 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
 	})
 
-	res := make([]*repository.SnapshotSummary, 0)
+	res := make([]*storage.SnapshotSummary, 0)
 	for _, snapshot := range snapshotsList {
-		res = append(res, repository.SnapshotToSummary(snapshot))
+		res = append(res, storage.SnapshotToSummary(snapshot))
 	}
 
 	ctx := &struct {
-		Store     repository.StoreConfig
-		Snapshots []*repository.SnapshotSummary
+		Store     storage.StoreConfig
+		Snapshots []*storage.SnapshotSummary
 	}{
 		lstore.Configuration(),
 		res,
@@ -119,7 +119,7 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 	})
 
 	ctx := &struct {
-		Snapshot *repository.Snapshot
+		Snapshot *storage.Snapshot
 		Roots    []string
 	}{snapshot, rootsList}
 
@@ -146,7 +146,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	directories := make([]*repository.FileInfo, 0)
+	directories := make([]*storage.FileInfo, 0)
 	for directory, fi := range snapshot.Directories {
 		if directory == path+"/" {
 			continue
@@ -164,7 +164,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(directories[i].Name, directories[j].Name) < 0
 	})
 
-	files := make([]*repository.FileInfo, 0)
+	files := make([]*storage.FileInfo, 0)
 	for file, fi := range snapshot.Files {
 		if !strings.HasPrefix(file, path) {
 			continue
@@ -199,9 +199,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Snapshot    *repository.Snapshot
-		Directories []*repository.FileInfo
-		Files       []*repository.FileInfo
+		Snapshot    *storage.Snapshot
+		Directories []*storage.FileInfo
+		Files       []*storage.FileInfo
 		Root        string
 		Path        string
 		Navigation  []string
@@ -258,9 +258,9 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Snapshot     *repository.Snapshot
-		Object       *repository.Object
-		Info         *repository.FileInfo
+		Snapshot     *storage.Snapshot
+		Object       *storage.Object
+		Info         *storage.FileInfo
 		Root         string
 		Path         string
 		Navigation   []string
@@ -307,7 +307,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	snapshotsList := make([]*repository.Snapshot, 0)
+	snapshotsList := make([]*storage.Snapshot, 0)
 	for _, id := range snapshots {
 		snapshot, err := lstore.Snapshot(id)
 		if err != nil {
@@ -367,7 +367,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store repository.Store) {
+func Ui(store storage.Store) {
 	lstore = store
 
 	templates = make(map[string]*template.Template)

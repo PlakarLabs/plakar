@@ -26,10 +26,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func fiToDiff(fi repository.FileInfo) string {
+func fiToDiff(fi storage.FileInfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 	username := fmt.Sprintf("%d", fi.Uid)
 	if err == nil {
@@ -50,7 +50,7 @@ func fiToDiff(fi repository.FileInfo) string {
 		fi.ModTime.UTC())
 }
 
-func cmd_diff(store repository.Store, args []string) {
+func cmd_diff(store storage.Store, args []string) {
 	if len(args) < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
@@ -175,7 +175,7 @@ func cmd_diff(store repository.Store, args []string) {
 
 }
 
-func diff_files(snapshot1 *repository.Snapshot, snapshot2 *repository.Snapshot, filename1 string, filename2 string) {
+func diff_files(snapshot1 *storage.Snapshot, snapshot2 *storage.Snapshot, filename1 string, filename2 string) {
 	sum1, ok1 := snapshot1.Sums[filename1]
 	sum2, ok2 := snapshot2.Sums[filename2]
 

@@ -20,11 +20,11 @@ import (
 	"flag"
 	"log"
 
-	"github.com/poolpOrg/plakar/repository"
-	"github.com/poolpOrg/plakar/repository/server"
+	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/server"
 )
 
-func cmd_server(store repository.Store, args []string) {
+func cmd_server(store storage.Store, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need a hostname/IP:port to listen on", flag.CommandLine.Name())
 	}

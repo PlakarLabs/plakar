@@ -28,10 +28,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/repository"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_ls(store repository.Store, args []string) {
+func cmd_ls(store storage.Store, args []string) {
 	if len(args) == 0 {
 		list_snapshots(store)
 		return
@@ -40,13 +40,13 @@ func cmd_ls(store repository.Store, args []string) {
 	list_snapshot(store, args)
 }
 
-func list_snapshots(store repository.Store) {
+func list_snapshots(store storage.Store) {
 	snapshots, err := store.Snapshots()
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	snapshotsList := make([]*repository.Snapshot, 0)
+	snapshotsList := make([]*storage.Snapshot, 0)
 	for _, Uuid := range snapshots {
 		snapshot, err := store.Snapshot(Uuid)
 		if err != nil {
@@ -58,7 +58,6 @@ func list_snapshots(store repository.Store) {
 	helpers.SnapshotsSortedByDate(snapshotsList)
 
 	for _, snapshot := range snapshotsList {
-
 		fmt.Fprintf(os.Stdout, "%s [%s] (size: %s, files: %d, dirs: %d)\n",
 			snapshot.Uuid,
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
@@ -68,7 +67,7 @@ func list_snapshots(store repository.Store) {
 	}
 }
 
-func list_snapshot(store repository.Store, args []string) {
+func list_snapshot(store storage.Store, args []string) {
 	snapshots, err := store.Snapshots()
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())

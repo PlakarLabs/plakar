@@ -82,7 +82,6 @@ func cmd_tarball(store repository.Store, args []string) {
 				continue
 			}
 
-			fmt.Fprintf(os.Stderr, "adding %s\n", file)
 			obj := snapshot.Objects[checksum]
 			for _, chunk := range obj.Chunks {
 				data, err := snapshot.ChunkGet(chunk.Checksum)
@@ -91,7 +90,6 @@ func cmd_tarball(store repository.Store, args []string) {
 					continue
 				}
 
-				fmt.Fprintf(os.Stderr, "%s", data)
 				_, err = io.WriteString(tarWriter, string(data))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "could not write file %s\n", file)

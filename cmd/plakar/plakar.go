@@ -36,7 +36,6 @@ import (
 var localdir string
 var hostname string
 var storeloc string
-var skipKeygen bool
 var nocache bool
 var outputLog string
 
@@ -89,7 +88,6 @@ func main() {
 
 	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
-	flag.BoolVar(&skipKeygen, "skip-keygen", false, "skip keypair generation")
 	flag.StringVar(&outputLog, "log", "", "show progress")
 
 	if outputLog != "" && outputLog != "full" && outputLog != "progress" {
@@ -147,7 +145,7 @@ func main() {
 
 	/* load keypair from plakar */
 	encryptedKeypair, err := local.GetEncryptedKeypair(localdir)
-	if err != nil && !skipKeygen {
+	if err != nil {
 		if !os.IsNotExist(err) {
 			fmt.Println(err)
 			os.Exit(1)

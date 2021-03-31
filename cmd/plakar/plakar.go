@@ -23,15 +23,14 @@ import (
 	"os"
 	"os/user"
 	"strings"
-	"syscall"
 
 	"github.com/poolpOrg/plakar"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/repository"
 	"github.com/poolpOrg/plakar/repository/client"
 	"github.com/poolpOrg/plakar/repository/encryption"
 	"github.com/poolpOrg/plakar/repository/fs"
 	"github.com/poolpOrg/plakar/repository/local"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 var localdir string
@@ -49,20 +48,16 @@ func keypairGenerate() ([]byte, error) {
 		return nil, err
 	}
 
-	passphrase := []byte("")
+	var passphrase []byte
 	for {
-		fmt.Printf("passphrase: ")
-		passphrase1, _ := terminal.ReadPassword(syscall.Stdin)
-		fmt.Printf("\npassphrase (confirm): ")
-		passphrase2, _ := terminal.ReadPassword(syscall.Stdin)
-		if string(passphrase1) != string(passphrase2) {
-			fmt.Printf("\npassphrases mismatch, try again.\n")
+		passphrase, err = helpers.GetPassphraseConfirm()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			continue
 		}
-		fmt.Printf("\n")
-		passphrase = passphrase1
 		break
 	}
+
 	pem, err := keypair.Encrypt(passphrase)
 	if err != nil {
 		return nil, err
@@ -180,15 +175,17 @@ func main() {
 	if store.Configuration().Encrypted != "" {
 		var keypair *encryption.Keypair
 		for {
-			fmt.Fprintf(os.Stderr, "passphrase: ")
-			passphrase, _ := terminal.ReadPassword(syscall.Stdin)
-			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			passphrase, err := helpers.GetPassphrase()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\n")
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+
+			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
 			break
 		}
 		ctx.Keypair = keypair

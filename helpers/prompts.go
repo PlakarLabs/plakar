@@ -22,12 +22,12 @@ import (
 	"os"
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 func GetPassphrase() ([]byte, error) {
 	fmt.Fprintf(os.Stderr, "passphrase: ")
-	passphrase, err := terminal.ReadPassword(syscall.Stdin)
+	passphrase, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {
 		return nil, err
@@ -37,14 +37,14 @@ func GetPassphrase() ([]byte, error) {
 
 func GetPassphraseConfirm() ([]byte, error) {
 	fmt.Fprintf(os.Stderr, "passphrase: ")
-	passphrase1, err := terminal.ReadPassword(syscall.Stdin)
+	passphrase1, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Fprintf(os.Stderr, "passphrase (confirm): ")
-	passphrase2, err := terminal.ReadPassword(syscall.Stdin)
+	passphrase2, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {
 		return nil, err

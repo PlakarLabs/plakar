@@ -22,6 +22,8 @@ import (
 )
 
 type Plakar struct {
+	Localdir string
+
 	Hostname string
 	Username string
 

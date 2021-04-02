@@ -96,8 +96,18 @@ func main() {
 	}
 
 	flag.Parse()
+	if len(flag.Args()) == 0 {
+		log.Fatalf("%s: missing command", flag.CommandLine.Name())
+	}
+
+	command, args := flag.Arg(0), flag.Args()[1:]
 
 	storeloc = fmt.Sprintf("%s/store", localdir)
+
+	/* PlakarCTX */
+	ctx.Localdir = localdir
+	ctx.Hostname = strings.ToLower(hostname)
+	ctx.Username = pwUser.Username
 
 	doneChannel := make(chan bool)
 	ctx.StdoutChannel = make(chan interface{})
@@ -138,43 +148,41 @@ func main() {
 
 	/* first thing first, initialize a plakar local if none */
 	local.Init(localdir)
-
 	if !nocache {
 		ctx.Cache = &local.Cache{}
+	}
+
+	/* keygen command needs to be handled very early */
+	if command == "keygen" {
+		err = cmd_keygen(ctx, args)
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	/* load keypair from plakar */
 	encryptedKeypair, err := local.GetEncryptedKeypair(localdir)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			fmt.Println(err)
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "key not found, run `plakar keygen`\n")
+			os.Exit(1)
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 			os.Exit(1)
 		}
-
-		fmt.Println("generating plakar keypair")
-		encryptedKeypair, err = keypairGenerate()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		err = local.SetEncryptedKeypair(localdir, encryptedKeypair)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		fmt.Println("keypair saved to local store")
 	}
-
-	/* PlakarCTX */
-	ctx.Hostname = strings.ToLower(hostname)
-	ctx.Username = pwUser.Username
 	ctx.EncryptedKeypair = encryptedKeypair
 
-	if len(flag.Args()) == 0 {
-		log.Fatalf("%s: missing command", flag.CommandLine.Name())
+	// init command needs to be handled early _after_ key is available
+	if command == "init" {
+		cmd_init(ctx, args)
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
-	command, args := flag.Arg(0), flag.Args()[1:]
 	if len(args) > 1 {
 		if command == "push" {
 			if args[len(args)-2] == "to" {
@@ -187,12 +195,6 @@ func main() {
 				args = args[:len(args)-2]
 			}
 		}
-	}
-
-	if command == "init" {
-		/* special handling for init */
-		cmd_init(ctx, args)
-		return
 	}
 
 	var store storage.Store

@@ -267,9 +267,6 @@ func main() {
 	case "server":
 		cmd_server(store, args)
 
-		//	case "sync":
-		//		cmd_sync(store, args)
-
 	case "tarball":
 		cmd_tarball(store, args)
 

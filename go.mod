@@ -12,6 +12,7 @@ require (
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/restic/chunker v0.4.0
+	github.com/schollz/progressbar/v3 v3.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
+	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 )

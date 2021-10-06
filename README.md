@@ -1,6 +1,17 @@
 # plakar
 
-THIS IS WORK IN PROGRESS, DO NOT USE, YOU WILL LOSE STUFF
+THIS IS WORK IN PROGRESS, DO NOT USE IN PLACE OF YOUR REGULAR BACKUPS.
+
+DO YOU PLAN TO USE IT ?
+- NO: GOOD, CONTINUE NOT USING IT.
+- YES: PLEASE, DO NOT USE IT.
+
+JUST IN CASE,
+HERE IS A FLOW CHART TO BETTER EXPLAIN VALID CURRENT USE-CASES:
+
+    +-----------------------+        +----+
+    | SHOULD I USE PLAKAR ? | -----> | NO |
+    +-----------------------+        +----+
 
 
 ## Quickstart
@@ -19,11 +30,10 @@ $ go get github.com/poolpOrg/plakar/cmd/plakar
 
 ### Pushing snapshots
 
-`plakar` works by creating a snapshot of filesystem hierachies and storing them in an efficient way.
+`plakar` works by creating a snapshot of filesystem hierachies and storing them efficiently.
 
 ```sh
 $ plakar push /private/etc
-[...]
 $
 ```
 
@@ -34,7 +44,7 @@ Available snapshots are identified by UUID identifiers and can be listed:
 
 ```sh
 $ plakar ls
-2a10351a-4ec5-48b1-9827-07e36c6a0ecb [2021-03-22T22:36:22Z] (size: 3.2 MB, files: 230, dirs: 38)
+2021-10-05T20:21:46Z 031bd6e6-cf48-49b8-a3e0-af7160239e7e 3.1 MB (files: 248, dirs: 42)
 $
 ```
 
@@ -44,8 +54,6 @@ Each snapshot can be restored with a single command:
 
 ```sh
 $ plakar pull 2a10351a-4ec5-48b1-9827-07e36c6a0ecb
-Restored directories: 38/38 (100%)
-Restored files: 230/230 (100%)
 $ ls -ld private/etc/
 drwxr-xr-x  78 gilles  staff  2496 22 Mar 23:40 private/etc/
 $
@@ -63,9 +71,10 @@ a user may provide the first characters and `plakar` will complete the missing p
 
 ```
 $ plakar ls
-b1ac527d-22b1-4965-a90c-6266f77c5fcf [2021-03-22T23:17:14Z] (size: 12 MB, files: 36, dirs: 1)
-$ plakar check b
-b1ac527d-22b1-4965-a90c-6266f77c5fcf: OK 
+2021-10-05T20:21:46Z 031bd6e6-cf48-49b8-a3e0-af7160239e7e 3.1 MB (files: 248, dirs: 42)
+$ plakar check 03
+$ echo $?
+0
 $
 ```
 
@@ -74,12 +83,11 @@ an error will be emitted to ensure an unambiguous identifier is provided:
 
 ```
 $ plakar ls
-b1ac527d-22b1-4965-a90c-6266f77c5fcf [2021-03-22T23:17:14Z] (size: 12 MB, files: 36, dirs: 1)
-b02c4c5d-4a32-4cb6-a29e-f81d82ddc451 [2021-03-22T23:19:04Z] (size: 12 MB, files: 36, dirs: 1)
-$ plakar check b 
-2021/03/23 00:21:43 plakar: snapshot ID is ambigous: b (matches 2 snapshots)
-$ plakar check b1
-b1ac527d-22b1-4965-a90c-6266f77c5fcf: OK           
+2021-03-22T23:19:04Z 031bd6e6-cf48-49b8-a3e0-af7160239e7e 3.1 MB (files: 248, dirs: 42)
+2021-10-05T20:21:46Z 032c4c5d-4a32-4cb6-a29e-f81d82ddc451 3.1 MB (files: 248, dirs: 42)
+$ plakar check 03
+2021/03/23 00:21:43 plakar: snapshot ID is ambigous: 03 (matches 2 snapshots)
+$ plakar check 031
 $ 
 ```
 
@@ -221,10 +229,6 @@ $ plakar ls
 2c6c2736-ae9b-40d6-9fd9-a725a3919d9e [2021-03-22T22:58:35Z] (size: 3.2 MB, files: 230, dirs: 38)
 58b02fad-bfec-42af-92c9-200cf49640d5 [2021-03-22T23:05:32Z] (size: 20 MB, files: 77, dirs: 2)
 $ plakar rm 2a 37 2c 58
-2a10351a-4ec5-48b1-9827-07e36c6a0ecb: OK
-37dbc2df-5e2c-47ba-9f59-9bc3b811f1f6: OK
-2c6c2736-ae9b-40d6-9fd9-a725a3919d9e: OK
-58b02fad-bfec-42af-92c9-200cf49640d5: OK
 $ plakar ls
 $
 ```

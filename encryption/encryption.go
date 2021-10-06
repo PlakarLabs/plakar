@@ -34,9 +34,10 @@ import (
 )
 
 func Keygen() (*Keypair, error) {
-	pubkeyCurve := elliptic.P384() //see http://golang.org/pkg/crypto/elliptic/#P256
+	//see http://golang.org/pkg/crypto/elliptic/#P256
+	pubkeyCurve := elliptic.P384()
 
-	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader) // this generates a public & private key pair
+	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,8 @@
 
 THIS IS WORK IN PROGRESS, DO NOT USE IN PLACE OF YOUR REGULAR BACKUPS.
 
+IT IS NOT ALPHA, IT IS NOT EVEN PRE-ALPHA, IT IS PRE-BIGBANG.
+
 DO YOU PLAN TO USE IT ?
 - NO: GOOD, CONTINUE NOT USING IT.
 - YES: PLEASE, DO NOT USE IT.
@@ -12,6 +14,16 @@ HERE IS A FLOW CHART TO BETTER EXPLAIN VALID CURRENT USE-CASES:
     +-----------------------+        +----+
     | SHOULD I USE PLAKAR ? | -----> | NO |
     +-----------------------+        +----+
+
+
+## TODO
+
+- general cleanup as this is my first real Go project
+- replace 'to' & 'from' with 'on' in the CLI
+- re-implement server and client properly
+- currently there is no cache whatsoever, performances are not ok
+- implement a nice search engine
+- improve the UI
 
 
 ## Quickstart

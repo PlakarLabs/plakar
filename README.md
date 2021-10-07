@@ -19,7 +19,6 @@ HERE IS A FLOW CHART TO BETTER EXPLAIN VALID CURRENT USE-CASES:
 ## TODO
 
 - general cleanup as this is my first real Go project
-- replace 'to' & 'from' with 'on' in the CLI
 - re-implement server and client properly
 - currently there is no cache whatsoever, performances are not ok
 - implement a nice search engine
@@ -86,10 +85,10 @@ simply by providing a path to the plakar `init` subcommand:
 ```
 $ mkdir ~/plakars
 
-$ plakar init -cleartext ~/plakars/one
+$ plakar on ~/plakars/one init -cleartext
 /Users/gilles/plakars/one: store initialized
 
-$ plakar init ~/plakars/two
+$ plakar on ~/plakars/two init
 passphrase: 
 /Users/gilles/plakars/two: store initialized
 
@@ -104,11 +103,11 @@ including `server`,
 support working on alternate plakars.
 
 Whenever a non-default plakar is used,
-it should be noted on the command line with `from` or `to`:
+it should be noted on the command line with `on`:
 
 ```
-$ plakar push /bin to ~/plakars/one
-$ plakar ls from ~/plakars/one
+$ plakar on ~/plakars/one push /bin
+$ plakar on ~/plakars/one ls
 2021-10-06T20:15:17Z f1ab2ffc-eedc-47bd-ae8c-8283e6e4cd79 10 MB (files: 36, dirs: 1)
 $ 
 ```

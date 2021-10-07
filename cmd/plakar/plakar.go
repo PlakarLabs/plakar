@@ -104,7 +104,7 @@ func main() {
 	storeloc = fmt.Sprintf("%s/store", localdir)
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
-			log.Fatalf("%s: missing plakar repository")
+			log.Fatalf("%s: missing plakar repository", flag.CommandLine.Name())
 		}
 		if len(flag.Args()) < 3 {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())

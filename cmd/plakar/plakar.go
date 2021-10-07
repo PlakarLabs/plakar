@@ -101,8 +101,17 @@ func main() {
 	}
 
 	command, args := flag.Arg(0), flag.Args()[1:]
-
 	storeloc = fmt.Sprintf("%s/store", localdir)
+	if flag.Arg(0) == "on" {
+		if len(flag.Args()) < 2 {
+			log.Fatalf("%s: missing plakar repository")
+		}
+		if len(flag.Args()) < 3 {
+			log.Fatalf("%s: missing command", flag.CommandLine.Name())
+		}
+		storeloc = flag.Arg(1)
+		command, args = flag.Arg(2), flag.Args()[3:]
+	}
 
 	/* PlakarCTX */
 	ctx.Localdir = localdir
@@ -181,20 +190,6 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(0)
-	}
-
-	if len(args) > 1 {
-		if command == "push" {
-			if args[len(args)-2] == "to" {
-				storeloc = args[len(args)-1]
-				args = args[:len(args)-2]
-			}
-		} else {
-			if args[len(args)-2] == "from" {
-				storeloc = args[len(args)-1]
-				args = args[:len(args)-2]
-			}
-		}
 	}
 
 	var store storage.Store

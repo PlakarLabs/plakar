@@ -430,7 +430,6 @@ func (snapshot *Snapshot) Commit() error {
 }
 
 func (snapshot *Snapshot) Purge() error {
-	_ = snapshot.BackingStore.Context().Keypair.MasterKey
 	return snapshot.BackingStore.Purge(snapshot.Uuid)
 }
 

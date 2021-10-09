@@ -266,6 +266,28 @@ $ plakar diff b3 a0 /private/etc/group
 $
 ```
 
+### find
+
+The `find` subcommand is used to list snapshots containing a specific file or directory,
+without restoring them.
+
+```
+$ plakar ls
+2021-10-06T19:46:58Z b3bdb2b0-115a-4198-93a4-976edf883eb5 3.1 MB (files: 248, dirs: 42)
+2021-10-06T19:49:51Z b68a8f07-da5e-4b01-bd1a-78aa8156f871 3.1 MB (files: 248, dirs: 42)
+2021-10-06T19:55:19Z 45509672-f314-431a-9999-5a9eaa09a98b 3.1 MB (files: 249, dirs: 42)
+$ plakar find etc
+b3bdb2b0-115a-4198-93a4-976edf883eb5:  drwxr-xr-x     root    wheel   2.9 kB /private/etc/
+b68a8f07-da5e-4b01-bd1a-78aa8156f871:  drwxr-xr-x     root    wheel   2.9 kB /private/etc/
+45509672-f314-431a-9999-5a9eaa09a98b:  drwxr-xr-x     root    wheel   2.9 kB /private/etc/
+$ plakar find group
+b3bdb2b0-115a-4198-93a4-976edf883eb5: 4910bfe2b7e551c4e2085b12c36941d1e1063491b7292cb0dbca7c5fe0854be5 -rw-r--r--     root    wheel   3.2 kB /private/etc/group
+b68a8f07-da5e-4b01-bd1a-78aa8156f871: 4910bfe2b7e551c4e2085b12c36941d1e1063491b7292cb0dbca7c5fe0854be5 -rw-r--r--     root    wheel   3.2 kB /private/etc/group
+45509672-f314-431a-9999-5a9eaa09a98b: 4910bfe2b7e551c4e2085b12c36941d1e1063491b7292cb0dbca7c5fe0854be5 -rw-r--r--     root    wheel   3.2 kB /private/etc/group
+$
+```
+
+
 ### ls
 
 The `ls` subcommand is used to list snapshots or resources within snapshots,

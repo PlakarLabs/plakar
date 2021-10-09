@@ -247,6 +247,9 @@ func main() {
 	case "diff":
 		cmd_diff(store, args)
 
+	case "find":
+		cmd_find(store, args)
+
 	case "ls":
 		cmd_ls(store, args)
 

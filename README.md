@@ -288,6 +288,18 @@ $
 ```
 
 
+### key
+
+The `key` subcommand is used to perform key related operations,
+such as exporting a keypair:
+
+```
+$ plakar key export
+passphrase: 
+Bc00U2sSSHU4jHylDwTkQW2EQRvSk64SitC8RmvEeJoX+Y15bM/LEePRxWZgLuYM1Ca/RKorujq/q3l23DGr/MpMrit3d5Unj2iPC2e/hMmLcpoAEnCD6p4x9Ohb4n24+ryzbVzmBmrkRf6b8tVAtNYDOJ+iKkF1/hXyg9qLTSTcS87H4KK/B2h6fXQ4EXtHlZsY8jUWfXIx26GBdHsu7++Zo1L2knJVjh/RITc8NXXg+fngmacbMOW4CIAHpYxg0ZLgGdCm3+HkhwBIxijMF1eIPeyDlgwJLVtQWckB4hqeR4TkyK5JQ8R/zOpPnal0P/syiJVlkiHgHRt5MutUNDQLw3EMOam4XskwzHWa8olDdIRUDBPTR1n7faAgYNb7UOUwgmnifeg3CXobxneSFXW6MPgJCBHn5uaJbVkpKHVY0431pm4qMJ++uW2Sq3B/RJIOJltF75P3EMXOQAL9JYmVVdSEuuDC9ggaUyXbhXN7TSIq9t6Urw/z4889lCh5mF1g/VocXQ3tM+7zio8rG7z8YqcYyveclVrMuEpoxjCCjzSOq1kZcG6Id0I61/1d3W9y2W/NQnvWnFx8GrgGFJPDornJ52T8n8e+iIJK/AxVTB70W00QnyQ/55zaCRr0zZNrJd2p+uU8eNh1jqnxMPVOG8+la5tZjCkIlJUc05ntqUa4YvKBC30=
+```
+
+
 ### ls
 
 The `ls` subcommand is used to list snapshots or resources within snapshots,

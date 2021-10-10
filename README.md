@@ -71,10 +71,10 @@ $
 
 It may be desirable to create unencrypted plakar repositories,
 particularly for a default local plakar,
-the `-cleartext` option may be used in this case:
+the `-no-encryption` option may be used in this case:
 
 ```
-$ plakar init -cleartext
+$ plakar init -no-encryption
 /Users/gilles/.plakar/store: store initialized
 $
 ```
@@ -85,7 +85,7 @@ simply by providing a path to the plakar `init` subcommand:
 ```
 $ mkdir ~/plakars
 
-$ plakar on ~/plakars/one init -cleartext
+$ plakar on ~/plakars/one init -no-encryption
 /Users/gilles/plakars/one: store initialized
 
 $ plakar on ~/plakars/two init

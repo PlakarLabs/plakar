@@ -59,8 +59,9 @@ type Transaction interface {
 }
 
 type StoreConfig struct {
-	Uuid      string
-	Encrypted string
+	Uuid       string
+	Encrypted  string
+	Compressed string
 }
 
 type FileInfo struct {

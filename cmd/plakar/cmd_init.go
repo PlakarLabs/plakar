@@ -33,15 +33,22 @@ import (
 )
 
 func cmd_init(ctx plakar.Plakar, args []string) {
-	var cleartext bool
+	var no_encryption bool
+	var no_compression bool
 
 	flags := flag.NewFlagSet("plakar init", flag.ExitOnError)
-	flags.BoolVar(&cleartext, "cleartext", false, "disable transparent encryption")
+	flags.BoolVar(&no_encryption, "no-encryption", false, "disable transparent encryption")
+	flags.BoolVar(&no_compression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
 
 	storeConfig := storage.StoreConfig{}
 	storeConfig.Uuid = uuid.NewString()
-	if !cleartext {
+	if no_compression {
+		storeConfig.Compressed = ""
+	} else {
+		storeConfig.Compressed = "gzip"
+	}
+	if !no_encryption {
 		for {
 			var keypair *encryption.Keypair
 			fmt.Fprintf(os.Stderr, "passphrase: ")

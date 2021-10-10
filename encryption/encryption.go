@@ -75,6 +75,7 @@ func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
 	}
 
 	skeypair := &SerializedKeypair{}
+	skeypair.CreationTime = keypair.CreationTime
 	skeypair.Uuid = keypair.Uuid
 	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(x509priv)
 	skeypair.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
@@ -112,6 +113,7 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 	publicKey := genericPublicKey.(*ecdsa.PublicKey)
 
 	nkeypair := &Keypair{}
+	nkeypair.CreationTime = skeypair.CreationTime
 	nkeypair.Uuid = skeypair.Uuid
 	nkeypair.PrivateKey = privateKey
 	nkeypair.PublicKey = publicKey

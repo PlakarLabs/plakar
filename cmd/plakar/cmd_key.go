@@ -51,6 +51,24 @@ func cmd_key(store storage.Store, args []string) int {
 		}
 		fmt.Println(base64.StdEncoding.EncodeToString([]byte(keypair)))
 
+	case "info":
+		if store.Configuration().Encrypted == "" {
+			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
+			return 1
+		}
+
+		skeypair, err := store.Context().Keypair.Serialize()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not serialize keypair\n", flag.CommandLine.Name())
+			return 1
+		}
+
+		fmt.Println("Uuid:", skeypair.Uuid)
+		fmt.Println("CreationTime:", skeypair.CreationTime)
+		fmt.Println("Master:", skeypair.MasterKey)
+		fmt.Println("Private:", skeypair.PrivateKey)
+		fmt.Println("Public:", skeypair.PublicKey)
+
 	default:
 		fmt.Fprintf(os.Stderr, "%s: unknown subcommand: %s\n", flag.CommandLine.Name(), cmd)
 		return 1

@@ -250,6 +250,9 @@ func main() {
 	case "find":
 		cmd_find(store, args)
 
+	case "info":
+		cmd_info(store, args)
+
 	case "key":
 		cmd_key(store, args)
 

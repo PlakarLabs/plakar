@@ -50,7 +50,6 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	ss.Chunks = uint64(len(snapshot.Chunks))
 	ss.Size = snapshot.Size
 	ss.RealSize = snapshot.RealSize
-	ss.Encrypted = snapshot.Encrypted
 	return ss
 }
 
@@ -88,7 +87,6 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 	snapshot.Size = snapshotStorage.Size
 	snapshot.RealSize = snapshotStorage.RealSize
 	snapshot.BackingStore = store
-	snapshot.Encrypted = store.Configuration().Encrypted != ""
 	return snapshot, nil
 }
 
@@ -443,8 +441,7 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 		return nil, err
 	}
 
-	snapshot.Encrypted = snapshot.BackingStore.Configuration().Encrypted != ""
-	if snapshot.Encrypted {
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
 		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
 			return nil, err

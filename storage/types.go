@@ -132,8 +132,6 @@ type Snapshot struct {
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string
-
-	Encrypted bool
 }
 
 type SnapshotSummary struct {
@@ -152,8 +150,6 @@ type SnapshotSummary struct {
 
 	Size     uint64
 	RealSize uint64
-
-	Encrypted bool
 }
 
 func (fi *FileInfo) HumanSize() string {

@@ -61,7 +61,7 @@ func list_snapshots(store storage.Store) {
 		fmt.Fprintf(os.Stdout, "%s %s %s (files: %d, dirs: %d)\n",
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			snapshot.Uuid,
-			humanize.Bytes(snapshot.RealSize),
+			humanize.Bytes(snapshot.Size),
 			len(snapshot.Files),
 			len(snapshot.Directories))
 	}

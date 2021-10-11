@@ -136,11 +136,6 @@ func (store *FSStore) Transaction() storage.Transaction {
 }
 
 func (store *FSStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
-	_, err := uuid.Parse(Uuid)
-	if err != nil {
-		return nil, err
-	}
-
 	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err
@@ -175,6 +170,10 @@ func (store *FSStore) Snapshots() ([]string, error) {
 }
 
 func (store *FSStore) IndexGet(Uuid string) ([]byte, error) {
+	_, err := uuid.Parse(Uuid)
+	if err != nil {
+		return nil, err
+	}
 	return ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathSnapshot(Uuid)))
 }
 

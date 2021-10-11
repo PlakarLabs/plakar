@@ -136,6 +136,11 @@ func (store *FSStore) Transaction() storage.Transaction {
 }
 
 func (store *FSStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
+	_, err := uuid.Parse(Uuid)
+	if err != nil {
+		return nil, err
+	}
+
 	index, err := store.IndexGet(Uuid)
 	if err != nil {
 		return nil, err

@@ -287,6 +287,29 @@ b68a8f07-da5e-4b01-bd1a-78aa8156f871: 4910bfe2b7e551c4e2085b12c36941d1e1063491b7
 $
 ```
 
+### info
+
+The info subcommand displays informations regarding one or more snapshots.
+
+```
+$ plakar ls
+2021-10-11T19:38:49Z c717c2a7-c864-463c-850e-384af8f9c54a 8.1 MB (files: 41, dirs: 1)
+$ plakar info c7 
+Uuid: c717c2a7-c864-463c-850e-384af8f9c54a
+CreationTime: 2021-10-11 21:38:49.223022 +0200 CEST
+Version: 0.1.0
+Hostname: gilless-macbook-air.local
+Username: gilles
+Directories: 1
+Files: 41
+NonRegular: 22
+Sums: 41
+Objects: 40
+Chunks: 42
+Size: 8.1 MB (8093264 bytes)
+$ 
+```
+
 
 ### key
 

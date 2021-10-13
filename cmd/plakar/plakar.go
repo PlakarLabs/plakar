@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/poolpOrg/plakar"
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
@@ -89,6 +90,7 @@ func main() {
 	flag.StringVar(&localdir, "local", fmt.Sprintf("%s/.plakar", pwUser.HomeDir), "local store")
 	flag.StringVar(&hostname, "hostname", strings.ToLower(hostbuf), "local hostname")
 	flag.StringVar(&outputLog, "log", "", "show progress")
+	flag.BoolVar(&nocache, "no-cache", false, "disable caching")
 
 	if outputLog != "" && outputLog != "full" && outputLog != "progress" {
 		flag.Usage()
@@ -158,7 +160,7 @@ func main() {
 	/* first thing first, initialize a plakar local if none */
 	local.Init(localdir)
 	if !nocache {
-		ctx.Cache = &local.Cache{}
+		ctx.Cache = cache.New(fmt.Sprintf("%s/cache", localdir))
 	}
 
 	/* keygen command needs to be handled very early */

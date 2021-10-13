@@ -17,8 +17,8 @@
 package plakar
 
 import (
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/local"
 )
 
 type Plakar struct {
@@ -32,7 +32,7 @@ type Plakar struct {
 	EncryptedKeypair []byte
 	Keypair          *encryption.Keypair
 
-	Cache *local.Cache
+	Cache *cache.Cache
 
 	StdoutChannel chan interface{}
 	StderrChannel chan interface{}

@@ -92,6 +92,13 @@ type Object struct {
 	path string
 }
 
+type CachedObject struct {
+	Checksum    string
+	Chunks      []*Chunk
+	ContentType string
+	Info        FileInfo
+}
+
 type SnapshotStorage struct {
 	Uuid         string
 	CreationTime time.Time

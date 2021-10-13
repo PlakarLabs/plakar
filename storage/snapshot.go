@@ -210,12 +210,11 @@ func (snapshot *Snapshot) Push(root string) {
 	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
 
+	cache := snapshot.BackingStore.Context().Cache
+
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
-	chanChunk := make(chan struct {
-		*Chunk
-		string
-	})
+	chanChunk := make(chan *Chunk)
 	chanObject := make(chan *Object)
 
 	go func() {
@@ -235,7 +234,7 @@ func (snapshot *Snapshot) Push(root string) {
 
 			case chunk := <-chanChunk:
 				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
-					snapshot.Chunks[chunk.Checksum] = chunk.Chunk
+					snapshot.Chunks[chunk.Checksum] = chunk
 					snapshot.RealSize += uint64(chunk.Length)
 				}
 				snapshot.Size += uint64(chunk.Length)
@@ -323,6 +322,73 @@ func (snapshot *Snapshot) Push(root string) {
 		}
 
 		if f.Mode().IsRegular() {
+
+			pathHash := sha256.New()
+			pathHash.Write([]byte(fmt.Sprintf("%s/%s", root, path)))
+			hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+
+			if cache != nil {
+				data, err := cache.PathGet(hashedPath)
+				if err == nil {
+					if snapshot.BackingStore.Configuration().Encrypted != "" {
+						tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+						if err != nil {
+							errchan <- err.Error()
+							return err
+						}
+						data = tmp
+					}
+
+					data, err = compression.Inflate(data)
+					if err != nil {
+						errchan <- err.Error()
+						return err
+					}
+
+					cacheObject := CachedObject{}
+					err = json.Unmarshal(data, &cacheObject)
+					if err != nil {
+						errchan <- err.Error()
+						return err
+					}
+					cacheObject.Info.path = fi.path
+
+					if cacheObject.Info.Mode == fi.Mode && cacheObject.Info.Dev == fi.Dev && cacheObject.Info.Size == fi.Size && cacheObject.Info.ModTime == fi.ModTime {
+						checksums := make([]string, 0)
+						chunks := make(map[string]*Chunk)
+						for _, chunk := range cacheObject.Chunks {
+							checksums = append(checksums, chunk.Checksum)
+							chunks[chunk.Checksum] = chunk
+						}
+
+						res := snapshot.BackingTransaction.ChunksMark(checksums)
+						notExistsCount := 0
+						for _, exists := range res {
+							if !exists {
+								notExistsCount++
+							}
+						}
+
+						if notExistsCount == 0 {
+							exists := snapshot.BackingTransaction.ObjectMark(cacheObject.Checksum)
+							if exists {
+								object := Object{}
+								object.path = fi.path
+								object.Checksum = cacheObject.Checksum
+								object.Chunks = cacheObject.Chunks
+								object.ContentType = cacheObject.ContentType
+								chanInode <- &cacheObject.Info
+								for _, chunk := range cacheObject.Chunks {
+									chanChunk <- chunk
+								}
+								chanObject <- &object
+								return nil
+							}
+						}
+					}
+				}
+			}
+
 			rd, err := os.Open(fi.path)
 			if err != nil {
 				chanError <- err
@@ -362,18 +428,49 @@ func (snapshot *Snapshot) Push(root string) {
 				chunk.Length = cdcChunk.Length
 				object.Chunks = append(object.Chunks, &chunk)
 
-				chanChunk <- struct {
-					*Chunk
-					string
-				}{&chunk, string(cdcChunk.Data)}
+				chanChunk <- &chunk
 			}
 
 			object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 			chanObject <- &object
+
+			if cache != nil {
+				cacheObject := CachedObject{}
+				cacheObject.Checksum = object.Checksum
+				cacheObject.Chunks = object.Chunks
+				cacheObject.ContentType = object.ContentType
+				cacheObject.Info = fi
+
+				jobject, err := json.Marshal(cacheObject)
+				if err != nil {
+					chanError <- err
+					return err
+				}
+
+				jobject = compression.Deflate(jobject)
+				if snapshot.BackingStore.Configuration().Encrypted != "" {
+					tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+					if err != nil {
+						chanError <- err
+						return err
+					}
+					jobject = tmp
+				}
+
+				err = cache.PathPut(hashedPath, jobject)
+				if err == nil {
+					if 1 == 0 {
+						// use cache
+						return nil
+					}
+				}
+			}
 		}
 		chanInode <- &fi
 		return nil
 	})
+
+	//fmt.Println(snapshot)
 	outchan <- fmt.Sprintf("push %s: OK", snapshot.Uuid)
 }
 
@@ -416,7 +513,9 @@ func (snapshot *Snapshot) Commit() error {
 	}
 
 	snapshot.BackingTransaction.IndexPut(string(jsnapshot))
-
+	if snapshot.BackingStore.Context().Cache != nil {
+		snapshot.BackingStore.Context().Cache.SnapshotPut(snapshot.Uuid, jsnapshot)
+	}
 	// commit transaction to store
 	_, err = snapshot.BackingTransaction.Commit(snapshot)
 	if err != nil {

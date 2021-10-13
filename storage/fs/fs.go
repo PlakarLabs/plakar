@@ -136,9 +136,13 @@ func (store *FSStore) Transaction() storage.Transaction {
 }
 
 func (store *FSStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
-	index, err := store.IndexGet(Uuid)
+	index, err := store.Ctx.Cache.SnapshotGet(Uuid)
 	if err != nil {
-		return nil, err
+		index, err = store.IndexGet(Uuid)
+		if err != nil {
+			return nil, err
+		}
+		store.Ctx.Cache.SnapshotPut(Uuid, index)
 	}
 
 	snapshot := storage.Snapshot{}

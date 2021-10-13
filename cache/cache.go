@@ -23,11 +23,8 @@ func New(cacheDir string) *Cache {
 	cache := &Cache{}
 	cache.directory = cacheDir
 
-	os.MkdirAll(fmt.Sprintf("%s/chunks", cache.directory), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/objects", cache.directory), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/pathnames", cache.directory), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", cache.directory), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/purge", cache.directory), 0700)
 
 	return cache
 }

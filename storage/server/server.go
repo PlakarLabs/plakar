@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"path"
@@ -28,10 +29,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar"
+	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type ServerStore struct {
+	config storage.StoreConfig
+
 	Repository string
 
 	SkipDirs []string
@@ -55,6 +60,38 @@ type ServerTransaction struct {
 
 func (store *ServerStore) Init() {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
+}
+
+func (store *ServerStore) Open() error {
+	store.Repository = store.Repository
+
+	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", store.Repository))
+	if err != nil {
+		return err
+	}
+
+	jconfig, err := compression.Inflate(compressed)
+	if err != nil {
+		return err
+	}
+
+	config := storage.StoreConfig{}
+	err = json.Unmarshal(jconfig, &config)
+	if err != nil {
+		return err
+	}
+
+	store.config = config
+
+	return nil
+}
+
+func (store *ServerStore) Configuration() storage.StoreConfig {
+	return store.BackingStore.Configuration()
+}
+
+func (store *ServerStore) Context() *plakar.Plakar {
+	return store.BackingStore.Context()
 }
 
 func (store *ServerStore) Transaction() storage.Transaction {
@@ -185,6 +222,18 @@ func Server(host string, store storage.Store) {
 							Snapshots []string
 							Error     error
 						}{ret, err})
+						if _, err = conn.Write(data); err != nil {
+							log.Printf("failed to respond to client: %v\n", err)
+						}
+						if _, err = conn.Write([]byte("\n")); err != nil {
+							log.Printf("failed to respond to client: %v\n", err)
+						}
+					}
+
+					if clientRequest == "Open" {
+						config := lstore.Configuration()
+						fmt.Println(config)
+						data, _ := json.Marshal(&config)
 						if _, err = conn.Write(data); err != nil {
 							log.Printf("failed to respond to client: %v\n", err)
 						}

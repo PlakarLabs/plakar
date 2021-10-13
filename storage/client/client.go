@@ -31,6 +31,8 @@ import (
 )
 
 type ClientStore struct {
+	config storage.StoreConfig
+
 	Repository string
 
 	SkipDirs []string
@@ -63,6 +65,25 @@ func (store *ClientStore) Init() {
 
 	store.conn = conn
 	store.serverReader = bufio.NewReader(conn)
+}
+
+func (store *ClientStore) Open() error {
+	store.conn.Write([]byte("Open\n"))
+	data, _ := store.serverReader.ReadBytes('\n')
+
+	config := storage.StoreConfig{}
+	err := json.Unmarshal(data, &config)
+	if err != nil {
+		return err
+	}
+
+	store.config = config
+
+	return nil
+}
+
+func (store *ClientStore) Configuration() storage.StoreConfig {
+	return store.config
 }
 
 func (store *ClientStore) Context() *plakar.Plakar {

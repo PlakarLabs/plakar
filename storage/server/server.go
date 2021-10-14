@@ -232,7 +232,6 @@ func Server(host string, store storage.Store) {
 
 					if clientRequest == "Open" {
 						config := lstore.Configuration()
-						fmt.Println(config)
 						data, _ := json.Marshal(&config)
 						if _, err = conn.Write(data); err != nil {
 							log.Printf("failed to respond to client: %v\n", err)
@@ -396,7 +395,6 @@ func Server(host string, store storage.Store) {
 					}
 
 					if clientRequest == "Commit" {
-						fmt.Println(currentSnapshot.Uuid)
 						_, err = currentTransaction.Commit(currentSnapshot)
 						data, _ := json.Marshal(&struct{ Error error }{err})
 						if _, err = conn.Write(data); err != nil {

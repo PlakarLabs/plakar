@@ -206,20 +206,24 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
+	cache := snapshot.BackingStore.Context().Cache
 	keypair := snapshot.BackingStore.Context().Keypair
 	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
-
-	cache := snapshot.BackingStore.Context().Cache
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
 	chanChunk := make(chan *Chunk)
 	chanObject := make(chan *Object)
+	chanSync := make(chan bool)
+	chanWait := make(chan bool)
 
 	go func() {
 		for {
 			select {
+			case _ = <-chanSync:
+				chanWait <- true
+
 			case fi := <-chanInode:
 				if fi.Mode.IsDir() {
 					snapshot.Directories[fi.path] = fi
@@ -457,20 +461,17 @@ func (snapshot *Snapshot) Push(root string) {
 					jobject = tmp
 				}
 
-				err = cache.PathPut(hashedPath, jobject)
-				if err == nil {
-					if 1 == 0 {
-						// use cache
-						return nil
-					}
-				}
+				// let's ignore failures for now, no good way to handle it
+				// and no harsh consequences
+				cache.PathPut(hashedPath, jobject)
 			}
 		}
 		chanInode <- &fi
 		return nil
 	})
+	chanSync <- true
 
-	//fmt.Println(snapshot)
+	<-chanWait
 	outchan <- fmt.Sprintf("push %s: OK", snapshot.Uuid)
 }
 

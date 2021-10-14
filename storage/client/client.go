@@ -23,6 +23,7 @@ import (
 	"log"
 	"net"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,6 +42,7 @@ type ClientStore struct {
 
 	conn         net.Conn
 	serverReader *bufio.Reader
+	mu           sync.Mutex
 
 	storage.Store
 }
@@ -68,8 +70,10 @@ func (store *ClientStore) Init() {
 }
 
 func (store *ClientStore) Open() error {
+	store.mu.Lock()
 	store.conn.Write([]byte("Open\n"))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	config := storage.StoreConfig{}
 	err := json.Unmarshal(data, &config)
@@ -91,9 +95,10 @@ func (store *ClientStore) Context() *plakar.Plakar {
 }
 
 func (store *ClientStore) Transaction() storage.Transaction {
-
+	store.mu.Lock()
 	store.conn.Write([]byte("Transaction\n"))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var Uuid struct{ Uuid uuid.UUID }
 	err := json.Unmarshal(data, &Uuid)
@@ -128,8 +133,10 @@ func (store *ClientStore) ChunkExists(checksum string) bool {
 }
 
 func (store *ClientStore) Snapshots() ([]string, error) {
+	store.mu.Lock()
 	store.conn.Write([]byte("Snapshots\n"))
 	data, err := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +154,10 @@ func (store *ClientStore) Snapshots() ([]string, error) {
 }
 
 func (store *ClientStore) IndexGet(Uuid string) ([]byte, error) {
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("IndexGet:%s\n", Uuid)))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var index struct{ Index []byte }
 	err := json.Unmarshal(data, &index)
@@ -160,8 +169,10 @@ func (store *ClientStore) IndexGet(Uuid string) ([]byte, error) {
 }
 
 func (store *ClientStore) ObjectGet(checksum string) ([]byte, error) {
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("ObjectGet:%s\n", checksum)))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var object struct{ Object []byte }
 	err := json.Unmarshal(data, &object)
@@ -173,8 +184,10 @@ func (store *ClientStore) ObjectGet(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) ChunkGet(checksum string) ([]byte, error) {
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("ChunkGet:%s\n", checksum)))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var chunk struct{ Chunk []byte }
 	err := json.Unmarshal(data, &chunk)
@@ -186,8 +199,10 @@ func (store *ClientStore) ChunkGet(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) Purge(id string) error {
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("Purge:%s\n", id)))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var result struct{ Error error }
 	err := json.Unmarshal(data, &result)
@@ -222,11 +237,13 @@ func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool 
 
 	data, _ := json.Marshal(&struct{ Checksums []string }{keys})
 
+	store.mu.Lock()
 	store.conn.Write([]byte("ChunksMark\n"))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
 
 	data, _ = store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 	var res struct{ Res map[string]bool }
 	err := json.Unmarshal(data, &res)
 	if err != nil {
@@ -238,8 +255,10 @@ func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool 
 func (transaction *ClientTransaction) ObjectMark(checksum string) bool {
 	store := transaction.store
 
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("ObjectMark:%s\n", checksum)))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 
 	var res struct{ Res bool }
 	err := json.Unmarshal(data, &res)
@@ -255,9 +274,11 @@ func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) err
 
 	data, _ := json.Marshal(&struct{ Data []byte }{[]byte(buf)})
 
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("ObjectPut:%s\n", checksum)))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
+	store.mu.Unlock()
 
 	data, _ = store.serverReader.ReadBytes('\n')
 	var result struct{ Error error }
@@ -270,13 +291,16 @@ func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) err
 
 func (transaction *ClientTransaction) ChunkPut(checksum string, buf string) error {
 	store := transaction.store
+
 	data, _ := json.Marshal(&struct{ Data []byte }{[]byte(buf)})
 
+	store.mu.Lock()
 	store.conn.Write([]byte(fmt.Sprintf("ChunkPut:%s\n", checksum)))
 	store.conn.Write([]byte(data))
 	store.conn.Write([]byte("\n"))
 
 	data, _ = store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 	var result struct{ Error error }
 	err := json.Unmarshal(data, &result)
 	if err != nil {
@@ -290,28 +314,35 @@ func (transaction *ClientTransaction) IndexPut(buf string) error {
 
 	data, _ := json.Marshal(&struct{ Index []byte }{[]byte(buf)})
 
+	store.mu.Lock()
 	store.conn.Write([]byte("IndexPut\n"))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
 
 	data, _ = store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 	var result struct{ Error error }
 	err := json.Unmarshal(data, &result)
 	if err != nil {
 		return err
 	}
+
 	return result.Error
 }
 
 func (transaction *ClientTransaction) Commit(snapshot *storage.Snapshot) (*storage.Snapshot, error) {
 	store := transaction.store
 
+	store.mu.Lock()
 	store.conn.Write([]byte("Commit\n"))
 	data, _ := store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
+
 	var result struct{ Error error }
 	err := json.Unmarshal(data, &result)
 	if err != nil {
 		return nil, err
 	}
+
 	return snapshot, result.Error
 }

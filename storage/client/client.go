@@ -217,7 +217,7 @@ func (transaction *ClientTransaction) Snapshot() *storage.Snapshot {
 	}
 }
 
-func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool {
+func (transaction *ClientTransaction) ChunksMark(keys []string) []bool {
 	store := transaction.store
 
 	data, _ := json.Marshal(&struct{ Checksums []string }{keys})
@@ -227,7 +227,7 @@ func (transaction *ClientTransaction) ChunksMark(keys []string) map[string]bool 
 	store.conn.Write([]byte("\n"))
 
 	data, _ = store.serverReader.ReadBytes('\n')
-	var res struct{ Res map[string]bool }
+	var res struct{ Res []bool }
 	err := json.Unmarshal(data, &res)
 	if err != nil {
 		return nil

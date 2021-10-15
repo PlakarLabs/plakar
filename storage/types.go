@@ -52,7 +52,7 @@ type Transaction interface {
 	ObjectMark(key string) bool
 	ObjectPut(checksum string, buf string) error
 
-	ChunksMark(keys []string) map[string]bool
+	ChunksMark(keys []string) []bool
 	ChunkPut(checksum string, buf string) error
 
 	IndexPut(buf string) error
@@ -131,6 +131,12 @@ type Snapshot struct {
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string
+
+	WrittenChunks  map[string]bool
+	InflightChunks map[string]*Chunk
+
+	WrittenObjects  map[string]bool
+	InflightObjects map[string]*Object
 }
 
 type SnapshotSummary struct {

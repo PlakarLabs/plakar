@@ -161,7 +161,7 @@ func (transaction *ServerTransaction) ObjectPut(checksum string, buf string) err
 	return transaction.BackingTransaction.ObjectPut(checksum, buf)
 }
 
-func (transaction *ServerTransaction) ChunksMark(keys []string) map[string]bool {
+func (transaction *ServerTransaction) ChunksMark(keys []string) []bool {
 	return transaction.BackingTransaction.ChunksMark(keys)
 }
 
@@ -329,7 +329,7 @@ func Server(host string, store storage.Store) {
 						}
 
 						res := currentTransaction.ChunksMark(checksums.Checksums)
-						data2, _ := json.Marshal(&struct{ Res map[string]bool }{res})
+						data2, _ := json.Marshal(&struct{ Res []bool }{res})
 
 						if _, err = conn.Write(data2); err != nil {
 							log.Printf("failed to respond to client: %v\n", err)

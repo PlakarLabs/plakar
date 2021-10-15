@@ -278,9 +278,9 @@ func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) err
 	store.conn.Write([]byte(fmt.Sprintf("ObjectPut:%s\n", checksum)))
 	store.conn.Write(data)
 	store.conn.Write([]byte("\n"))
-	store.mu.Unlock()
 
 	data, _ = store.serverReader.ReadBytes('\n')
+	store.mu.Unlock()
 	var result struct{ Error error }
 	err := json.Unmarshal(data, &result)
 	if err != nil {

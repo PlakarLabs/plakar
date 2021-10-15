@@ -204,7 +204,6 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
-	keypair := snapshot.BackingStore.Context().Keypair
 	cache := snapshot.BackingStore.Context().Cache
 	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
@@ -376,40 +375,12 @@ func (snapshot *Snapshot) Push(root string) {
 		}
 
 		if f.Mode().IsRegular() {
-
-			pathHash := sha256.New()
-			pathHash.Write([]byte(fmt.Sprintf("%s/%s", root, path)))
-			hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
-
 			if cache != nil {
-				data, err := cache.PathGet(hashedPath)
+				cachedObject, err := snapshot.GetCachedObject(fi.path)
 				if err == nil {
-					if snapshot.BackingStore.Configuration().Encrypted != "" {
-						tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-						if err != nil {
-							errchan <- err.Error()
-							return err
-						}
-						data = tmp
-					}
-
-					data, err = compression.Inflate(data)
-					if err != nil {
-						errchan <- err.Error()
-						return err
-					}
-
-					cacheObject := CachedObject{}
-					err = json.Unmarshal(data, &cacheObject)
-					if err != nil {
-						errchan <- err.Error()
-						return err
-					}
-					cacheObject.Info.path = fi.path
-
-					if cacheObject.Info.Mode == fi.Mode && cacheObject.Info.Dev == fi.Dev && cacheObject.Info.Size == fi.Size && cacheObject.Info.ModTime == fi.ModTime {
+					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
 						chunks := make([]string, 0)
-						for _, chunk := range cacheObject.Chunks {
+						for _, chunk := range cachedObject.Chunks {
 							chunks = append(chunks, chunk.Checksum)
 						}
 
@@ -423,15 +394,15 @@ func (snapshot *Snapshot) Push(root string) {
 						}
 
 						if notExistsCount == 0 {
-							exists := snapshot.BackingTransaction.ObjectMark(cacheObject.Checksum)
+							exists := snapshot.BackingTransaction.ObjectMark(cachedObject.Checksum)
 							if exists {
 								object := Object{}
 								object.path = fi.path
-								object.Checksum = cacheObject.Checksum
-								object.Chunks = cacheObject.Chunks
-								object.ContentType = cacheObject.ContentType
-								chanInode <- &cacheObject.Info
-								chanCachedObject <- &cacheObject
+								object.Checksum = cachedObject.Checksum
+								object.Chunks = cachedObject.Chunks
+								object.ContentType = cachedObject.ContentType
+								chanInode <- &cachedObject.Info
+								chanCachedObject <- cachedObject
 								return nil
 							}
 						}
@@ -493,31 +464,7 @@ func (snapshot *Snapshot) Push(root string) {
 			chanSnapshotObject <- &object
 
 			if cache != nil {
-				cacheObject := CachedObject{}
-				cacheObject.Checksum = object.Checksum
-				cacheObject.Chunks = object.Chunks
-				cacheObject.ContentType = object.ContentType
-				cacheObject.Info = fi
-
-				jobject, err := json.Marshal(cacheObject)
-				if err != nil {
-					errchan <- err
-					return err
-				}
-
-				jobject = compression.Deflate(jobject)
-				if snapshot.BackingStore.Configuration().Encrypted != "" {
-					tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
-					if err != nil {
-						errchan <- err
-						return err
-					}
-					jobject = tmp
-				}
-
-				// let's ignore failures for now, no good way to handle it
-				// and no harsh consequences
-				cache.PathPut(hashedPath, jobject)
+				snapshot.PutCachedObject(object, fi)
 			}
 
 		}
@@ -697,4 +644,78 @@ func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
+	keypair := snapshot.BackingStore.Context().Keypair
+	cache := snapshot.BackingStore.Context().Cache
+	errchan := snapshot.BackingStore.Context().StderrChannel
+
+	pathHash := sha256.New()
+	pathHash.Write([]byte(pathname))
+	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+
+	data, err := cache.PathGet(hashedPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			errchan <- err.Error()
+			return nil, err
+		}
+		data = tmp
+	}
+
+	data, err = compression.Inflate(data)
+	if err != nil {
+		errchan <- err.Error()
+		return nil, err
+	}
+
+	cacheObject := CachedObject{}
+	err = json.Unmarshal(data, &cacheObject)
+	if err != nil {
+		errchan <- err.Error()
+		return nil, err
+	}
+	cacheObject.Info.path = pathname
+	return &cacheObject, nil
+}
+
+func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
+	keypair := snapshot.BackingStore.Context().Keypair
+	cache := snapshot.BackingStore.Context().Cache
+	errchan := snapshot.BackingStore.Context().StderrChannel
+
+	pathHash := sha256.New()
+	pathHash.Write([]byte(object.path))
+	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+
+	cacheObject := CachedObject{}
+	cacheObject.Checksum = object.Checksum
+	cacheObject.Chunks = object.Chunks
+	cacheObject.ContentType = object.ContentType
+	cacheObject.Info = fi
+
+	jobject, err := json.Marshal(cacheObject)
+	if err != nil {
+		errchan <- err
+		return err
+	}
+
+	jobject = compression.Deflate(jobject)
+	if snapshot.BackingStore.Configuration().Encrypted != "" {
+		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+		if err != nil {
+			errchan <- err
+			return err
+		}
+		jobject = tmp
+	}
+
+	cache.PathPut(hashedPath, jobject)
+	return nil
 }

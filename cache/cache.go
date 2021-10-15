@@ -10,15 +10,6 @@ type Cache struct {
 	directory string
 }
 
-type Chunk struct {
-}
-
-type Object struct {
-}
-
-type Snapshot struct {
-}
-
 func New(cacheDir string) *Cache {
 	cache := &Cache{}
 	cache.directory = cacheDir

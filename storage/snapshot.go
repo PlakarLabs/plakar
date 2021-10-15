@@ -212,6 +212,172 @@ func (snapshot *Snapshot) Push(root string) {
 
 	chanInode := make(chan *FileInfo)
 	chanError := make(chan error)
+	chanChunk := make(chan *Chunk)
+	chanObject := make(chan *Object)
+
+	go func() {
+		for {
+			select {
+			case fi := <-chanInode:
+				if fi.Mode.IsDir() {
+					snapshot.Directories[fi.path] = fi
+				} else if fi.Mode.IsRegular() {
+					snapshot.Files[fi.path] = fi
+				} else {
+					snapshot.NonRegular[fi.path] = fi
+				}
+
+			case err := <-chanError:
+				errchan <- err.Error()
+
+			case chunk := <-chanChunk:
+				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
+					snapshot.Chunks[chunk.Checksum] = chunk
+					snapshot.RealSize += uint64(chunk.Length)
+				}
+				snapshot.Size += uint64(chunk.Length)
+
+			case object := <-chanObject:
+				checksums := make([]string, 0)
+				chunks := make(map[string]*Chunk)
+				for _, chunk := range object.Chunks {
+					checksums = append(checksums, chunk.Checksum)
+					chunks[chunk.Checksum] = chunk
+				}
+
+				res := snapshot.BackingTransaction.ChunksMark(checksums)
+				for checksum, exists := range res {
+					chunk := chunks[checksum]
+					if exists {
+						outchan <- fmt.Sprintf("skip chunk %s", checksum)
+					} else {
+						object.fp.Seek(int64(chunk.Start), 0)
+
+						buf := make([]byte, chunk.Length)
+						_, err := object.fp.Read(buf)
+						if err != nil {
+							continue
+						}
+
+						err = snapshot.ChunkPut(checksum, buf)
+						if err != nil {
+							continue
+						}
+					}
+				}
+
+				exists := snapshot.BackingTransaction.ObjectMark(object.Checksum)
+				if exists {
+					outchan <- fmt.Sprintf("skip object %s", object.Checksum)
+				} else {
+					jobject, err := json.Marshal(object)
+					if err != nil {
+						chanError <- err
+						return
+					}
+
+					jobject = compression.Deflate(jobject)
+					if snapshot.BackingStore.Configuration().Encrypted != "" {
+						tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+						if err != nil {
+							chanError <- err
+						}
+						jobject = tmp
+					}
+
+					err = snapshot.BackingTransaction.ObjectPut(object.Checksum, string(jobject))
+					if err != nil {
+						chanError <- err
+						return
+					}
+				}
+
+				snapshot.Objects[object.Checksum] = object
+				snapshot.Sums[object.path] = object.Checksum
+				object.fp.Close()
+			}
+		}
+	}()
+
+	cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
+
+		for _, skipPath := range snapshot.SkipDirs {
+			if strings.HasPrefix(fmt.Sprintf("%s/%s", root, path), skipPath) {
+				return nil
+			}
+		}
+
+		fi := FileInfo{
+			Name:    f.Name(),
+			Size:    f.Size(),
+			Mode:    f.Mode(),
+			ModTime: f.ModTime(),
+			Dev:     uint64(f.Sys().(*syscall.Stat_t).Dev),
+			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
+			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
+			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
+			path:    fmt.Sprintf("%s/%s", root, path),
+		}
+
+		if f.Mode().IsRegular() {
+			rd, err := os.Open(fi.path)
+			if err != nil {
+				chanError <- err
+				return nil
+			}
+
+			object := Object{}
+			object.fp = rd
+			object.path = fi.path
+			objectHash := sha256.New()
+
+			chk := chunker.New(rd, 0x3dea92648f6e83)
+			buf := make([]byte, 16*1024*1024)
+			firstChunk := true
+			for {
+				cdcChunk, err := chk.Next(buf)
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					chanError <- err
+					return nil
+				}
+				if firstChunk {
+					object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+					firstChunk = false
+				}
+
+				objectHash.Write(cdcChunk.Data)
+
+				chunkHash := sha256.New()
+				chunkHash.Write(cdcChunk.Data)
+
+				chunk := Chunk{}
+				chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
+				chunk.Start = cdcChunk.Start
+				chunk.Length = cdcChunk.Length
+				object.Chunks = append(object.Chunks, &chunk)
+
+				chanChunk <- &chunk
+			}
+
+			object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
+			chanObject <- &object
+		}
+		chanInode <- &fi
+		return nil
+	})
+	outchan <- fmt.Sprintf("push %s: OK", snapshot.Uuid)
+}
+
+func (snapshot *Snapshot) Push2(root string) {
+	keypair := snapshot.BackingStore.Context().Keypair
+	outchan := snapshot.BackingStore.Context().StdoutChannel
+	errchan := snapshot.BackingStore.Context().StderrChannel
+
+	chanInode := make(chan *FileInfo)
+	chanError := make(chan error)
 	chanChunk := make(chan struct {
 		*Chunk
 		string

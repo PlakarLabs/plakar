@@ -25,9 +25,10 @@ import (
 )
 
 type Store interface {
+	Create(StoreConfig) error
+
 	Init()
 
-	Initialize(StoreConfig) error
 	Open() error
 
 	Configuration() StoreConfig

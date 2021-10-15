@@ -57,12 +57,7 @@ type FSTransaction struct {
 	storage.Transaction
 }
 
-func (store *FSStore) Init() {
-	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
-	store.root = store.Repository
-}
-
-func (store *FSStore) Initialize(config storage.StoreConfig) error {
+func (store *FSStore) Create(config storage.StoreConfig) error {
 	store.root = store.Repository
 
 	err := os.Mkdir(store.root, 0700)
@@ -92,6 +87,11 @@ func (store *FSStore) Initialize(config storage.StoreConfig) error {
 	}
 
 	return nil
+}
+
+func (store *FSStore) Init() {
+	store.SkipDirs = append(store.SkipDirs, path.Clean(store.Repository))
+	store.root = store.Repository
 }
 
 func (store *FSStore) Open() error {

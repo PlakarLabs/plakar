@@ -183,9 +183,9 @@ func main() {
 	}
 	ctx.EncryptedKeypair = encryptedKeypair
 
-	// init command needs to be handled early _after_ key is available
-	if command == "init" {
-		cmd_init(ctx, args)
+	// create command needs to be handled early _after_ key is available
+	if command == "create" {
+		cmd_create(ctx, args)
 		if err != nil {
 			os.Exit(1)
 		}

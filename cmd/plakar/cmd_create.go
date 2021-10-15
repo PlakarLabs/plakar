@@ -71,7 +71,6 @@ func cmd_create(ctx plakar.Plakar, args []string) {
 			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", storeloc, err)
 			return
 		}
-		fmt.Printf("%s: store initialized\n", storeloc)
 	} else {
 		for _, storeLocation := range flags.Args() {
 			err := createStore(ctx, storeLocation, storeConfig)

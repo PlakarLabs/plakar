@@ -279,6 +279,12 @@ func (transaction *FSTransaction) Snapshot() *storage.Snapshot {
 		BackingTransaction: transaction,
 		BackingStore:       transaction.store,
 		SkipDirs:           transaction.SkipDirs,
+
+		WrittenChunks:  make(map[string]bool),
+		InflightChunks: make(map[string]*storage.Chunk),
+
+		WrittenObjects:  make(map[string]bool),
+		InflightObjects: make(map[string]*storage.Object),
 	}
 }
 
@@ -292,23 +298,23 @@ func (transaction *FSTransaction) ObjectsCheck(keys []string) map[string]bool {
 	return ret
 }
 
-func (transaction *FSTransaction) ChunksMark(keys []string) map[string]bool {
+func (transaction *FSTransaction) ChunksMark(keys []string) []bool {
 	if !transaction.prepared {
 		transaction.prepare()
 	}
 
-	ret := make(map[string]bool)
+	ret := make([]bool, 0)
 	for _, key := range keys {
 		os.Mkdir(transaction.PathChunkBucket(key), 0700)
 		err := os.Link(transaction.store.PathChunk(key), transaction.PathChunk(key))
 		if err != nil {
 			if os.IsNotExist(err) {
-				ret[key] = false
+				ret = append(ret, false)
 			} else {
-				ret[key] = true
+				ret = append(ret, true)
 			}
 		} else {
-			ret[key] = true
+			ret = append(ret, true)
 		}
 	}
 

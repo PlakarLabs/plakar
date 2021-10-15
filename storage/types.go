@@ -52,7 +52,7 @@ type Transaction interface {
 	ObjectMark(key string) bool
 	ObjectPut(checksum string, buf string) error
 
-	ChunksMark(keys []string) map[string]bool
+	ChunksMark(keys []string) []bool
 	ChunkPut(checksum string, buf string) error
 
 	IndexPut(buf string) error
@@ -114,8 +114,7 @@ type SnapshotStorage struct {
 	Objects     map[string]*Object
 	Chunks      map[string]*Chunk
 
-	Size     uint64
-	RealSize uint64
+	Size uint64
 }
 
 type Snapshot struct {
@@ -132,14 +131,19 @@ type Snapshot struct {
 	Objects     map[string]*Object
 	Chunks      map[string]*Chunk
 
-	Size     uint64
-	RealSize uint64
+	Size uint64
 
 	Quiet bool
 
 	BackingStore       Store
 	BackingTransaction Transaction
 	SkipDirs           []string
+
+	WrittenChunks  map[string]bool
+	InflightChunks map[string]*Chunk
+
+	WrittenObjects  map[string]bool
+	InflightObjects map[string]*Object
 }
 
 type SnapshotSummary struct {
@@ -156,8 +160,7 @@ type SnapshotSummary struct {
 	Objects     uint64
 	Chunks      uint64
 
-	Size     uint64
-	RealSize uint64
+	Size uint64
 }
 
 func (fi *FileInfo) HumanSize() string {
@@ -166,8 +169,4 @@ func (fi *FileInfo) HumanSize() string {
 
 func (snapshot *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(snapshot.Size)
-}
-
-func (snapshot *SnapshotSummary) HumanRealSize() string {
-	return humanize.Bytes(snapshot.RealSize)
 }

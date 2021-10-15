@@ -58,14 +58,13 @@ there is no way to recover your encrypted backups to the best of my knowledge.
 Make sure to save the file on separate devices.
 
 
-### Initializing a plakar repository
+### Creating a plakar repository
 
-The next thing to do is to initialize a plakar repository,
+The next thing to do is to create a plakar repository,
 
 ```
-$ plakar init     
+$ plakar create
 passphrase: 
-/Users/gilles/.plakar/store: store initialized
 $
 ```
 
@@ -74,27 +73,23 @@ particularly for a default local plakar,
 the `-no-encryption` option may be used in this case:
 
 ```
-$ plakar init -no-encryption
-/Users/gilles/.plakar/store: store initialized
+$ plakar create -no-encryption
 $
 ```
 
-It is possible to initialize multiple repositories,
-simply by providing a path to the plakar `init` subcommand:
+It is possible to create multiple repositories,
+simply by providing a path to the plakar `create` subcommand:
 
 ```
 $ mkdir ~/plakars
 
-$ plakar on ~/plakars/one init -no-encryption
-/Users/gilles/plakars/one: store initialized
+$ plakar on ~/plakars/one create -no-encryption
 
-$ plakar on ~/plakars/two init
+$ plakar on ~/plakars/two create
 passphrase: 
-/Users/gilles/plakars/two: store initialized
 
-$ plakar init
+$ plakar create
 passphrase: 
-/Users/gilles/plakars/three: store initialized
 $
 ```
 

@@ -49,7 +49,6 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	ss.Objects = uint64(len(snapshot.Objects))
 	ss.Chunks = uint64(len(snapshot.Chunks))
 	ss.Size = snapshot.Size
-	ss.RealSize = snapshot.RealSize
 	return ss
 }
 
@@ -85,7 +84,6 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
 	snapshot.Size = snapshotStorage.Size
-	snapshot.RealSize = snapshotStorage.RealSize
 	snapshot.BackingStore = store
 	return snapshot, nil
 }
@@ -233,7 +231,6 @@ func (snapshot *Snapshot) Push(root string) {
 			case chunk := <-chanChunk:
 				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
 					snapshot.Chunks[chunk.Checksum] = chunk
-					snapshot.RealSize += uint64(chunk.Length)
 				}
 				snapshot.Size += uint64(chunk.Length)
 
@@ -402,7 +399,6 @@ func (snapshot *Snapshot) Push2(root string) {
 			case chunk := <-chanChunk:
 				if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
 					snapshot.Chunks[chunk.Checksum] = chunk.Chunk
-					snapshot.RealSize += uint64(chunk.Length)
 				}
 				snapshot.Size += uint64(chunk.Length)
 
@@ -562,7 +558,6 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
 	snapshotStorage.Size = snapshot.Size
-	snapshotStorage.RealSize = snapshot.RealSize
 
 	// commit index to transaction
 	jsnapshot, err := json.Marshal(snapshotStorage)

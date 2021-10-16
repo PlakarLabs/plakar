@@ -212,7 +212,7 @@ func main() {
 	err = store.Open()
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar init`\n")
+			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
 		} else {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}

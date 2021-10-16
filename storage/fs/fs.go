@@ -360,6 +360,29 @@ func (transaction *FSTransaction) ObjectMark(key string) bool {
 	return ret
 }
 
+func (transaction *FSTransaction) ObjectsMark(keys []string) []bool {
+	if !transaction.prepared {
+		transaction.prepare()
+	}
+
+	ret := make([]bool, 0)
+	for _, key := range keys {
+		os.Mkdir(transaction.PathObjectBucket(key), 0700)
+		err := os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
+		if err != nil {
+			if os.IsNotExist(err) {
+				ret = append(ret, false)
+			} else {
+				ret = append(ret, true)
+			}
+		} else {
+			ret = append(ret, true)
+		}
+	}
+
+	return ret
+}
+
 func (transaction *FSTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
 	if !transaction.prepared {
 		transaction.prepare()

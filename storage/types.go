@@ -50,6 +50,7 @@ type Transaction interface {
 	Snapshot() *Snapshot
 
 	ObjectMark(key string) bool
+	ObjectsMark(keys []string) []bool
 	ObjectPut(checksum string, buf string) error
 
 	ChunksMark(keys []string) []bool

@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/poolpOrg/plakar/compression"
@@ -202,169 +203,357 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
-	cache := snapshot.BackingStore.Context().Cache
 	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
 
+	chanChunksProcessorMax := make(chan int, 32)
+	chanChunksProcessor := make(chan *Object)
+	chanChunksProcessorDone := make(chan bool)
+
+	chanObjectsProcessorMax := make(chan int, 32)
+	chanObjectsProcessor := make(chan map[string]*Object)
+	chanObjectsProcessorDone := make(chan bool)
+
+	chanObjectWriterMax := make(chan int, 32)
 	chanObjectWriter := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
+	chanObjectWriterDone := make(chan bool)
+
+	chanChunkWriterMax := make(chan int, 32)
 	chanChunkWriter := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
+	chanChunkWriterDone := make(chan bool)
 
+	chanInodeMax := make(chan int, 32)
 	chanInode := make(chan *FileInfo)
+	chanInodeDone := make(chan bool)
+
+	chanPathMax := make(chan int, 32)
+	chanPath := make(chan struct {
+		Pathname string
+		Checksum string
+	})
+	chanPathDone := make(chan bool)
+
+	chanObjectMax := make(chan int, 32)
 	chanObject := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
-	chanCachedObject := make(chan *CachedObject)
+	chanObjectDone := make(chan bool)
 
-	chanSnapshotChunk := make(chan struct {
+	chanChunkMax := make(chan int, 32)
+	chanChunk := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
-	chanSnapshotCachedChunk := make(chan *Chunk)
-	chanSnapshotObject := make(chan *Object)
-	chanSnapshotSize := make(chan uint64)
+	chanChunkDone := make(chan bool)
 
-	// this goroutine is in charge of all writes to the store
+	chanSizeMax := make(chan int, 32)
+	chanSize := make(chan uint64)
+	chanSizeDone := make(chan bool)
+
+	//	chanSnapshotCachedChunk := make(chan *Chunk)
+
 	go func() {
-		for {
-			select {
-			case msg := <-chanChunkWriter:
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanInode {
+			chanInodeMax <- 1
+			wg.Add(1)
+			go func(msg *FileInfo) {
+				if msg.Mode.IsDir() {
+					mu.Lock()
+					snapshot.Directories[msg.path] = msg
+					mu.Unlock()
+				} else if msg.Mode.IsRegular() {
+					mu.Lock()
+					snapshot.Files[msg.path] = msg
+					mu.Unlock()
+				} else {
+					mu.Lock()
+					snapshot.NonRegular[msg.path] = msg
+					mu.Unlock()
+				}
+				wg.Done()
+				<-chanInodeMax
+			}(msg)
+		}
+		wg.Wait()
+		chanInodeDone <- true
+	}()
+
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanPath {
+			chanPathMax <- 1
+			wg.Add(1)
+			go func(msg struct {
+				Pathname string
+				Checksum string
+			}) {
+				mu.Lock()
+				if _, ok := snapshot.Sums[msg.Pathname]; !ok {
+					snapshot.Sums[msg.Pathname] = msg.Checksum
+				}
+				mu.Unlock()
+				wg.Done()
+				<-chanPathMax
+			}(msg)
+		}
+		wg.Wait()
+		chanPathDone <- true
+	}()
+
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanObject {
+			chanObjectMax <- 1
+			wg.Add(1)
+			go func(msg struct {
+				Object *Object
+				Data   []byte
+			}) {
+				var ok bool
+				mu.Lock()
+				if _, ok = snapshot.Objects[msg.Object.Checksum]; !ok {
+					snapshot.Objects[msg.Object.Checksum] = msg.Object
+				}
+				mu.Unlock()
+				if !ok {
+					chanObjectWriter <- msg
+				}
+				wg.Done()
+				<-chanObjectMax
+			}(msg)
+		}
+		wg.Wait()
+		chanObjectDone <- true
+	}()
+
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanChunk {
+			chanChunkMax <- 1
+			wg.Add(1)
+			go func(msg struct {
+				Chunk *Chunk
+				Data  []byte
+			}) {
+				var ok bool
+				mu.Lock()
+				if _, ok := snapshot.Chunks[msg.Chunk.Checksum]; !ok {
+					snapshot.Chunks[msg.Chunk.Checksum] = msg.Chunk
+				}
+				mu.Unlock()
+				if !ok {
+					chanChunkWriter <- msg
+				}
+				wg.Done()
+				<-chanChunkMax
+			}(msg)
+		}
+		wg.Wait()
+		chanChunkDone <- true
+	}()
+
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanSize {
+			chanSizeMax <- 1
+			wg.Add(1)
+			go func(msg uint64) {
+				mu.Lock()
+				snapshot.Size += msg
+				mu.Unlock()
+				wg.Done()
+				<-chanSizeMax
+			}(msg)
+		}
+		wg.Wait()
+		chanSizeDone <- true
+	}()
+
+	/*
+		case msg := <-chanSnapshotCachedChunk:
+			if _, ok := snapshot.Chunks[msg.Checksum]; !ok {
+				outchan <- fmt.Sprintf("chunk\tlink %s (cached)", msg.Checksum)
+				snapshot.Chunks[msg.Checksum] = msg
+			} else {
+				outchan <- fmt.Sprintf("chunk\tskip %s (cached)", msg.Checksum)
+			}
+	*/
+
+	// this goroutine is in charge of all chunks writes to the store
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanChunkWriter {
+			chanChunkWriterMax <- 1
+			wg.Add(1)
+			go func(msg struct {
+				Chunk *Chunk
+				Data  []byte
+			}) {
+				var ok bool
+				mu.Lock()
 				if _, ok := snapshot.WrittenChunks[msg.Chunk.Checksum]; !ok {
 					snapshot.WrittenChunks[msg.Chunk.Checksum] = false
 					snapshot.InflightChunks[msg.Chunk.Checksum] = msg.Chunk
-					outchan <- fmt.Sprintf("push %s", msg.Chunk.Checksum)
+				}
+				mu.Unlock()
+				if !ok {
+					outchan <- fmt.Sprintf("chunk\tpush %s", msg.Chunk.Checksum)
 					err := snapshot.ChunkPut(msg.Chunk.Checksum, msg.Data)
+
+					mu.Lock()
 					delete(snapshot.InflightChunks, msg.Chunk.Checksum)
 					if err != nil {
 						errchan <- err
 					} else {
 						snapshot.WrittenChunks[msg.Chunk.Checksum] = true
 					}
+					mu.Unlock()
 				}
-			case msg := <-chanObjectWriter:
+				wg.Done()
+				<-chanChunkWriterMax
+			}(msg)
+		}
+		wg.Wait()
+		chanChunkWriterDone <- true
+	}()
+
+	// this goroutine is in charge of all objects writes to the store
+	go func() {
+		mu := sync.Mutex{}
+		var wg sync.WaitGroup
+		for msg := range chanObjectWriter {
+			chanObjectWriterMax <- 1
+			wg.Add(1)
+			go func(msg struct {
+				Object *Object
+				Data   []byte
+			}) {
+				var ok bool
+				mu.Lock()
 				if _, ok := snapshot.WrittenObjects[msg.Object.Checksum]; !ok {
 					snapshot.WrittenObjects[msg.Object.Checksum] = false
 					snapshot.InflightObjects[msg.Object.Checksum] = msg.Object
-					outchan <- fmt.Sprintf("push %s", msg.Object.Checksum)
+				}
+				mu.Unlock()
+				if !ok {
+					outchan <- fmt.Sprintf("object\tpush %s", msg.Object.Checksum)
 					err := snapshot.ObjectPut(msg.Object.Checksum, msg.Data)
+
+					mu.Lock()
 					delete(snapshot.InflightObjects, msg.Object.Checksum)
 					if err != nil {
 						errchan <- err
 					} else {
 						snapshot.WrittenObjects[msg.Object.Checksum] = true
 					}
+					mu.Unlock()
 				}
-			}
+				wg.Done()
+				<-chanObjectWriterMax
+			}(msg)
 		}
+		wg.Wait()
+		chanObjectWriterDone <- true
 	}()
 
-	// this goroutine is in charge of maintaining snapshot state
+	// this goroutine is in charge of processing all chunks
 	go func() {
-		for {
-			select {
-			case msg := <-chanInode:
-				if msg.Mode.IsDir() {
-					snapshot.Directories[msg.path] = msg
-				} else if msg.Mode.IsRegular() {
-					snapshot.Files[msg.path] = msg
-				} else {
-					snapshot.NonRegular[msg.path] = msg
+		var wg sync.WaitGroup
+		for msg := range chanChunksProcessor {
+			chanChunksProcessorMax <- 1
+			wg.Add(1)
+			go func(object *Object) {
+				chunks := make([]string, 0)
+				for _, chunk := range object.Chunks {
+					chunks = append(chunks, chunk.Checksum)
 				}
-
-			case msg := <-chanSnapshotObject:
-				if _, ok := snapshot.Objects[msg.Checksum]; !ok {
-					snapshot.Objects[msg.Checksum] = msg
-				}
-				if _, ok := snapshot.Sums[msg.path]; !ok {
-					snapshot.Sums[msg.path] = msg.Checksum
-				}
-
-			case msg := <-chanSnapshotChunk:
-				if _, ok := snapshot.Chunks[msg.Chunk.Checksum]; !ok {
-					snapshot.Chunks[msg.Chunk.Checksum] = msg.Chunk
-					chanChunkWriter <- msg
-				} else {
-					outchan <- fmt.Sprintf("skip %s", msg.Chunk.Checksum)
-				}
-
-			case msg := <-chanSnapshotCachedChunk:
-				if _, ok := snapshot.Chunks[msg.Checksum]; !ok {
-					outchan <- fmt.Sprintf("link %s (cached)", msg.Checksum)
-					snapshot.Chunks[msg.Checksum] = msg
-				} else {
-					outchan <- fmt.Sprintf("skip %s (cached)", msg.Checksum)
-				}
-
-			case msg := <-chanSnapshotSize:
-				snapshot.Size += msg
-			}
-		}
-	}()
-
-	// this goroutine is in charge of deciding what needs to be written to the store
-	go func() {
-		for {
-			select {
-			case msg := <-chanObject:
-				go func(object *Object, objectData []byte) {
-					chunks := make([]string, 0)
-					for _, chunk := range object.Chunks {
-						chunks = append(chunks, chunk.Checksum)
-					}
-
-					res := snapshot.BackingTransaction.ChunksMark(chunks)
-					for i, exists := range res {
-						chunk := object.Chunks[i]
-						if !exists {
-							object.fp.Seek(int64(chunk.Start), 0)
-
-							chunkData := make([]byte, chunk.Length)
-							n, err := object.fp.Read(chunkData)
-							if err != nil || n != int(chunk.Length) {
-								if err != nil {
-									errchan <- err
-								}
-								break
-							}
-
-							chanSnapshotChunk <- struct {
-								Chunk *Chunk
-								Data  []byte
-							}{chunk, chunkData}
-						} else {
-							outchan <- fmt.Sprintf("link %s", chunk.Checksum)
-						}
-						chanSnapshotSize <- uint64(chunk.Length)
-					}
-
-					exists := snapshot.BackingTransaction.ObjectMark(object.Checksum)
+				res := snapshot.BackingTransaction.ChunksMark(chunks)
+				for i, exists := range res {
+					chunk := object.Chunks[i]
 					if !exists {
-						chanObjectWriter <- struct {
+						object.fp.Seek(int64(chunk.Start), 0)
+
+						chunkData := make([]byte, chunk.Length)
+						n, err := object.fp.Read(chunkData)
+						if err != nil || n != int(chunk.Length) {
+							if err != nil {
+								errchan <- err
+							}
+							break
+						}
+
+						chanChunk <- struct {
+							Chunk *Chunk
+							Data  []byte
+						}{chunk, chunkData}
+					}
+					chanSize <- uint64(chunk.Length)
+				}
+				object.fp.Close()
+				wg.Done()
+				<-chanChunksProcessorMax
+			}(msg)
+		}
+		wg.Wait()
+		chanChunksProcessorDone <- true
+	}()
+
+	// this goroutine is in charge of processing all objects
+	go func() {
+		var wg sync.WaitGroup
+		for msg := range chanObjectsProcessor {
+			chanObjectsProcessorMax <- 1
+			wg.Add(1)
+			go func(objects map[string]*Object) {
+				checksums := make([]string, 0)
+				for checksum := range objects {
+					checksums = append(checksums, checksum)
+				}
+
+				res := snapshot.BackingTransaction.ObjectsMark(checksums)
+				for i, exists := range res {
+					object := objects[checksums[i]]
+					chanPath <- struct {
+						Pathname string
+						Checksum string
+					}{object.path, object.Checksum}
+					if !exists {
+						objectData, err := json.Marshal(object)
+						if err != nil {
+							errchan <- err
+							break
+						}
+
+						chanObject <- struct {
 							Object *Object
 							Data   []byte
 						}{object, objectData}
-					} else {
-						outchan <- fmt.Sprintf("link %s", object.Checksum)
 					}
-					object.fp.Close()
-				}(msg.Object, msg.Data)
-
-			case msg := <-chanCachedObject:
-				go func(object *CachedObject) {
-					for _, chunk := range object.Chunks {
-						chanSnapshotCachedChunk <- chunk
-						chanSnapshotSize <- uint64(chunk.Length)
-					}
-				}(msg)
-			}
+				}
+				wg.Done()
+				<-chanObjectsProcessorMax
+			}(msg)
 		}
+		wg.Wait()
+		chanObjectsProcessorDone <- true
 	}()
+
+	objectsMutex := sync.Mutex{}
+	objects := make(map[string]*Object)
 
 	cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
 
@@ -387,42 +576,6 @@ func (snapshot *Snapshot) Push(root string) {
 		}
 
 		if f.Mode().IsRegular() {
-			if cache != nil {
-				cachedObject, err := snapshot.GetCachedObject(fi.path)
-				if err == nil {
-					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
-						chunks := make([]string, 0)
-						for _, chunk := range cachedObject.Chunks {
-							chunks = append(chunks, chunk.Checksum)
-						}
-
-						res := snapshot.BackingTransaction.ChunksMark(chunks)
-						notExistsCount := 0
-						for _, exists := range res {
-							if !exists {
-								notExistsCount++
-								break
-							}
-						}
-
-						if notExistsCount == 0 {
-							exists := snapshot.BackingTransaction.ObjectMark(cachedObject.Checksum)
-							if exists {
-								object := Object{}
-								object.path = fi.path
-								object.Checksum = cachedObject.Checksum
-								object.Chunks = cachedObject.Chunks
-								object.ContentType = cachedObject.ContentType
-								chanInode <- &cachedObject.Info
-								chanSnapshotObject <- &object
-								chanCachedObject <- cachedObject
-								return nil
-							}
-						}
-					}
-				}
-			}
-
 			rd, err := os.Open(fi.path)
 			if err != nil {
 				errchan <- err
@@ -435,7 +588,7 @@ func (snapshot *Snapshot) Push(root string) {
 			objectHash := sha256.New()
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
-			buf := make([]byte, 16*1024*1024)
+			buf := make([]byte, 16*256*256)
 			firstChunk := true
 			for {
 				cdcChunk, err := chk.Next(buf)
@@ -464,26 +617,58 @@ func (snapshot *Snapshot) Push(root string) {
 			}
 
 			object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
-			jobject, err := json.Marshal(object)
-			if err != nil {
-				errchan <- err
-				return nil
-			}
 
-			chanObject <- struct {
-				Object *Object
-				Data   []byte
-			}{&object, jobject}
-			chanSnapshotObject <- &object
-
-			if cache != nil {
-				snapshot.PutCachedObject(object, fi)
-			}
-
+			chanChunksProcessor <- &object
+			objectsMutex.Lock()
+			objects[object.Checksum] = &object
+			objectsMutex.Unlock()
 		}
 		chanInode <- &fi
 		return nil
 	})
+	// no more inode to discover, close and wait
+	close(chanInode)
+	<-chanInodeDone
+
+	// no more chunks will be processed,
+	// close channel and wait for all chunks to be processed
+	close(chanChunksProcessor)
+	<-chanChunksProcessorDone
+	outchan <- "+ done processing chunks"
+
+	close(chanSize)
+	<-chanSizeDone
+
+	close(chanChunk)
+	<-chanChunkDone
+
+	// once all chunks are processed we won't be generating new writes,
+	// close channel and wait for all chunks to be written
+	close(chanChunkWriter)
+	<-chanChunkWriterDone
+	outchan <- "+ done writing chunks"
+
+	// no more objects will be added,
+	// send objects for processing, close channel and wait for all objects to be processed
+	chanObjectsProcessor <- objects
+	close(chanObjectsProcessor)
+	<-chanObjectsProcessorDone
+	outchan <- "+ done processing objects"
+
+	close(chanObject)
+	<-chanObjectDone
+
+	// all objects are processed and we won't be generating new writes,
+	// close channel and wait for all objects to be written
+	close(chanObjectWriter)
+	<-chanObjectWriterDone
+	outchan <- "+ done writing objects"
+
+	// no more paths to discover, close and wait
+	close(chanPath)
+	<-chanPathDone
+
+	// ... and we're done
 }
 
 func (snapshot *Snapshot) Commit() error {

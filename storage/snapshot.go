@@ -91,7 +91,6 @@ func (snapshot *Snapshot) FromBuffer(store Store, data []byte) (*Snapshot, error
 func (snapshot *Snapshot) Pull(root string, pattern string) {
 	keypair := snapshot.BackingStore.Context().Keypair
 
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
 
 	var dest string
@@ -200,7 +199,6 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 		os.Chmod(dest, fi.Mode)
 		os.Chown(dest, int(fi.Uid), int(fi.Gid))
 	}
-	outchan <- fmt.Sprintf("pull %s: OK", snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Push(root string) {
@@ -240,6 +238,7 @@ func (snapshot *Snapshot) Push(root string) {
 				if _, ok := snapshot.WrittenChunks[msg.Chunk.Checksum]; !ok {
 					snapshot.WrittenChunks[msg.Chunk.Checksum] = false
 					snapshot.InflightChunks[msg.Chunk.Checksum] = msg.Chunk
+					outchan <- fmt.Sprintf("push %s", msg.Chunk.Checksum)
 					err := snapshot.ChunkPut(msg.Chunk.Checksum, msg.Data)
 					delete(snapshot.InflightChunks, msg.Chunk.Checksum)
 					if err != nil {
@@ -252,6 +251,7 @@ func (snapshot *Snapshot) Push(root string) {
 				if _, ok := snapshot.WrittenObjects[msg.Object.Checksum]; !ok {
 					snapshot.WrittenObjects[msg.Object.Checksum] = false
 					snapshot.InflightObjects[msg.Object.Checksum] = msg.Object
+					outchan <- fmt.Sprintf("push %s", msg.Object.Checksum)
 					err := snapshot.ObjectPut(msg.Object.Checksum, msg.Data)
 					delete(snapshot.InflightObjects, msg.Object.Checksum)
 					if err != nil {
@@ -278,18 +278,27 @@ func (snapshot *Snapshot) Push(root string) {
 				}
 
 			case msg := <-chanSnapshotObject:
-				snapshot.Objects[msg.Checksum] = msg
-				snapshot.Sums[msg.path] = msg.Checksum
+				if _, ok := snapshot.Objects[msg.Checksum]; !ok {
+					snapshot.Objects[msg.Checksum] = msg
+				}
+				if _, ok := snapshot.Sums[msg.path]; !ok {
+					snapshot.Sums[msg.path] = msg.Checksum
+				}
 
 			case msg := <-chanSnapshotChunk:
 				if _, ok := snapshot.Chunks[msg.Chunk.Checksum]; !ok {
 					snapshot.Chunks[msg.Chunk.Checksum] = msg.Chunk
 					chanChunkWriter <- msg
+				} else {
+					outchan <- fmt.Sprintf("skip %s", msg.Chunk.Checksum)
 				}
 
 			case msg := <-chanSnapshotCachedChunk:
 				if _, ok := snapshot.Chunks[msg.Checksum]; !ok {
+					outchan <- fmt.Sprintf("link %s (cached)", msg.Checksum)
 					snapshot.Chunks[msg.Checksum] = msg
+				} else {
+					outchan <- fmt.Sprintf("skip %s (cached)", msg.Checksum)
 				}
 
 			case msg := <-chanSnapshotSize:
@@ -328,6 +337,8 @@ func (snapshot *Snapshot) Push(root string) {
 								Chunk *Chunk
 								Data  []byte
 							}{chunk, chunkData}
+						} else {
+							outchan <- fmt.Sprintf("link %s", chunk.Checksum)
 						}
 						chanSnapshotSize <- uint64(chunk.Length)
 					}
@@ -338,8 +349,9 @@ func (snapshot *Snapshot) Push(root string) {
 							Object *Object
 							Data   []byte
 						}{object, objectData}
+					} else {
+						outchan <- fmt.Sprintf("link %s", object.Checksum)
 					}
-
 					object.fp.Close()
 				}(msg.Object, msg.Data)
 
@@ -402,6 +414,7 @@ func (snapshot *Snapshot) Push(root string) {
 								object.Chunks = cachedObject.Chunks
 								object.ContentType = cachedObject.ContentType
 								chanInode <- &cachedObject.Info
+								chanSnapshotObject <- &object
 								chanCachedObject <- cachedObject
 								return nil
 							}
@@ -471,16 +484,12 @@ func (snapshot *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
-
-	outchan <- fmt.Sprintf("push %s: OK", snapshot.Uuid)
 }
 
 func (snapshot *Snapshot) Commit() error {
 	keypair := snapshot.BackingStore.Context().Keypair
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
 
-	outchan <- fmt.Sprintf("commit %s: in progress", snapshot.Uuid)
 	snapshotStorage := SnapshotStorage{}
 	snapshotStorage.Uuid = snapshot.Uuid
 	snapshotStorage.CreationTime = snapshot.CreationTime
@@ -522,7 +531,6 @@ func (snapshot *Snapshot) Commit() error {
 		errchan <- err.Error()
 		return err
 	}
-	outchan <- fmt.Sprintf("commit %s: OK", snapshot.Uuid)
 	return nil
 }
 
@@ -560,7 +568,6 @@ func (snapshot *Snapshot) IndexGet() (*Object, error) {
 
 func (snapshot *Snapshot) ObjectPut(checksum string, buf []byte) error {
 	keypair := snapshot.BackingStore.Context().Keypair
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 
 	buf = compression.Deflate(buf)
 
@@ -571,15 +578,12 @@ func (snapshot *Snapshot) ObjectPut(checksum string, buf []byte) error {
 		}
 		buf = tmp
 	}
-	outchan <- fmt.Sprintf("put object %s", checksum)
 	return snapshot.BackingTransaction.ObjectPut(checksum, string(buf))
 }
 
 func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 	keypair := snapshot.BackingStore.Context().Keypair
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 
-	outchan <- fmt.Sprintf("get object %s", checksum)
 	data, err := snapshot.BackingStore.ObjectGet(checksum)
 	if err != nil {
 		return nil, err
@@ -605,7 +609,6 @@ func (snapshot *Snapshot) ObjectGet(checksum string) (*Object, error) {
 
 func (snapshot *Snapshot) ChunkPut(checksum string, buf []byte) error {
 	keypair := snapshot.BackingStore.Context().Keypair
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 
 	buf = compression.Deflate(buf)
 
@@ -616,15 +619,12 @@ func (snapshot *Snapshot) ChunkPut(checksum string, buf []byte) error {
 		}
 		buf = tmp
 	}
-	outchan <- fmt.Sprintf("put chunk %s", checksum)
 	return snapshot.BackingTransaction.ChunkPut(checksum, string(buf))
 }
 
 func (snapshot *Snapshot) ChunkGet(checksum string) ([]byte, error) {
 	keypair := snapshot.BackingStore.Context().Keypair
-	outchan := snapshot.BackingStore.Context().StdoutChannel
 
-	outchan <- fmt.Sprintf("get chunk %s", checksum)
 	data, err := snapshot.BackingStore.ChunkGet(checksum)
 	if err != nil {
 		return nil, err

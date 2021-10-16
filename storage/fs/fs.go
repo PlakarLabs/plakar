@@ -173,17 +173,26 @@ func (store *FSStore) ChunkExists(checksum string) bool {
 func (store *FSStore) Snapshots() ([]string, error) {
 	ret := make([]string, 0)
 
-	err := filepath.Walk(store.PathSnapshots(), func(path string, f os.FileInfo, err error) error {
-		_, err = uuid.Parse(f.Name())
+	buckets, err := ioutil.ReadDir(store.PathSnapshots())
+	if err != nil {
+		return ret, nil
+	}
+
+	for _, bucket := range buckets {
+		snapshots, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathSnapshots(), bucket.Name()))
 		if err != nil {
-			return nil
+			return ret, err
 		}
+		for _, snapshot := range snapshots {
+			_, err = uuid.Parse(snapshot.Name())
+			if err != nil {
+				return ret, nil
+			}
+			ret = append(ret, snapshot.Name())
+		}
+	}
+	return ret, nil
 
-		ret = append(ret, f.Name())
-		return nil
-	})
-
-	return ret, err
 }
 
 func (store *FSStore) IndexGet(Uuid string) ([]byte, error) {

@@ -484,10 +484,16 @@ func (snapshot *Snapshot) Push(root string) {
 				for _, chunk := range object.Chunks {
 					chunks = append(chunks, chunk.Checksum)
 				}
+
 				res := snapshot.BackingTransaction.ChunksMark(chunks)
 				for i, exists := range res {
 					chunk := object.Chunks[i]
-					if !exists {
+					if exists {
+						chanChunk <- struct {
+							Chunk *Chunk
+							Data  []byte
+						}{chunk, []byte("")}
+					} else {
 						object.fp.Seek(int64(chunk.Start), 0)
 
 						chunkData := make([]byte, chunk.Length)
@@ -530,7 +536,12 @@ func (snapshot *Snapshot) Push(root string) {
 				res := snapshot.BackingTransaction.ObjectsMark(checksums)
 				for i, exists := range res {
 					object := objects[checksums[i]]
-					if !exists {
+					if exists {
+						chanObject <- struct {
+							Object *Object
+							Data   []byte
+						}{object, []byte("")}
+					} else {
 						objectData, err := json.Marshal(object)
 						if err != nil {
 							errchan <- err
@@ -610,19 +621,6 @@ func (snapshot *Snapshot) Push(root string) {
 								objectsMutex.Lock()
 								objects[object.Checksum] = &object
 								objectsMutex.Unlock()
-								//
-								//chanObject <- struct {
-								//	Object *Object
-								//	Data   []byte
-								//}{&object, []byte("")}
-
-								for _, chunk := range object.Chunks {
-									chanChunk <- struct {
-										Chunk *Chunk
-										Data  []byte
-									}{chunk, []byte("")}
-									chanSize <- uint64(chunk.Length)
-								}
 
 								chanPath <- struct {
 									Pathname string

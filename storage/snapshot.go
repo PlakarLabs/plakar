@@ -258,8 +258,6 @@ func (snapshot *Snapshot) Push(root string) {
 	chanSize := make(chan uint64)
 	chanSizeDone := make(chan bool)
 
-	//	chanSnapshotCachedChunk := make(chan *Chunk)
-
 	go func() {
 		mu := sync.Mutex{}
 		var wg sync.WaitGroup
@@ -532,10 +530,6 @@ func (snapshot *Snapshot) Push(root string) {
 				res := snapshot.BackingTransaction.ObjectsMark(checksums)
 				for i, exists := range res {
 					object := objects[checksums[i]]
-					chanPath <- struct {
-						Pathname string
-						Checksum string
-					}{object.path, object.Checksum}
 					if !exists {
 						objectData, err := json.Marshal(object)
 						if err != nil {
@@ -611,10 +605,16 @@ func (snapshot *Snapshot) Push(root string) {
 
 								chanInode <- &cachedObject.Info
 
-								chanObject <- struct {
-									Object *Object
-									Data   []byte
-								}{&object, []byte("")}
+								chanChunksProcessor <- &object
+
+								objectsMutex.Lock()
+								objects[object.Checksum] = &object
+								objectsMutex.Unlock()
+								//
+								//chanObject <- struct {
+								//	Object *Object
+								//	Data   []byte
+								//}{&object, []byte("")}
 
 								for _, chunk := range object.Chunks {
 									chanChunk <- struct {
@@ -623,6 +623,12 @@ func (snapshot *Snapshot) Push(root string) {
 									}{chunk, []byte("")}
 									chanSize <- uint64(chunk.Length)
 								}
+
+								chanPath <- struct {
+									Pathname string
+									Checksum string
+								}{object.path, object.Checksum}
+
 								return nil
 							}
 						}
@@ -676,6 +682,11 @@ func (snapshot *Snapshot) Push(root string) {
 			objectsMutex.Lock()
 			objects[object.Checksum] = &object
 			objectsMutex.Unlock()
+
+			chanPath <- struct {
+				Pathname string
+				Checksum string
+			}{object.path, object.Checksum}
 
 			if cache != nil {
 				snapshot.PutCachedObject(object, fi)

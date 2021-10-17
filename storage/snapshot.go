@@ -203,57 +203,58 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 }
 
 func (snapshot *Snapshot) Push(root string) {
+	cache := snapshot.BackingStore.Context().Cache
 	outchan := snapshot.BackingStore.Context().StdoutChannel
 	errchan := snapshot.BackingStore.Context().StderrChannel
 
-	chanChunksProcessorMax := make(chan int, 32)
+	chanChunksProcessorMax := make(chan int, 64)
 	chanChunksProcessor := make(chan *Object)
 	chanChunksProcessorDone := make(chan bool)
 
-	chanObjectsProcessorMax := make(chan int, 32)
+	chanObjectsProcessorMax := make(chan int, 64)
 	chanObjectsProcessor := make(chan map[string]*Object)
 	chanObjectsProcessorDone := make(chan bool)
 
-	chanObjectWriterMax := make(chan int, 32)
+	chanObjectWriterMax := make(chan int, 64)
 	chanObjectWriter := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
 	chanObjectWriterDone := make(chan bool)
 
-	chanChunkWriterMax := make(chan int, 32)
+	chanChunkWriterMax := make(chan int, 64)
 	chanChunkWriter := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
 	chanChunkWriterDone := make(chan bool)
 
-	chanInodeMax := make(chan int, 32)
+	chanInodeMax := make(chan int, 64)
 	chanInode := make(chan *FileInfo)
 	chanInodeDone := make(chan bool)
 
-	chanPathMax := make(chan int, 32)
+	chanPathMax := make(chan int, 64)
 	chanPath := make(chan struct {
 		Pathname string
 		Checksum string
 	})
 	chanPathDone := make(chan bool)
 
-	chanObjectMax := make(chan int, 32)
+	chanObjectMax := make(chan int, 64)
 	chanObject := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
 	chanObjectDone := make(chan bool)
 
-	chanChunkMax := make(chan int, 32)
+	chanChunkMax := make(chan int, 64)
 	chanChunk := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
 	chanChunkDone := make(chan bool)
 
-	chanSizeMax := make(chan int, 32)
+	chanSizeMax := make(chan int, 64)
 	chanSize := make(chan uint64)
 	chanSizeDone := make(chan bool)
 
@@ -327,7 +328,9 @@ func (snapshot *Snapshot) Push(root string) {
 				}
 				mu.Unlock()
 				if !ok {
-					chanObjectWriter <- msg
+					if len(msg.Data) != 0 {
+						chanObjectWriter <- msg
+					}
 				}
 				wg.Done()
 				<-chanObjectMax
@@ -354,7 +357,9 @@ func (snapshot *Snapshot) Push(root string) {
 				}
 				mu.Unlock()
 				if !ok {
-					chanChunkWriter <- msg
+					if len(msg.Data) != 0 {
+						chanChunkWriter <- msg
+					}
 				}
 				wg.Done()
 				<-chanChunkMax
@@ -576,6 +581,55 @@ func (snapshot *Snapshot) Push(root string) {
 		}
 
 		if f.Mode().IsRegular() {
+
+			if cache != nil {
+				cachedObject, err := snapshot.GetCachedObject(fi.path)
+				if err == nil {
+					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
+						chunks := make([]string, 0)
+						for _, chunk := range cachedObject.Chunks {
+							chunks = append(chunks, chunk.Checksum)
+						}
+
+						res := snapshot.BackingTransaction.ChunksMark(chunks)
+						notExistsCount := 0
+						for _, exists := range res {
+							if !exists {
+								notExistsCount++
+								break
+							}
+						}
+
+						if notExistsCount == 0 {
+							exists := snapshot.BackingTransaction.ObjectMark(cachedObject.Checksum)
+							if exists {
+								object := Object{}
+								object.path = fi.path
+								object.Checksum = cachedObject.Checksum
+								object.Chunks = cachedObject.Chunks
+								object.ContentType = cachedObject.ContentType
+
+								chanInode <- &cachedObject.Info
+
+								chanObject <- struct {
+									Object *Object
+									Data   []byte
+								}{&object, []byte("")}
+
+								for _, chunk := range object.Chunks {
+									chanChunk <- struct {
+										Chunk *Chunk
+										Data  []byte
+									}{chunk, []byte("")}
+									chanSize <- uint64(chunk.Length)
+								}
+								return nil
+							}
+						}
+					}
+				}
+			}
+
 			rd, err := os.Open(fi.path)
 			if err != nil {
 				errchan <- err
@@ -622,6 +676,10 @@ func (snapshot *Snapshot) Push(root string) {
 			objectsMutex.Lock()
 			objects[object.Checksum] = &object
 			objectsMutex.Unlock()
+
+			if cache != nil {
+				snapshot.PutCachedObject(object, fi)
+			}
 		}
 		chanInode <- &fi
 		return nil

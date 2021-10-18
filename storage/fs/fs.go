@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -488,27 +489,45 @@ func (transaction *FSTransaction) Commit(snapshot *storage.Snapshot) (*storage.S
 		transaction.prepare()
 	}
 
+	var wg sync.WaitGroup
+
 	// first pass, link chunks to store
+	parallelChunksMax := make(chan int, 64)
 	for chunk := range snapshot.Chunks {
-		if !transaction.store.ChunkExists(chunk) {
-			os.Mkdir(transaction.store.PathChunkBucket(chunk), 0700)
-			os.Rename(transaction.PathChunk(chunk), transaction.store.PathChunk(chunk))
-		} else {
-			os.Remove(transaction.PathChunk(chunk))
-		}
-		os.Link(transaction.store.PathChunk(chunk), transaction.PathChunk(chunk))
+		parallelChunksMax <- 1
+		wg.Add(1)
+		go func(chunk string) {
+			if !transaction.store.ChunkExists(chunk) {
+				os.Mkdir(transaction.store.PathChunkBucket(chunk), 0700)
+				os.Rename(transaction.PathChunk(chunk), transaction.store.PathChunk(chunk))
+			} else {
+				os.Remove(transaction.PathChunk(chunk))
+			}
+			os.Link(transaction.store.PathChunk(chunk), transaction.PathChunk(chunk))
+			<-parallelChunksMax
+			wg.Done()
+		}(chunk)
 	}
+	wg.Wait()
 
 	// second pass, link objects to store
+	parallelObjectsMax := make(chan int, 64)
 	for object := range snapshot.Objects {
-		if !transaction.store.ObjectExists(object) {
-			os.Mkdir(transaction.store.PathObjectBucket(object), 0700)
-			os.Rename(transaction.PathObject(object), transaction.store.PathObject(object))
-		} else {
-			os.Remove(transaction.PathObject(object))
-		}
-		os.Link(transaction.store.PathObject(object), transaction.PathObject(object))
+		parallelObjectsMax <- 1
+		wg.Add(1)
+		go func(object string) {
+			if !transaction.store.ObjectExists(object) {
+				os.Mkdir(transaction.store.PathObjectBucket(object), 0700)
+				os.Rename(transaction.PathObject(object), transaction.store.PathObject(object))
+			} else {
+				os.Remove(transaction.PathObject(object))
+			}
+			os.Link(transaction.store.PathObject(object), transaction.PathObject(object))
+			<-parallelObjectsMax
+			wg.Done()
+		}(object)
 	}
+	wg.Wait()
 
 	// final pass, move snapshot to store
 	os.Mkdir(transaction.store.PathSnapshotBucket(snapshot.Uuid), 0700)

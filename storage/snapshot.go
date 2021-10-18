@@ -701,7 +701,6 @@ func (snapshot *Snapshot) Push(root string) {
 	// close channel and wait for all chunks to be processed
 	close(chanChunksProcessor)
 	<-chanChunksProcessorDone
-	outchan <- "+ done processing chunks"
 
 	close(chanSize)
 	<-chanSizeDone
@@ -713,14 +712,12 @@ func (snapshot *Snapshot) Push(root string) {
 	// close channel and wait for all chunks to be written
 	close(chanChunkWriter)
 	<-chanChunkWriterDone
-	outchan <- "+ done writing chunks"
 
 	// no more objects will be added,
 	// send objects for processing, close channel and wait for all objects to be processed
 	chanObjectsProcessor <- objects
 	close(chanObjectsProcessor)
 	<-chanObjectsProcessorDone
-	outchan <- "+ done processing objects"
 
 	close(chanObject)
 	<-chanObjectDone
@@ -729,7 +726,6 @@ func (snapshot *Snapshot) Push(root string) {
 	// close channel and wait for all objects to be written
 	close(chanObjectWriter)
 	<-chanObjectWriterDone
-	outchan <- "+ done writing objects"
 
 	// no more paths to discover, close and wait
 	close(chanPath)

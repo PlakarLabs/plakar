@@ -58,6 +58,19 @@ type FSTransaction struct {
 	storage.Transaction
 }
 
+func pathnameExists(pathname string) bool {
+	_, err := os.Stat(pathname)
+	return !os.IsNotExist(err)
+}
+
+func (store *FSStore) objectExists(checksum string) bool {
+	return pathnameExists(store.PathObject(checksum))
+}
+
+func (store *FSStore) chunkExists(checksum string) bool {
+	return pathnameExists(store.PathChunk(checksum))
+}
+
 func (store *FSStore) Create(config storage.StoreConfig) error {
 	store.root = store.Repository
 
@@ -163,14 +176,6 @@ func (store *FSStore) Snapshot(Uuid string) (*storage.Snapshot, error) {
 	return snapshot.FromBuffer(store, index)
 }
 
-func (store *FSStore) ObjectExists(checksum string) bool {
-	return pathnameExists(store.PathObject(checksum))
-}
-
-func (store *FSStore) ChunkExists(checksum string) bool {
-	return pathnameExists(store.PathChunk(checksum))
-}
-
 func (store *FSStore) Snapshots() ([]string, error) {
 	ret := make([]string, 0)
 
@@ -258,11 +263,6 @@ func (store *FSStore) Tidy() {
 	})
 }
 
-func pathnameExists(pathname string) bool {
-	_, err := os.Stat(pathname)
-	return !os.IsNotExist(err)
-}
-
 func (transaction *FSTransaction) prepare() {
 	os.MkdirAll(transaction.store.root, 0700)
 	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.store.PathTransactions(),
@@ -298,16 +298,6 @@ func (transaction *FSTransaction) Snapshot() *storage.Snapshot {
 	}
 }
 
-func (transaction *FSTransaction) ObjectsCheck(keys []string) map[string]bool {
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ObjectExists(key)
-	}
-
-	return ret
-}
-
 func (transaction *FSTransaction) ChunksMark(keys []string) ([]bool, error) {
 	if !transaction.prepared {
 		transaction.prepare()
@@ -329,16 +319,6 @@ func (transaction *FSTransaction) ChunksMark(keys []string) ([]bool, error) {
 	}
 
 	return ret, nil
-}
-
-func (transaction *FSTransaction) ChunksCheck(keys []string) map[string]bool {
-	ret := make(map[string]bool)
-
-	for _, key := range keys {
-		ret[key] = transaction.store.ChunkExists(key)
-	}
-
-	return ret
 }
 
 func (transaction *FSTransaction) ObjectsMark(keys []string) ([]bool, error) {
@@ -364,23 +344,6 @@ func (transaction *FSTransaction) ObjectsMark(keys []string) ([]bool, error) {
 	return ret, nil
 }
 
-func (transaction *FSTransaction) ObjectRecord(checksum string, buf string) (bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-	err := error(nil)
-	recorded := false
-	if transaction.ChunkExists(checksum) {
-		err = transaction.ObjectLink(checksum)
-	} else {
-		err = transaction.ObjectPut(checksum, buf)
-		if err == nil {
-			recorded = true
-		}
-	}
-	return recorded, err
-}
-
 func (transaction *FSTransaction) ObjectPut(checksum string, buf string) error {
 	if !transaction.prepared {
 		transaction.prepare()
@@ -396,32 +359,6 @@ func (transaction *FSTransaction) ObjectPut(checksum string, buf string) error {
 	return nil
 }
 
-func (transaction *FSTransaction) ObjectLink(checksum string) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-	os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
-	os.Link(transaction.store.PathObject(checksum), transaction.PathObject(checksum))
-	return nil
-}
-
-func (transaction *FSTransaction) ChunkRecord(checksum string, buf string) (bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-	err := error(nil)
-	recorded := false
-	if transaction.ChunkExists(checksum) {
-		err = transaction.ChunkLink(checksum)
-	} else {
-		err = transaction.ChunkPut(checksum, buf)
-		if err == nil {
-			recorded = true
-		}
-	}
-	return recorded, err
-}
-
 func (transaction *FSTransaction) ChunkPut(checksum string, buf string) error {
 	if !transaction.prepared {
 		transaction.prepare()
@@ -434,19 +371,6 @@ func (transaction *FSTransaction) ChunkPut(checksum string, buf string) error {
 	defer f.Close()
 
 	f.WriteString(buf)
-	return nil
-}
-
-func (transaction *FSTransaction) ChunkExists(checksum string) bool {
-	return transaction.store.ChunkExists(checksum)
-}
-
-func (transaction *FSTransaction) ChunkLink(checksum string) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-	os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
-	os.Link(transaction.store.PathChunk(checksum), transaction.PathChunk(checksum))
 	return nil
 }
 
@@ -477,7 +401,7 @@ func (transaction *FSTransaction) Commit(snapshot *storage.Snapshot) (*storage.S
 		parallelChunksMax <- 1
 		wg.Add(1)
 		go func(chunk string) {
-			if !transaction.store.ChunkExists(chunk) {
+			if !transaction.store.chunkExists(chunk) {
 				os.Mkdir(transaction.store.PathChunkBucket(chunk), 0700)
 				os.Rename(transaction.PathChunk(chunk), transaction.store.PathChunk(chunk))
 			} else {
@@ -496,7 +420,7 @@ func (transaction *FSTransaction) Commit(snapshot *storage.Snapshot) (*storage.S
 		parallelObjectsMax <- 1
 		wg.Add(1)
 		go func(object string) {
-			if !transaction.store.ObjectExists(object) {
+			if !transaction.store.objectExists(object) {
 				os.Mkdir(transaction.store.PathObjectBucket(object), 0700)
 				os.Rename(transaction.PathObject(object), transaction.store.PathObject(object))
 			} else {

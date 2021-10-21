@@ -153,7 +153,7 @@ func (transaction *ServerTransaction) Snapshot() *storage.Snapshot {
 	}
 }
 
-func (transaction *ServerTransaction) ObjectsMark(checksums []string) []bool {
+func (transaction *ServerTransaction) ObjectsMark(checksums []string) ([]bool, error) {
 	return transaction.BackingTransaction.ObjectsMark(checksums)
 }
 
@@ -161,7 +161,7 @@ func (transaction *ServerTransaction) ObjectPut(checksum string, buf string) err
 	return transaction.BackingTransaction.ObjectPut(checksum, buf)
 }
 
-func (transaction *ServerTransaction) ChunksMark(keys []string) []bool {
+func (transaction *ServerTransaction) ChunksMark(keys []string) ([]bool, error) {
 	return transaction.BackingTransaction.ChunksMark(keys)
 }
 
@@ -306,7 +306,7 @@ func Server(host string, store storage.Store) {
 						checksums := make([]string, 0)
 						checksums = append(checksums, clientRequest[11:])
 
-						res := currentTransaction.ObjectsMark(checksums)
+						res, _ := currentTransaction.ObjectsMark(checksums)
 						currentSnapshot.Objects[clientRequest[11:]] = nil
 						data, _ := json.Marshal(&struct{ Res []bool }{res})
 						if _, err = conn.Write(data); err != nil {
@@ -329,7 +329,7 @@ func Server(host string, store storage.Store) {
 							currentSnapshot.Chunks[checksum] = nil
 						}
 
-						res := currentTransaction.ChunksMark(checksums.Checksums)
+						res, _ := currentTransaction.ChunksMark(checksums.Checksums)
 						data2, _ := json.Marshal(&struct{ Res []bool }{res})
 
 						if _, err = conn.Write(data2); err != nil {

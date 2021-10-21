@@ -49,10 +49,10 @@ type Store interface {
 type Transaction interface {
 	Snapshot() *Snapshot
 
-	ObjectsMark(keys []string) []bool
+	ObjectsMark(keys []string) ([]bool, error)
 	ObjectPut(checksum string, buf string) error
 
-	ChunksMark(keys []string) []bool
+	ChunksMark(keys []string) ([]bool, error)
 	ChunkPut(checksum string, buf string) error
 
 	IndexPut(buf string) error

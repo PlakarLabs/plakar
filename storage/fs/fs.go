@@ -308,7 +308,7 @@ func (transaction *FSTransaction) ObjectsCheck(keys []string) map[string]bool {
 	return ret
 }
 
-func (transaction *FSTransaction) ChunksMark(keys []string) []bool {
+func (transaction *FSTransaction) ChunksMark(keys []string) ([]bool, error) {
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -328,7 +328,7 @@ func (transaction *FSTransaction) ChunksMark(keys []string) []bool {
 		}
 	}
 
-	return ret
+	return ret, nil
 }
 
 func (transaction *FSTransaction) ChunksCheck(keys []string) map[string]bool {
@@ -341,7 +341,7 @@ func (transaction *FSTransaction) ChunksCheck(keys []string) map[string]bool {
 	return ret
 }
 
-func (transaction *FSTransaction) ObjectsMark(keys []string) []bool {
+func (transaction *FSTransaction) ObjectsMark(keys []string) ([]bool, error) {
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -361,7 +361,7 @@ func (transaction *FSTransaction) ObjectsMark(keys []string) []bool {
 		}
 	}
 
-	return ret
+	return ret, nil
 }
 
 func (transaction *FSTransaction) ObjectRecord(checksum string, buf string) (bool, error) {

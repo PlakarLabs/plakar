@@ -485,7 +485,11 @@ func (snapshot *Snapshot) Push(root string) {
 					chunks = append(chunks, chunk.Checksum)
 				}
 
-				res := snapshot.BackingTransaction.ChunksMark(chunks)
+				res, err := snapshot.BackingTransaction.ChunksMark(chunks)
+				if err != nil {
+					errchan <- err
+					return
+				}
 				for i, exists := range res {
 					chunk := object.Chunks[i]
 					if exists {
@@ -533,7 +537,10 @@ func (snapshot *Snapshot) Push(root string) {
 					checksums = append(checksums, checksum)
 				}
 
-				res := snapshot.BackingTransaction.ObjectsMark(checksums)
+				res, err := snapshot.BackingTransaction.ObjectsMark(checksums)
+				if err != nil {
+					errchan <- err
+				}
 				for i, exists := range res {
 					object := objects[checksums[i]]
 					if exists {
@@ -596,7 +603,10 @@ func (snapshot *Snapshot) Push(root string) {
 							chunks = append(chunks, chunk.Checksum)
 						}
 
-						res := snapshot.BackingTransaction.ChunksMark(chunks)
+						res, err := snapshot.BackingTransaction.ChunksMark(chunks)
+						if err != nil {
+							errchan <- err
+						}
 						notExistsCount := 0
 						for _, exists := range res {
 							if !exists {
@@ -609,7 +619,10 @@ func (snapshot *Snapshot) Push(root string) {
 							checksums := make([]string, 0)
 							checksums = append(checksums, cachedObject.Checksum)
 
-							exists := snapshot.BackingTransaction.ObjectsMark(checksums)
+							exists, err := snapshot.BackingTransaction.ObjectsMark(checksums)
+							if err != nil {
+								errchan <- err
+							}
 							if exists[0] {
 								object := Object{}
 								object.path = fi.path

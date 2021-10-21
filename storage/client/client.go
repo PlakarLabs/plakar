@@ -232,7 +232,7 @@ func (transaction *ClientTransaction) Snapshot() *storage.Snapshot {
 	}
 }
 
-func (transaction *ClientTransaction) ChunksMark(keys []string) []bool {
+func (transaction *ClientTransaction) ChunksMark(keys []string) ([]bool, error) {
 	store := transaction.store
 
 	data, _ := json.Marshal(&struct{ Checksums []string }{keys})
@@ -246,26 +246,29 @@ func (transaction *ClientTransaction) ChunksMark(keys []string) []bool {
 	var res struct{ Res []bool }
 	err := json.Unmarshal(data, &res)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	return res.Res
+	return res.Res, nil
 }
 
-func (transaction *ClientTransaction) ObjectMark(checksum string) bool {
+func (transaction *ClientTransaction) ObjectsMark(checksums []string) ([]bool, error) {
 	store := transaction.store
 
-	store.mu.Lock()
-	store.conn.Write([]byte(fmt.Sprintf("ObjectMark:%s\n", checksum)))
-	data, _ := store.serverReader.ReadBytes('\n')
-	store.mu.Unlock()
+	ret := make([]bool, 0)
+	for _, checksum := range checksums {
+		store.mu.Lock()
+		store.conn.Write([]byte(fmt.Sprintf("ObjectMark:%s\n", checksum)))
+		data, _ := store.serverReader.ReadBytes('\n')
+		store.mu.Unlock()
 
-	var res struct{ Res bool }
-	err := json.Unmarshal(data, &res)
-	if err != nil {
-		return false
+		var res struct{ Res bool }
+		err := json.Unmarshal(data, &res)
+		if err != nil {
+			return ret, err
+		}
+		ret = append(ret, res.Res)
 	}
-
-	return res.Res
+	return ret, nil
 }
 
 func (transaction *ClientTransaction) ObjectPut(checksum string, buf string) error {

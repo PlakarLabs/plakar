@@ -28,10 +28,12 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/fs"
 )
 
-var lstore storage.Store
+var lstore *fs.FSStore
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -54,30 +56,30 @@ var searchTemplate string
 var templates map[string]*template.Template
 
 func viewStore(w http.ResponseWriter, r *http.Request) {
-	snapshots, _ := lstore.Snapshots()
+	snapshots, _ := snapshot.List(lstore)
 
-	snapshotsList := make([]*storage.Snapshot, 0)
+	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, id := range snapshots {
-		snapshot, err := lstore.Snapshot(id)
+		snap, err := snapshot.Load(lstore, id)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
 		}
-		snapshotsList = append(snapshotsList, snapshot)
+		snapshotsList = append(snapshotsList, snap)
 	}
 
 	sort.Slice(snapshotsList, func(i, j int) bool {
 		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
 	})
 
-	res := make([]*storage.SnapshotSummary, 0)
-	for _, snapshot := range snapshotsList {
-		res = append(res, storage.SnapshotToSummary(snapshot))
+	res := make([]*snapshot.SnapshotSummary, 0)
+	for _, snap := range snapshotsList {
+		res = append(res, snapshot.SnapshotToSummary(snap))
 	}
 
 	ctx := &struct {
 		Store     storage.StoreConfig
-		Snapshots []*storage.SnapshotSummary
+		Snapshots []*snapshot.SnapshotSummary
 	}{
 		lstore.Configuration(),
 		res,
@@ -86,18 +88,18 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 	templates["store"].Execute(w, ctx)
 }
 
-func snapshot(w http.ResponseWriter, r *http.Request) {
+func _snapshot(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
 
-	snapshot, err := lstore.Snapshot(id)
+	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	roots := make(map[string]struct{})
-	for directory, _ := range snapshot.Directories {
+	for directory, _ := range snap.Directories {
 		tmp := strings.Split(directory, "/")
 		root := ""
 		for i := 0; i < len(tmp); i++ {
@@ -106,7 +108,7 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 			} else {
 				root = strings.Join([]string{root, tmp[i]}, "/")
 			}
-			if _, ok := snapshot.Directories[root+"/"]; ok {
+			if _, ok := snap.Directories[root+"/"]; ok {
 				roots[root] = struct{}{}
 				break
 			}
@@ -121,9 +123,9 @@ func snapshot(w http.ResponseWriter, r *http.Request) {
 	})
 
 	ctx := &struct {
-		Snapshot *storage.Snapshot
+		Snapshot *snapshot.Snapshot
 		Roots    []string
-	}{snapshot, rootsList}
+	}{snap, rootsList}
 
 	templates["snapshot"].Execute(w, ctx)
 }
@@ -133,23 +135,23 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snapshot, err := lstore.Snapshot(id)
+	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, ok := snapshot.Directories[path]
+	_, ok := snap.Directories[path]
 	if !ok {
-		_, ok := snapshot.Directories[path+"/"]
+		_, ok := snap.Directories[path+"/"]
 		if !ok {
 			http.Error(w, "", http.StatusNotFound)
 			return
 		}
 	}
 
-	directories := make([]*storage.FileInfo, 0)
-	for directory, fi := range snapshot.Directories {
+	directories := make([]*snapshot.FileInfo, 0)
+	for directory, fi := range snap.Directories {
 		if directory == path+"/" {
 			continue
 		}
@@ -166,8 +168,8 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(directories[i].Name, directories[j].Name) < 0
 	})
 
-	files := make([]*storage.FileInfo, 0)
-	for file, fi := range snapshot.Files {
+	files := make([]*snapshot.FileInfo, 0)
+	for file, fi := range snap.Files {
 		if !strings.HasPrefix(file, path) {
 			continue
 		}
@@ -185,7 +187,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snapshot.Directories[root]; ok {
+		if _, ok := snap.Directories[root]; ok {
 			break
 		}
 	}
@@ -201,13 +203,13 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Snapshot    *storage.Snapshot
-		Directories []*storage.FileInfo
-		Files       []*storage.FileInfo
+		Snapshot    *snapshot.Snapshot
+		Directories []*snapshot.FileInfo
+		Files       []*snapshot.FileInfo
 		Root        string
 		Path        string
 		Navigation  []string
-	}{snapshot, directories, files, root, path, nav}
+	}{snap, directories, files, root, path, nav}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -217,25 +219,25 @@ func object(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snapshot, err := lstore.Snapshot(id)
+	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	checksum, ok := snapshot.Sums[path]
+	checksum, ok := snap.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	object := snapshot.Objects[checksum]
-	info := snapshot.Files[path]
+	object := snap.Objects[checksum]
+	info := snap.Files[path]
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snapshot.Directories[root]; ok {
+		if _, ok := snap.Directories[root]; ok {
 			break
 		}
 	}
@@ -260,14 +262,14 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Snapshot     *storage.Snapshot
-		Object       *storage.Object
-		Info         *storage.FileInfo
+		Snapshot     *snapshot.Snapshot
+		Object       *snapshot.Object
+		Info         *snapshot.FileInfo
 		Root         string
 		Path         string
 		Navigation   []string
 		EnableViewer bool
-	}{snapshot, object, info, root, path, nav, enableViewer}
+	}{snap, object, info, root, path, nav, enableViewer}
 	templates["object"].Execute(w, ctx)
 }
 
@@ -276,23 +278,23 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snapshot, err := lstore.Snapshot(id)
+	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	checksum, ok := snapshot.Sums[path]
+	checksum, ok := snap.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	object := snapshot.Objects[checksum]
+	object := snap.Objects[checksum]
 
 	w.Header().Add("Content-Type", object.ContentType)
 	for _, chunk := range object.Chunks {
-		data, err := snapshot.ChunkGet(chunk.Checksum)
+		data, err := snap.GetChunk(chunk.Checksum)
 		if err != nil {
 		}
 		w.Write(data)
@@ -304,14 +306,14 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
 	q := urlParams["q"][0]
 
-	snapshots, err := lstore.Snapshots()
+	snapshots, err := snapshot.List(lstore)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	snapshotsList := make([]*storage.Snapshot, 0)
+	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, id := range snapshots {
-		snapshot, err := lstore.Snapshot(id)
+		snapshot, err := snapshot.Load(lstore, id)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
@@ -330,21 +332,21 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Snapshot string
 		Path     string
 	}, 0)
-	for _, snapshot := range snapshotsList {
-		for directory := range snapshot.Directories {
+	for _, snap := range snapshotsList {
+		for directory := range snap.Directories {
 			if strings.Contains(directory, q) {
 				directories = append(directories, struct {
 					Snapshot string
 					Path     string
-				}{snapshot.Uuid, directory})
+				}{snap.Uuid, directory})
 			}
 		}
-		for file := range snapshot.Sums {
+		for file := range snap.Pathnames {
 			if strings.Contains(file, q) {
 				files = append(files, struct {
 					Snapshot string
 					Path     string
-				}{snapshot.Uuid, file})
+				}{snap.Uuid, file})
 			}
 		}
 	}
@@ -369,7 +371,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store storage.Store) {
+func Ui(store *fs.FSStore) {
 	lstore = store
 
 	templates = make(map[string]*template.Template)
@@ -422,7 +424,7 @@ func Ui(store storage.Store) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)
-	r.HandleFunc("/snapshot/{snapshot}", snapshot)
+	r.HandleFunc("/snapshot/{snapshot}", _snapshot)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)

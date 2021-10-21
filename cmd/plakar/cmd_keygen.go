@@ -20,12 +20,37 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/poolpOrg/plakar"
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 )
 
-func cmd_keygen(ctx plakar.Plakar, args []string) error {
-	_, err := local.GetEncryptedKeypair(ctx.Localdir)
+func keypairGenerate() ([]byte, error) {
+	keypair, err := encryption.Keygen()
+	if err != nil {
+		return nil, err
+	}
+
+	var passphrase []byte
+	for {
+		passphrase, err = helpers.GetPassphraseConfirm()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			continue
+		}
+		break
+	}
+
+	pem, err := keypair.Encrypt(passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	return pem, err
+}
+
+func cmd_keygen(ctx Plakar, args []string) error {
+	_, err := local.GetEncryptedKeypair(ctx.Workdir)
 	if err == nil {
 		fmt.Fprintf(os.Stderr, "key already exists in local store\n")
 		return err
@@ -36,7 +61,7 @@ func cmd_keygen(ctx plakar.Plakar, args []string) error {
 		fmt.Fprintf(os.Stderr, "could not generate keypair: %s\n", err)
 		return err
 	}
-	err = local.SetEncryptedKeypair(localdir, encryptedKeypair)
+	err = local.SetEncryptedKeypair(ctx.Workdir, encryptedKeypair)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
 		return err

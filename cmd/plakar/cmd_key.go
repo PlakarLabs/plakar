@@ -23,10 +23,9 @@ import (
 	"os"
 
 	"github.com/poolpOrg/plakar/local"
-	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_key(store storage.Store, args []string) int {
+func cmd_key(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("plakar key", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -38,12 +37,12 @@ func cmd_key(store storage.Store, args []string) int {
 	cmd, args := flags.Arg(0), flags.Args()[1:]
 	switch cmd {
 	case "export":
-		if store.Configuration().Encrypted == "" {
+		if ctx.Store().Configuration().Encrypted == "" {
 			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
 			return 1
 		}
 
-		keypair, err := local.GetEncryptedKeypair(store.Context().Localdir)
+		keypair, err := local.GetEncryptedKeypair(ctx.Workdir)
 		if err != nil {
 			// not supposed to happen at this point
 			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
@@ -52,12 +51,12 @@ func cmd_key(store storage.Store, args []string) int {
 		fmt.Println(base64.StdEncoding.EncodeToString([]byte(keypair)))
 
 	case "info":
-		if store.Configuration().Encrypted == "" {
+		if ctx.Store().Configuration().Encrypted == "" {
 			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
 			return 1
 		}
 
-		skeypair, err := store.Context().Keypair.Serialize()
+		skeypair, err := ctx.Keypair.Serialize()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not serialize keypair\n", flag.CommandLine.Name())
 			return 1

@@ -16,7 +16,15 @@
 
 package fs
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
+
+func pathnameExists(pathname string) bool {
+	_, err := os.Stat(pathname)
+	return !os.IsNotExist(err)
+}
 
 func (store *FSStore) PathPurge() string {
 	return fmt.Sprintf("%s/purge", store.root)
@@ -34,7 +42,7 @@ func (store *FSStore) PathTransactions() string {
 	return fmt.Sprintf("%s/transactions", store.root)
 }
 
-func (store *FSStore) PathSnapshots() string {
+func (store *FSStore) PathIndexes() string {
 	return fmt.Sprintf("%s/snapshots", store.root)
 }
 
@@ -46,7 +54,7 @@ func (store *FSStore) PathObjectBucket(checksum string) string {
 	return fmt.Sprintf("%s/objects/%s", store.root, checksum[0:2])
 }
 
-func (store *FSStore) PathSnapshotBucket(checksum string) string {
+func (store *FSStore) PathIndexBucket(checksum string) string {
 	return fmt.Sprintf("%s/snapshots/%s", store.root, checksum[0:2])
 }
 
@@ -58,8 +66,8 @@ func (store *FSStore) PathObject(checksum string) string {
 	return fmt.Sprintf("%s/%s", store.PathObjectBucket(checksum), checksum)
 }
 
-func (store *FSStore) PathSnapshot(checksum string) string {
-	return fmt.Sprintf("%s/%s", store.PathSnapshotBucket(checksum), checksum)
+func (store *FSStore) PathIndex(checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathIndexBucket(checksum), checksum)
 }
 
 func (transaction *FSTransaction) Path() string {

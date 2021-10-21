@@ -13,3 +13,39 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+
+package storage
+
+type StoreConfig struct {
+	Uuid       string
+	Encrypted  string
+	Compressed string
+}
+
+type Store interface {
+	Create(repository string, configuration StoreConfig) error
+	Open(repository string) error
+	Configuration() StoreConfig
+
+	Transaction() Transaction
+
+	GetIndexes() ([]string, error)
+	GetIndex(id string) ([]byte, error)
+	GetObject(checksum string) ([]byte, error)
+	GetChunk(checksum string) ([]byte, error)
+
+	Purge(id string) error
+}
+
+type Transaction interface {
+	GetUuid() string
+
+	ReferenceObjects(keys []string) ([]bool, error)
+	PutObject(checksum string, data []byte) error
+
+	ReferenceChunks(keys []string) ([]bool, error)
+	PutChunk(checksum string, data []byte) error
+
+	PutIndex(data []byte) error
+	Commit() error
+}

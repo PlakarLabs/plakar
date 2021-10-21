@@ -14,26 +14,37 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package plakar
+package fs
 
 import (
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
+	"sync"
+
+	"github.com/poolpOrg/plakar/storage"
 )
 
-type Plakar struct {
-	Localdir string
+type FSStore struct {
+	config storage.StoreConfig
 
-	Hostname string
-	Username string
+	Repository string
+	root       string
 
-	DisableEncryption bool
+	SkipDirs []string
 
-	EncryptedKeypair []byte
-	Keypair          *encryption.Keypair
+	storage.Store
+}
 
-	Cache *cache.Cache
+type FSTransaction struct {
+	Uuid     string
+	store    *FSStore
+	prepared bool
 
-	StdoutChannel chan interface{}
-	StderrChannel chan interface{}
+	SkipDirs []string
+
+	chunksMutex  sync.Mutex
+	objectsMutex sync.Mutex
+
+	chunks  map[string]bool
+	objects map[string]bool
+
+	storage.Transaction
 }

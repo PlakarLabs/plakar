@@ -22,10 +22,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_cat(store storage.Store, args []string) int {
+func cmd_cat(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("plakar cat", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -34,13 +34,13 @@ func cmd_cat(store storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not obtain list of snapshots\n", flag.CommandLine.Name())
 		return 1
 	}
 
-	mapSnapshots := make(map[string]*storage.Snapshot)
+	mapSnapshots := make(map[string]*snapshot.Snapshot)
 
 	errors := 0
 	for i := 0; i < len(args); i++ {
@@ -62,20 +62,20 @@ func cmd_cat(store storage.Store, args []string) int {
 			continue
 		}
 
-		snapshot, ok := mapSnapshots[res[0]]
+		snap, ok := mapSnapshots[res[0]]
 		if !ok {
-			snapshot, err = store.Snapshot(res[0])
+			snap, err = snapshot.Load(ctx.Store(), res[0])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not open snapshot: %s\n", flag.CommandLine.Name(), res[0])
 				errors++
 				continue
 			}
-			mapSnapshots[snapshot.Uuid] = snapshot
+			mapSnapshots[snap.Uuid] = snap
 		}
 
 		if !strings.HasPrefix(pattern, "/") {
 			objects := make([]string, 0)
-			for id := range snapshot.Objects {
+			for id := range snap.Objects {
 				objects = append(objects, id)
 			}
 			res = findObjectByPrefix(objects, pattern)
@@ -103,7 +103,7 @@ func cmd_cat(store storage.Store, args []string) int {
 
 		var checksum string
 		if strings.HasPrefix(pattern, "/") {
-			tmp, ok := snapshot.Sums[pattern]
+			tmp, ok := snapshot.Pathnames[pattern]
 			if !ok {
 				fmt.Fprintf(os.Stderr, "%s: %s:%s: %s\n", flag.CommandLine.Name(), res[0], pattern, os.ErrNotExist)
 				errors++
@@ -119,7 +119,7 @@ func cmd_cat(store storage.Store, args []string) int {
 			checksum = res[0]
 		}
 
-		object, err := snapshot.ObjectGet(checksum)
+		object, err := snapshot.GetObject(checksum)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain object %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, checksum)
 			errors++
@@ -127,7 +127,7 @@ func cmd_cat(store storage.Store, args []string) int {
 		}
 
 		for _, chunk := range object.Chunks {
-			data, err := snapshot.ChunkGet(chunk.Checksum)
+			data, err := snapshot.GetChunk(chunk.Checksum)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain chunk %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, chunk.Checksum)
 				errors++

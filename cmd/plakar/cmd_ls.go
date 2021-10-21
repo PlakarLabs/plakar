@@ -28,27 +28,29 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage/fs"
 )
 
-func cmd_ls(store storage.Store, args []string) {
+func cmd_ls(ctx Plakar, args []string) {
 	if len(args) == 0 {
-		list_snapshots(store)
+		list_snapshots(ctx.Store())
 		return
 	}
 
-	list_snapshot(store, args)
+	list_snapshot(ctx.Store(), args)
 }
 
-func list_snapshots(store storage.Store) {
-	snapshots, err := store.Snapshots()
+func list_snapshots(store *fs.FSStore) {
+	snapshots, err := snapshot.List(store)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	snapshotsList := make([]*storage.Snapshot, 0)
+	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, Uuid := range snapshots {
-		snapshot, err := store.Snapshot(Uuid)
+
+		snapshot, err := snapshot.Load(store, Uuid)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
@@ -67,8 +69,8 @@ func list_snapshots(store storage.Store) {
 	}
 }
 
-func list_snapshot(store storage.Store, args []string) {
-	snapshots, err := store.Snapshots()
+func list_snapshot(store *fs.FSStore, args []string) {
+	snapshots, err := snapshot.List(store)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -86,7 +88,7 @@ func list_snapshot(store storage.Store, args []string) {
 	for _, arg := range args {
 		prefix, pattern := parseSnapshotID(arg)
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
+		snapshot, err := snapshot.Load(store, res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
@@ -117,7 +119,7 @@ func list_snapshot(store storage.Store, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				snapshot.Sums[name],
+				snapshot.Pathnames[name],
 				fi.Mode,
 				username,
 				groupname,

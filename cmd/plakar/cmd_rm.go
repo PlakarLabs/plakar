@@ -22,15 +22,15 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_rm(store storage.Store, args []string) {
+func cmd_rm(ctx Plakar, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -48,11 +48,11 @@ func cmd_rm(store storage.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, _ := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
+		snap, err := snapshot.Load(ctx.Store(), res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
-		snapshot.Purge()
-		fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
+		ctx.Store().Purge(snap.Uuid)
+		fmt.Fprintf(os.Stdout, "%s: OK\n", snap.Uuid)
 	}
 }

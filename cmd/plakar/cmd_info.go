@@ -22,15 +22,15 @@ import (
 	"log"
 
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_info(store storage.Store, args []string) int {
+func cmd_info(ctx Plakar, args []string) int {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -48,22 +48,22 @@ func cmd_info(store storage.Store, args []string) int {
 	for i := 0; i < len(args); i++ {
 		prefix, _ := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
+		snap, err := snapshot.Load(ctx.Store(), res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
-		fmt.Printf("Uuid: %s\n", snapshot.Uuid)
-		fmt.Printf("CreationTime: %s\n", snapshot.CreationTime)
-		fmt.Printf("Version: %s\n", snapshot.Version)
-		fmt.Printf("Hostname: %s\n", snapshot.Hostname)
-		fmt.Printf("Username: %s\n", snapshot.Username)
-		fmt.Printf("Directories: %d\n", len(snapshot.Directories))
-		fmt.Printf("Files: %d\n", len(snapshot.Files))
-		fmt.Printf("NonRegular: %d\n", len(snapshot.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Sums))
-		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
-		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Size), snapshot.Size)
+		fmt.Printf("Uuid: %s\n", snap.Uuid)
+		fmt.Printf("CreationTime: %s\n", snap.CreationTime)
+		fmt.Printf("Version: %s\n", snap.Version)
+		fmt.Printf("Hostname: %s\n", snap.Hostname)
+		fmt.Printf("Username: %s\n", snap.Username)
+		fmt.Printf("Directories: %d\n", len(snap.Directories))
+		fmt.Printf("Files: %d\n", len(snap.Files))
+		fmt.Printf("NonRegular: %d\n", len(snap.NonRegular))
+		fmt.Printf("Sums: %d\n", len(snap.Pathnames))
+		fmt.Printf("Objects: %d\n", len(snap.Objects))
+		fmt.Printf("Chunks: %d\n", len(snap.Chunks))
+		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snap.Size), snap.Size)
 	}
 
 	return 0

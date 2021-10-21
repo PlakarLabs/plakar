@@ -19,10 +19,10 @@ package helpers
 import (
 	"sort"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func SnapshotsSortedByDate(snapshots []*storage.Snapshot) []*storage.Snapshot {
+func SnapshotsSortedByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	sort.Slice(snapshots, func(i, j int) bool {
 		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
 	})

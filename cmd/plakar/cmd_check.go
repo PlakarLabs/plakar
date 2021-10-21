@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_check(store storage.Store, args []string) {
+func cmd_check(ctx Plakar, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to check", flag.CommandLine.Name())
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -56,19 +56,19 @@ func cmd_check(store storage.Store, args []string) {
 
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
+		snap, err := snapshot.Load(ctx.Store(), res[0])
 		if err != nil {
 			fmt.Println(err)
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 
 		if pattern != "" {
-			checksum, ok := snapshot.Sums[pattern]
+			checksum, ok := snap.Pathnames[pattern]
 			if !ok {
 				unlistedFile = append(unlistedFile, pattern)
 				continue
 			}
-			object, ok := snapshot.Objects[checksum]
+			object, ok := snap.Objects[checksum]
 			if !ok {
 				unlistedObject = append(unlistedObject, checksum)
 				continue
@@ -76,7 +76,7 @@ func cmd_check(store storage.Store, args []string) {
 
 			objectHash := sha256.New()
 			for _, chunk := range object.Chunks {
-				data, err := snapshot.ChunkGet(chunk.Checksum)
+				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
 					missingChunks = append(missingChunks, chunk.Checksum)
 					continue
@@ -91,8 +91,8 @@ func cmd_check(store storage.Store, args []string) {
 		} else {
 
 			cCount := 0
-			for _, chunk := range snapshot.Chunks {
-				data, err := snapshot.ChunkGet(chunk.Checksum)
+			for _, chunk := range snap.Chunks {
+				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
 					missingChunks = append(missingChunks, chunk.Checksum)
 					continue
@@ -107,8 +107,8 @@ func cmd_check(store storage.Store, args []string) {
 			}
 
 			oCount := 0
-			for checksum := range snapshot.Objects {
-				object, err := snapshot.ObjectGet(checksum)
+			for checksum := range snap.Objects {
+				object, err := snap.GetObject(checksum)
 				if err != nil {
 					missingObjects = append(missingObjects, checksum)
 					continue
@@ -116,13 +116,13 @@ func cmd_check(store storage.Store, args []string) {
 				objectHash := sha256.New()
 
 				for _, chunk := range object.Chunks {
-					_, ok := snapshot.Chunks[chunk.Checksum]
+					_, ok := snap.Chunks[chunk.Checksum]
 					if !ok {
 						unlistedChunk = append(unlistedChunk, chunk.Checksum)
 						continue
 					}
 
-					data, err := snapshot.ChunkGet(chunk.Checksum)
+					data, err := snap.GetChunk(chunk.Checksum)
 					if err != nil {
 						missingChunks = append(missingChunks, chunk.Checksum)
 						continue
@@ -138,13 +138,13 @@ func cmd_check(store storage.Store, args []string) {
 			}
 
 			fCount := 0
-			for file := range snapshot.Files {
-				checksum, ok := snapshot.Sums[file]
+			for file := range snap.Files {
+				checksum, ok := snap.Pathnames[file]
 				if !ok {
 					unlistedFile = append(unlistedFile, file)
 					continue
 				}
-				_, ok = snapshot.Objects[checksum]
+				_, ok = snap.Objects[checksum]
 				if !ok {
 					unlistedObject = append(unlistedObject, checksum)
 					continue
@@ -163,15 +163,16 @@ func cmd_check(store storage.Store, args []string) {
 		errors += len(unlistedChunk)
 		errors += len(unlistedFile)
 
-		key := snapshot.Uuid
+		key := snap.Uuid
 		if pattern != "" {
-			key = fmt.Sprintf("%s:%s", snapshot.Uuid, pattern)
+			key = fmt.Sprintf("%s:%s", snap.Uuid, pattern)
 		}
+		_ = key
 
 		if errors == 0 {
-			store.Context().StdoutChannel <- fmt.Sprintf("%s: OK", key)
+			//store.Context().StdoutChannel <- fmt.Sprintf("%s: OK", key)
 		} else {
-			store.Context().StdoutChannel <- fmt.Sprintf("%s: KO", key)
+			//store.Context().StdoutChannel <- fmt.Sprintf("%s: KO", key)
 		}
 	}
 }

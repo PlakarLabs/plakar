@@ -27,10 +27,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_find(store storage.Store, args []string) int {
+func cmd_find(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("plakar find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -39,19 +39,19 @@ func cmd_find(store storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	snapshotsList := make([]*storage.Snapshot, 0)
+	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, Uuid := range snapshots {
-		snapshot, err := store.Snapshot(Uuid)
+		snap, err := snapshot.Load(ctx.Store(), Uuid)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
 		}
-		snapshotsList = append(snapshotsList, snapshot)
+		snapshotsList = append(snapshotsList, snap)
 	}
 	helpers.SnapshotsSortedByDate(snapshotsList)
 
@@ -81,7 +81,7 @@ func cmd_find(store storage.Store, args []string) int {
 				}
 				fmt.Fprintf(os.Stdout, "%s: %s %s % 8s % 8s % 8s %s\n",
 					snapshot.Uuid,
-					snapshot.Sums[name],
+					snapshot.Pathnames[name],
 					fi.Mode,
 					username,
 					groupname,
@@ -114,7 +114,7 @@ func cmd_find(store storage.Store, args []string) int {
 				}
 				fmt.Fprintf(os.Stdout, "%s: %s %s % 8s % 8s % 8s %s\n",
 					snapshot.Uuid,
-					snapshot.Sums[name],
+					snapshot.Pathnames[name],
 					fi.Mode,
 					username,
 					groupname,

@@ -19,14 +19,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-
-	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_version(store storage.Store, args []string) {
-	if len(args) != 0 {
-		log.Fatalf("%s: no parameter expected for version", flag.CommandLine.Name())
-	}
-	fmt.Println(VERSION)
+func cmd_version(ctx Plakar, args []string) {
+	flags := flag.NewFlagSet("plakar version", flag.ExitOnError)
+	flags.Parse(args)
+
+	fmt.Println("0.1.0")
 }

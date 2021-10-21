@@ -25,10 +25,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_tarball(store storage.Store, args []string) {
+func cmd_tarball(ctx Plakar, args []string) {
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
@@ -38,7 +38,7 @@ func cmd_tarball(store storage.Store, args []string) {
 		log.Fatal(err)
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -62,13 +62,13 @@ func cmd_tarball(store storage.Store, args []string) {
 	for i := 0; i < len(args); i++ {
 		prefix, _ := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := store.Snapshot(res[0])
+		snap, err := snapshot.Load(ctx.Store(), res[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 
-		for file, checksum := range snapshot.Sums {
-			info := snapshot.Files[file]
+		for file, checksum := range snap.Pathnames {
+			info := snap.Files[file]
 			header := &tar.Header{
 				Name:    file,
 				Size:    info.Size,
@@ -82,9 +82,9 @@ func cmd_tarball(store storage.Store, args []string) {
 				continue
 			}
 
-			obj := snapshot.Objects[checksum]
+			obj := snap.Objects[checksum]
 			for _, chunk := range obj.Chunks {
-				data, err := snapshot.ChunkGet(chunk.Checksum)
+				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "corrupted file %s\n", file)
 					continue

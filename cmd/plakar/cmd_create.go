@@ -23,14 +23,13 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/storage/fs"
 	"golang.org/x/term"
 )
 
-func cmd_create(ctx plakar.Plakar, args []string) {
+func cmd_create(ctx Plakar, args []string) {
 	var no_encryption bool
 	var no_compression bool
 
@@ -64,16 +63,16 @@ func cmd_create(ctx plakar.Plakar, args []string) {
 		storeConfig.Encrypted = ctx.Keypair.Uuid
 	}
 	if len(flags.Args()) == 0 {
-		err := createStore(ctx, storeloc, storeConfig)
+		err := createStore(ctx, ctx.Repository, storeConfig)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", storeloc, err)
+			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
 			return
 		}
 	} else {
 		for _, storeLocation := range flags.Args() {
 			err := createStore(ctx, storeLocation, storeConfig)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", storeloc, err)
+				fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
 				continue
 			}
 		}
@@ -81,11 +80,7 @@ func cmd_create(ctx plakar.Plakar, args []string) {
 	}
 }
 
-func createStore(ctx plakar.Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
-	var nstore storage.Store
+func createStore(ctx Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
 	pstore := &fs.FSStore{}
-	pstore.Ctx = &ctx
-	pstore.Repository = storeLocation
-	nstore = pstore
-	return nstore.Create(storeConfig)
+	return pstore.Create(storeLocation, storeConfig)
 }

@@ -26,10 +26,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func fiToDiff(fi storage.FileInfo) string {
+func fiToDiff(fi snapshot.FileInfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 	username := fmt.Sprintf("%d", fi.Uid)
 	if err == nil {
@@ -50,12 +50,12 @@ func fiToDiff(fi storage.FileInfo) string {
 		fi.ModTime.UTC())
 }
 
-func cmd_diff(store storage.Store, args []string) {
+func cmd_diff(ctx Plakar, args []string) {
 	if len(args) < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
-	snapshots, err := store.Snapshots()
+	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -85,11 +85,11 @@ func cmd_diff(store storage.Store, args []string) {
 			prefix2, _ := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := store.Snapshot(res1[0])
+			snapshot1, err := snapshot.Load(ctx.Store(), res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := store.Snapshot(res2[0])
+			snapshot2, err := snapshot.Load(ctx.Store(), res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -134,11 +134,11 @@ func cmd_diff(store storage.Store, args []string) {
 			prefix2, file2 := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := store.Snapshot(res1[0])
+			snapshot1, err := snapshot.Load(ctx.Store(), res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := store.Snapshot(res2[0])
+			snapshot2, err := snapshot.Load(ctx.Store(), res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -154,17 +154,17 @@ func cmd_diff(store storage.Store, args []string) {
 		prefix2, _ := parseSnapshotID(args[1])
 		res1 := findSnapshotByPrefix(snapshots, prefix1)
 		res2 := findSnapshotByPrefix(snapshots, prefix2)
-		snapshot1, err := store.Snapshot(res1[0])
+		snapshot1, err := snapshot.Load(ctx.Store(), res1[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 		}
-		snapshot2, err := store.Snapshot(res2[0])
+		snapshot2, err := snapshot.Load(ctx.Store(), res2[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Sums[args[i]]
-			_, ok2 := snapshot2.Sums[args[i]]
+			_, ok1 := snapshot1.Pathnames[args[i]]
+			_, ok2 := snapshot2.Pathnames[args[i]]
 			if !ok1 && !ok2 {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -175,9 +175,9 @@ func cmd_diff(store storage.Store, args []string) {
 
 }
 
-func diff_files(snapshot1 *storage.Snapshot, snapshot2 *storage.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Sums[filename1]
-	sum2, ok2 := snapshot2.Sums[filename2]
+func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
+	sum1, ok1 := snapshot1.Pathnames[filename1]
+	sum2, ok2 := snapshot2.Pathnames[filename2]
 
 	// file does not exist in either snapshot
 	if !ok1 && !ok2 {
@@ -195,11 +195,11 @@ func diff_files(snapshot1 *storage.Snapshot, snapshot2 *storage.Snapshot, filena
 
 	// file exists in snapshot1, grab a copy
 	if ok1 {
-		object, err := snapshot1.ObjectGet(sum1)
+		object, err := snapshot1.GetObject(sum1)
 		if err != nil {
 		}
 		for _, chunk := range object.Chunks {
-			data, err := snapshot2.ChunkGet(chunk.Checksum)
+			data, err := snapshot2.GetChunk(chunk.Checksum)
 			if err != nil {
 			}
 			buf1 = buf1 + string(data)
@@ -207,11 +207,11 @@ func diff_files(snapshot1 *storage.Snapshot, snapshot2 *storage.Snapshot, filena
 	}
 
 	if ok2 {
-		object, err := snapshot2.ObjectGet(sum2)
+		object, err := snapshot2.GetObject(sum2)
 		if err != nil {
 		}
 		for _, chunk := range object.Chunks {
-			data, err := snapshot2.ChunkGet(chunk.Checksum)
+			data, err := snapshot2.GetChunk(chunk.Checksum)
 			if err != nil {
 			}
 			buf2 = buf2 + string(data)

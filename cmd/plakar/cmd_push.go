@@ -20,26 +20,26 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_push(store storage.Store, args []string) {
+func cmd_push(ctx Plakar, args []string) {
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
-	snapshot := store.Transaction().Snapshot()
+	snap := snapshot.New(ctx.Store())
 	if len(args) == 0 {
-		snapshot.Push(dir)
+		snap.Push(dir)
 	} else {
 		for i := 0; i < len(args); i++ {
-			snapshot.Push(args[i])
+			snap.Push(args[i])
 		}
 	}
 
-	err = snapshot.Commit()
+	err = snap.Commit()
 	if err != nil {
 		os.Exit(1)
 	}

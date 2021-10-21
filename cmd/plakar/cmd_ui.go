@@ -17,10 +17,9 @@
 package main
 
 import (
-	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/ui"
 )
 
-func cmd_ui(store storage.Store, args []string) {
-	ui.Ui(store)
+func cmd_ui(ctx Plakar, args []string) {
+	ui.Ui(ctx.Store())
 }

@@ -153,8 +153,8 @@ func (transaction *ServerTransaction) Snapshot() *storage.Snapshot {
 	}
 }
 
-func (transaction *ServerTransaction) ObjectMark(checksum string) bool {
-	return transaction.BackingTransaction.ObjectMark(checksum)
+func (transaction *ServerTransaction) ObjectsMark(checksums []string) []bool {
+	return transaction.BackingTransaction.ObjectsMark(checksums)
 }
 
 func (transaction *ServerTransaction) ObjectPut(checksum string, buf string) error {
@@ -303,10 +303,12 @@ func Server(host string, store storage.Store) {
 					}
 
 					if strings.HasPrefix(clientRequest, "ObjectMark:") {
-						checksum := clientRequest[11:]
-						res := currentTransaction.ObjectMark(checksum)
-						currentSnapshot.Objects[checksum] = nil
-						data, _ := json.Marshal(&struct{ Res bool }{res})
+						checksums := make([]string, 0)
+						checksums = append(checksums, clientRequest[11:])
+
+						res := currentTransaction.ObjectsMark(checksums)
+						currentSnapshot.Objects[clientRequest[11:]] = nil
+						data, _ := json.Marshal(&struct{ Res []bool }{res})
 						if _, err = conn.Write(data); err != nil {
 							log.Printf("failed to respond to client: %v\n", err)
 						}

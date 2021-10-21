@@ -341,26 +341,6 @@ func (transaction *FSTransaction) ChunksCheck(keys []string) map[string]bool {
 	return ret
 }
 
-func (transaction *FSTransaction) ObjectMark(key string) bool {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
-	ret := false
-	os.Mkdir(transaction.PathObjectBucket(key), 0700)
-	err := os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
-	if err != nil {
-		if os.IsNotExist(err) {
-			ret = false
-		} else {
-			ret = true
-		}
-	} else {
-		ret = true
-	}
-	return ret
-}
-
 func (transaction *FSTransaction) ObjectsMark(keys []string) []bool {
 	if !transaction.prepared {
 		transaction.prepare()

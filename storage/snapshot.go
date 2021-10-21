@@ -606,8 +606,11 @@ func (snapshot *Snapshot) Push(root string) {
 						}
 
 						if notExistsCount == 0 {
-							exists := snapshot.BackingTransaction.ObjectMark(cachedObject.Checksum)
-							if exists {
+							checksums := make([]string, 0)
+							checksums = append(checksums, cachedObject.Checksum)
+
+							exists := snapshot.BackingTransaction.ObjectsMark(checksums)
+							if exists[0] {
 								object := Object{}
 								object.path = fi.path
 								object.Checksum = cachedObject.Checksum

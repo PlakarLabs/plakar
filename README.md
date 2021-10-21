@@ -94,7 +94,6 @@ $
 ```
 
 ALL of the subcommands below,
-including `server`,
 support working on alternate plakars.
 
 Whenever a non-default plakar is used,
@@ -402,16 +401,6 @@ $ plakar ls
 2021-10-06T19:55:19Z 45509672-f314-431a-9999-5a9eaa09a98b 3.1 MB (files: 249, dirs: 42)
 2021-10-06T20:00:01Z a0dee33e-568e-4946-9be3-a987f939a351 3.1 MB (files: 249, dirs: 42)
 $
-```
-
-### server (in progress)
-
-The `server` subcommand creates a plakar server on top of a plakar repository.
-
-This will be reworked completely as it was implemented simply to validate that the backup primitives could be used with a remote plakar.
-
-```
-$ plakar server 127.0.0.1:3232
 ```
 
 ### tarball

@@ -19,11 +19,14 @@ package fs
 import (
 	"sync"
 
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type FSStore struct {
 	config storage.StoreConfig
+
+	Keypair *encryption.Keypair
 
 	Repository string
 	root       string

@@ -20,13 +20,17 @@ type Plakar struct {
 	Repository string
 
 	EncryptedKeypair []byte
-	Keypair          *encryption.Keypair
+	keypair          *encryption.Keypair
 
 	store *fs.FSStore
 }
 
 func (plakar *Plakar) Store() *fs.FSStore {
 	return plakar.store
+}
+
+func (plakar *Plakar) Keypair() *encryption.Keypair {
+	return plakar.keypair
 }
 
 func main() {
@@ -126,10 +130,11 @@ func main() {
 			}
 			break
 		}
-		ctx.Keypair = keypair
+		ctx.keypair = keypair
 	}
 
 	ctx.store = &store
+	ctx.store.Keypair = ctx.keypair
 	switch command {
 
 	case "cat":

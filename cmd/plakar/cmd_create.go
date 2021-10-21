@@ -57,10 +57,10 @@ func cmd_create(ctx Plakar, args []string) {
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "\n")
-			ctx.Keypair = keypair
+			ctx.keypair = keypair
 			break
 		}
-		storeConfig.Encrypted = ctx.Keypair.Uuid
+		storeConfig.Encrypted = ctx.keypair.Uuid
 	}
 	if len(flags.Args()) == 0 {
 		err := createStore(ctx, ctx.Repository, storeConfig)

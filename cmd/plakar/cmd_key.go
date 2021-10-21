@@ -56,7 +56,7 @@ func cmd_key(ctx Plakar, args []string) int {
 			return 1
 		}
 
-		skeypair, err := ctx.Keypair.Serialize()
+		skeypair, err := ctx.keypair.Serialize()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not serialize keypair\n", flag.CommandLine.Name())
 			return 1

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -36,7 +37,12 @@ func New(store *fs.FSStore) Snapshot {
 }
 
 func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
-	data, err := store.GetIndex(Uuid)
+	compressed, err := store.GetIndex(Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := compression.Inflate(compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -69,23 +75,36 @@ func List(store *fs.FSStore) ([]string, error) {
 }
 
 func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
-	return snapshot.transaction.PutChunk(checksum, data)
+	compressed := compression.Deflate(data)
+	return snapshot.transaction.PutChunk(checksum, compressed)
 }
 
 func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
-	return snapshot.transaction.PutObject(checksum, data)
+	compressed := compression.Deflate(data)
+	return snapshot.transaction.PutObject(checksum, compressed)
+}
+
+func (snapshot *Snapshot) PutIndex(data []byte) error {
+	compressed := compression.Deflate(data)
+	return snapshot.transaction.PutIndex(compressed)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
-	data, err := snapshot.store.GetChunk(checksum)
+	compressed, err := snapshot.store.GetChunk(checksum)
 	if err != nil {
 		return nil, err
 	}
-	return data, err
+
+	return compression.Inflate(compressed)
 }
 
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
-	data, err := snapshot.store.GetObject(checksum)
+	compressed, err := snapshot.store.GetObject(checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := compression.Inflate(compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +134,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	err = snapshot.transaction.PutIndex(serialized)
+	err = snapshot.PutIndex(serialized)
 	if err != nil {
 		return err
 	}

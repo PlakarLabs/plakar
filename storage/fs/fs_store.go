@@ -149,7 +149,7 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 		return nil, err
 	}
 
-	return compression.Inflate(data)
+	return data, nil
 }
 
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
@@ -158,7 +158,7 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 		return nil, err
 	}
 
-	return compression.Inflate(data)
+	return data, nil
 }
 
 func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
@@ -167,7 +167,7 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 		return nil, err
 	}
 
-	return compression.Inflate(data)
+	return data, nil
 }
 
 func (store *FSStore) Purge(id string) error {

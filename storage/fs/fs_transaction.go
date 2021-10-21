@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-
-	"github.com/poolpOrg/plakar/compression"
 )
 
 func (transaction *FSTransaction) GetUuid() string {
@@ -107,7 +105,7 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 	}
 	defer f.Close()
 
-	f.Write(compression.Deflate(data))
+	f.Write(data)
 
 	transaction.objectsMutex.Lock()
 	transaction.objects[checksum] = true
@@ -126,7 +124,7 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 	}
 	defer f.Close()
 
-	f.Write(compression.Deflate(data))
+	f.Write(data)
 
 	transaction.chunksMutex.Lock()
 	transaction.chunks[checksum] = true
@@ -144,7 +142,7 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 	}
 	defer f.Close()
 
-	f.Write(compression.Deflate(data))
+	f.Write(data)
 
 	return nil
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -195,18 +194,11 @@ func main() {
 	}
 
 	var store storage.Store
-	if strings.HasPrefix(storeloc, "plakar://") {
-		pstore := &client.ClientStore{}
-		pstore.Ctx = &ctx
-		pstore.Repository = storeloc
-		store = pstore
 
-	} else {
-		pstore := &fs.FSStore{}
-		pstore.Ctx = &ctx
-		pstore.Repository = storeloc
-		store = pstore
-	}
+	pstore := &fs.FSStore{}
+	pstore.Ctx = &ctx
+	pstore.Repository = storeloc
+	store = pstore
 
 	store.Init()
 	err = store.Open()
@@ -269,9 +261,6 @@ func main() {
 
 	case "rm":
 		cmd_rm(store, args)
-
-	case "server":
-		cmd_server(store, args)
 
 	case "tarball":
 		cmd_tarball(store, args)

@@ -20,14 +20,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
 	"golang.org/x/term"
 )
@@ -85,17 +83,9 @@ func cmd_create(ctx plakar.Plakar, args []string) {
 
 func createStore(ctx plakar.Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
 	var nstore storage.Store
-	if strings.HasPrefix(storeLocation, "plakar://") {
-		pstore := &client.ClientStore{}
-		pstore.Ctx = &ctx
-		pstore.Repository = storeLocation
-		nstore = pstore
-
-	} else {
-		pstore := &fs.FSStore{}
-		pstore.Ctx = &ctx
-		pstore.Repository = storeLocation
-		nstore = pstore
-	}
+	pstore := &fs.FSStore{}
+	pstore.Ctx = &ctx
+	pstore.Repository = storeLocation
+	nstore = pstore
 	return nstore.Create(storeConfig)
 }

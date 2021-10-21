@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar"
 )
 
@@ -161,12 +160,4 @@ type SnapshotSummary struct {
 	Chunks      uint64
 
 	Size uint64
-}
-
-func (fi *FileInfo) HumanSize() string {
-	return humanize.Bytes(uint64(fi.Size))
-}
-
-func (snapshot *SnapshotSummary) HumanSize() string {
-	return humanize.Bytes(snapshot.Size)
 }

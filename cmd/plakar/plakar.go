@@ -40,6 +40,8 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 }
 
 func main() {
+	var enableTrace bool
+
 	ctx := Plakar{}
 
 	currentHostname, err := os.Hostname()
@@ -52,7 +54,9 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
+	flag.BoolVar(&enableTrace, "trace", false, "enable traces")
 	flag.Parse()
+
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
 	}
@@ -64,6 +68,10 @@ func main() {
 	ctx.Repository = fmt.Sprintf("%s/store", ctx.Workdir)
 
 	// start logger and defer done return function to end of execution
+
+	if enableTrace {
+		logger.EnableTrace()
+	}
 	defer logger.Start()()
 
 	command, args := flag.Arg(0), flag.Args()[1:]

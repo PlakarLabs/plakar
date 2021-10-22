@@ -19,7 +19,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
@@ -34,7 +33,6 @@ func cmd_push(ctx Plakar, args []string) {
 
 	snap := snapshot.New(ctx.Store(), ctx.Cache())
 
-	t0 := time.Now()
 	if len(args) == 0 {
 		snap.Push(dir)
 	} else {
@@ -47,5 +45,5 @@ func cmd_push(ctx Plakar, args []string) {
 	if err != nil {
 		os.Exit(1)
 	}
-	logger.Info("snapshot %s: restored in %s", snap.Uuid, time.Since(t0))
+	logger.Info("%s: OK", snap.Uuid)
 }

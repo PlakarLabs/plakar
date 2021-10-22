@@ -55,20 +55,8 @@ func cmd_diff(ctx Plakar, args []string) {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
-	}
-
-	for i := 0; i < 2; i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
-	}
+	snapshots := getSnapshotsList(ctx)
+	checkSnapshotsArgs(snapshots)
 
 	if len(args) == 2 {
 		// check if snapshot id's both reference a file

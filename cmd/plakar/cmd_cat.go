@@ -35,11 +35,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		logger.Error("%s: could not obtain snapshot list", flags.Name())
-		return 1
-	}
+	snapshots := getSnapshotsList(ctx)
 
 	mapSnapshots := make(map[string]*snapshot.Snapshot)
 
@@ -65,7 +61,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 		snap, ok := mapSnapshots[res[0]]
 		if !ok {
-			snap, err = snapshot.Load(ctx.Store(), res[0])
+			snap, err := snapshot.Load(ctx.Store(), res[0])
 			if err != nil {
 				logger.Error("%s: could not open snapshot: %s", flags.Name(), res[0])
 				errors++

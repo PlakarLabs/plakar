@@ -17,7 +17,11 @@
 package main
 
 import (
+	"flag"
+	"log"
 	"strings"
+
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func parseSnapshotID(id string) (string, string) {
@@ -49,4 +53,24 @@ func findObjectByPrefix(objects []string, prefix string) []string {
 		}
 	}
 	return ret
+}
+
+func getSnapshotsList(ctx Plakar) []string {
+	snapshots, err := snapshot.List(ctx.Store())
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+	}
+	return snapshots
+}
+
+func checkSnapshotsArgs(snapshots []string) {
+	for i := 0; i < len(snapshots); i++ {
+		prefix, _ := parseSnapshotID(snapshots[i])
+		res := findSnapshotByPrefix(snapshots, prefix)
+		if len(res) == 0 {
+			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+		} else if len(res) > 1 {
+			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
+		}
+	}
 }

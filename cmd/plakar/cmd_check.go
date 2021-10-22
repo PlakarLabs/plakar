@@ -35,24 +35,8 @@ func cmd_check(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	if len(args) == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to check", flag.CommandLine.Name())
-	}
-
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
-	}
-
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
-	}
+	snapshots := getSnapshotsList(ctx)
+	checkSnapshotsArgs(snapshots)
 
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
@@ -97,6 +81,7 @@ func cmd_check(ctx Plakar, args []string) int {
 		} else {
 
 			for _, chunk := range snap.Chunks {
+
 				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
 					logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
@@ -110,6 +95,7 @@ func cmd_check(ctx Plakar, args []string) int {
 					snapshotOk = false
 					continue
 				}
+
 			}
 
 			for checksum := range snap.Objects {

@@ -30,10 +30,7 @@ func cmd_rm(ctx Plakar, args []string) {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
-	}
+	snapshots := getSnapshotsList(ctx)
 
 	for i := 0; i < len(args); i++ {
 		prefix, _ := parseSnapshotID(args[i])

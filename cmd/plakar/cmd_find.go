@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"sort"
@@ -39,10 +38,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
-	}
+	snapshots := getSnapshotsList(ctx)
 
 	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, Uuid := range snapshots {

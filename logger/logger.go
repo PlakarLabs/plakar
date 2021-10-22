@@ -8,29 +8,33 @@ import (
 
 var stdoutChannel chan string
 var stderrChannel chan string
-var verboseChannel chan string
+var debugChannel chan string
 var traceChannel chan string
 
-func Stdout(msg ...string) {
-	stdoutChannel <- fmt.Sprint(msg)
+func Info(format string, args ...interface{}) {
+	stdoutChannel <- fmt.Sprintf(format, args...)
 }
 
-func Stderr(msg ...string) {
-	stderrChannel <- fmt.Sprint(msg)
+func Warn(format string, args ...interface{}) {
+	stderrChannel <- fmt.Sprintf(format, args...)
 }
 
-func Verbose(msg ...string) {
-	verboseChannel <- fmt.Sprint(msg)
+func Error(format string, args ...interface{}) {
+	stderrChannel <- fmt.Sprintf(format, args...)
 }
 
-func Trace(msg ...string) {
-	traceChannel <- fmt.Sprint(msg)
+func Debug(format string, args ...interface{}) {
+	debugChannel <- fmt.Sprintf(format, args...)
+}
+
+func Trace(format string, args ...interface{}) {
+	traceChannel <- fmt.Sprintf(format, args...)
 }
 
 func Start() func() {
 	stdoutChannel = make(chan string)
 	stderrChannel = make(chan string)
-	verboseChannel = make(chan string)
+	debugChannel = make(chan string)
 	traceChannel = make(chan string)
 
 	var wg sync.WaitGroup
@@ -53,7 +57,7 @@ func Start() func() {
 
 	wg.Add(1)
 	go func() {
-		for msg := range verboseChannel {
+		for msg := range debugChannel {
 			fmt.Println(msg)
 		}
 		wg.Done()
@@ -70,7 +74,7 @@ func Start() func() {
 	return func() {
 		close(stdoutChannel)
 		close(stderrChannel)
-		close(verboseChannel)
+		close(debugChannel)
 		close(traceChannel)
 		wg.Wait()
 	}

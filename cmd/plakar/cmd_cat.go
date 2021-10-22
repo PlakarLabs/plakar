@@ -22,21 +22,22 @@ import (
 	"os"
 	"strings"
 
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_cat(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("plakar cat", flag.ExitOnError)
+	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.Parse(args)
 
 	if len(flags.Args()) == 0 {
-		fmt.Fprintf(os.Stderr, "%s: need at list one parameter\n", flag.CommandLine.Name())
+		logger.Error("%s: at least one parameter is required", flags.Name())
 		return 1
 	}
 
 	snapshots, err := snapshot.List(ctx.Store())
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not obtain list of snapshots\n", flag.CommandLine.Name())
+		logger.Error("%s: could not obtain snapshot list", flags.Name())
 		return 1
 	}
 
@@ -47,17 +48,17 @@ func cmd_cat(ctx Plakar, args []string) int {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
 		if len(res) == 0 {
-			fmt.Fprintf(os.Stderr, "%s: no snapshot with prefix: %s\n", flag.CommandLine.Name(), prefix)
+			logger.Error("%s: no snapshot with prefix '%s'", flags.Name(), prefix)
 			errors++
 			continue
 		} else if len(res) > 1 {
-			fmt.Fprintf(os.Stderr, "%s: snapshot prefix is ambiguous: %s (matches %d snapshots)\n", flag.CommandLine.Name(), prefix, len(res))
+			logger.Error("%s: snapshot prefix is ambiguous: '%s' matches %d snapshots", flags.Name(), prefix, len(res))
 			errors++
 			continue
 		}
 
 		if pattern == "" {
-			fmt.Fprintf(os.Stderr, "%s: missing filename\n", flag.CommandLine.Name())
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), res[0])
 			errors++
 			continue
 		}
@@ -66,25 +67,25 @@ func cmd_cat(ctx Plakar, args []string) int {
 		if !ok {
 			snap, err = snapshot.Load(ctx.Store(), res[0])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not open snapshot: %s\n", flag.CommandLine.Name(), res[0])
+				logger.Error("%s: could not open snapshot: %s", flags.Name(), res[0])
 				errors++
 				continue
 			}
 			mapSnapshots[snap.Uuid] = snap
 		}
 
-		if !strings.HasPrefix(pattern, "/") {
+		if !strings.HasPrefix(pattern, "/") && !strings.HasPrefix(pattern, ".") {
 			objects := make([]string, 0)
 			for id := range snap.Objects {
 				objects = append(objects, id)
 			}
 			res = findObjectByPrefix(objects, pattern)
 			if len(res) == 0 {
-				fmt.Fprintf(os.Stderr, "%s: no object with prefix: %s\n", flag.CommandLine.Name(), res[0])
+				logger.Error("%s: no object with prefix '%s'", flags.Name(), pattern)
 				errors++
 				continue
 			} else if len(res) > 1 {
-				fmt.Fprintf(os.Stderr, "%s: object prefix is ambiguous: %s (matches %d objects)\n", flag.CommandLine.Name(), prefix, len(res))
+				logger.Error("%s: object prefix is ambiguous: '%s' matches %d objects", flags.Name(), prefix, len(res))
 				errors++
 				continue
 			}
@@ -102,7 +103,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 		snapshot := mapSnapshots[res[0]]
 
 		var checksum string
-		if strings.HasPrefix(pattern, "/") {
+		if strings.HasPrefix(pattern, "/") || strings.HasPrefix(pattern, ".") {
 			tmp, ok := snapshot.Pathnames[pattern]
 			if !ok {
 				fmt.Fprintf(os.Stderr, "%s: %s:%s: %s\n", flag.CommandLine.Name(), res[0], pattern, os.ErrNotExist)
@@ -121,7 +122,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 		object, err := snapshot.GetObject(checksum)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain object %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, checksum)
+			logger.Error("%s: could not obtain object '%s'", flags.Name(), checksum)
 			errors++
 			continue
 		}
@@ -129,7 +130,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 		for _, chunk := range object.Chunks {
 			data, err := snapshot.GetChunk(chunk.Checksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %s:%s: could not obtain chunk %s\n", flag.CommandLine.Name(), snapshot.Uuid, pattern, chunk.Checksum)
+				logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunk.Checksum)
 				errors++
 				continue
 			}

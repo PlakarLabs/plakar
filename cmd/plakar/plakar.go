@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"time"
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
@@ -47,6 +48,7 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 }
 
 func main() {
+	var enableTime bool
 	var enableTraceOutput bool
 	var enableInfoOutput bool
 	var disableCache bool
@@ -64,6 +66,7 @@ func main() {
 	}
 
 	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
+	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
 
@@ -172,6 +175,8 @@ func main() {
 	ctx.store = &store
 	ctx.store.Keypair = ctx.keypair
 
+	t0 := time.Now()
+	logger.Info("time: %s", time.Since(t0))
 	switch command {
 	case "cat":
 		cmd_cat(ctx, args)
@@ -215,6 +220,5 @@ func main() {
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
-
-	//	loggerDone()
+	logger.Printf("time: %s", time.Since(t0))
 }

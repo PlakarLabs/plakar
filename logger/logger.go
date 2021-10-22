@@ -14,6 +14,10 @@ var traceChannel chan string
 var enableInfo = false
 var enableTrace = false
 
+func Printf(format string, args ...interface{}) {
+	stdoutChannel <- fmt.Sprintf(format, args...)
+}
+
 func Info(format string, args ...interface{}) {
 	if enableInfo {
 		stdoutChannel <- fmt.Sprintf(format, args...)

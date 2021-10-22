@@ -11,10 +11,13 @@ var stderrChannel chan string
 var debugChannel chan string
 var traceChannel chan string
 
+var enableInfo = false
 var enableTrace = false
 
 func Info(format string, args ...interface{}) {
-	stdoutChannel <- fmt.Sprintf(format, args...)
+	if enableInfo {
+		stdoutChannel <- fmt.Sprintf(format, args...)
+	}
 }
 
 func Warn(format string, args ...interface{}) {
@@ -35,6 +38,9 @@ func Trace(format string, args ...interface{}) {
 	}
 }
 
+func EnableInfo() {
+	enableInfo = true
+}
 func EnableTrace() {
 	enableTrace = true
 }

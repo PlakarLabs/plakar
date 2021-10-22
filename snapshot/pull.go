@@ -7,11 +7,14 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/logger"
 )
 
 func (snapshot *Snapshot) Pull(root string, pattern string) {
+	var wg sync.WaitGroup
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -31,8 +34,8 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 		}
 	}
 
-	var wg sync.WaitGroup
-
+	t0 := time.Now()
+	directoriesCount := 0
 	for directory, fi := range snapshot.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
@@ -47,10 +50,13 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			os.MkdirAll(dest, 0700)
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+			directoriesCount++
 		}(fi, directory)
 	}
 	wg.Wait()
 
+	filesCount := 0
+	var filesSize uint64 = 0
 	for file, fi := range snapshot.Files {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
@@ -96,6 +102,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 				}
 				objectHash.Write(data)
 				f.Write(data)
+				filesSize += uint64(len(data))
 			}
 			if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
 			}
@@ -103,7 +110,10 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			f.Close()
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+			filesCount++
 		}(fi, file)
 	}
 	wg.Wait()
+
+	logger.Info("snapshot %s: restored %s [files=%d, dirs=%d] in %s", snapshot.Uuid, humanize.Bytes(filesSize), filesCount, directoriesCount, time.Since(t0))
 }

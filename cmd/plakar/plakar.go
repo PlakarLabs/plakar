@@ -40,7 +40,8 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 }
 
 func main() {
-	var enableTrace bool
+	var enableTraceOutput bool
+	var enableInfoOutput bool
 
 	ctx := Plakar{}
 
@@ -54,7 +55,9 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
-	flag.BoolVar(&enableTrace, "trace", false, "enable traces")
+	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
+	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
+
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -69,7 +72,10 @@ func main() {
 
 	// start logger and defer done return function to end of execution
 
-	if enableTrace {
+	if enableInfoOutput {
+		logger.EnableInfo()
+	}
+	if enableTraceOutput {
 		logger.EnableTrace()
 	}
 	defer logger.Start()()

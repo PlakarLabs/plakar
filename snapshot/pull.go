@@ -6,6 +6,9 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
+
+	"github.com/poolpOrg/plakar/logger"
 )
 
 func (snapshot *Snapshot) Pull(root string, pattern string) {
@@ -28,16 +31,25 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 		}
 	}
 
+	var wg sync.WaitGroup
+
 	for directory, fi := range snapshot.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
 		}
-		dest = fmt.Sprintf("%s/%s", root, directory)
-		os.MkdirAll(dest, 0700)
-		os.Chmod(dest, fi.Mode)
-		os.Chown(dest, int(fi.Uid), int(fi.Gid))
+		wg.Add(1)
+		go func(fi *FileInfo, directory string) {
+			defer wg.Done()
+			rel := path.Clean(fmt.Sprintf("./%s", directory))
+			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
+			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			os.MkdirAll(dest, 0700)
+			os.Chmod(dest, fi.Mode)
+			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+		}(fi, directory)
 	}
+	wg.Wait()
 
 	for file, fi := range snapshot.Files {
 		if file != fpattern &&
@@ -45,45 +57,53 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			continue
 		}
 
-		dest = fmt.Sprintf("%s/%s", root, file)
+		wg.Add(1)
+		go func(fi *FileInfo, file string) {
+			defer wg.Done()
+			rel := path.Clean(fmt.Sprintf("./%s", file))
+			dest = fmt.Sprintf("%s/%s", root, file)
 
-		checksum := snapshot.Pathnames[file]
+			checksum := snapshot.Pathnames[file]
 
-		f, err := os.Create(dest)
-		if err != nil {
-			continue
-		}
+			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 
-		object, err := snapshot.GetObject(checksum)
-		if err != nil {
-			f.Close()
-			continue
-		}
-
-		objectHash := sha256.New()
-		for _, chunk := range object.Chunks {
-			data, err := snapshot.GetChunk(chunk.Checksum)
+			f, err := os.Create(dest)
 			if err != nil {
-				continue
+				return
+			}
+			defer f.Close()
+
+			object, err := snapshot.GetObject(checksum)
+			if err != nil {
+				return
 			}
 
-			if len(data) != int(chunk.Length) {
-				continue
-			} else {
-				chunkHash := sha256.New()
-				chunkHash.Write(data)
-				if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
+			objectHash := sha256.New()
+			for _, chunk := range object.Chunks {
+				data, err := snapshot.GetChunk(chunk.Checksum)
+				if err != nil {
 					continue
 				}
-			}
-			objectHash.Write(data)
-			f.Write(data)
-		}
-		if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
-		}
 
-		f.Close()
-		os.Chmod(dest, fi.Mode)
-		os.Chown(dest, int(fi.Uid), int(fi.Gid))
+				if len(data) != int(chunk.Length) {
+					continue
+				} else {
+					chunkHash := sha256.New()
+					chunkHash.Write(data)
+					if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
+						continue
+					}
+				}
+				objectHash.Write(data)
+				f.Write(data)
+			}
+			if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
+			}
+
+			f.Close()
+			os.Chmod(dest, fi.Mode)
+			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+		}(fi, file)
 	}
+	wg.Wait()
 }

@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
@@ -55,7 +54,6 @@ func cmd_check(ctx Plakar, args []string) int {
 		}
 	}
 
-	t0 := time.Now()
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
@@ -69,13 +67,13 @@ func cmd_check(ctx Plakar, args []string) int {
 		if pattern != "" {
 			checksum, ok := snap.Pathnames[pattern]
 			if !ok {
-				logger.Warn("snapshot %s: unlisted file %s", snap.Uuid, pattern)
+				logger.Warn("%s: unlisted file %s", snap.Uuid, pattern)
 				snapshotOk = false
 				continue
 			}
 			object, ok := snap.Objects[checksum]
 			if !ok {
-				logger.Warn("snapshot %s: unlisted object %s", snap.Uuid, checksum)
+				logger.Warn("%s: unlisted object %s", snap.Uuid, checksum)
 				snapshotOk = false
 				continue
 			}
@@ -84,14 +82,14 @@ func cmd_check(ctx Plakar, args []string) int {
 			for _, chunk := range object.Chunks {
 				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
-					logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+					logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
 					snapshotOk = false
 					continue
 				}
 				objectHash.Write(data)
 			}
 			if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-				logger.Warn("snapshot %s: corrupted object %s", snap.Uuid, checksum)
+				logger.Warn("%s: corrupted object %s", snap.Uuid, checksum)
 				snapshotOk = false
 				continue
 			}
@@ -101,14 +99,14 @@ func cmd_check(ctx Plakar, args []string) int {
 			for _, chunk := range snap.Chunks {
 				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
-					logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+					logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
 					snapshotOk = false
 					continue
 				}
 				chunkHash := sha256.New()
 				chunkHash.Write(data)
 				if fmt.Sprintf("%032x", chunkHash.Sum(nil)) != chunk.Checksum {
-					logger.Warn("snapshot %s: corrupted chunk %s", snap.Uuid, chunk.Checksum)
+					logger.Warn("%s: corrupted chunk %s", snap.Uuid, chunk.Checksum)
 					snapshotOk = false
 					continue
 				}
@@ -117,7 +115,7 @@ func cmd_check(ctx Plakar, args []string) int {
 			for checksum := range snap.Objects {
 				object, err := snap.GetObject(checksum)
 				if err != nil {
-					logger.Warn("snapshot %s: missing object %s", snap.Uuid, checksum)
+					logger.Warn("%s: missing object %s", snap.Uuid, checksum)
 					snapshotOk = false
 					continue
 				}
@@ -126,21 +124,21 @@ func cmd_check(ctx Plakar, args []string) int {
 				for _, chunk := range object.Chunks {
 					_, ok := snap.Chunks[chunk.Checksum]
 					if !ok {
-						logger.Warn("snapshot %s: unlisted chunk %s", snap.Uuid, chunk.Checksum)
+						logger.Warn("%s: unlisted chunk %s", snap.Uuid, chunk.Checksum)
 						snapshotOk = false
 						continue
 					}
 
 					data, err := snap.GetChunk(chunk.Checksum)
 					if err != nil {
-						logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+						logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
 						snapshotOk = false
 						continue
 					}
 					objectHash.Write(data)
 				}
 				if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-					logger.Warn("snapshot %s: corrupted object %s", snap.Uuid, checksum)
+					logger.Warn("%s: corrupted object %s", snap.Uuid, checksum)
 					snapshotOk = false
 					continue
 				}
@@ -149,13 +147,13 @@ func cmd_check(ctx Plakar, args []string) int {
 			for file := range snap.Files {
 				checksum, ok := snap.Pathnames[file]
 				if !ok {
-					logger.Warn("snapshot %s: unlisted file %s", snap.Uuid, file)
+					logger.Warn("%s: unlisted file %s", snap.Uuid, file)
 					snapshotOk = false
 					continue
 				}
 				_, ok = snap.Objects[checksum]
 				if !ok {
-					logger.Warn("snapshot %s: unlisted object %s", snap.Uuid, checksum)
+					logger.Warn("%s: unlisted object %s", snap.Uuid, checksum)
 					snapshotOk = false
 					continue
 				}
@@ -169,9 +167,9 @@ func cmd_check(ctx Plakar, args []string) int {
 		_ = key
 
 		if snapshotOk {
-			logger.Info("snapshot %s: check OK in %s", snap.Uuid, time.Since(t0))
+			logger.Info("%s: OK", snap.Uuid)
 		} else {
-			logger.Error("snapshot %s: check KO in %s", snap.Uuid, time.Since(t0))
+			logger.Error("%s: KO", snap.Uuid)
 		}
 	}
 	return 0

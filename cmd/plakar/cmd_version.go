@@ -21,9 +21,11 @@ import (
 	"fmt"
 )
 
+const VERSION = "0.0.1"
+
 func cmd_version(ctx Plakar, args []string) {
 	flags := flag.NewFlagSet("plakar version", flag.ExitOnError)
 	flags.Parse(args)
 
-	fmt.Println("0.1.0")
+	fmt.Println(VERSION)
 }

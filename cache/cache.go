@@ -20,7 +20,7 @@ func New(cacheDir string) *Cache {
 	return cache
 }
 
-func (cache *Cache) PathPut(checksum string, data []byte) error {
+func (cache *Cache) PutPath(checksum string, data []byte) error {
 	pathnamesDir := fmt.Sprintf("%s/pathnames/%s", cache.directory, checksum[0:2])
 	os.Mkdir(pathnamesDir, 0700)
 
@@ -34,12 +34,12 @@ func (cache *Cache) PathPut(checksum string, data []byte) error {
 	return nil
 }
 
-func (cache *Cache) PathGet(checksum string) ([]byte, error) {
+func (cache *Cache) GetPath(checksum string) ([]byte, error) {
 	pathnameDir := fmt.Sprintf("%s/pathnames/%s", cache.directory, checksum[0:2])
 	return ioutil.ReadFile(fmt.Sprintf("%s/%s", pathnameDir, checksum))
 }
 
-func (cache *Cache) SnapshotPut(checksum string, data []byte) error {
+func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
 	snapshotDir := fmt.Sprintf("%s/snapshots/%s", cache.directory, checksum[0:2])
 	os.Mkdir(snapshotDir, 0700)
 
@@ -53,7 +53,7 @@ func (cache *Cache) SnapshotPut(checksum string, data []byte) error {
 	return nil
 }
 
-func (cache *Cache) SnapshotGet(checksum string) ([]byte, error) {
+func (cache *Cache) GetSnapshot(checksum string) ([]byte, error) {
 	snapshotDir := fmt.Sprintf("%s/snapshots/%s", cache.directory, checksum[0:2])
 	return ioutil.ReadFile(fmt.Sprintf("%s/%s", snapshotDir, checksum))
 }

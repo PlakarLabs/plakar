@@ -16,7 +16,7 @@ import (
 )
 
 func (snapshot *Snapshot) Push(root string) {
-	cache := snapshot.Cache
+	cache := snapshot.store.Cache
 	_ = cache
 
 	chanChunksProcessorMax := make(chan int, 64)
@@ -403,63 +403,61 @@ func (snapshot *Snapshot) Push(root string) {
 		}
 
 		if f.Mode().IsRegular() {
-			/*
-				if cache != nil {
-					cachedObject, err := snapshot.GetCachedObject(fi.path)
-					if err == nil {
-						if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
-							chunks := make([]string, 0)
-							for _, chunk := range cachedObject.Chunks {
-								chunks = append(chunks, chunk.Checksum)
-							}
 
-							res, err := snapshot.BackingTransaction.ChunksMark(chunks)
+			if cache != nil {
+				cachedObject, err := snapshot.GetCachedObject(fi.path)
+				if err == nil {
+					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
+						chunks := make([]string, 0)
+						for _, chunk := range cachedObject.Chunks {
+							chunks = append(chunks, chunk.Checksum)
+						}
+
+						res, err := snapshot.transaction.ReferenceChunks(chunks)
+						if err != nil {
+						}
+						notExistsCount := 0
+						for _, exists := range res {
+							if !exists {
+								notExistsCount++
+								break
+							}
+						}
+
+						if notExistsCount == 0 {
+							checksums := make([]string, 0)
+							checksums = append(checksums, cachedObject.Checksum)
+
+							exists, err := snapshot.transaction.ReferenceObjects(checksums)
 							if err != nil {
-								errchan <- err
 							}
-							notExistsCount := 0
-							for _, exists := range res {
-								if !exists {
-									notExistsCount++
-									break
-								}
-							}
+							if exists[0] {
+								object := Object{}
+								object.path = fi.path
+								object.Checksum = cachedObject.Checksum
+								object.Chunks = cachedObject.Chunks
+								object.ContentType = cachedObject.ContentType
 
-							if notExistsCount == 0 {
-								checkPathnames := make([]string, 0)
-								checkPathnames = append(checkPathnames, cachedObject.Checksum)
+								chanInode <- &cachedObject.Info
 
-								exists, err := snapshot.BackingTransaction.ObjectsMark(checkPathnames)
-								if err != nil {
-									errchan <- err
-								}
-								if exists[0] {
-									object := Object{}
-									object.path = fi.path
-									object.Checksum = cachedObject.Checksum
-									object.Chunks = cachedObject.Chunks
-									object.ContentType = cachedObject.ContentType
+								chanChunksProcessor <- &object
 
-									chanInode <- &cachedObject.Info
+								objectsMutex.Lock()
+								objects[object.Checksum] = &object
+								objectsMutex.Unlock()
 
-									chanChunksProcessor <- &object
+								chanPath <- struct {
+									Pathname string
+									Checksum string
+								}{object.path, object.Checksum}
 
-									objectsMutex.Lock()
-									objects[object.Checksum] = &object
-									objectsMutex.Unlock()
-
-									chanPath <- struct {
-										Pathname string
-										Checksum string
-									}{object.path, object.Checksum}
-
-									return nil
-								}
+								return nil
 							}
 						}
 					}
 				}
-			*/
+			}
+
 			rd, err := os.Open(fi.path)
 			if err != nil {
 				//errchan <- err
@@ -512,9 +510,9 @@ func (snapshot *Snapshot) Push(root string) {
 				Checksum string
 			}{object.path, object.Checksum}
 
-			//if cache != nil {
-			//	snapshot.PutCachedObject(object, fi)
-			//}
+			if cache != nil {
+				snapshot.PutCachedObject(object, fi)
+			}
 		}
 		chanInode <- &fi
 		return nil

@@ -174,9 +174,9 @@ func main() {
 
 	ctx.store = &store
 	ctx.store.Keypair = ctx.keypair
+	ctx.store.Cache = ctx.localCache
 
 	t0 := time.Now()
-	logger.Info("time: %s", time.Since(t0))
 	switch command {
 	case "cat":
 		cmd_cat(ctx, args)
@@ -220,5 +220,8 @@ func main() {
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
-	logger.Printf("time: %s", time.Since(t0))
+
+	if enableTime {
+		logger.Printf("time: %s", time.Since(t0))
+	}
 }

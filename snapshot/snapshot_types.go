@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -81,8 +80,6 @@ type Snapshot struct {
 	store       *fs.FSStore
 	transaction *fs.FSTransaction
 	SkipDirs    []string
-
-	Cache *cache.Cache
 
 	WrittenChunks  map[string]bool
 	InflightChunks map[string]*Chunk

@@ -19,6 +19,7 @@ package fs
 import (
 	"sync"
 
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -26,6 +27,7 @@ import (
 type FSStore struct {
 	config storage.StoreConfig
 
+	Cache   *cache.Cache
 	Keypair *encryption.Keypair
 
 	Repository string

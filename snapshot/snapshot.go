@@ -1,7 +1,9 @@
 package snapshot
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/poolpOrg/plakar/cache"
@@ -30,8 +32,6 @@ func New(store *fs.FSStore, localCache *cache.Cache) Snapshot {
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
 
-		Cache: localCache,
-
 		WrittenChunks:   make(map[string]bool),
 		WrittenObjects:  make(map[string]bool),
 		InflightChunks:  make(map[string]*Chunk),
@@ -43,12 +43,30 @@ func New(store *fs.FSStore, localCache *cache.Cache) Snapshot {
 }
 
 func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
+	cache := store.Cache
 	keypair := store.Keypair
 
-	logger.Trace("snapshot: GetIndex(%s)", Uuid)
-	buffer, err := store.GetIndex(Uuid)
-	if err != nil {
-		return nil, err
+	var buffer []byte
+	cacheMiss := false
+	if cache != nil {
+		logger.Trace("snapshot: cache.GetSnapshot(%s)", Uuid)
+		tmp, err := cache.GetSnapshot(Uuid)
+		if err != nil {
+			cacheMiss = true
+			logger.Trace("snapshot: GetIndex(%s)", Uuid)
+			tmp, err = store.GetIndex(Uuid)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buffer = tmp
+	} else {
+		logger.Trace("snapshot: GetIndex(%s)", Uuid)
+		tmp, err := store.GetIndex(Uuid)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
 	}
 
 	if keypair != nil {
@@ -83,6 +101,10 @@ func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
 	snapshot.Chunks = snapshotStorage.Chunks
 	snapshot.Size = snapshotStorage.Size
 	snapshot.store = store
+
+	if cache != nil && cacheMiss {
+		snapshot.PutIndexCache(data)
+	}
 
 	return snapshot, nil
 }
@@ -139,6 +161,23 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
+func (snapshot *Snapshot) PutIndexCache(data []byte) error {
+	cache := snapshot.store.Cache
+	keypair := snapshot.store.Keypair
+
+	buffer := compression.Deflate(data)
+	if keypair != nil {
+		tmp, err := encryption.Encrypt(keypair.MasterKey, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("%s: PutIndexCache()", snapshot.Uuid)
+	return cache.PutSnapshot(snapshot.Uuid, buffer)
+}
+
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	keypair := snapshot.store.Keypair
 
@@ -187,6 +226,8 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) Commit() error {
+	cache := snapshot.store.Cache
+
 	snapshotStorage := SnapshotStorage{}
 	snapshotStorage.Uuid = snapshot.Uuid
 	snapshotStorage.CreationTime = snapshot.CreationTime
@@ -211,8 +252,82 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
+	if cache != nil {
+		snapshot.PutIndexCache(serialized)
+	}
+
 	logger.Trace("%s: Commit()", snapshot.Uuid)
 	return snapshot.transaction.Commit()
+}
+
+func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
+	keypair := snapshot.store.Keypair
+	cache := snapshot.store.Cache
+
+	pathHash := sha256.New()
+	pathHash.Write([]byte(pathname))
+	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+
+	data, err := cache.GetPath(hashedPath)
+	if err != nil {
+		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Uuid, pathname)
+		return nil, err
+	}
+	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
+
+	if snapshot.store.Configuration().Encrypted != "" {
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		if err != nil {
+			return nil, err
+		}
+		data = tmp
+	}
+
+	data, err = compression.Inflate(data)
+	if err != nil {
+		return nil, err
+	}
+
+	cacheObject := CachedObject{}
+	err = json.Unmarshal(data, &cacheObject)
+	if err != nil {
+		return nil, err
+	}
+	cacheObject.Info.path = pathname
+	return &cacheObject, nil
+}
+
+func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
+	keypair := snapshot.store.Keypair
+	cache := snapshot.store.Cache
+
+	pathHash := sha256.New()
+	pathHash.Write([]byte(object.path))
+	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+
+	cacheObject := CachedObject{}
+	cacheObject.Checksum = object.Checksum
+	cacheObject.Chunks = object.Chunks
+	cacheObject.ContentType = object.ContentType
+	cacheObject.Info = fi
+
+	jobject, err := json.Marshal(cacheObject)
+	if err != nil {
+		return err
+	}
+
+	jobject = compression.Deflate(jobject)
+	if snapshot.store.Configuration().Encrypted != "" {
+		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+		if err != nil {
+			return err
+		}
+		jobject = tmp
+	}
+
+	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, fi.path)
+	cache.PutPath(hashedPath, jobject)
+	return nil
 }
 
 func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {

@@ -10,6 +10,7 @@ import (
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -23,6 +24,11 @@ type Plakar struct {
 	keypair          *encryption.Keypair
 
 	store *fs.FSStore
+
+	StdoutChannel  chan string
+	StderrChannel  chan string
+	VerboseChannel chan string
+	TraceChannel   chan string
 }
 
 func (plakar *Plakar) Store() *fs.FSStore {
@@ -43,6 +49,7 @@ func main() {
 
 	currentUser, err := user.Current()
 	if err != nil {
+		logger.Stderr()
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
@@ -56,6 +63,9 @@ func main() {
 	ctx.Hostname = currentHostname
 	ctx.Workdir = fmt.Sprintf("%s/.plakar", currentUser.HomeDir)
 	ctx.Repository = fmt.Sprintf("%s/store", ctx.Workdir)
+
+	// start logger and defer done return function to end of execution
+	defer logger.Start()()
 
 	command, args := flag.Arg(0), flag.Args()[1:]
 
@@ -135,8 +145,8 @@ func main() {
 
 	ctx.store = &store
 	ctx.store.Keypair = ctx.keypair
-	switch command {
 
+	switch command {
 	case "cat":
 		cmd_cat(ctx, args)
 
@@ -179,4 +189,6 @@ func main() {
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
+
+	//	loggerDone()
 }

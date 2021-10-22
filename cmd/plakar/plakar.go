@@ -49,7 +49,6 @@ func main() {
 
 	currentUser, err := user.Current()
 	if err != nil {
-		logger.Stderr()
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 

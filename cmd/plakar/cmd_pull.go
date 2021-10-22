@@ -20,7 +20,9 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
@@ -56,6 +58,8 @@ func cmd_pull(ctx Plakar, args []string) {
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
+		t0 := time.Now()
 		snap.Pull(dir, pattern)
+		logger.Info("snapshot %s: restored in %s", snap.Uuid, time.Since(t0))
 	}
 }

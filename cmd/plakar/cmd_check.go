@@ -21,11 +21,21 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_check(ctx Plakar, args []string) {
+func cmd_check(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	flags.Parse(args)
+
+	if len(flags.Args()) == 0 {
+		logger.Error("%s: at least one parameter is required", flags.Name())
+		return 1
+	}
+
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to check", flag.CommandLine.Name())
 	}
@@ -45,15 +55,8 @@ func cmd_check(ctx Plakar, args []string) {
 		}
 	}
 
+	t0 := time.Now()
 	for i := 0; i < len(args); i++ {
-		unlistedChunk := make([]string, 0)
-		missingChunks := make([]string, 0)
-		corruptedChunks := make([]string, 0)
-		unlistedObject := make([]string, 0)
-		missingObjects := make([]string, 0)
-		corruptedObjects := make([]string, 0)
-		unlistedFile := make([]string, 0)
-
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
 		snap, err := snapshot.Load(ctx.Store(), res[0])
@@ -62,15 +65,18 @@ func cmd_check(ctx Plakar, args []string) {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 
+		snapshotOk := false
 		if pattern != "" {
 			checksum, ok := snap.Pathnames[pattern]
 			if !ok {
-				unlistedFile = append(unlistedFile, pattern)
+				logger.Warn("snapshot %s: unlisted file %s", snap.Uuid, pattern)
+				snapshotOk = false
 				continue
 			}
 			object, ok := snap.Objects[checksum]
 			if !ok {
-				unlistedObject = append(unlistedObject, checksum)
+				logger.Warn("snapshot %s: unlisted object %s", snap.Uuid, checksum)
+				snapshotOk = false
 				continue
 			}
 
@@ -78,39 +84,41 @@ func cmd_check(ctx Plakar, args []string) {
 			for _, chunk := range object.Chunks {
 				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
-					missingChunks = append(missingChunks, chunk.Checksum)
+					logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+					snapshotOk = false
 					continue
 				}
 				objectHash.Write(data)
 			}
 			if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-				corruptedObjects = append(corruptedObjects, checksum)
+				logger.Warn("snapshot %s: corrupted object %s", snap.Uuid, checksum)
+				snapshotOk = false
 				continue
 			}
 
 		} else {
 
-			cCount := 0
 			for _, chunk := range snap.Chunks {
 				data, err := snap.GetChunk(chunk.Checksum)
 				if err != nil {
-					missingChunks = append(missingChunks, chunk.Checksum)
+					logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+					snapshotOk = false
 					continue
 				}
 				chunkHash := sha256.New()
 				chunkHash.Write(data)
 				if fmt.Sprintf("%032x", chunkHash.Sum(nil)) != chunk.Checksum {
-					corruptedChunks = append(corruptedChunks, chunk.Checksum)
+					logger.Warn("snapshot %s: corrupted chunk %s", snap.Uuid, chunk.Checksum)
+					snapshotOk = false
 					continue
 				}
-				cCount += 1
 			}
 
-			oCount := 0
 			for checksum := range snap.Objects {
 				object, err := snap.GetObject(checksum)
 				if err != nil {
-					missingObjects = append(missingObjects, checksum)
+					logger.Warn("snapshot %s: missing object %s", snap.Uuid, checksum)
+					snapshotOk = false
 					continue
 				}
 				objectHash := sha256.New()
@@ -118,50 +126,41 @@ func cmd_check(ctx Plakar, args []string) {
 				for _, chunk := range object.Chunks {
 					_, ok := snap.Chunks[chunk.Checksum]
 					if !ok {
-						unlistedChunk = append(unlistedChunk, chunk.Checksum)
+						logger.Warn("snapshot %s: unlisted chunk %s", snap.Uuid, chunk.Checksum)
+						snapshotOk = false
 						continue
 					}
 
 					data, err := snap.GetChunk(chunk.Checksum)
 					if err != nil {
-						missingChunks = append(missingChunks, chunk.Checksum)
+						logger.Warn("snapshot %s: missing chunk %s", snap.Uuid, chunk.Checksum)
+						snapshotOk = false
 						continue
 					}
 					objectHash.Write(data)
 				}
 				if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-					corruptedObjects = append(corruptedObjects, checksum)
+					logger.Warn("snapshot %s: corrupted object %s", snap.Uuid, checksum)
+					snapshotOk = false
 					continue
 				}
-
-				oCount += 1
 			}
 
-			fCount := 0
 			for file := range snap.Files {
 				checksum, ok := snap.Pathnames[file]
 				if !ok {
-					unlistedFile = append(unlistedFile, file)
+					logger.Warn("snapshot %s: unlisted file %s", snap.Uuid, file)
+					snapshotOk = false
 					continue
 				}
 				_, ok = snap.Objects[checksum]
 				if !ok {
-					unlistedObject = append(unlistedObject, checksum)
+					logger.Warn("snapshot %s: unlisted object %s", snap.Uuid, checksum)
+					snapshotOk = false
 					continue
 				}
-
-				fCount += 1
 			}
 		}
-
-		errors := 0
-		errors += len(missingChunks)
-		errors += len(corruptedChunks)
-		errors += len(missingObjects)
-		errors += len(corruptedObjects)
-		errors += len(unlistedObject)
-		errors += len(unlistedChunk)
-		errors += len(unlistedFile)
 
 		key := snap.Uuid
 		if pattern != "" {
@@ -169,10 +168,11 @@ func cmd_check(ctx Plakar, args []string) {
 		}
 		_ = key
 
-		if errors == 0 {
-			//store.Context().StdoutChannel <- fmt.Sprintf("%s: OK", key)
+		if snapshotOk {
+			logger.Info("snapshot %s: check OK in %s", snap.Uuid, time.Since(t0))
 		} else {
-			//store.Context().StdoutChannel <- fmt.Sprintf("%s: KO", key)
+			logger.Error("snapshot %s: check KO in %s", snap.Uuid, time.Since(t0))
 		}
 	}
+	return 0
 }

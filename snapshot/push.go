@@ -17,7 +17,8 @@ import (
 
 func (snapshot *Snapshot) Push(root string) {
 	cache := snapshot.Cache
-	_ = cache
+
+	fmt.Println(cache)
 
 	chanChunksProcessorMax := make(chan int, 64)
 	chanChunksProcessor := make(chan *Object)

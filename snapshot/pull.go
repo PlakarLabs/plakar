@@ -7,14 +7,15 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/logger"
 )
 
 func (snapshot *Snapshot) Pull(root string, pattern string) {
 	var wg sync.WaitGroup
+	maxDirectoriesConcurrency := make(chan bool, 1024)
+	maxFilesConcurrency := make(chan bool, 1024)
+	//maxChunksConcurrency := make(chan bool, 1024)
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -34,16 +35,17 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 		}
 	}
 
-	t0 := time.Now()
 	directoriesCount := 0
 	for directory, fi := range snapshot.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
 		}
+		maxDirectoriesConcurrency <- true
 		wg.Add(1)
 		go func(fi *FileInfo, directory string) {
 			defer wg.Done()
+			defer func() { <-maxDirectoriesConcurrency }()
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
 			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
@@ -62,10 +64,11 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue
 		}
-
+		maxFilesConcurrency <- true
 		wg.Add(1)
 		go func(fi *FileInfo, file string) {
 			defer wg.Done()
+			defer func() { <-maxFilesConcurrency }()
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			dest = fmt.Sprintf("%s/%s", root, file)
 
@@ -114,6 +117,4 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 		}(fi, file)
 	}
 	wg.Wait()
-
-	logger.Info("snapshot %s: restored %s [files=%d, dirs=%d] in %s", snapshot.Uuid, humanize.Bytes(filesSize), filesCount, directoriesCount, time.Since(t0))
 }

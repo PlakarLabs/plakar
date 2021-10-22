@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
-func New(store *fs.FSStore) Snapshot {
+func New(store *fs.FSStore, localCache *cache.Cache) Snapshot {
 	tx := store.Transaction()
 	snapshot := Snapshot{
 		store:       store,
@@ -28,6 +29,8 @@ func New(store *fs.FSStore) Snapshot {
 		Pathnames:   make(map[string]string),
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
+
+		Cache: localCache,
 
 		WrittenChunks:   make(map[string]bool),
 		WrittenObjects:  make(map[string]bool),

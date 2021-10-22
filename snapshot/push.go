@@ -16,9 +16,8 @@ import (
 )
 
 func (snapshot *Snapshot) Push(root string) {
-	//	cache := snapshot.BackingStore.Context().Cache
-	//	outchan := snapshot.BackingStore.Context().StdoutChannel
-	//	errchan := snapshot.BackingStore.Context().StderrChannel
+	cache := snapshot.Cache
+	_ = cache
 
 	chanChunksProcessorMax := make(chan int, 64)
 	chanChunksProcessor := make(chan *Object)

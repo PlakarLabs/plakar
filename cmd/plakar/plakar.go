@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
@@ -29,10 +30,16 @@ type Plakar struct {
 	StderrChannel  chan string
 	VerboseChannel chan string
 	TraceChannel   chan string
+
+	localCache *cache.Cache
 }
 
 func (plakar *Plakar) Store() *fs.FSStore {
 	return plakar.store
+}
+
+func (plakar *Plakar) Cache() *cache.Cache {
+	return plakar.localCache
 }
 
 func (plakar *Plakar) Keypair() *encryption.Keypair {
@@ -42,6 +49,7 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 func main() {
 	var enableTraceOutput bool
 	var enableInfoOutput bool
+	var disableCache bool
 
 	ctx := Plakar{}
 
@@ -55,6 +63,7 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
+	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
 
@@ -94,6 +103,10 @@ func main() {
 	}
 
 	local.Init(ctx.Workdir)
+
+	if !disableCache {
+		ctx.localCache = cache.New(fmt.Sprintf("%s/cache", ctx.Workdir))
+	}
 
 	/* keygen command needs to be handled very early */
 	if command == "keygen" {

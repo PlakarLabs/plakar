@@ -30,7 +30,7 @@ func cmd_push(ctx Plakar, args []string) {
 		os.Exit(1)
 	}
 
-	snap := snapshot.New(ctx.Store())
+	snap := snapshot.New(ctx.Store(), ctx.Cache())
 	if len(args) == 0 {
 		snap.Push(dir)
 	} else {

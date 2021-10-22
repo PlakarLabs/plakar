@@ -6,6 +6,7 @@ import (
 
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -34,12 +35,14 @@ func New(store *fs.FSStore) Snapshot {
 		InflightObjects: make(map[string]*Object),
 	}
 
+	logger.Trace("snapshot %s: New()", snapshot.Uuid)
 	return snapshot
 }
 
 func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
 	keypair := store.Keypair
 
+	logger.Trace("snapshot: GetIndex(%s)", Uuid)
 	buffer, err := store.GetIndex(Uuid)
 	if err != nil {
 		return nil, err
@@ -97,6 +100,7 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 		buffer = tmp
 	}
 
+	logger.Trace("snapshot %s: PutChunk(%s)", snapshot.Uuid, checksum)
 	return snapshot.transaction.PutChunk(checksum, buffer)
 }
 
@@ -111,6 +115,8 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 		}
 		buffer = tmp
 	}
+
+	logger.Trace("snapshot %s: PutObject(%s)", snapshot.Uuid, checksum)
 	return snapshot.transaction.PutObject(checksum, buffer)
 }
 
@@ -125,12 +131,15 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		}
 		buffer = tmp
 	}
+
+	logger.Trace("snapshot %s: PutIndex()", snapshot.Uuid)
 	return snapshot.transaction.PutIndex(buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	keypair := snapshot.store.Keypair
 
+	logger.Trace("snapshot %s: GetChunk(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -150,6 +159,7 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	keypair := snapshot.store.Keypair
 
+	logger.Trace("snapshot %s: GetObject(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -198,6 +208,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
+	logger.Trace("snapshot %s: Commit()", snapshot.Uuid)
 	return snapshot.transaction.Commit()
 }
 

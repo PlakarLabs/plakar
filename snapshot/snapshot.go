@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
@@ -345,4 +346,16 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	ss.Chunks = uint64(len(snapshot.Chunks))
 	ss.Size = snapshot.Size
 	return ss
+}
+
+func (snapshot *Snapshot) HumanSize() string {
+	return humanize.Bytes(snapshot.Size)
+}
+
+func (fi *FileInfo) HumanSize() string {
+	return humanize.Bytes(uint64(fi.Size))
+}
+
+func (summary *SnapshotSummary) HumanSize() string {
+	return humanize.Bytes(summary.Size)
 }

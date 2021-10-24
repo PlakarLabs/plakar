@@ -49,7 +49,7 @@ func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
 	var buffer []byte
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetSnapshot(%s)", Uuid)
+		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
 		tmp, err := cache.GetSnapshot(Uuid)
 		if err != nil {
 			cacheMiss = true
@@ -174,7 +174,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutIndexCache()", snapshot.Uuid)
+	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Uuid)
 	return cache.PutSnapshot(snapshot.Uuid, buffer)
 }
 

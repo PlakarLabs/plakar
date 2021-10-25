@@ -184,6 +184,9 @@ func main() {
 	case "check":
 		cmd_check(ctx, args)
 
+	case "diff":
+		cmd_diff(ctx, args)
+
 	case "find":
 		cmd_find(ctx, args)
 
@@ -196,6 +199,15 @@ func main() {
 	case "ls":
 		cmd_ls(ctx, args)
 
+	case "mount":
+		cmd_mount(ctx, args)
+
+	case "pull":
+		cmd_pull(ctx, args)
+
+	case "push":
+		cmd_push(ctx, args)
+
 	case "rm":
 		cmd_rm(ctx, args)
 
@@ -204,15 +216,6 @@ func main() {
 
 	case "ui":
 		cmd_ui(ctx, args)
-
-	case "diff":
-		cmd_diff(ctx, args)
-
-	case "pull":
-		cmd_pull(ctx, args)
-
-	case "push":
-		cmd_push(ctx, args)
 
 	case "version":
 		cmd_version(ctx, args)

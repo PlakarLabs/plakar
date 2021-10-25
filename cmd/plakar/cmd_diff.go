@@ -50,7 +50,10 @@ func fiToDiff(fi snapshot.FileInfo) string {
 		fi.ModTime.UTC())
 }
 
-func cmd_diff(ctx Plakar, args []string) {
+func cmd_diff(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("diff", flag.ExitOnError)
+	flags.Parse(args)
+
 	if len(args) < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
@@ -160,7 +163,7 @@ func cmd_diff(ctx Plakar, args []string) {
 			diff_files(snapshot1, snapshot2, args[i], args[i])
 		}
 	}
-
+	return 0
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {

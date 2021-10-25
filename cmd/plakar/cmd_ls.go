@@ -32,13 +32,17 @@ import (
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
-func cmd_ls(ctx Plakar, args []string) {
+func cmd_ls(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("ls", flag.ExitOnError)
+	flags.Parse(args)
+
 	if len(args) == 0 {
 		list_snapshots(ctx.Store())
-		return
+		return 0
 	}
 
 	list_snapshot(ctx.Store(), args)
+	return 0
 }
 
 func list_snapshots(store *fs.FSStore) {

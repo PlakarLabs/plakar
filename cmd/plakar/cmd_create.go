@@ -29,11 +29,11 @@ import (
 	"golang.org/x/term"
 )
 
-func cmd_create(ctx Plakar, args []string) {
+func cmd_create(ctx Plakar, args []string) int {
 	var no_encryption bool
 	var no_compression bool
 
-	flags := flag.NewFlagSet("plakar create", flag.ExitOnError)
+	flags := flag.NewFlagSet("create", flag.ExitOnError)
 	flags.BoolVar(&no_encryption, "no-encryption", false, "disable transparent encryption")
 	flags.BoolVar(&no_compression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
@@ -66,7 +66,7 @@ func cmd_create(ctx Plakar, args []string) {
 		err := createStore(ctx, ctx.Repository, storeConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
-			return
+			return 1
 		}
 	} else {
 		for _, storeLocation := range flags.Args() {
@@ -78,6 +78,7 @@ func cmd_create(ctx Plakar, args []string) {
 		}
 
 	}
+	return 0
 }
 
 func createStore(ctx Plakar, storeLocation string, storeConfig storage.StoreConfig) error {

@@ -23,9 +23,10 @@ import (
 
 const VERSION = "0.0.1"
 
-func cmd_version(ctx Plakar, args []string) {
-	flags := flag.NewFlagSet("plakar version", flag.ExitOnError)
+func cmd_version(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 
 	fmt.Println(VERSION)
+	return 0
 }

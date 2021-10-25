@@ -17,9 +17,16 @@
 package main
 
 import (
+	"flag"
+
 	"github.com/poolpOrg/plakar/ui"
 )
 
-func cmd_ui(ctx Plakar, args []string) {
+func cmd_ui(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("version", flag.ExitOnError)
+	flags.Parse(args)
+
 	ui.Ui(ctx.Store())
+
+	return 0
 }

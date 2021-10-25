@@ -17,6 +17,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -24,7 +25,9 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_push(ctx Plakar, args []string) {
+func cmd_push(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("push", flag.ExitOnError)
+	flags.Parse(args)
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -46,4 +49,5 @@ func cmd_push(ctx Plakar, args []string) {
 		os.Exit(1)
 	}
 	logger.Info("%s: OK", snap.Uuid)
+	return 0
 }

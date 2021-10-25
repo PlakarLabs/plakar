@@ -30,7 +30,7 @@ import (
 )
 
 func cmd_find(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("plakar find", flag.ExitOnError)
+	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
 	if len(flags.Args()) == 0 {

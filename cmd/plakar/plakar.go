@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/poolpOrg/plakar/cache"
@@ -14,6 +15,7 @@ import (
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -144,16 +146,27 @@ func main() {
 	}
 
 	var store storage.Store
-
-	store = &fs.FSStore{}
-	err = store.Open(ctx.Repository)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
+	if !strings.HasPrefix(ctx.Repository, "/") {
+		if strings.HasPrefix(ctx.Repository, "plakar://") {
+			store = &client.ClientStore{}
+			err = store.Open(ctx.Repository)
+			if err != nil {
+				log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
+			}
 		} else {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			log.Fatalf("%s: unsupported repository protocol", flag.CommandLine.Name())
 		}
-		return
+	} else {
+		store = &fs.FSStore{}
+		err = store.Open(ctx.Repository)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+			}
+			return
+		}
 	}
 
 	if store.Configuration().Encrypted != "" {
@@ -216,6 +229,9 @@ func main() {
 
 	case "push":
 		cmd_push(ctx, args)
+
+	case "server":
+		cmd_server(ctx, args)
 
 	case "version":
 		cmd_version(ctx, args)

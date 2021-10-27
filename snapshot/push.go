@@ -470,7 +470,8 @@ func (snapshot *Snapshot) Push(root string) {
 			objectHash := sha256.New()
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
-			buf := make([]byte, 16*256*256)
+			//buf := make([]byte, 16*256*256)
+			buf := make([]byte, 4*1024*1024)
 			firstChunk := true
 			for {
 				cdcChunk, err := chk.Next(buf)

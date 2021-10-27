@@ -16,7 +16,7 @@ import (
 )
 
 func (snapshot *Snapshot) Push(root string) {
-	cache := snapshot.store.Cache
+	cache := snapshot.store.GetCache()
 	_ = cache
 
 	chanChunksProcessorMax := make(chan int, 64)

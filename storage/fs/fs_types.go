@@ -40,7 +40,7 @@ type FSStore struct {
 
 type FSTransaction struct {
 	Uuid     string
-	store    *FSStore
+	store    FSStore
 	prepared bool
 
 	SkipDirs []string

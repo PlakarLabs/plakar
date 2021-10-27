@@ -16,6 +16,11 @@
 
 package storage
 
+import (
+	"github.com/poolpOrg/plakar/cache"
+	"github.com/poolpOrg/plakar/encryption"
+)
+
 type StoreConfig struct {
 	Uuid       string
 	Encrypted  string
@@ -23,6 +28,11 @@ type StoreConfig struct {
 }
 
 type Store interface {
+	GetCache() *cache.Cache
+	GetKeypair() *encryption.Keypair
+	SetCache(localCache *cache.Cache) error
+	SetKeypair(localKeypair *encryption.Keypair) error
+
 	Create(repository string, configuration StoreConfig) error
 	Open(repository string) error
 	Configuration() StoreConfig

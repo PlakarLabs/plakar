@@ -13,6 +13,7 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -25,7 +26,7 @@ type Plakar struct {
 	EncryptedKeypair []byte
 	keypair          *encryption.Keypair
 
-	store *fs.FSStore
+	store storage.Store
 
 	StdoutChannel  chan string
 	StderrChannel  chan string
@@ -35,7 +36,7 @@ type Plakar struct {
 	localCache *cache.Cache
 }
 
-func (plakar *Plakar) Store() *fs.FSStore {
+func (plakar *Plakar) Store() storage.Store {
 	return plakar.store
 }
 
@@ -142,7 +143,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	store := fs.FSStore{}
+	var store storage.Store
+
+	store = &fs.FSStore{}
 	err = store.Open(ctx.Repository)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -172,9 +175,9 @@ func main() {
 		ctx.keypair = keypair
 	}
 
-	ctx.store = &store
-	ctx.store.Keypair = ctx.keypair
-	ctx.store.Cache = ctx.localCache
+	ctx.store = store
+	ctx.store.SetKeypair(ctx.keypair)
+	ctx.store.SetCache(ctx.localCache)
 
 	t0 := time.Now()
 	switch command {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/poolpOrg/plakar/storage/fs"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 type FileInfo struct {
@@ -77,8 +77,8 @@ type Snapshot struct {
 
 	Quiet bool
 
-	store       *fs.FSStore
-	transaction *fs.FSTransaction
+	store       storage.Store
+	transaction storage.Transaction
 	SkipDirs    []string
 
 	WrittenChunks  map[string]bool

@@ -25,7 +25,9 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
 
 	"github.com/google/uuid"
@@ -72,6 +74,24 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 	return nil
 }
 
+func (store *FSStore) GetCache() *cache.Cache {
+	return store.Cache
+}
+
+func (store *FSStore) GetKeypair() *encryption.Keypair {
+	return store.Keypair
+}
+
+func (store *FSStore) SetCache(localCache *cache.Cache) error {
+	store.Cache = localCache
+	return nil
+}
+
+func (store *FSStore) SetKeypair(localKeypair *encryption.Keypair) error {
+	store.Keypair = localKeypair
+	return nil
+}
+
 func (store *FSStore) Open(repository string) error {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(repository))
 	store.root = repository
@@ -101,10 +121,10 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *FSStore) Transaction() FSTransaction {
-	tx := FSTransaction{}
+func (store *FSStore) Transaction() storage.Transaction {
+	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
-	tx.store = store
+	tx.store = *store
 	tx.prepared = false
 	tx.SkipDirs = store.SkipDirs
 

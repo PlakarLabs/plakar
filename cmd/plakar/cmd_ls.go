@@ -29,7 +29,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage/fs"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func cmd_ls(ctx Plakar, args []string) int {
@@ -45,7 +45,7 @@ func cmd_ls(ctx Plakar, args []string) int {
 	return 0
 }
 
-func list_snapshots(store *fs.FSStore) {
+func list_snapshots(store storage.Store) {
 	snapshots, err := snapshot.List(store)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
@@ -73,7 +73,7 @@ func list_snapshots(store *fs.FSStore) {
 	}
 }
 
-func list_snapshot(store *fs.FSStore, args []string) {
+func list_snapshot(store storage.Store, args []string) {
 	snapshots, err := snapshot.List(store)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())

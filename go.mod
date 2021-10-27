@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gabriel-vasile/mimetype v1.4.0
+	github.com/gliderlabs/ssh v0.3.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711

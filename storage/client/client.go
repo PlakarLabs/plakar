@@ -29,8 +29,7 @@ import (
 )
 
 func (store *ClientStore) connect(addr string) error {
-	servAddr := ":9876"
-	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
 	}

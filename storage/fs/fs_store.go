@@ -121,7 +121,7 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *FSStore) Transaction() storage.Transaction {
+func (store *FSStore) Transaction() (storage.Transaction, error) {
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = *store
@@ -131,7 +131,7 @@ func (store *FSStore) Transaction() storage.Transaction {
 	tx.chunks = make(map[string]bool)
 	tx.objects = make(map[string]bool)
 
-	return tx
+	return tx, nil
 }
 
 func (store *FSStore) GetIndexes() ([]string, error) {

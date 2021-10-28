@@ -17,12 +17,13 @@
 package client
 
 import (
+	"encoding/gob"
+	"net"
 	"sync"
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
-	"golang.org/x/crypto/ssh"
 )
 
 type ClientStore struct {
@@ -31,10 +32,10 @@ type ClientStore struct {
 	Cache   *cache.Cache
 	Keypair *encryption.Keypair
 
-	mu         sync.Mutex
-	conn       *ssh.Client
-	sshChannel ssh.Channel
-	sshReq     <-chan *ssh.Request
+	conn    net.Conn
+	encoder *gob.Encoder
+	decoder *gob.Decoder
+	mu      sync.Mutex
 
 	Repository string
 
@@ -46,6 +47,8 @@ type ClientTransaction struct {
 	store ClientStore
 
 	SkipDirs []string
+
+	mu sync.Mutex
 
 	storage.Transaction
 }

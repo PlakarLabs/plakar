@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
@@ -34,7 +35,10 @@ func cmd_push(ctx Plakar, args []string) int {
 		os.Exit(1)
 	}
 
-	snap := snapshot.New(ctx.Store(), ctx.Cache())
+	snap, err := snapshot.New(ctx.Store(), ctx.Cache())
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if len(args) == 0 {
 		snap.Push(dir)

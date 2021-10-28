@@ -14,6 +14,7 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
@@ -148,13 +149,14 @@ func main() {
 	var store storage.Store
 	if !strings.HasPrefix(ctx.Repository, "/") {
 		if strings.HasPrefix(ctx.Repository, "plakar://") {
+			network.ProtocolRegister()
 			store = &client.ClientStore{}
 			err = store.Open(ctx.Repository)
 			if err != nil {
 				log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
 			}
 		} else {
-			log.Fatalf("%s: unsupported repository protocol", flag.CommandLine.Name())
+			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
 		}
 	} else {
 		store = &fs.FSStore{}

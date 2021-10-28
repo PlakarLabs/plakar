@@ -37,7 +37,7 @@ type Store interface {
 	Open(repository string) error
 	Configuration() StoreConfig
 
-	Transaction() Transaction
+	Transaction() (Transaction, error)
 
 	GetIndexes() ([]string, error)
 	GetIndex(id string) ([]byte, error)

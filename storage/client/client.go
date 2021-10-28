@@ -17,66 +17,38 @@
 package client
 
 import (
-	"encoding/json"
-	"fmt"
+	"encoding/gob"
 	"log"
+	"net"
 	"strings"
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
-	"golang.org/x/crypto/ssh"
 )
 
 func (store *ClientStore) connect(addr string) error {
-	config := &ssh.ClientConfig{
-		User: "username",
-		Auth: []ssh.AuthMethod{
-			// ...
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-
-	conn, err := ssh.Dial("tcp", addr, config)
-	if err != nil {
-		return err
-	}
-
-	// pass public key as part of extra data
-	//pk := store.GetKeypair().PublicKey
-	//fmt.Println(pk)
-
-	sshChannel, sshReq, err := conn.OpenChannel("plakar", nil)
+	servAddr := ":9876"
+	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	if err != nil {
+		log.Fatal(err)
+	}
 	store.conn = conn
-	store.sshChannel = sshChannel
-	store.sshReq = sshReq
+	store.encoder = gob.NewEncoder(conn)
+	store.decoder = gob.NewDecoder(conn)
 
 	return err
 }
 
-func (store *ClientStore) Request(name string, data []byte) ([]byte, error) {
-	var msg *ssh.Request
-	store.mu.Lock()
-	_, err := store.sshChannel.SendRequest(name, false, data)
-	if err == nil {
-		msg = <-store.sshReq
-	}
-	store.mu.Unlock()
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(msg)
-	if msg.Type != name {
-		panic("mismatch")
-	}
-	return msg.Payload, nil
-}
-
 func (store *ClientStore) Create(repository string, config storage.StoreConfig) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	return nil
 }
 
@@ -99,7 +71,8 @@ func (store *ClientStore) SetKeypair(localKeypair *encryption.Keypair) error {
 }
 
 func (store *ClientStore) Open(repository string) error {
-	fmt.Println("connect", repository)
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
 	addr := repository[9:]
 	if !strings.Contains(addr, ":") {
@@ -111,16 +84,23 @@ func (store *ClientStore) Open(repository string) error {
 		return err
 	}
 
-	msg, err := store.Request("Open", nil)
+	request := network.Request{
+		Type:    "ReqOpen",
+		Payload: nil,
+	}
+	err = store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	err = json.Unmarshal(msg, &store.config)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	fmt.Println(store.Configuration())
+
+	store.config = result.Payload.(network.ResOpen).StoreConfig
+
 	return nil
 
 }
@@ -129,102 +109,151 @@ func (store *ClientStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *ClientStore) Transaction() storage.Transaction {
-	msg, err := store.Request("Transaction", nil)
+func (store *ClientStore) Transaction() (storage.Transaction, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	request := network.Request{
+		Type:    "ReqTransaction",
+		Payload: nil,
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	Uuid, err := result.Payload.(network.ResTransaction).Uuid, result.Payload.(network.ResTransaction).Err
+	if err != nil {
+		return nil, err
+	}
 	tx := &ClientTransaction{}
-	tx.Uuid = string(msg)
+	tx.Uuid = Uuid
 	tx.store = *store
-	return tx
+	return tx, nil
 }
 
 func (store *ClientStore) GetIndexes() ([]string, error) {
-	msg, err := store.Request("GetIndexes", nil)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	request := network.Request{
+		Type:    "ReqGetIndexes",
+		Payload: nil,
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Indexes []string
-		err     error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Indexes, result.err
+
+	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
 }
 
 func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
-	msg, err := store.Request("GetIndex", []byte(Uuid))
+	store.mu.Lock()
+	defer store.mu.Unlock()
 
+	request := network.Request{
+		Type: "ReqGetIndex",
+		Payload: network.ReqGetIndex{
+			Uuid: Uuid,
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Data []byte
-		Err  error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Data, result.Err
+	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
 }
 
 func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
-	msg, err := store.Request("GetObject", []byte(checksum))
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	request := network.Request{
+		Type: "ReqGetObject",
+		Payload: network.ReqGetObject{
+			Checksum: checksum,
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Data []byte
-		Err  error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Data, result.Err
+
+	return result.Payload.(network.ResGetObject).Data, result.Payload.(network.ResGetObject).Err
 }
 
 func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
-	msg, err := store.Request("GetChunk", []byte(checksum))
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	request := network.Request{
+		Type: "ReqGetChunk",
+		Payload: network.ReqGetChunk{
+			Checksum: checksum,
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Data []byte
-		Err  error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Data, result.Err
+
+	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
 }
 
 func (store *ClientStore) Purge(id string) error {
-	msg, err := store.Request("Purge", []byte(id))
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	request := network.Request{
+		Type: "ReqPurge",
+		Payload: network.ReqPurge{
+			Uuid: id,
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	var result struct {
-		Err error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	return result.Err
+
+	return result.Payload.(network.ResPurge).Err
 }
 
 //////
@@ -233,147 +262,158 @@ func (transaction *ClientTransaction) GetUuid() string {
 	return transaction.Uuid
 }
 func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	fmt.Println("ReferenceChunks")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	marshalled, m_err := json.Marshal(keys)
-	if m_err != nil {
-		return nil, m_err
+	request := network.Request{
+		Type: "ReqReferenceChunks",
+		Payload: network.ReqReferenceChunks{
+			Transaction: transaction.GetUuid(),
+			Keys:        keys,
+		},
 	}
-
-	msg, err := store.Request("ReferenceChunks", marshalled)
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Exists []bool
-		Err    error
-	}
-
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(result.Exists)
-	return result.Exists, result.Err
+
+	return result.Payload.(network.ResReferenceChunks).Exists, result.Payload.(network.ResReferenceChunks).Err
 }
 
 func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	fmt.Println("ReferenceObject")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	marshalled, m_err := json.Marshal(keys)
-	if m_err != nil {
-		return nil, m_err
+	request := network.Request{
+		Type: "ReqReferenceObjects",
+		Payload: network.ReqReferenceObjects{
+			Transaction: transaction.GetUuid(),
+			Keys:        keys,
+		},
 	}
-
-	msg, err := store.Request("ReferenceObjects", marshalled)
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return nil, err
 	}
 
-	var result struct {
-		Exists []bool
-		Err    error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return nil, err
 	}
-	return result.Exists, result.Err
+
+	return result.Payload.(network.ResReferenceObjects).Exists, result.Payload.(network.ResReferenceObjects).Err
 }
 
 func (transaction *ClientTransaction) PutObject(checksum string, data []byte) error {
-	fmt.Println("PutObject")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	object := struct {
-		Checksum string
-		Data     []byte
-	}{checksum, data}
-	marshalled, m_err := json.Marshal(&object)
-	if m_err != nil {
-		return m_err
+	request := network.Request{
+		Type: "ReqPutObject",
+		Payload: network.ReqPutObject{
+			Transaction: transaction.GetUuid(),
+			Checksum:    checksum,
+			Data:        data,
+		},
 	}
-
-	msg, err := store.Request("PutObject", marshalled)
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	var result struct {
-		Err error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	return result.Err
+
+	return result.Payload.(network.ResPutObject).Err
 }
 
 func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) error {
-	fmt.Println("PutChunk")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	chunk := struct {
-		Checksum string
-		Data     []byte
-	}{checksum, data}
-	marshalled, m_err := json.Marshal(&chunk)
-	if m_err != nil {
-		return m_err
+	request := network.Request{
+		Type: "ReqPutChunk",
+		Payload: network.ReqPutChunk{
+			Transaction: transaction.GetUuid(),
+			Checksum:    checksum,
+			Data:        data,
+		},
 	}
-
-	msg, err := store.Request("PutChunk", marshalled)
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	var result struct {
-		Err error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	return result.Err
+
+	return result.Payload.(network.ResPutChunk).Err
 }
 
 func (transaction *ClientTransaction) PutIndex(data []byte) error {
-	fmt.Println("PutIndex")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	msg, err := store.Request("PutIndex", data)
+	request := network.Request{
+		Type: "ReqPutIndex",
+		Payload: network.ReqPutIndex{
+			Transaction: transaction.GetUuid(),
+			Data:        data,
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	var result struct {
-		Err error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	return result.Err
+
+	return result.Payload.(network.ResPutIndex).Err
 }
 
 func (transaction *ClientTransaction) Commit() error {
-	fmt.Println("Commit")
-	store := transaction.store
+	transaction.mu.Lock()
+	defer transaction.mu.Unlock()
+	store := &transaction.store
 
-	msg, err := store.Request("Commit", nil)
+	request := network.Request{
+		Type: "ReqCommit",
+		Payload: network.ReqCommit{
+			Transaction: transaction.GetUuid(),
+		},
+	}
+	err := store.encoder.Encode(&request)
 	if err != nil {
 		return err
 	}
 
-	var result struct {
-		Err error
-	}
-	err = json.Unmarshal(msg, &result)
+	result := network.Request{}
+	err = store.decoder.Decode(&result)
 	if err != nil {
 		return err
 	}
-	return result.Err
+
+	return result.Payload.(network.ResCommit).Err
 }

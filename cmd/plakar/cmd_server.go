@@ -19,13 +19,18 @@ package main
 import (
 	"flag"
 
-	"github.com/poolpOrg/plakar/server"
+	"github.com/poolpOrg/plakar/network"
 )
 
 func cmd_server(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.Parse(args)
 
-	server.Run(ctx.Store())
+	addr := ":9876"
+	if flags.NArg() == 1 {
+		addr = flags.Arg(0)
+	}
+
+	network.Server(ctx.Store(), addr)
 	return 0
 }

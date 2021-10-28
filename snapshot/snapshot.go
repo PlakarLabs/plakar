@@ -14,9 +14,12 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store storage.Store, localCache *cache.Cache) Snapshot {
-	tx := store.Transaction()
-	snapshot := Snapshot{
+func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+	tx, err := store.Transaction()
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &Snapshot{
 		store:       store,
 		transaction: tx,
 
@@ -40,7 +43,7 @@ func New(store storage.Store, localCache *cache.Cache) Snapshot {
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
-	return snapshot
+	return snapshot, nil
 }
 
 func Load(store storage.Store, Uuid string) (*Snapshot, error) {

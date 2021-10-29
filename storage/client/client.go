@@ -39,6 +39,7 @@ func (store *ClientStore) connect(addr string) error {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	store.conn = conn
 	store.encoder = gob.NewEncoder(conn)
 	store.decoder = gob.NewDecoder(conn)
@@ -46,7 +47,7 @@ func (store *ClientStore) connect(addr string) error {
 	store.inflightRequests = make(map[string]chan network.Request)
 	store.notifications = make(chan network.Request)
 
-	store.maxConcurrentRequest = make(chan bool, 1024)
+	//store.maxConcurrentRequest = make(chan bool, 1024)
 
 	go func() {
 		for m := range store.notifications {
@@ -73,8 +74,8 @@ func (store *ClientStore) connect(addr string) error {
 }
 
 func (store *ClientStore) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
-	store.maxConcurrentRequest <- true
-	defer func() { <-store.maxConcurrentRequest }()
+	//store.maxConcurrentRequest <- true
+	//defer func() { <-store.maxConcurrentRequest }()
 
 	Uuid, err := uuid.NewRandom()
 	if err != nil {

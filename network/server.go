@@ -30,10 +30,10 @@ func Server(store storage.Store, addr string) {
 }
 
 func handleConnection(store storage.Store, conn net.Conn) {
-
-	transactions := make(map[string]storage.Transaction)
 	decoder := gob.NewDecoder(conn)
 	encoder := gob.NewEncoder(conn)
+
+	transactions := make(map[string]storage.Transaction)
 
 	var wg sync.WaitGroup
 

@@ -22,6 +22,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/network"
@@ -42,12 +43,72 @@ func (store *ClientStore) connect(addr string) error {
 	store.encoder = gob.NewEncoder(conn)
 	store.decoder = gob.NewDecoder(conn)
 
+	store.inflightRequests = make(map[string]chan network.Request)
+	store.notifications = make(chan network.Request)
+
+	store.maxConcurrentRequest = make(chan bool, 1024)
+
+	go func() {
+		for m := range store.notifications {
+			store.mu.Lock()
+			notify := store.inflightRequests[m.Uuid]
+			store.mu.Unlock()
+			notify <- m
+		}
+	}()
+
+	go func() {
+		for {
+			result := network.Request{}
+			err = store.decoder.Decode(&result)
+			if err != nil {
+				store.conn.Close()
+				return
+			}
+			store.notifications <- result
+		}
+	}()
+
 	return err
 }
 
-func (store *ClientStore) Create(repository string, config storage.StoreConfig) error {
+func (store *ClientStore) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
+	store.maxConcurrentRequest <- true
+	defer func() { <-store.maxConcurrentRequest }()
+
+	Uuid, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
+
+	request := network.Request{
+		Uuid:    Uuid.String(),
+		Type:    Type,
+		Payload: Payload,
+	}
+
+	notify := make(chan network.Request)
 	store.mu.Lock()
-	defer store.mu.Unlock()
+	store.inflightRequests[request.Uuid] = notify
+	store.mu.Unlock()
+
+	err = store.encoder.Encode(&request)
+	if err != nil {
+		return nil, err
+	}
+
+	result := <-notify
+
+	store.mu.Lock()
+	delete(store.inflightRequests, request.Uuid)
+	store.mu.Unlock()
+	close(notify)
+
+	return &result, nil
+}
+
+func (store *ClientStore) Create(repository string, config storage.StoreConfig) error {
+
 	return nil
 }
 
@@ -70,9 +131,6 @@ func (store *ClientStore) SetKeypair(localKeypair *encryption.Keypair) error {
 }
 
 func (store *ClientStore) Open(repository string) error {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
 	addr := repository[9:]
 	if !strings.Contains(addr, ":") {
 		addr = addr + ":9876"
@@ -83,17 +141,7 @@ func (store *ClientStore) Open(repository string) error {
 		return err
 	}
 
-	request := network.Request{
-		Type:    "ReqOpen",
-		Payload: nil,
-	}
-	err = store.encoder.Encode(&request)
-	if err != nil {
-		return err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqOpen", nil)
 	if err != nil {
 		return err
 	}
@@ -109,20 +157,7 @@ func (store *ClientStore) Configuration() storage.StoreConfig {
 }
 
 func (store *ClientStore) Transaction() (storage.Transaction, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type:    "ReqTransaction",
-		Payload: nil,
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqTransaction", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -133,25 +168,12 @@ func (store *ClientStore) Transaction() (storage.Transaction, error) {
 	}
 	tx := &ClientTransaction{}
 	tx.Uuid = Uuid
-	tx.store = *store
+	tx.store = store
 	return tx, nil
 }
 
 func (store *ClientStore) GetIndexes() ([]string, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type:    "ReqGetIndexes",
-		Payload: nil,
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqGetIndexes", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -160,22 +182,9 @@ func (store *ClientStore) GetIndexes() ([]string, error) {
 }
 
 func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type: "ReqGetIndex",
-		Payload: network.ReqGetIndex{
-			Uuid: Uuid,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqGetIndex", network.ReqGetIndex{
+		Uuid: Uuid,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -184,22 +193,9 @@ func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
 }
 
 func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type: "ReqGetObject",
-		Payload: network.ReqGetObject{
-			Checksum: checksum,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqGetObject", network.ReqGetObject{
+		Checksum: checksum,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -208,22 +204,9 @@ func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type: "ReqGetChunk",
-		Payload: network.ReqGetChunk{
-			Checksum: checksum,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqGetChunk", network.ReqGetChunk{
+		Checksum: checksum,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -232,22 +215,9 @@ func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) Purge(id string) error {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-
-	request := network.Request{
-		Type: "ReqPurge",
-		Payload: network.ReqPurge{
-			Uuid: id,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	result, err := store.sendRequest("ReqPurge", network.ReqPurge{
+		Uuid: id,
+	})
 	if err != nil {
 		return err
 	}
@@ -261,24 +231,11 @@ func (transaction *ClientTransaction) GetUuid() string {
 	return transaction.Uuid
 }
 func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqReferenceChunks",
-		Payload: network.ReqReferenceChunks{
-			Transaction: transaction.GetUuid(),
-			Keys:        keys,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	store := transaction.store
+	result, err := store.sendRequest("ReqReferenceChunks", network.ReqReferenceChunks{
+		Transaction: transaction.GetUuid(),
+		Keys:        keys,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -287,24 +244,11 @@ func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, er
 }
 
 func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqReferenceObjects",
-		Payload: network.ReqReferenceObjects{
-			Transaction: transaction.GetUuid(),
-			Keys:        keys,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	store := transaction.store
+	result, err := store.sendRequest("ReqReferenceObjects", network.ReqReferenceObjects{
+		Transaction: transaction.GetUuid(),
+		Keys:        keys,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -313,25 +257,12 @@ func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, e
 }
 
 func (transaction *ClientTransaction) PutObject(checksum string, data []byte) error {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqPutObject",
-		Payload: network.ReqPutObject{
-			Transaction: transaction.GetUuid(),
-			Checksum:    checksum,
-			Data:        data,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	store := transaction.store
+	result, err := store.sendRequest("ReqPutObject", network.ReqPutObject{
+		Transaction: transaction.GetUuid(),
+		Checksum:    checksum,
+		Data:        data,
+	})
 	if err != nil {
 		return err
 	}
@@ -340,51 +271,24 @@ func (transaction *ClientTransaction) PutObject(checksum string, data []byte) er
 }
 
 func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) error {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqPutChunk",
-		Payload: network.ReqPutChunk{
-			Transaction: transaction.GetUuid(),
-			Checksum:    checksum,
-			Data:        data,
-		},
-	}
-	err := store.encoder.Encode(&request)
+	store := transaction.store
+	result, err := store.sendRequest("ReqPutChunk", network.ReqPutChunk{
+		Transaction: transaction.GetUuid(),
+		Checksum:    checksum,
+		Data:        data,
+	})
 	if err != nil {
 		return err
 	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
-	if err != nil {
-		return err
-	}
-
 	return result.Payload.(network.ResPutChunk).Err
 }
 
 func (transaction *ClientTransaction) PutIndex(data []byte) error {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqPutIndex",
-		Payload: network.ReqPutIndex{
-			Transaction: transaction.GetUuid(),
-			Data:        data,
-		},
-	}
-	err := store.encoder.Encode(&request)
-	if err != nil {
-		return err
-	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
+	store := transaction.store
+	result, err := store.sendRequest("ReqPutIndex", network.ReqPutIndex{
+		Transaction: transaction.GetUuid(),
+		Data:        data,
+	})
 	if err != nil {
 		return err
 	}
@@ -393,26 +297,12 @@ func (transaction *ClientTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *ClientTransaction) Commit() error {
-	transaction.mu.Lock()
-	defer transaction.mu.Unlock()
-	store := &transaction.store
-
-	request := network.Request{
-		Type: "ReqCommit",
-		Payload: network.ReqCommit{
-			Transaction: transaction.GetUuid(),
-		},
-	}
-	err := store.encoder.Encode(&request)
+	store := transaction.store
+	result, err := store.sendRequest("ReqCommit", network.ReqCommit{
+		Transaction: transaction.GetUuid(),
+	})
 	if err != nil {
 		return err
 	}
-
-	result := network.Request{}
-	err = store.decoder.Decode(&result)
-	if err != nil {
-		return err
-	}
-
 	return result.Payload.(network.ResCommit).Err
 }

@@ -23,8 +23,15 @@ import (
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 )
+
+type inflight struct {
+	Add  bool
+	Uuid string
+	Chan chan network.Request
+}
 
 type ClientStore struct {
 	config storage.StoreConfig
@@ -39,16 +46,19 @@ type ClientStore struct {
 
 	Repository string
 
+	inflightRequests     map[string]chan network.Request
+	registerInflight     chan inflight
+	notifications        chan network.Request
+	maxConcurrentRequest chan bool
+
 	storage.Store
 }
 
 type ClientTransaction struct {
 	Uuid  string
-	store ClientStore
+	store *ClientStore
 
 	SkipDirs []string
-
-	mu sync.Mutex
 
 	storage.Transaction
 }

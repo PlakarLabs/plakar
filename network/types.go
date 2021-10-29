@@ -7,6 +7,7 @@ import (
 )
 
 type Request struct {
+	Uuid    string
 	Type    string
 	Payload interface{}
 }

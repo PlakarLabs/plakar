@@ -24,10 +24,12 @@ import (
 	"path"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 
 	"github.com/google/uuid"
@@ -43,6 +45,9 @@ func (store *FSStore) chunkExists(checksum string) bool {
 }
 
 func (store *FSStore) Create(repository string, config storage.StoreConfig) error {
+	t0 := time.Now()
+	defer logger.Profile("Create(%s): %s", repository, time.Since(t0))
+
 	store.root = repository
 
 	err := os.Mkdir(store.root, 0700)
@@ -93,6 +98,9 @@ func (store *FSStore) SetKeypair(localKeypair *encryption.Keypair) error {
 }
 
 func (store *FSStore) Open(repository string) error {
+	t0 := time.Now()
+	defer logger.Profile("Open(%s): %s", repository, time.Since(t0))
+
 	store.SkipDirs = append(store.SkipDirs, path.Clean(repository))
 	store.root = repository
 
@@ -122,6 +130,9 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 }
 
 func (store *FSStore) Transaction() (storage.Transaction, error) {
+	t0 := time.Now()
+	defer logger.Profile("Transaction(): %s", time.Since(t0))
+
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = *store
@@ -135,6 +146,9 @@ func (store *FSStore) Transaction() (storage.Transaction, error) {
 }
 
 func (store *FSStore) GetIndexes() ([]string, error) {
+	t0 := time.Now()
+	defer logger.Profile("GetIndexes(): %s", time.Since(t0))
+
 	ret := make([]string, 0)
 
 	buckets, err := ioutil.ReadDir(store.PathIndexes())
@@ -159,6 +173,9 @@ func (store *FSStore) GetIndexes() ([]string, error) {
 }
 
 func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer logger.Profile("GetIndex(%s): %s", Uuid, time.Since(t0))
+
 	_, err := uuid.Parse(Uuid)
 	if err != nil {
 		return nil, err
@@ -173,6 +190,9 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 }
 
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer logger.Profile("GetObject(%s): %s", checksum, time.Since(t0))
+
 	data, err := ioutil.ReadFile(store.PathObject(checksum))
 	if err != nil {
 		return nil, err
@@ -182,6 +202,9 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 }
 
 func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer logger.Profile("GetChunk(%s): %s", checksum, time.Since(t0))
+
 	data, err := ioutil.ReadFile(store.PathChunk(checksum))
 	if err != nil {
 		return nil, err
@@ -191,6 +214,9 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (store *FSStore) Purge(id string) error {
+	t0 := time.Now()
+	defer logger.Profile("Purge(%s): %s", id, time.Since(t0))
+
 	dest := fmt.Sprintf("%s/%s", store.PathPurge(), id)
 	err := os.Rename(store.PathIndex(id), dest)
 	if err != nil {

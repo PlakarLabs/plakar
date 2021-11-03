@@ -33,9 +33,6 @@ import (
 )
 
 func cmd_ls(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("ls", flag.ExitOnError)
-	flags.Parse(args)
-
 	if len(args) == 0 {
 		list_snapshots(ctx.Store())
 		return 0

@@ -55,6 +55,7 @@ func main() {
 	var enableTime bool
 	var enableTraceOutput bool
 	var enableInfoOutput bool
+	var enableProfiling bool
 	var disableCache bool
 
 	ctx := Plakar{}
@@ -73,6 +74,7 @@ func main() {
 	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
+	flag.BoolVar(&enableProfiling, "profiling", false, "enable profiling")
 
 	flag.Parse()
 
@@ -93,6 +95,9 @@ func main() {
 	}
 	if enableTraceOutput {
 		logger.EnableTrace()
+	}
+	if enableProfiling {
+		logger.EnableProfiling()
 	}
 	defer logger.Start()()
 

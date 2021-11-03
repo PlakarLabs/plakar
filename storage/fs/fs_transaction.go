@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
+
+	"github.com/poolpOrg/plakar/logger"
 )
 
 func (transaction *FSTransaction) GetUuid() string {
@@ -36,6 +39,9 @@ func (transaction *FSTransaction) prepare() {
 }
 
 func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -65,6 +71,9 @@ func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error)
 }
 
 func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -94,6 +103,9 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 }
 
 func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].PutObject(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -114,6 +126,9 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 }
 
 func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -133,6 +148,9 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 }
 
 func (transaction *FSTransaction) PutIndex(data []byte) error {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}
@@ -148,6 +166,9 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *FSTransaction) Commit() error {
+	t0 := time.Now()
+	defer logger.Profile("tx[%s].Commit(): %s", transaction.GetUuid(), time.Since(t0))
+
 	if !transaction.prepared {
 		transaction.prepare()
 	}

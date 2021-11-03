@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -36,6 +37,8 @@ func handleConnection(store storage.Store, conn net.Conn) {
 	transactions := make(map[string]storage.Transaction)
 
 	var wg sync.WaitGroup
+	Uuid, _ := uuid.NewRandom()
+	clientUuid := Uuid.String()
 
 	for {
 		request := Request{}
@@ -48,6 +51,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 		go func() {
 			switch request.Type {
 			case "ReqOpen":
+				logger.Trace("%s: Open", clientUuid)
 				result := Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
@@ -60,6 +64,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqGetIndexes":
+				logger.Trace("%s: GetIndexes", clientUuid)
 				indexes, err := store.GetIndexes()
 				result := Request{
 					Uuid: request.Uuid,
@@ -76,6 +81,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqGetIndex":
+				logger.Trace("%s: GetIndex(%s)", clientUuid, request.Payload.(ReqGetIndex).Uuid)
 				data, err := store.GetIndex(request.Payload.(ReqGetIndex).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
@@ -92,6 +98,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqGetObject":
+				logger.Trace("%s: GetObject(%s)", clientUuid, request.Payload.(ReqGetObject).Checksum)
 				data, err := store.GetObject(request.Payload.(ReqGetObject).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
@@ -108,6 +115,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqGetChunk":
+				logger.Trace("%s: GetChunk(%s)", clientUuid, request.Payload.(ReqGetChunk).Checksum)
 				data, err := store.GetChunk(request.Payload.(ReqGetChunk).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
@@ -124,6 +132,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqPurge":
+				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
 				err := store.Purge(request.Payload.(ReqPurge).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
@@ -139,6 +148,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqTransaction":
+				logger.Trace("%s: Transaction", clientUuid)
 				tx, err := store.Transaction()
 				result := Request{
 					Uuid: request.Uuid,
@@ -156,6 +166,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				transactions[tx.GetUuid()] = tx
 
 			case "ReqReferenceChunks":
+				logger.Trace("%s: ReferenceChunks()", clientUuid)
 				txUuid := request.Payload.(ReqReferenceChunks).Transaction
 				tx := transactions[txUuid]
 				exists, err := tx.ReferenceChunks(request.Payload.(ReqReferenceChunks).Keys)
@@ -174,6 +185,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqReferenceObjects":
+				logger.Trace("%s: ReferenceObjects()", clientUuid)
 				txUuid := request.Payload.(ReqReferenceObjects).Transaction
 				tx := transactions[txUuid]
 				exists, err := tx.ReferenceObjects(request.Payload.(ReqReferenceObjects).Keys)
@@ -192,6 +204,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqPutChunk":
+				logger.Trace("%s: PutChunk(%s)", clientUuid, request.Payload.(ReqPutChunk).Checksum)
 				txUuid := request.Payload.(ReqPutChunk).Transaction
 				tx := transactions[txUuid]
 				err := tx.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
@@ -209,6 +222,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqPutObject":
+				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
 				txUuid := request.Payload.(ReqPutObject).Transaction
 				tx := transactions[txUuid]
 				err := tx.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
@@ -226,6 +240,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqPutIndex":
+				logger.Trace("%s: PutIndex()", clientUuid)
 				txUuid := request.Payload.(ReqPutIndex).Transaction
 				tx := transactions[txUuid]
 				err := tx.PutIndex(request.Payload.(ReqPutIndex).Data)
@@ -243,6 +258,7 @@ func handleConnection(store storage.Store, conn net.Conn) {
 				}
 
 			case "ReqCommit":
+				logger.Trace("%s: Commit()", clientUuid)
 				txUuid := request.Payload.(ReqCommit).Transaction
 				tx := transactions[txUuid]
 				err := tx.Commit()

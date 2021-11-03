@@ -21,10 +21,12 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -109,7 +111,10 @@ func (store *ClientStore) sendRequest(Type string, Payload interface{}) (*networ
 }
 
 func (store *ClientStore) Create(repository string, config storage.StoreConfig) error {
-
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("Create(%s): %s", repository, time.Since(t0))
+	}()
 	return nil
 }
 
@@ -132,6 +137,11 @@ func (store *ClientStore) SetKeypair(localKeypair *encryption.Keypair) error {
 }
 
 func (store *ClientStore) Open(repository string) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("Open(%s): %s", repository, time.Since(t0))
+	}()
+
 	addr := repository[9:]
 	if !strings.Contains(addr, ":") {
 		addr = addr + ":9876"
@@ -158,6 +168,11 @@ func (store *ClientStore) Configuration() storage.StoreConfig {
 }
 
 func (store *ClientStore) Transaction() (storage.Transaction, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("Transaction(): %s", time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqTransaction", nil)
 	if err != nil {
 		return nil, err
@@ -174,6 +189,11 @@ func (store *ClientStore) Transaction() (storage.Transaction, error) {
 }
 
 func (store *ClientStore) GetIndexes() ([]string, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("GetIndexes(): %s", time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqGetIndexes", nil)
 	if err != nil {
 		return nil, err
@@ -183,6 +203,11 @@ func (store *ClientStore) GetIndexes() ([]string, error) {
 }
 
 func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("GetIndex(%s): %s", Uuid, time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqGetIndex", network.ReqGetIndex{
 		Uuid: Uuid,
 	})
@@ -194,6 +219,11 @@ func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
 }
 
 func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("GetObject(%s): %s", checksum, time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqGetObject", network.ReqGetObject{
 		Checksum: checksum,
 	})
@@ -205,6 +235,11 @@ func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("GetChunk(%s): %s", checksum, time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqGetChunk", network.ReqGetChunk{
 		Checksum: checksum,
 	})
@@ -216,6 +251,11 @@ func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (store *ClientStore) Purge(id string) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("Purge(%s): %s", id, time.Since(t0))
+	}()
+
 	result, err := store.sendRequest("ReqPurge", network.ReqPurge{
 		Uuid: id,
 	})
@@ -232,6 +272,11 @@ func (transaction *ClientTransaction) GetUuid() string {
 	return transaction.Uuid
 }
 func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqReferenceChunks", network.ReqReferenceChunks{
 		Transaction: transaction.GetUuid(),
@@ -245,6 +290,11 @@ func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, er
 }
 
 func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqReferenceObjects", network.ReqReferenceObjects{
 		Transaction: transaction.GetUuid(),
@@ -258,6 +308,11 @@ func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, e
 }
 
 func (transaction *ClientTransaction) PutObject(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].PutObject(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqPutObject", network.ReqPutObject{
 		Transaction: transaction.GetUuid(),
@@ -272,6 +327,11 @@ func (transaction *ClientTransaction) PutObject(checksum string, data []byte) er
 }
 
 func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqPutChunk", network.ReqPutChunk{
 		Transaction: transaction.GetUuid(),
@@ -285,6 +345,11 @@ func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) err
 }
 
 func (transaction *ClientTransaction) PutIndex(data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqPutIndex", network.ReqPutIndex{
 		Transaction: transaction.GetUuid(),
@@ -298,6 +363,11 @@ func (transaction *ClientTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *ClientTransaction) Commit() error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("tx[%s].Commit(): %s", transaction.GetUuid(), time.Since(t0))
+	}()
+
 	store := transaction.store
 	result, err := store.sendRequest("ReqCommit", network.ReqCommit{
 		Transaction: transaction.GetUuid(),

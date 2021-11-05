@@ -536,9 +536,5 @@ func (snapshot *Snapshot) Push(root string) {
 	close(chanPath)
 	<-chanPathDone
 
-	if cache != nil {
-		cache.Commit()
-	}
-
 	// ... and we're done
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -11,8 +12,11 @@ import (
 type Cache struct {
 	conn *sql.DB
 
-	snapshots map[string][]byte
-	pathnames map[string][]byte
+	mu_snapshots sync.Mutex
+	snapshots    map[string][]byte
+
+	mu_pathnames sync.Mutex
+	pathnames    map[string][]byte
 }
 
 func New(cacheDir string) *Cache {
@@ -50,12 +54,16 @@ func New(cacheDir string) *Cache {
 }
 
 func (cache *Cache) PutPath(checksum string, data []byte) error {
+	cache.mu_pathnames.Lock()
 	cache.pathnames[checksum] = data
+	cache.mu_pathnames.Unlock()
 	return nil
 }
 
 func (cache *Cache) GetPath(checksum string) ([]byte, error) {
+	cache.mu_pathnames.Lock()
 	ret, exists := cache.pathnames[checksum]
+	cache.mu_pathnames.Unlock()
 	if exists {
 		return ret, nil
 	}
@@ -69,12 +77,16 @@ func (cache *Cache) GetPath(checksum string) ([]byte, error) {
 }
 
 func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
+	cache.mu_snapshots.Lock()
 	cache.snapshots[checksum] = data
+	cache.mu_snapshots.Unlock()
 	return nil
 }
 
 func (cache *Cache) GetSnapshot(Uuid string) ([]byte, error) {
+	cache.mu_snapshots.Lock()
 	ret, exists := cache.snapshots[Uuid]
+	cache.mu_snapshots.Unlock()
 	if exists {
 		return ret, nil
 	}

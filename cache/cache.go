@@ -51,7 +51,6 @@ func New(cacheDir string) *Cache {
 
 func (cache *Cache) PutPath(checksum string, data []byte) error {
 	cache.pathnames[checksum] = data
-	fmt.Println(cache.pathnames)
 	return nil
 }
 
@@ -71,8 +70,6 @@ func (cache *Cache) GetPath(checksum string) ([]byte, error) {
 
 func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
 	cache.snapshots[checksum] = data
-	fmt.Println(cache.snapshots)
-
 	return nil
 }
 
@@ -100,7 +97,7 @@ func (cache *Cache) Commit() error {
 		log.Fatal(err)
 	}
 	for checksum, data := range cache.pathnames {
-		fmt.Println(statement.Exec(checksum, data))
+		statement.Exec(checksum, data)
 	}
 	statement.Close()
 
@@ -109,7 +106,7 @@ func (cache *Cache) Commit() error {
 		log.Fatal(err)
 	}
 	for checksum, data := range cache.snapshots {
-		fmt.Println(statement.Exec(checksum, data))
+		statement.Exec(checksum, data)
 	}
 	statement.Close()
 

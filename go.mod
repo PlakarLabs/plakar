@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
+	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/restic/chunker v0.4.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519

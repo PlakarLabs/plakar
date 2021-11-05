@@ -247,6 +247,10 @@ func main() {
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
 
+	if ctx.localCache != nil {
+		ctx.localCache.Commit()
+	}
+
 	if enableTime {
 		logger.Printf("time: %s", time.Since(t0))
 	}

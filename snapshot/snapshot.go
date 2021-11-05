@@ -258,7 +258,6 @@ func (snapshot *Snapshot) Commit() error {
 
 	if cache != nil {
 		snapshot.PutIndexCache(serialized)
-		cache.Commit()
 	}
 
 	logger.Trace("%s: Commit()", snapshot.Uuid)

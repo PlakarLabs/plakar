@@ -13,7 +13,7 @@ import (
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
 	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage/fs"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 var inodeMutex sync.Mutex
@@ -50,10 +50,10 @@ var inodeToPath map[fuseops.InodeID]string
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	store *fs.FSStore
+	store storage.Store
 }
 
-func NewPlakarFS(store *fs.FSStore) (fuse.Server, error) {
+func NewPlakarFS(store storage.Store) (fuse.Server, error) {
 	snapshotToInode = make(map[string]fuseops.InodeID)
 	inodeToSnapshot = make(map[fuseops.InodeID]string)
 	inodeInSnapshot = make(map[fuseops.InodeID]string)

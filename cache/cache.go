@@ -9,8 +9,10 @@ import (
 )
 
 type Cache struct {
-	directory string
-	conn      *sql.DB
+	conn *sql.DB
+
+	snapshots map[string][]byte
+	pathnames map[string][]byte
 }
 
 func New(cacheDir string) *Cache {
@@ -21,8 +23,8 @@ func New(cacheDir string) *Cache {
 
 	cache := &Cache{}
 	cache.conn = conn
-
-	cache.directory = cacheDir
+	cache.snapshots = make(map[string][]byte)
+	cache.pathnames = make(map[string][]byte)
 
 	statement, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS snapshots (
 		"uuid"	UUID NOT NULL PRIMARY KEY,
@@ -34,30 +36,31 @@ func New(cacheDir string) *Cache {
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS pathnames (
+	statement2, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS pathnames (
 		"checksum"	VARCHAR NOT NULL PRIMARY KEY,
 		"blob"		BLOB
 	);`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer statement.Close()
-	statement.Exec()
+	defer statement2.Close()
+	statement2.Exec()
 
 	return cache
 }
 
 func (cache *Cache) PutPath(checksum string, data []byte) error {
-	statement, err := cache.conn.Prepare(`INSERT INTO pathnames("checksum", "blob") VALUES(?, ?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec(checksum, data)
+	cache.pathnames[checksum] = data
+	fmt.Println(cache.pathnames)
 	return nil
 }
 
 func (cache *Cache) GetPath(checksum string) ([]byte, error) {
+	ret, exists := cache.pathnames[checksum]
+	if exists {
+		return ret, nil
+	}
+
 	var data []byte
 	err := cache.conn.QueryRow(`SELECT blob FROM pathnames WHERE checksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -67,20 +70,50 @@ func (cache *Cache) GetPath(checksum string) ([]byte, error) {
 }
 
 func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
-	statement, err := cache.conn.Prepare(`INSERT INTO snapshots("uuid", "blob") VALUES(?, ?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec(checksum, data)
+	cache.snapshots[checksum] = data
+	fmt.Println(cache.snapshots)
+
 	return nil
 }
 
 func (cache *Cache) GetSnapshot(Uuid string) ([]byte, error) {
+	ret, exists := cache.snapshots[Uuid]
+	if exists {
+		return ret, nil
+	}
+
 	var data []byte
 	err := cache.conn.QueryRow(`SELECT blob FROM snapshots WHERE uuid=?`, Uuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (cache *Cache) Commit() error {
+	// XXX - to handle parallel use, New() needs to open a read-only version of the database
+	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
+	//
+
+	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for checksum, data := range cache.pathnames {
+		fmt.Println(statement.Exec(checksum, data))
+	}
+	statement.Close()
+
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO snapshots("uuid", "blob") VALUES(?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for checksum, data := range cache.snapshots {
+		fmt.Println(statement.Exec(checksum, data))
+	}
+	statement.Close()
+
+	cache.conn.Close()
+
+	return nil
 }

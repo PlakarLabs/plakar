@@ -434,7 +434,6 @@ func (snapshot *Snapshot) Push(root string) {
 							}{object.path, object.Checksum}
 
 							return nil
-
 						}
 					}
 				}
@@ -536,6 +535,10 @@ func (snapshot *Snapshot) Push(root string) {
 	// no more paths to discover, close and wait
 	close(chanPath)
 	<-chanPathDone
+
+	if cache != nil {
+		cache.Commit()
+	}
 
 	// ... and we're done
 }

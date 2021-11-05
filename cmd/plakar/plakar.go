@@ -53,7 +53,7 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 
 func main() {
 	var enableTime bool
-	var enableTraceOutput bool
+	var enableTracing bool
 	var enableInfoOutput bool
 	var enableProfiling bool
 	var disableCache bool
@@ -73,8 +73,8 @@ func main() {
 	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
 	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
-	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
-	flag.BoolVar(&enableProfiling, "profiling", false, "enable profiling")
+	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
+	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
 
 	flag.Parse()
 
@@ -93,7 +93,7 @@ func main() {
 	if enableInfoOutput {
 		logger.EnableInfo()
 	}
-	if enableTraceOutput {
+	if enableTracing {
 		logger.EnableTrace()
 	}
 	if enableProfiling {

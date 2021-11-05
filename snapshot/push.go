@@ -17,7 +17,6 @@ import (
 
 func (snapshot *Snapshot) Push(root string) {
 	cache := snapshot.store.GetCache()
-	_ = cache
 
 	chanChunksProcessorMax := make(chan int, 64)
 	chanChunksProcessor := make(chan *Object)
@@ -196,16 +195,6 @@ func (snapshot *Snapshot) Push(root string) {
 		wg.Wait()
 		chanSizeDone <- true
 	}()
-
-	/*
-		case msg := <-chanSnapshotCachedChunk:
-			if _, ok := snapshot.Chunks[msg.Checksum]; !ok {
-				outchan <- fmt.Sprintf("chunk\tlink %s (cached)", msg.Checksum)
-				snapshot.Chunks[msg.Checksum] = msg
-			} else {
-				outchan <- fmt.Sprintf("chunk\tskip %s (cached)", msg.Checksum)
-			}
-	*/
 
 	// this goroutine is in charge of all chunks writes to the store
 	go func() {
@@ -425,34 +414,27 @@ func (snapshot *Snapshot) Push(root string) {
 						}
 
 						if notExistsCount == 0 {
-							checksums := make([]string, 0)
-							checksums = append(checksums, cachedObject.Checksum)
+							object := Object{}
+							object.path = fi.path
+							object.Checksum = cachedObject.Checksum
+							object.Chunks = cachedObject.Chunks
+							object.ContentType = cachedObject.ContentType
 
-							exists, err := snapshot.transaction.ReferenceObjects(checksums)
-							if err != nil {
-							}
-							if exists[0] {
-								object := Object{}
-								object.path = fi.path
-								object.Checksum = cachedObject.Checksum
-								object.Chunks = cachedObject.Chunks
-								object.ContentType = cachedObject.ContentType
+							chanInode <- &cachedObject.Info
 
-								chanInode <- &cachedObject.Info
+							chanChunksProcessor <- &object
 
-								chanChunksProcessor <- &object
+							objectsMutex.Lock()
+							objects[object.Checksum] = &object
+							objectsMutex.Unlock()
 
-								objectsMutex.Lock()
-								objects[object.Checksum] = &object
-								objectsMutex.Unlock()
+							chanPath <- struct {
+								Pathname string
+								Checksum string
+							}{object.path, object.Checksum}
 
-								chanPath <- struct {
-									Pathname string
-									Checksum string
-								}{object.path, object.Checksum}
+							return nil
 
-								return nil
-							}
 						}
 					}
 				}
@@ -470,8 +452,7 @@ func (snapshot *Snapshot) Push(root string) {
 			objectHash := sha256.New()
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
-			//buf := make([]byte, 16*256*256)
-			buf := make([]byte, 4*1024*1024)
+			buf := make([]byte, 16*1024*1024)
 			firstChunk := true
 			for {
 				cdcChunk, err := chk.Next(buf)

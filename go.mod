@@ -13,5 +13,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/restic/chunker v0.4.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 )

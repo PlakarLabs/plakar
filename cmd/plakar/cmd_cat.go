@@ -61,12 +61,14 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 		snap, ok := mapSnapshots[res[0]]
 		if !ok {
-			snap, err := snapshot.Load(ctx.Store(), res[0])
+			tmp, err := snapshot.Load(ctx.Store(), res[0])
 			if err != nil {
 				logger.Error("%s: could not open snapshot: %s", flags.Name(), res[0])
 				errors++
 				continue
 			}
+			snap = tmp
+			fmt.Println(snap.Objects)
 			mapSnapshots[snap.Uuid] = snap
 		}
 

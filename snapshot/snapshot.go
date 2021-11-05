@@ -11,14 +11,17 @@ import (
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/storage/fs"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store *fs.FSStore, localCache *cache.Cache) Snapshot {
-	tx := store.Transaction()
-	snapshot := Snapshot{
+func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+	tx, err := store.Transaction()
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &Snapshot{
 		store:       store,
-		transaction: &tx,
+		transaction: tx,
 
 		Uuid:         tx.GetUuid(),
 		CreationTime: time.Now(),
@@ -40,12 +43,12 @@ func New(store *fs.FSStore, localCache *cache.Cache) Snapshot {
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
-	return snapshot
+	return snapshot, nil
 }
 
-func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
-	cache := store.Cache
-	keypair := store.Keypair
+func Load(store storage.Store, Uuid string) (*Snapshot, error) {
+	cache := store.GetCache()
+	keypair := store.GetKeypair()
 
 	var buffer []byte
 	cacheMiss := false
@@ -110,12 +113,12 @@ func Load(store *fs.FSStore, Uuid string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func List(store *fs.FSStore) ([]string, error) {
+func List(store storage.Store) ([]string, error) {
 	return store.GetIndexes()
 }
 
 func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
-	keypair := snapshot.store.Keypair
+	keypair := snapshot.store.GetKeypair()
 
 	buffer := compression.Deflate(data)
 	if keypair != nil {
@@ -131,7 +134,7 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 }
 
 func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
-	keypair := snapshot.store.Keypair
+	keypair := snapshot.store.GetKeypair()
 
 	buffer := compression.Deflate(data)
 	if keypair != nil {
@@ -147,7 +150,7 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 }
 
 func (snapshot *Snapshot) PutIndex(data []byte) error {
-	keypair := snapshot.store.Keypair
+	keypair := snapshot.store.GetKeypair()
 
 	buffer := compression.Deflate(data)
 	if keypair != nil {
@@ -163,8 +166,8 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
-	cache := snapshot.store.Cache
-	keypair := snapshot.store.Keypair
+	cache := snapshot.store.GetCache()
+	keypair := snapshot.store.GetKeypair()
 
 	buffer := compression.Deflate(data)
 	if keypair != nil {
@@ -180,7 +183,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
-	keypair := snapshot.store.Keypair
+	keypair := snapshot.store.GetKeypair()
 
 	logger.Trace("%s: GetChunk(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetChunk(checksum)
@@ -200,7 +203,7 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
-	keypair := snapshot.store.Keypair
+	keypair := snapshot.store.GetKeypair()
 
 	logger.Trace("%s: GetObject(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetObject(checksum)
@@ -227,7 +230,7 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) Commit() error {
-	cache := snapshot.store.Cache
+	cache := snapshot.store.GetCache()
 
 	snapshotStorage := SnapshotStorage{}
 	snapshotStorage.Uuid = snapshot.Uuid
@@ -262,8 +265,8 @@ func (snapshot *Snapshot) Commit() error {
 }
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	keypair := snapshot.store.Keypair
-	cache := snapshot.store.Cache
+	keypair := snapshot.store.GetKeypair()
+	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
 	pathHash.Write([]byte(pathname))
@@ -299,8 +302,8 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 }
 
 func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
-	keypair := snapshot.store.Keypair
-	cache := snapshot.store.Cache
+	keypair := snapshot.store.GetKeypair()
+	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
 	pathHash.Write([]byte(object.path))

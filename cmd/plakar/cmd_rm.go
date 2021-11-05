@@ -25,7 +25,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_rm(ctx Plakar, args []string) {
+func cmd_rm(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("rm", flag.ExitOnError)
+	flags.Parse(args)
+
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
@@ -52,4 +55,6 @@ func cmd_rm(ctx Plakar, args []string) {
 		ctx.Store().Purge(snap.Uuid)
 		fmt.Fprintf(os.Stdout, "%s: OK\n", snap.Uuid)
 	}
+
+	return 0
 }

@@ -30,10 +30,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/fs"
 )
 
-var lstore *fs.FSStore
+var lstore storage.Store
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -371,7 +370,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *fs.FSStore) {
+func Ui(store storage.Store) {
 	lstore = store
 
 	templates = make(map[string]*template.Template)

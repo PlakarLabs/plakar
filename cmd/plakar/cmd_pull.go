@@ -26,7 +26,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func cmd_pull(ctx Plakar, args []string) {
+func cmd_pull(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("pull", flag.ExitOnError)
+	flags.Parse(args)
+
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
@@ -59,4 +62,6 @@ func cmd_pull(ctx Plakar, args []string) {
 		snap.Pull(dir, pattern)
 		logger.Info("snapshot %s: restored in %s", snap.Uuid, time.Since(t0))
 	}
+
+	return 0
 }

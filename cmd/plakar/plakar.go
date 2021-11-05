@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/poolpOrg/plakar/cache"
@@ -13,6 +14,9 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/network"
+	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/storage/client"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -25,7 +29,7 @@ type Plakar struct {
 	EncryptedKeypair []byte
 	keypair          *encryption.Keypair
 
-	store *fs.FSStore
+	store storage.Store
 
 	StdoutChannel  chan string
 	StderrChannel  chan string
@@ -35,7 +39,7 @@ type Plakar struct {
 	localCache *cache.Cache
 }
 
-func (plakar *Plakar) Store() *fs.FSStore {
+func (plakar *Plakar) Store() storage.Store {
 	return plakar.store
 }
 
@@ -49,8 +53,9 @@ func (plakar *Plakar) Keypair() *encryption.Keypair {
 
 func main() {
 	var enableTime bool
-	var enableTraceOutput bool
+	var enableTracing bool
 	var enableInfoOutput bool
+	var enableProfiling bool
 	var disableCache bool
 
 	ctx := Plakar{}
@@ -68,7 +73,8 @@ func main() {
 	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
 	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
-	flag.BoolVar(&enableTraceOutput, "trace", false, "enable trace output")
+	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
+	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
 
 	flag.Parse()
 
@@ -87,8 +93,11 @@ func main() {
 	if enableInfoOutput {
 		logger.EnableInfo()
 	}
-	if enableTraceOutput {
+	if enableTracing {
 		logger.EnableTrace()
+	}
+	if enableProfiling {
+		logger.EnableProfiling()
 	}
 	defer logger.Start()()
 
@@ -142,15 +151,29 @@ func main() {
 		os.Exit(0)
 	}
 
-	store := fs.FSStore{}
-	err = store.Open(ctx.Repository)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
+	var store storage.Store
+	if !strings.HasPrefix(ctx.Repository, "/") {
+		if strings.HasPrefix(ctx.Repository, "plakar://") {
+			network.ProtocolRegister()
+			store = &client.ClientStore{}
+			err = store.Open(ctx.Repository)
+			if err != nil {
+				log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
+			}
 		} else {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
 		}
-		return
+	} else {
+		store = &fs.FSStore{}
+		err = store.Open(ctx.Repository)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+			}
+			return
+		}
 	}
 
 	if store.Configuration().Encrypted != "" {
@@ -172,9 +195,9 @@ func main() {
 		ctx.keypair = keypair
 	}
 
-	ctx.store = &store
-	ctx.store.Keypair = ctx.keypair
-	ctx.store.Cache = ctx.localCache
+	ctx.store = store
+	ctx.store.SetKeypair(ctx.keypair)
+	ctx.store.SetCache(ctx.localCache)
 
 	t0 := time.Now()
 	switch command {
@@ -216,6 +239,9 @@ func main() {
 
 	case "ui":
 		cmd_ui(ctx, args)
+
+	case "server":
+		cmd_server(ctx, args)
 
 	case "version":
 		cmd_version(ctx, args)

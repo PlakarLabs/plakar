@@ -26,7 +26,7 @@ import (
 )
 
 func cmd_key(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("plakar key", flag.ExitOnError)
+	flags := flag.NewFlagSet("key", flag.ExitOnError)
 	flags.Parse(args)
 
 	if len(flags.Args()) == 0 {

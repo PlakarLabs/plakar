@@ -26,6 +26,9 @@ import (
 )
 
 func cmd_info(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("info", flag.ExitOnError)
+	flags.Parse(args)
+
 	if len(args) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}

@@ -18,40 +18,19 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"os"
 
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/network"
 )
 
-func cmd_push(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("push", flag.ExitOnError)
+func cmd_server(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.Parse(args)
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+
+	addr := ":9876"
+	if flags.NArg() == 1 {
+		addr = flags.Arg(0)
 	}
 
-	snap, err := snapshot.New(ctx.Store(), ctx.Cache())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(args) == 0 {
-		snap.Push(dir)
-	} else {
-		for i := 0; i < len(args); i++ {
-			snap.Push(args[i])
-		}
-	}
-
-	err = snap.Commit()
-	if err != nil {
-		os.Exit(1)
-	}
-	logger.Info("%s: OK", snap.Uuid)
+	network.Server(ctx.Store(), addr)
 	return 0
 }

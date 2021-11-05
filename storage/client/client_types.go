@@ -14,48 +14,51 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package storage
+package client
 
 import (
+	"encoding/gob"
+	"net"
+	"sync"
+
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/network"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-type StoreConfig struct {
-	Uuid       string
-	Encrypted  string
-	Compressed string
+type inflight struct {
+	Add  bool
+	Uuid string
+	Chan chan network.Request
 }
 
-type Store interface {
-	GetCache() *cache.Cache
-	GetKeypair() *encryption.Keypair
-	SetCache(localCache *cache.Cache) error
-	SetKeypair(localKeypair *encryption.Keypair) error
+type ClientStore struct {
+	config storage.StoreConfig
 
-	Create(repository string, configuration StoreConfig) error
-	Open(repository string) error
-	Configuration() StoreConfig
+	Cache   *cache.Cache
+	Keypair *encryption.Keypair
 
-	Transaction() (Transaction, error)
+	conn    net.Conn
+	encoder *gob.Encoder
+	decoder *gob.Decoder
+	mu      sync.Mutex
 
-	GetIndexes() ([]string, error)
-	GetIndex(id string) ([]byte, error)
-	GetObject(checksum string) ([]byte, error)
-	GetChunk(checksum string) ([]byte, error)
+	Repository string
 
-	Purge(id string) error
+	inflightRequests     map[string]chan network.Request
+	registerInflight     chan inflight
+	notifications        chan network.Request
+	maxConcurrentRequest chan bool
+
+	storage.Store
 }
 
-type Transaction interface {
-	GetUuid() string
+type ClientTransaction struct {
+	Uuid  string
+	store *ClientStore
 
-	ReferenceObjects(keys []string) ([]bool, error)
-	PutObject(checksum string, data []byte) error
+	SkipDirs []string
 
-	ReferenceChunks(keys []string) ([]bool, error)
-	PutChunk(checksum string, data []byte) error
-
-	PutIndex(data []byte) error
-	Commit() error
+	storage.Transaction
 }

@@ -12,7 +12,8 @@ var debugChannel chan string
 var traceChannel chan string
 
 var enableInfo = false
-var enableTrace = false
+var enableTracing = false
+var enableProfiling = false
 
 func Printf(format string, args ...interface{}) {
 	stdoutChannel <- fmt.Sprintf(format, args...)
@@ -37,8 +38,14 @@ func Debug(format string, args ...interface{}) {
 }
 
 func Trace(format string, args ...interface{}) {
-	if enableTrace {
+	if enableTracing {
 		traceChannel <- fmt.Sprintf(format, args...)
+	}
+}
+
+func Profile(format string, args ...interface{}) {
+	if enableProfiling {
+		traceChannel <- fmt.Sprintf("[profiling] "+format, args...)
 	}
 }
 
@@ -46,7 +53,10 @@ func EnableInfo() {
 	enableInfo = true
 }
 func EnableTrace() {
-	enableTrace = true
+	enableTracing = true
+}
+func EnableProfiling() {
+	enableProfiling = true
 }
 
 func Start() func() {

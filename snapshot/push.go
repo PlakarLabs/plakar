@@ -284,7 +284,7 @@ func (snapshot *Snapshot) Push(root string) {
 					chunks = append(chunks, chunk.Checksum)
 				}
 
-				res, err := snapshot.transaction.ReferenceChunks(chunks)
+				res, err := snapshot.ReferenceChunks(chunks)
 				if err != nil {
 					//					errchan <- err
 					return
@@ -336,7 +336,7 @@ func (snapshot *Snapshot) Push(root string) {
 					checkPathnames = append(checkPathnames, checksum)
 				}
 
-				res, err := snapshot.transaction.ReferenceObjects(checkPathnames)
+				res, err := snapshot.ReferenceObjects(checkPathnames)
 				if err != nil {
 					//errchan <- err
 				}
@@ -402,7 +402,7 @@ func (snapshot *Snapshot) Push(root string) {
 							chunks = append(chunks, chunk.Checksum)
 						}
 
-						res, err := snapshot.transaction.ReferenceChunks(chunks)
+						res, err := snapshot.ReferenceChunks(chunks)
 						if err != nil {
 						}
 						notExistsCount := 0

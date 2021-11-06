@@ -165,6 +165,16 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
+func (snapshot *Snapshot) ReferenceChunks(keys []string) ([]bool, error) {
+	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Uuid, len(keys))
+	return snapshot.transaction.ReferenceChunks(keys)
+}
+
+func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
+	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Uuid, len(keys))
+	return snapshot.transaction.ReferenceObjects(keys)
+}
+
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()

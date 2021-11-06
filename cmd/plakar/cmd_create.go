@@ -25,7 +25,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/fs"
 	"golang.org/x/term"
 )
 
@@ -82,6 +81,5 @@ func cmd_create(ctx Plakar, args []string) int {
 }
 
 func createStore(ctx Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
-	pstore := &fs.FSStore{}
-	return pstore.Create(storeLocation, storeConfig)
+	return ctx.store.Create(storeLocation, storeConfig)
 }

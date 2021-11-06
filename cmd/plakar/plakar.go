@@ -17,6 +17,7 @@ import (
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/storage/client"
+	"github.com/poolpOrg/plakar/storage/database"
 	"github.com/poolpOrg/plakar/storage/fs"
 )
 
@@ -142,6 +143,21 @@ func main() {
 	}
 	ctx.EncryptedKeypair = encryptedKeypair
 
+	var store storage.Store
+	if !strings.HasPrefix(ctx.Repository, "/") {
+		if strings.HasPrefix(ctx.Repository, "plakar://") {
+			network.ProtocolRegister()
+			store = &client.ClientStore{}
+		} else if strings.HasPrefix(ctx.Repository, "sqlite://") {
+			store = &database.DatabaseStore{}
+		} else {
+			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
+		}
+	} else {
+		store = &fs.FSStore{}
+	}
+	ctx.store = store
+
 	// create command needs to be handled early _after_ key is available
 	if command == "create" {
 		cmd_create(ctx, args)
@@ -151,28 +167,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	var store storage.Store
-	if !strings.HasPrefix(ctx.Repository, "/") {
-		if strings.HasPrefix(ctx.Repository, "plakar://") {
-			network.ProtocolRegister()
-			store = &client.ClientStore{}
-			err = store.Open(ctx.Repository)
-			if err != nil {
-				log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
-			}
+	err = store.Open(ctx.Repository)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
 		} else {
-			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-		}
-	} else {
-		store = &fs.FSStore{}
-		err = store.Open(ctx.Repository)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-			}
-			return
+			log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
 		}
 	}
 

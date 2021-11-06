@@ -213,6 +213,9 @@ func main() {
 	case "info":
 		cmd_info(ctx, args)
 
+	case "keep":
+		cmd_keep(ctx, args)
+
 	case "key":
 		cmd_key(ctx, args)
 

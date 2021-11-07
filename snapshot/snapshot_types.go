@@ -48,6 +48,7 @@ type SnapshotStorage struct {
 	Version      string
 	Hostname     string
 	Username     string
+	CommandLine  string
 
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
@@ -65,6 +66,7 @@ type Snapshot struct {
 	Version      string
 	Hostname     string
 	Username     string
+	CommandLine  string
 
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
@@ -94,6 +96,7 @@ type SnapshotSummary struct {
 	Version      string
 	Hostname     string
 	Username     string
+	CommandLine  string
 
 	Directories uint64
 	Files       uint64

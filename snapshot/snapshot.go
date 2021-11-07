@@ -28,6 +28,7 @@ func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 		Version:      "0.1.0",
 		Hostname:     "",
 		Username:     "",
+		CommandLine:  "",
 
 		Directories: make(map[string]*FileInfo),
 		Files:       make(map[string]*FileInfo),
@@ -97,6 +98,7 @@ func Load(store storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Version = snapshotStorage.Version
 	snapshot.Hostname = snapshotStorage.Hostname
 	snapshot.Username = snapshotStorage.Username
+	snapshot.CommandLine = snapshotStorage.CommandLine
 	snapshot.Directories = snapshotStorage.Directories
 	snapshot.Files = snapshotStorage.Files
 	snapshot.NonRegular = snapshotStorage.NonRegular
@@ -248,6 +250,7 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.Version = snapshot.Version
 	snapshotStorage.Hostname = snapshot.Hostname
 	snapshotStorage.Username = snapshot.Username
+	snapshotStorage.CommandLine = snapshot.CommandLine
 	snapshotStorage.Directories = snapshot.Directories
 	snapshotStorage.Files = snapshot.Files
 	snapshotStorage.NonRegular = snapshot.NonRegular
@@ -351,6 +354,7 @@ func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
 	ss.Version = snapshot.Version
 	ss.Hostname = snapshot.Hostname
 	ss.Username = snapshot.Username
+	ss.CommandLine = snapshot.CommandLine
 	ss.Directories = uint64(len(snapshot.Directories))
 	ss.Files = uint64(len(snapshot.Files))
 	ss.NonRegular = uint64(len(snapshot.NonRegular))

@@ -22,10 +22,11 @@ import (
 )
 
 type Plakar struct {
-	Hostname   string
-	Username   string
-	Workdir    string
-	Repository string
+	Hostname    string
+	Username    string
+	Workdir     string
+	Repository  string
+	CommandLine string
 
 	EncryptedKeypair []byte
 	keypair          *encryption.Keypair
@@ -60,7 +61,6 @@ func main() {
 	var disableCache bool
 
 	ctx := Plakar{}
-
 	currentHostname, err := os.Hostname()
 	if err != nil {
 		currentHostname = "localhost"
@@ -78,6 +78,9 @@ func main() {
 	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
 
 	flag.Parse()
+
+	ctx.CommandLine = strings.Join(os.Args, " ")
+	fmt.Println(ctx.CommandLine)
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())

@@ -40,6 +40,8 @@ func cmd_push(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
+	snap.CommandLine = ctx.CommandLine
+
 	if len(args) == 0 {
 		snap.Push(dir)
 	} else {

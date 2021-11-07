@@ -199,52 +199,54 @@ func main() {
 	ctx.store.SetKeypair(ctx.keypair)
 	ctx.store.SetCache(ctx.localCache)
 
+	var exitCode int
+
 	t0 := time.Now()
 	switch command {
 	case "cat":
-		cmd_cat(ctx, args)
+		exitCode = cmd_cat(ctx, args)
 
 	case "check":
-		cmd_check(ctx, args)
+		exitCode = cmd_check(ctx, args)
 
 	case "find":
-		cmd_find(ctx, args)
+		exitCode = cmd_find(ctx, args)
 
 	case "info":
-		cmd_info(ctx, args)
+		exitCode = cmd_info(ctx, args)
 
 	case "keep":
-		cmd_keep(ctx, args)
+		exitCode = cmd_keep(ctx, args)
 
 	case "key":
-		cmd_key(ctx, args)
+		exitCode = cmd_key(ctx, args)
 
 	case "ls":
-		cmd_ls(ctx, args)
+		exitCode = cmd_ls(ctx, args)
 
 	case "rm":
-		cmd_rm(ctx, args)
+		exitCode = cmd_rm(ctx, args)
 
 	case "tarball":
-		cmd_tarball(ctx, args)
+		exitCode = cmd_tarball(ctx, args)
 
 	case "ui":
-		cmd_ui(ctx, args)
+		exitCode = cmd_ui(ctx, args)
 
 	case "diff":
-		cmd_diff(ctx, args)
+		exitCode = cmd_diff(ctx, args)
 
 	case "pull":
-		cmd_pull(ctx, args)
+		exitCode = cmd_pull(ctx, args)
 
 	case "push":
-		cmd_push(ctx, args)
+		exitCode = cmd_push(ctx, args)
 
 	case "server":
-		cmd_server(ctx, args)
+		exitCode = cmd_server(ctx, args)
 
 	case "version":
-		cmd_version(ctx, args)
+		exitCode = cmd_version(ctx, args)
 
 	default:
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
@@ -257,4 +259,6 @@ func main() {
 	if enableTime {
 		logger.Printf("time: %s", time.Since(t0))
 	}
+
+	os.Exit(exitCode)
 }

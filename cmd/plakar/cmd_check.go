@@ -38,6 +38,7 @@ func cmd_check(ctx Plakar, args []string) int {
 	snapshots := getSnapshotsList(ctx)
 	checkSnapshotsArgs(snapshots)
 
+	failures := false
 	for i := 0; i < len(args); i++ {
 		prefix, pattern := parseSnapshotID(args[i])
 		res := findSnapshotByPrefix(snapshots, prefix)
@@ -47,7 +48,7 @@ func cmd_check(ctx Plakar, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 
-		snapshotOk := false
+		snapshotOk := true
 		if pattern != "" {
 			checksum, ok := snap.Pathnames[pattern]
 			if !ok {
@@ -156,7 +157,12 @@ func cmd_check(ctx Plakar, args []string) int {
 			logger.Info("%s: OK", snap.Uuid)
 		} else {
 			logger.Error("%s: KO", snap.Uuid)
+			failures = true
 		}
+	}
+
+	if failures {
+		return 1
 	}
 	return 0
 }

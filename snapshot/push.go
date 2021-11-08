@@ -5,17 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/restic/chunker"
 )
 
 func (snapshot *Snapshot) Push(root string) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	snapshot.mutexRoots.Lock()
 	snapshot.Roots = append(snapshot.Roots, root)
 	snapshot.mutexRoots.Unlock()
@@ -342,7 +350,7 @@ func (snapshot *Snapshot) Push(root string) {
 
 				res, err := snapshot.ReferenceObjects(checkPathnames)
 				if err != nil {
-					//errchan <- err
+					logger.Warn("%s", err)
 				}
 				for i, exists := range res {
 					object := objects[checkPathnames[i]]
@@ -354,7 +362,7 @@ func (snapshot *Snapshot) Push(root string) {
 					} else {
 						objectData, err := json.Marshal(object)
 						if err != nil {
-							//errchan <- err
+							logger.Warn("%s", err)
 							break
 						}
 
@@ -375,7 +383,11 @@ func (snapshot *Snapshot) Push(root string) {
 	objectsMutex := sync.Mutex{}
 	objects := make(map[string]*Object)
 
-	cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
+	err = cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			logger.Warn("%s", err)
+			return nil
+		}
 
 		for _, skipPath := range snapshot.SkipDirs {
 			if strings.HasPrefix(fmt.Sprintf("%s/%s", root, path), skipPath) {
@@ -408,36 +420,38 @@ func (snapshot *Snapshot) Push(root string) {
 
 						res, err := snapshot.ReferenceChunks(chunks)
 						if err != nil {
-						}
-						notExistsCount := 0
-						for _, exists := range res {
-							if !exists {
-								notExistsCount++
-								break
+							logger.Warn("%s", err)
+						} else {
+							notExistsCount := 0
+							for _, exists := range res {
+								if !exists {
+									notExistsCount++
+									break
+								}
 							}
-						}
 
-						if notExistsCount == 0 {
-							object := Object{}
-							object.path = fi.path
-							object.Checksum = cachedObject.Checksum
-							object.Chunks = cachedObject.Chunks
-							object.ContentType = cachedObject.ContentType
+							if notExistsCount == 0 {
+								object := Object{}
+								object.path = fi.path
+								object.Checksum = cachedObject.Checksum
+								object.Chunks = cachedObject.Chunks
+								object.ContentType = cachedObject.ContentType
 
-							chanInode <- &cachedObject.Info
+								chanInode <- &cachedObject.Info
 
-							chanChunksProcessor <- &object
+								chanChunksProcessor <- &object
 
-							objectsMutex.Lock()
-							objects[object.Checksum] = &object
-							objectsMutex.Unlock()
+								objectsMutex.Lock()
+								objects[object.Checksum] = &object
+								objectsMutex.Unlock()
 
-							chanPath <- struct {
-								Pathname string
-								Checksum string
-							}{object.path, object.Checksum}
+								chanPath <- struct {
+									Pathname string
+									Checksum string
+								}{object.path, object.Checksum}
 
-							return nil
+								return nil
+							}
 						}
 					}
 				}
@@ -445,7 +459,7 @@ func (snapshot *Snapshot) Push(root string) {
 
 			rd, err := os.Open(fi.path)
 			if err != nil {
-				//errchan <- err
+				logger.Warn("%s", err)
 				return nil
 			}
 
@@ -463,7 +477,7 @@ func (snapshot *Snapshot) Push(root string) {
 					break
 				}
 				if err != nil {
-					//errchan <- err
+					logger.Warn("%s", err)
 					return nil
 				}
 				if firstChunk {
@@ -502,6 +516,10 @@ func (snapshot *Snapshot) Push(root string) {
 		chanInode <- &fi
 		return nil
 	})
+	if err != nil {
+		logger.Warn("%s", err)
+	}
+
 	// no more inode to discover, close and wait
 	close(chanInode)
 	<-chanInodeDone

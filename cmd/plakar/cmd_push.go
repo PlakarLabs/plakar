@@ -50,6 +50,11 @@ func cmd_push(ctx Plakar, args []string) int {
 		}
 	}
 
+	if len(snap.Directories) == 0 && len(snap.Files) == 0 {
+		logger.Warn("empty snapshot, not committing")
+		return 1
+	}
+
 	err = snap.Commit()
 	if err != nil {
 		os.Exit(1)

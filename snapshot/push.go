@@ -18,7 +18,7 @@ import (
 	"github.com/restic/chunker"
 )
 
-func (snapshot *Snapshot) Push(root string) {
+func (snapshot *Snapshot) Push(root string) error {
 	root, err := filepath.Abs(root)
 	if err != nil {
 		log.Fatal(err)
@@ -384,6 +384,29 @@ func (snapshot *Snapshot) Push(root string) {
 	objectsMutex := sync.Mutex{}
 	objects := make(map[string]*Object)
 
+	atoms := strings.Split(root, "/")
+	for i := len(atoms) - 1; i != 0; i-- {
+		path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
+		f, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		fi := FileInfo{
+			Name:    f.Name(),
+			Size:    f.Size(),
+			Mode:    f.Mode(),
+			ModTime: f.ModTime(),
+			Dev:     uint64(f.Sys().(*syscall.Stat_t).Dev),
+			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
+			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
+			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
+			path:    path,
+		}
+
+		chanInode <- &fi
+	}
+
 	err = cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			logger.Warn("%s", err)
@@ -405,7 +428,7 @@ func (snapshot *Snapshot) Push(root string) {
 			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
 			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
 			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
-			path:    fmt.Sprintf("%s/%s", root, path),
+			path:    filepath.Clean(fmt.Sprintf("%s/%s", root, path)),
 		}
 
 		if f.Mode().IsRegular() {
@@ -560,4 +583,5 @@ func (snapshot *Snapshot) Push(root string) {
 	<-chanPathDone
 
 	// ... and we're done
+	return nil
 }

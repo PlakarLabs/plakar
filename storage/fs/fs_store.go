@@ -186,12 +186,12 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 		logger.Profile("GetIndex(%s): %s", Uuid, time.Since(t0))
 	}()
 
-	_, err := uuid.Parse(Uuid)
+	parsedUuid, err := uuid.Parse(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathIndex(Uuid)))
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathIndex(parsedUuid.String())))
 	if err != nil {
 		return nil, err
 	}

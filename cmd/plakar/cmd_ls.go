@@ -230,7 +230,7 @@ func list_snapshot_recursive(store storage.Store, args []string) {
 		})
 
 		for _, name := range directories {
-			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+			if !helpers.PathIsWithin(name, pattern) {
 				continue
 			}
 			list_snapshot_recursive_directory(snapshot, name)
@@ -284,7 +284,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 
 	for _, name := range directories {
 		fi := snapshot.Directories[name]
-		if !helpers.PathIsWithin(name, directory) && name != directory {
+		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
 		if name == "/" || name == directory {
@@ -310,6 +310,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			groupname,
 			humanize.Bytes(uint64(fi.Size)),
 			name)
+		list_snapshot_recursive_directory(snapshot, name)
 	}
 
 	filenames := make([]string, 0)

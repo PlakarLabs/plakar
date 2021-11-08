@@ -34,12 +34,22 @@ import (
 )
 
 func cmd_ls(ctx Plakar, args []string) int {
-	if len(args) == 0 {
+	var recursive bool
+
+	flags := flag.NewFlagSet("ls", flag.ExitOnError)
+	flags.BoolVar(&recursive, "recursive", false, "recursive listing")
+	flags.Parse(args)
+
+	if len(flags.Args()) == 0 {
 		list_snapshots(ctx.Store())
 		return 0
 	}
 
-	list_snapshot(ctx.Store(), args)
+	if recursive {
+		list_snapshot_recursive(ctx.Store(), flags.Args())
+	} else {
+		list_snapshot(ctx.Store(), flags.Args())
+	}
 	return 0
 }
 
@@ -175,5 +185,165 @@ func list_snapshot(store storage.Store, args []string) {
 				humanize.Bytes(uint64(fi.Size)),
 				fi.Name)
 		}
+	}
+}
+
+func list_snapshot_recursive(store storage.Store, args []string) {
+	snapshots, err := snapshot.List(store)
+	if err != nil {
+		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+	}
+
+	for i := 0; i < len(args); i++ {
+		prefix, _ := parseSnapshotID(args[i])
+		res := findSnapshotByPrefix(snapshots, prefix)
+		if len(res) == 0 {
+			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+		} else if len(res) > 1 {
+			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
+		}
+	}
+
+	for _, arg := range args {
+		prefix, pattern := parseSnapshotID(arg)
+		res := findSnapshotByPrefix(snapshots, prefix)
+		snapshot, err := snapshot.Load(store, res[0])
+		if err != nil {
+			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+		}
+
+		pattern = filepath.Clean(pattern)
+
+		if pattern == "." || pattern == ".." {
+			pattern = "/"
+		}
+		if !strings.HasPrefix(pattern, "/") {
+			pattern = "/" + pattern
+		}
+
+		directories := make([]string, 0)
+		for name := range snapshot.Directories {
+			directories = append(directories, name)
+		}
+		sort.Slice(directories, func(i, j int) bool {
+			return strings.Compare(directories[i], directories[j]) < 0
+		})
+
+		for _, name := range directories {
+			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+				continue
+			}
+			list_snapshot_recursive_directory(snapshot, name)
+		}
+
+		filenames := make([]string, 0)
+		for name := range snapshot.Files {
+			filenames = append(filenames, name)
+		}
+		sort.Slice(filenames, func(i, j int) bool {
+			return strings.Compare(filenames[i], filenames[j]) < 0
+		})
+
+		for _, name := range filenames {
+			fi := snapshot.Files[name]
+			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+				continue
+			}
+
+			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+			username := fmt.Sprintf("%d", fi.Uid)
+			if err == nil {
+				username = pwUserLookup.Username
+			}
+
+			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+			groupname := fmt.Sprintf("%d", fi.Gid)
+			if err == nil {
+				groupname = grGroupLookup.Name
+			}
+			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+				//snapshot.Pathnames[name],
+				fi.ModTime.UTC().Format(time.RFC3339),
+				fi.Mode,
+				username,
+				groupname,
+				humanize.Bytes(uint64(fi.Size)),
+				name)
+		}
+	}
+}
+
+func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory string) {
+	directories := make([]string, 0)
+	for name := range snapshot.Directories {
+		directories = append(directories, name)
+	}
+	sort.Slice(directories, func(i, j int) bool {
+		return strings.Compare(directories[i], directories[j]) < 0
+	})
+
+	for _, name := range directories {
+		fi := snapshot.Directories[name]
+		if !helpers.PathIsWithin(name, directory) && name != directory {
+			continue
+		}
+		if name == "/" || name == directory {
+			continue
+		}
+
+		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+		username := fmt.Sprintf("%d", fi.Uid)
+		if err == nil {
+			username = pwUserLookup.Username
+		}
+
+		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+		groupname := fmt.Sprintf("%d", fi.Gid)
+		if err == nil {
+			groupname = grGroupLookup.Name
+		}
+		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+			//snapshot.Pathnames[name],
+			fi.ModTime.UTC().Format(time.RFC3339),
+			fi.Mode,
+			username,
+			groupname,
+			humanize.Bytes(uint64(fi.Size)),
+			name)
+	}
+
+	filenames := make([]string, 0)
+	for name := range snapshot.Files {
+		filenames = append(filenames, name)
+	}
+	sort.Slice(filenames, func(i, j int) bool {
+		return strings.Compare(filenames[i], filenames[j]) < 0
+	})
+
+	for _, name := range filenames {
+		fi := snapshot.Files[name]
+		if !helpers.PathIsWithin(name, directory) && name != directory {
+			continue
+		}
+
+		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+		username := fmt.Sprintf("%d", fi.Uid)
+		if err == nil {
+			username = pwUserLookup.Username
+		}
+
+		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+		groupname := fmt.Sprintf("%d", fi.Gid)
+		if err == nil {
+			groupname = grGroupLookup.Name
+		}
+		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+			//snapshot.Pathnames[name],
+			fi.ModTime.UTC().Format(time.RFC3339),
+			fi.Mode,
+			username,
+			groupname,
+			humanize.Bytes(uint64(fi.Size)),
+			name)
 	}
 }

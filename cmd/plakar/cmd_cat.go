@@ -68,7 +68,6 @@ func cmd_cat(ctx Plakar, args []string) int {
 				continue
 			}
 			snap = tmp
-			fmt.Println(snap.Objects)
 			mapSnapshots[snap.Uuid] = snap
 		}
 

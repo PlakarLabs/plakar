@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"github.com/poolpOrg/plakar/storage"
@@ -50,6 +51,7 @@ type SnapshotStorage struct {
 	Username     string
 	CommandLine  string
 
+	Roots       []string
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
 	NonRegular  map[string]*FileInfo
@@ -68,6 +70,8 @@ type Snapshot struct {
 	Username     string
 	CommandLine  string
 
+	mutexRoots  sync.Mutex
+	Roots       []string
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
 	NonRegular  map[string]*FileInfo
@@ -98,6 +102,7 @@ type SnapshotSummary struct {
 	Username     string
 	CommandLine  string
 
+	Roots       uint64
 	Directories uint64
 	Files       uint64
 	NonRegular  uint64

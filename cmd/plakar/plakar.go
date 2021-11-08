@@ -80,7 +80,6 @@ func main() {
 	flag.Parse()
 
 	ctx.CommandLine = strings.Join(os.Args, " ")
-	fmt.Println(ctx.CommandLine)
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
@@ -212,6 +211,9 @@ func main() {
 	case "check":
 		exitCode = cmd_check(ctx, args)
 
+	case "diff":
+		exitCode = cmd_diff(ctx, args)
+
 	case "find":
 		exitCode = cmd_find(ctx, args)
 
@@ -227,26 +229,26 @@ func main() {
 	case "ls":
 		exitCode = cmd_ls(ctx, args)
 
-	case "rm":
-		exitCode = cmd_rm(ctx, args)
-
-	case "tarball":
-		exitCode = cmd_tarball(ctx, args)
-
-	case "ui":
-		exitCode = cmd_ui(ctx, args)
-
-	case "diff":
-		exitCode = cmd_diff(ctx, args)
-
 	case "pull":
 		exitCode = cmd_pull(ctx, args)
 
 	case "push":
 		exitCode = cmd_push(ctx, args)
 
+	case "rm":
+		exitCode = cmd_rm(ctx, args)
+
 	case "server":
 		exitCode = cmd_server(ctx, args)
+
+	case "shell":
+		exitCode = cmd_shell(ctx, args)
+
+	case "tarball":
+		exitCode = cmd_tarball(ctx, args)
+
+	case "ui":
+		exitCode = cmd_ui(ctx, args)
 
 	case "version":
 		exitCode = cmd_version(ctx, args)

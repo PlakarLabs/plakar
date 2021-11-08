@@ -70,8 +70,9 @@ type Snapshot struct {
 	Username     string
 	CommandLine  string
 
-	mutexRoots  sync.Mutex
-	Roots       []string
+	mutexRoots sync.Mutex
+	Roots      []string
+
 	Directories map[string]*FileInfo
 	Files       map[string]*FileInfo
 	NonRegular  map[string]*FileInfo

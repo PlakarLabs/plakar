@@ -65,7 +65,7 @@ func list_snapshots(store storage.Store) {
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			snapshot.Uuid,
 			humanize.Bytes(snapshot.Size),
-			snapshot.CommandLine)
+			strings.Join(snapshot.Roots, ", "))
 	}
 }
 

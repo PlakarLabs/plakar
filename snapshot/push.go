@@ -16,6 +16,10 @@ import (
 )
 
 func (snapshot *Snapshot) Push(root string) {
+	snapshot.mutexRoots.Lock()
+	snapshot.Roots = append(snapshot.Roots, root)
+	snapshot.mutexRoots.Unlock()
+
 	cache := snapshot.store.GetCache()
 
 	chanChunksProcessorMax := make(chan int, 64)

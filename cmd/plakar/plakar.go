@@ -201,59 +201,12 @@ func main() {
 	ctx.store.SetKeypair(ctx.keypair)
 	ctx.store.SetCache(ctx.localCache)
 
-	var exitCode int
-
 	t0 := time.Now()
-	switch command {
-	case "cat":
-		exitCode = cmd_cat(ctx, args)
-
-	case "check":
-		exitCode = cmd_check(ctx, args)
-
-	case "diff":
-		exitCode = cmd_diff(ctx, args)
-
-	case "find":
-		exitCode = cmd_find(ctx, args)
-
-	case "info":
-		exitCode = cmd_info(ctx, args)
-
-	case "keep":
-		exitCode = cmd_keep(ctx, args)
-
-	case "key":
-		exitCode = cmd_key(ctx, args)
-
-	case "ls":
-		exitCode = cmd_ls(ctx, args)
-
-	case "pull":
-		exitCode = cmd_pull(ctx, args)
-
-	case "push":
-		exitCode = cmd_push(ctx, args)
-
-	case "rm":
-		exitCode = cmd_rm(ctx, args)
-
-	case "server":
-		exitCode = cmd_server(ctx, args)
-
-	case "shell":
-		exitCode = cmd_shell(ctx, args)
-
-	case "tarball":
-		exitCode = cmd_tarball(ctx, args)
-
-	case "ui":
-		exitCode = cmd_ui(ctx, args)
-
-	case "version":
-		exitCode = cmd_version(ctx, args)
-
-	default:
+	exitCode, err := executeCommand(ctx, command, args)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if exitCode == -1 {
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
 

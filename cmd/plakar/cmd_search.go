@@ -128,7 +128,7 @@ func cmd_search(ctx Plakar, args []string) int {
 
 		for _, object := range snap.Objects {
 			for _, arg := range args {
-				if strings.HasPrefix(object.Checksum, arg) {
+				if strings.HasPrefix(object.Checksum, arg) || strings.HasPrefix(object.ContentType, arg) {
 					for pathname, objectChecksum := range snap.Pathnames {
 						if objectChecksum == object.Checksum {
 							found := false

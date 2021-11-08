@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -93,17 +94,29 @@ func list_snapshot(store storage.Store, args []string) {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
 		}
 
-		filenames := make([]string, 0)
-		for name := range snapshot.Files {
-			filenames = append(filenames, name)
+		pattern = filepath.Clean(pattern)
+
+		if pattern == "." || pattern == ".." {
+			pattern = "/"
 		}
-		sort.Slice(filenames, func(i, j int) bool {
-			return strings.Compare(filenames[i], filenames[j]) < 0
+		if !strings.HasPrefix(pattern, "/") {
+			pattern = "/" + pattern
+		}
+
+		directories := make([]string, 0)
+		for name := range snapshot.Directories {
+			directories = append(directories, name)
+		}
+		sort.Slice(directories, func(i, j int) bool {
+			return strings.Compare(directories[i], directories[j]) < 0
 		})
 
-		for _, name := range filenames {
-			fi := snapshot.Files[name]
-			if !strings.HasPrefix(name, pattern) {
+		for _, name := range directories {
+			fi := snapshot.Directories[name]
+			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+				continue
+			}
+			if name == "/" || name == pattern {
 				continue
 			}
 
@@ -119,12 +132,48 @@ func list_snapshot(store storage.Store, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				snapshot.Pathnames[name],
+				//snapshot.Pathnames[name],
+				fi.ModTime.UTC().Format(time.RFC3339),
 				fi.Mode,
 				username,
 				groupname,
 				humanize.Bytes(uint64(fi.Size)),
-				name)
+				fi.Name)
+		}
+
+		filenames := make([]string, 0)
+		for name := range snapshot.Files {
+			filenames = append(filenames, name)
+		}
+		sort.Slice(filenames, func(i, j int) bool {
+			return strings.Compare(filenames[i], filenames[j]) < 0
+		})
+
+		for _, name := range filenames {
+			fi := snapshot.Files[name]
+			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+				continue
+			}
+
+			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+			username := fmt.Sprintf("%d", fi.Uid)
+			if err == nil {
+				username = pwUserLookup.Username
+			}
+
+			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+			groupname := fmt.Sprintf("%d", fi.Gid)
+			if err == nil {
+				groupname = grGroupLookup.Name
+			}
+			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+				//snapshot.Pathnames[name],
+				fi.ModTime.UTC().Format(time.RFC3339),
+				fi.Mode,
+				username,
+				groupname,
+				humanize.Bytes(uint64(fi.Size)),
+				fi.Name)
 		}
 	}
 }

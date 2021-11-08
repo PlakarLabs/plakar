@@ -123,6 +123,7 @@ func (snapshot *Snapshot) Push(root string) {
 				if _, ok := snapshot.Pathnames[msg.Pathname]; !ok {
 					snapshot.Pathnames[msg.Pathname] = msg.Checksum
 				}
+
 				mu.Unlock()
 				wg.Done()
 				<-chanPathMax

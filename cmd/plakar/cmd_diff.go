@@ -54,7 +54,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) < 2 {
+	if flags.NArg() < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
@@ -64,7 +64,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 	}
 	checkSnapshotsArgs(snapshots)
 
-	if len(args) == 2 {
+	if len(flags.Args()) == 2 {
 		// check if snapshot id's both reference a file
 		// if not, stat diff of snapshots, else diff files
 		rel1 := strings.Contains(args[0], ":")

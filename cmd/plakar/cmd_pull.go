@@ -29,7 +29,7 @@ func cmd_pull(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("pull", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 

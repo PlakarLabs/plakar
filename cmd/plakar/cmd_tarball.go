@@ -30,7 +30,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("tarball", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flag.Args()) == 0 {
+	if flags.NArg() == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 

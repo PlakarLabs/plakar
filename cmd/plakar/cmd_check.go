@@ -29,7 +29,7 @@ func cmd_check(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		logger.Error("%s: at least one parameter is required", flags.Name())
 		return 1
 	}

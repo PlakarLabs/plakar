@@ -29,6 +29,7 @@ import (
 func cmd_push(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Parse(args)
+
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -42,7 +43,7 @@ func cmd_push(ctx Plakar, args []string) int {
 
 	snap.CommandLine = ctx.CommandLine
 
-	if len(args) == 0 {
+	if flags.NArg() == 0 {
 		snap.Push(dir)
 	} else {
 		for i := 0; i < len(args); i++ {

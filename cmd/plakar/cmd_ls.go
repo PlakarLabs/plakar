@@ -40,7 +40,7 @@ func cmd_ls(ctx Plakar, args []string) int {
 	flags.BoolVar(&recursive, "recursive", false, "recursive listing")
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		list_snapshots(ctx.Store())
 		return 0
 	}

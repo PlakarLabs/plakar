@@ -27,7 +27,7 @@ func cmd_rm(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 

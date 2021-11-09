@@ -28,7 +28,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) == 0 {
+	if flags.NArg() == 0 {
 		log.Fatalf("%s: need a number of snapshots to keep", flag.CommandLine.Name())
 	}
 

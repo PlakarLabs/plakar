@@ -29,7 +29,7 @@ func cmd_key(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("key", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: need at list one parameter\n", flag.CommandLine.Name())
 		return 1
 	}

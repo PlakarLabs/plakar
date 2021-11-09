@@ -24,10 +24,20 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
+	"time"
+
+	"github.com/poolpOrg/plakar/helpers"
+	"github.com/poolpOrg/plakar/logger"
 )
 
 func cmd_tarball(ctx Plakar, args []string) int {
+	var tarballPath string
+	var tarballRebase bool
+
 	flags := flag.NewFlagSet("tarball", flag.ExitOnError)
+	flags.StringVar(&tarballPath, "output", fmt.Sprintf("plakar-%s.tar.gz", time.Now().UTC().Format(time.RFC3339)), "tarball pathname")
+	flags.BoolVar(&tarballRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -44,17 +54,38 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	gzipWriter := gzip.NewWriter(os.Stdout)
+	var gzipWriter *gzip.Writer
+	if tarballPath == "-" {
+		gzipWriter = gzip.NewWriter(os.Stdout)
+	} else {
+		fp, err := os.Create(tarballPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		gzipWriter = gzip.NewWriter(fp)
+	}
 	defer gzipWriter.Close()
 
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
-	for _, snapshot := range snapshots {
+	for offset, snapshot := range snapshots {
+		_, prefix := parseSnapshotID(flags.Args()[offset])
+
 		for file, checksum := range snapshot.Pathnames {
+			if prefix != "" {
+				if !helpers.PathIsWithin(file, prefix) {
+					continue
+				}
+			}
+
 			info := snapshot.Files[file]
+			filepath := file
+			if tarballRebase {
+				filepath = strings.TrimPrefix(filepath, prefix)
+			}
 			header := &tar.Header{
-				Name:    file,
+				Name:    filepath,
 				Size:    info.Size,
 				Mode:    int64(info.Mode),
 				ModTime: info.ModTime,
@@ -62,7 +93,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 
 			err = tarWriter.WriteHeader(header)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "could not write header for file %s\n", file)
+				logger.Error("could not write header for file %s", file)
 				continue
 			}
 
@@ -70,13 +101,13 @@ func cmd_tarball(ctx Plakar, args []string) int {
 			for _, chunk := range obj.Chunks {
 				data, err := snapshot.GetChunk(chunk.Checksum)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "corrupted file %s\n", file)
+					logger.Error("corrupted file %s", file)
 					continue
 				}
 
 				_, err = io.WriteString(tarWriter, string(data))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "could not write file %s\n", file)
+					logger.Error("could not write file %s", file)
 					continue
 				}
 			}
@@ -84,5 +115,8 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		}
 	}
 
+	if tarballPath != "-" {
+		logger.Info("created tarball %s", tarballPath)
+	}
 	return 0
 }

@@ -216,6 +216,15 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	return compression.Inflate(buffer)
 }
 
+func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
+	logger.Trace("%s: CheckChunk(%s)", snapshot.Uuid, checksum)
+	exists, err := snapshot.store.CheckChunk(checksum)
+	if err != nil {
+		return false, err
+	}
+	return exists == true, nil
+}
+
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	keypair := snapshot.store.GetKeypair()
 
@@ -241,6 +250,15 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	object := &Object{}
 	err = json.Unmarshal(data, &object)
 	return object, err
+}
+
+func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
+	logger.Trace("%s: CheckObject(%s)", snapshot.Uuid, checksum)
+	exists, err := snapshot.store.CheckObject(checksum)
+	if err != nil {
+		return false, err
+	}
+	return exists == true, nil
 }
 
 func (snapshot *Snapshot) Commit() error {

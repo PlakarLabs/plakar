@@ -17,16 +17,17 @@
 package main
 
 import (
-	"crypto/sha256"
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/poolpOrg/plakar/logger"
 )
 
 func cmd_check(ctx Plakar, args []string) int {
+	var enableFastCheck bool
+
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -43,112 +44,14 @@ func cmd_check(ctx Plakar, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, pattern := parseSnapshotID(args[offset])
 
-		snapshotOk := true
-		if pattern != "" {
-			checksum, ok := snapshot.Pathnames[pattern]
-			if !ok {
-				logger.Warn("%s: unlisted file %s", snapshot.Uuid, pattern)
-				snapshotOk = false
-				continue
-			}
-			object, ok := snapshot.Objects[checksum]
-			if !ok {
-				logger.Warn("%s: unlisted object %s", snapshot.Uuid, checksum)
-				snapshotOk = false
-				continue
-			}
-
-			objectHash := sha256.New()
-			for _, chunk := range object.Chunks {
-				data, err := snapshot.GetChunk(chunk.Checksum)
-				if err != nil {
-					logger.Warn("%s: missing chunk %s", snapshot.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-				objectHash.Write(data)
-			}
-			if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-				logger.Warn("%s: corrupted object %s", snapshot.Uuid, checksum)
-				snapshotOk = false
-				continue
-			}
-
+		var ok bool
+		if enableFastCheck {
+			ok = snapshot.FastCheck(pattern)
 		} else {
-
-			for _, chunk := range snapshot.Chunks {
-
-				data, err := snapshot.GetChunk(chunk.Checksum)
-				if err != nil {
-					logger.Warn("%s: missing chunk %s", snapshot.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-				chunkHash := sha256.New()
-				chunkHash.Write(data)
-				if fmt.Sprintf("%032x", chunkHash.Sum(nil)) != chunk.Checksum {
-					logger.Warn("%s: corrupted chunk %s", snapshot.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-
-			}
-
-			for checksum := range snapshot.Objects {
-				object, err := snapshot.GetObject(checksum)
-				if err != nil {
-					logger.Warn("%s: missing object %s", snapshot.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-				objectHash := sha256.New()
-
-				for _, chunk := range object.Chunks {
-					_, ok := snapshot.Chunks[chunk.Checksum]
-					if !ok {
-						logger.Warn("%s: unlisted chunk %s", snapshot.Uuid, chunk.Checksum)
-						snapshotOk = false
-						continue
-					}
-
-					data, err := snapshot.GetChunk(chunk.Checksum)
-					if err != nil {
-						logger.Warn("%s: missing chunk %s", snapshot.Uuid, chunk.Checksum)
-						snapshotOk = false
-						continue
-					}
-					objectHash.Write(data)
-				}
-				if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-					logger.Warn("%s: corrupted object %s", snapshot.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-			}
-
-			for file := range snapshot.Files {
-				checksum, ok := snapshot.Pathnames[file]
-				if !ok {
-					logger.Warn("%s: unlisted file %s", snapshot.Uuid, file)
-					snapshotOk = false
-					continue
-				}
-				_, ok = snapshot.Objects[checksum]
-				if !ok {
-					logger.Warn("%s: unlisted object %s", snapshot.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-			}
+			ok = snapshot.Check(pattern)
 		}
 
-		key := snapshot.Uuid
-		if pattern != "" {
-			key = fmt.Sprintf("%s:%s", snapshot.Uuid, pattern)
-		}
-		_ = key
-
-		if snapshotOk {
+		if ok {
 			logger.Info("%s: OK", snapshot.Uuid)
 		} else {
 			logger.Info("%s: KO", snapshot.Uuid)
@@ -156,8 +59,8 @@ func cmd_check(ctx Plakar, args []string) int {
 		}
 	}
 
-	if failures {
-		return 1
+	if !failures {
+		return 0
 	}
-	return 0
+	return 1
 }

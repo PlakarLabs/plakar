@@ -102,7 +102,7 @@ func main() {
 	if enableProfiling {
 		logger.EnableProfiling()
 	}
-	defer logger.Start()()
+	loggerWait := logger.Start()
 
 	command, args := flag.Arg(0), flag.Args()[1:]
 
@@ -203,6 +203,7 @@ func main() {
 
 	t0 := time.Now()
 	exitCode, err := executeCommand(ctx, command, args)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -218,5 +219,6 @@ func main() {
 		logger.Printf("time: %s", time.Since(t0))
 	}
 
+	loggerWait()
 	os.Exit(exitCode)
 }

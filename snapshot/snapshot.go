@@ -372,6 +372,158 @@ func (snapshot *Snapshot) HumanSize() string {
 	return humanize.Bytes(snapshot.Size)
 }
 
+func (snapshot *Snapshot) StateAddRoot(pathname string) {
+	snapshot.muRoots.Lock()
+	defer snapshot.muRoots.Unlock()
+
+	for _, path := range snapshot.Roots {
+		if pathname == path {
+			return
+		}
+	}
+	snapshot.Roots = append(snapshot.Roots, pathname)
+}
+
+func (snapshot *Snapshot) StateSetDirectory(pathname string, fileinfo *FileInfo) {
+	snapshot.muDirectories.Lock()
+	defer snapshot.muDirectories.Unlock()
+
+	snapshot.Directories[pathname] = fileinfo
+}
+
+func (snapshot *Snapshot) StateSetFile(pathname string, fileinfo *FileInfo) {
+	snapshot.muFiles.Lock()
+	defer snapshot.muFiles.Unlock()
+
+	snapshot.Files[pathname] = fileinfo
+}
+
+func (snapshot *Snapshot) StateSetNonRegular(pathname string, fileinfo *FileInfo) {
+	snapshot.muNonRegular.Lock()
+	defer snapshot.muNonRegular.Unlock()
+
+	snapshot.NonRegular[pathname] = fileinfo
+}
+
+func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {
+	snapshot.muPathnames.Lock()
+	defer snapshot.muPathnames.Unlock()
+
+	value, exists := snapshot.Pathnames[pathname]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetPathname(pathname string, checksum string) {
+	snapshot.muPathnames.Lock()
+	defer snapshot.muPathnames.Unlock()
+
+	snapshot.Pathnames[pathname] = checksum
+}
+
+func (snapshot *Snapshot) StateGetObject(checksum string) (*Object, bool) {
+	snapshot.muObjects.Lock()
+	defer snapshot.muObjects.Unlock()
+
+	value, exists := snapshot.Objects[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetObject(checksum string, object *Object) {
+	snapshot.muObjects.Lock()
+	defer snapshot.muObjects.Unlock()
+
+	snapshot.Objects[checksum] = object
+}
+
+func (snapshot *Snapshot) StateGetChunk(checksum string) (*Chunk, bool) {
+	snapshot.muChunks.Lock()
+	defer snapshot.muChunks.Unlock()
+
+	value, exists := snapshot.Chunks[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetChunk(checksum string, chunk *Chunk) {
+	snapshot.muChunks.Lock()
+	defer snapshot.muChunks.Unlock()
+
+	snapshot.Chunks[checksum] = chunk
+}
+
+func (snapshot *Snapshot) StateGetWrittenChunk(checksum string) (bool, bool) {
+	snapshot.muWrittenChunks.Lock()
+	defer snapshot.muWrittenChunks.Unlock()
+
+	value, exists := snapshot.WrittenChunks[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetWrittenChunk(checksum string, written bool) {
+	snapshot.muWrittenChunks.Lock()
+	defer snapshot.muWrittenChunks.Unlock()
+
+	snapshot.WrittenChunks[checksum] = written
+}
+
+func (snapshot *Snapshot) StateGetInflightChunk(checksum string) (*Chunk, bool) {
+	snapshot.muInflightChunks.Lock()
+	defer snapshot.muInflightChunks.Unlock()
+
+	value, exists := snapshot.InflightChunks[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetInflightChunk(checksum string, chunk *Chunk) {
+	snapshot.muInflightChunks.Lock()
+	defer snapshot.muInflightChunks.Unlock()
+
+	snapshot.InflightChunks[checksum] = chunk
+}
+
+func (snapshot *Snapshot) StateDeleteInflightChunk(checksum string) {
+	snapshot.muInflightChunks.Lock()
+	defer snapshot.muInflightChunks.Unlock()
+
+	delete(snapshot.InflightChunks, checksum)
+}
+
+func (snapshot *Snapshot) StateGetWrittenObject(checksum string) (bool, bool) {
+	snapshot.muWrittenObjects.Lock()
+	defer snapshot.muWrittenObjects.Unlock()
+
+	value, exists := snapshot.WrittenObjects[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetWrittenObject(checksum string, written bool) {
+	snapshot.muWrittenObjects.Lock()
+	defer snapshot.muWrittenObjects.Unlock()
+
+	snapshot.WrittenObjects[checksum] = written
+}
+
+func (snapshot *Snapshot) StateGetInflightObject(checksum string) (*Object, bool) {
+	snapshot.muInflightObjects.Lock()
+	defer snapshot.muInflightObjects.Unlock()
+
+	value, exists := snapshot.InflightObjects[checksum]
+	return value, exists
+}
+
+func (snapshot *Snapshot) StateSetInflightObject(checksum string, object *Object) {
+	snapshot.muInflightObjects.Lock()
+	defer snapshot.muInflightObjects.Unlock()
+
+	snapshot.InflightObjects[checksum] = object
+}
+
+func (snapshot *Snapshot) StateDeleteInflightObject(checksum string) {
+	snapshot.muInflightObjects.Lock()
+	defer snapshot.muInflightObjects.Unlock()
+
+	delete(snapshot.InflightObjects, checksum)
+}
+
 func (fi *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fi.Size))
 }

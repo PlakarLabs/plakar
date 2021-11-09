@@ -70,15 +70,26 @@ type Snapshot struct {
 	Username     string
 	CommandLine  string
 
-	mutexRoots sync.Mutex
-	Roots      []string
+	muRoots sync.Mutex
+	Roots   []string
 
-	Directories map[string]*FileInfo
-	Files       map[string]*FileInfo
-	NonRegular  map[string]*FileInfo
+	muDirectories sync.Mutex
+	Directories   map[string]*FileInfo
+
+	muFiles sync.Mutex
+	Files   map[string]*FileInfo
+
+	muNonRegular sync.Mutex
+	NonRegular   map[string]*FileInfo
+
+	muPathnames sync.Mutex
 	Pathnames   map[string]string
-	Objects     map[string]*Object
-	Chunks      map[string]*Chunk
+
+	muObjects sync.Mutex
+	Objects   map[string]*Object
+
+	muChunks sync.Mutex
+	Chunks   map[string]*Chunk
 
 	Size uint64
 
@@ -88,9 +99,15 @@ type Snapshot struct {
 	transaction storage.Transaction
 	SkipDirs    []string
 
-	WrittenChunks  map[string]bool
-	InflightChunks map[string]*Chunk
+	muWrittenChunks sync.Mutex
+	WrittenChunks   map[string]bool
 
-	WrittenObjects  map[string]bool
-	InflightObjects map[string]*Object
+	muInflightChunks sync.Mutex
+	InflightChunks   map[string]*Chunk
+
+	muWrittenObjects sync.Mutex
+	WrittenObjects   map[string]bool
+
+	muInflightObjects sync.Mutex
+	InflightObjects   map[string]*Object
 }

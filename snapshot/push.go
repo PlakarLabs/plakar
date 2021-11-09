@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -24,9 +25,7 @@ func (snapshot *Snapshot) Push(root string) error {
 		log.Fatal(err)
 	}
 
-	snapshot.mutexRoots.Lock()
-	snapshot.Roots = append(snapshot.Roots, root)
-	snapshot.mutexRoots.Unlock()
+	snapshot.StateAddRoot(root)
 
 	cache := snapshot.store.GetCache()
 
@@ -82,24 +81,17 @@ func (snapshot *Snapshot) Push(root string) error {
 	chanSizeDone := make(chan bool)
 
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanInode {
 			chanInodeMax <- 1
 			wg.Add(1)
 			go func(msg *FileInfo) {
 				if msg.Mode.IsDir() {
-					mu.Lock()
-					snapshot.Directories[msg.path] = msg
-					mu.Unlock()
+					snapshot.StateSetDirectory(msg.path, msg)
 				} else if msg.Mode.IsRegular() {
-					mu.Lock()
-					snapshot.Files[msg.path] = msg
-					mu.Unlock()
+					snapshot.StateSetFile(msg.path, msg)
 				} else {
-					mu.Lock()
-					snapshot.NonRegular[msg.path] = msg
-					mu.Unlock()
+					snapshot.StateSetNonRegular(msg.path, msg)
 				}
 				wg.Done()
 				<-chanInodeMax
@@ -110,7 +102,6 @@ func (snapshot *Snapshot) Push(root string) error {
 	}()
 
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanPath {
 			chanPathMax <- 1
@@ -119,12 +110,9 @@ func (snapshot *Snapshot) Push(root string) error {
 				Pathname string
 				Checksum string
 			}) {
-				mu.Lock()
-				if _, ok := snapshot.Pathnames[msg.Pathname]; !ok {
-					snapshot.Pathnames[msg.Pathname] = msg.Checksum
+				if _, ok := snapshot.StateGetPathname(msg.Pathname); !ok {
+					snapshot.StateSetPathname(msg.Pathname, msg.Checksum)
 				}
-
-				mu.Unlock()
 				wg.Done()
 				<-chanPathMax
 			}(msg)
@@ -134,7 +122,6 @@ func (snapshot *Snapshot) Push(root string) error {
 	}()
 
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanObject {
 			chanObjectMax <- 1
@@ -144,11 +131,9 @@ func (snapshot *Snapshot) Push(root string) error {
 				Data   []byte
 			}) {
 				var ok bool
-				mu.Lock()
-				if _, ok = snapshot.Objects[msg.Object.Checksum]; !ok {
-					snapshot.Objects[msg.Object.Checksum] = msg.Object
+				if _, ok = snapshot.StateGetObject(msg.Object.Checksum); !ok {
+					snapshot.StateSetObject(msg.Object.Checksum, msg.Object)
 				}
-				mu.Unlock()
 				if !ok {
 					if len(msg.Data) != 0 {
 						chanObjectWriter <- msg
@@ -163,7 +148,6 @@ func (snapshot *Snapshot) Push(root string) error {
 	}()
 
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanChunk {
 			chanChunkMax <- 1
@@ -173,11 +157,9 @@ func (snapshot *Snapshot) Push(root string) error {
 				Data  []byte
 			}) {
 				var ok bool
-				mu.Lock()
-				if _, ok := snapshot.Chunks[msg.Chunk.Checksum]; !ok {
-					snapshot.Chunks[msg.Chunk.Checksum] = msg.Chunk
+				if _, ok = snapshot.StateGetChunk(msg.Chunk.Checksum); !ok {
+					snapshot.StateSetChunk(msg.Chunk.Checksum, msg.Chunk)
 				}
-				mu.Unlock()
 				if !ok {
 					if len(msg.Data) != 0 {
 						chanChunkWriter <- msg
@@ -192,15 +174,12 @@ func (snapshot *Snapshot) Push(root string) error {
 	}()
 
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanSize {
 			chanSizeMax <- 1
 			wg.Add(1)
 			go func(msg uint64) {
-				mu.Lock()
-				snapshot.Size += msg
-				mu.Unlock()
+				atomic.AddUint64(&snapshot.Size, msg)
 				wg.Done()
 				<-chanSizeMax
 			}(msg)
@@ -211,7 +190,6 @@ func (snapshot *Snapshot) Push(root string) error {
 
 	// this goroutine is in charge of all chunks writes to the store
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanChunkWriter {
 			chanChunkWriterMax <- 1
@@ -221,23 +199,19 @@ func (snapshot *Snapshot) Push(root string) error {
 				Data  []byte
 			}) {
 				var ok bool
-				mu.Lock()
-				if _, ok := snapshot.WrittenChunks[msg.Chunk.Checksum]; !ok {
-					snapshot.WrittenChunks[msg.Chunk.Checksum] = false
-					snapshot.InflightChunks[msg.Chunk.Checksum] = msg.Chunk
+				if _, ok := snapshot.StateGetWrittenChunk(msg.Chunk.Checksum); !ok {
+					snapshot.StateSetWrittenChunk(msg.Chunk.Checksum, false)
+					snapshot.StateSetInflightChunk(msg.Chunk.Checksum, msg.Chunk)
 				}
-				mu.Unlock()
 				if !ok {
 					err := snapshot.PutChunk(msg.Chunk.Checksum, msg.Data)
 
-					mu.Lock()
-					delete(snapshot.InflightChunks, msg.Chunk.Checksum)
+					snapshot.StateDeleteInflightChunk(msg.Chunk.Checksum)
 					if err != nil {
 						//						errchan <- err
 					} else {
-						snapshot.WrittenChunks[msg.Chunk.Checksum] = true
+						snapshot.StateSetWrittenChunk(msg.Chunk.Checksum, true)
 					}
-					mu.Unlock()
 				}
 				wg.Done()
 				<-chanChunkWriterMax
@@ -249,7 +223,6 @@ func (snapshot *Snapshot) Push(root string) error {
 
 	// this goroutine is in charge of all objects writes to the store
 	go func() {
-		mu := sync.Mutex{}
 		var wg sync.WaitGroup
 		for msg := range chanObjectWriter {
 			chanObjectWriterMax <- 1
@@ -259,23 +232,19 @@ func (snapshot *Snapshot) Push(root string) error {
 				Data   []byte
 			}) {
 				var ok bool
-				mu.Lock()
-				if _, ok := snapshot.WrittenObjects[msg.Object.Checksum]; !ok {
-					snapshot.WrittenObjects[msg.Object.Checksum] = false
-					snapshot.InflightObjects[msg.Object.Checksum] = msg.Object
+				if _, ok := snapshot.StateGetWrittenObject(msg.Object.Checksum); !ok {
+					snapshot.StateSetWrittenObject(msg.Object.Checksum, false)
+					snapshot.StateSetInflightObject(msg.Object.Checksum, msg.Object)
 				}
-				mu.Unlock()
 				if !ok {
 					err := snapshot.PutObject(msg.Object.Checksum, msg.Data)
 
-					mu.Lock()
-					delete(snapshot.InflightObjects, msg.Object.Checksum)
+					snapshot.StateDeleteInflightObject(msg.Object.Checksum)
 					if err != nil {
 						//errchan <- err
 					} else {
-						snapshot.WrittenObjects[msg.Object.Checksum] = true
+						snapshot.StateSetWrittenObject(msg.Object.Checksum, true)
 					}
-					mu.Unlock()
 				}
 				wg.Done()
 				<-chanObjectWriterMax

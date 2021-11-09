@@ -20,8 +20,6 @@ import (
 	"flag"
 	"log"
 	"strconv"
-
-	"github.com/poolpOrg/plakar/helpers"
 )
 
 func cmd_keep(ctx Plakar, args []string) int {
@@ -50,7 +48,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots = helpers.SnapshotsSortedByDate(snapshots)[:len(snapshots)-count]
+	snapshots = sortSnapshotsByDate(snapshots)[:len(snapshots)-count]
 	for _, snapshot := range snapshots {
 		ctx.Store().Purge(snapshot.Uuid)
 	}

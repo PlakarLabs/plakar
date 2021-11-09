@@ -21,39 +21,24 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_rm(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) == 0 {
+	if len(flags.Args()) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
-	snapshots := getSnapshotsList(ctx)
-
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
+	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snap, err := snapshot.Load(ctx.Store(), res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
-		ctx.Store().Purge(snap.Uuid)
-		fmt.Fprintf(os.Stdout, "%s: OK\n", snap.Uuid)
+	for _, snapshot := range snapshots {
+		ctx.Store().Purge(snapshot.Uuid)
+		fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
 	}
 
 	return 0

@@ -58,7 +58,10 @@ func cmd_diff(ctx Plakar, args []string) int {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
-	snapshots := getSnapshotsList(ctx)
+	snapshots, err := getSnapshotsList(ctx.Store())
+	if err != nil {
+		log.Fatal(err)
+	}
 	checkSnapshotsArgs(snapshots)
 
 	if len(args) == 2 {

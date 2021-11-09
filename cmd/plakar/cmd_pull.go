@@ -23,14 +23,13 @@ import (
 	"time"
 
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_pull(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("pull", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) == 0 {
+	if len(flags.Args()) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
@@ -39,28 +38,16 @@ func cmd_pull(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots := getSnapshotsList(ctx)
-
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
+	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	for i := 0; i < len(args); i++ {
-		prefix, pattern := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snap, err := snapshot.Load(ctx.Store(), res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
+	for offset, snapshot := range snapshots {
+		_, pattern := parseSnapshotID(args[offset])
 		t0 := time.Now()
-		snap.Pull(dir, pattern)
-		logger.Info("snapshot %s: restored in %s", snap.Uuid, time.Since(t0))
+		snapshot.Pull(dir, pattern)
+		logger.Info("snapshot %s: restored in %s", snapshot.Uuid, time.Since(t0))
 	}
 
 	return 0

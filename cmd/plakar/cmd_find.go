@@ -36,7 +36,10 @@ func cmd_find(ctx Plakar, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot][]string)
-	snapshotsList := getSnapshotsList(ctx)
+	snapshotsList, err := getSnapshotsList(ctx.Store())
+	if err != nil {
+		log.Fatal(err)
+	}
 	for _, snapshotUuid := range snapshotsList {
 		snap, err := snapshot.Load(ctx.store, snapshotUuid)
 		if err != nil {

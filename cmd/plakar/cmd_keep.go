@@ -37,7 +37,10 @@ func cmd_keep(ctx Plakar, args []string) int {
 		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
 	}
 
-	snapshotsList := getSnapshotsList(ctx)
+	snapshotsList, err := getSnapshotsList(ctx.Store())
+	if err != nil {
+		log.Fatal(err)
+	}
 	if len(snapshotsList) < count {
 		return 0
 	}

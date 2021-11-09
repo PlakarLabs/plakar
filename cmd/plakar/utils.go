@@ -57,15 +57,15 @@ func findObjectByPrefix(objects []string, prefix string) []string {
 	return ret
 }
 
-func getSnapshotsList(ctx Plakar) []string {
-	snapshots, err := snapshot.List(ctx.Store())
-	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
-	}
-	return snapshots
-}
+//func getSnapshotsList(ctx Plakar) []string {
+//	snapshots, err := snapshot.List(ctx.Store())
+//	if err != nil {
+//		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+//	}
+//	return snapshots
+//}
 
-func getSnapshotsList2(store storage.Store) ([]string, error) {
+func getSnapshotsList(store storage.Store) ([]string, error) {
 	snapshots, err := snapshot.List(store)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func getSnapshotsList2(store storage.Store) ([]string, error) {
 }
 
 func getSnapshots(store storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := getSnapshotsList2(store)
+	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
 		return nil, err
 	}

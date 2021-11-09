@@ -19,13 +19,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
-	"os/user"
+	"log"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
@@ -33,90 +31,139 @@ func cmd_find(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
-		fmt.Fprintf(os.Stderr, "%s: need at list one parameter\n", flag.CommandLine.Name())
-		return 1
+	if flags.NArg() < 1 {
+		log.Fatalf("%s: need at least a chunk prefix to search", flag.CommandLine.Name())
 	}
 
-	snapshots := getSnapshotsList(ctx)
-
-	snapshotsList := make([]*snapshot.Snapshot, 0)
-	for _, Uuid := range snapshots {
-		snap, err := snapshot.Load(ctx.Store(), Uuid)
+	result := make(map[*snapshot.Snapshot][]string)
+	snapshotsList := getSnapshotsList(ctx)
+	for _, snapshotUuid := range snapshotsList {
+		snap, err := snapshot.Load(ctx.store, snapshotUuid)
 		if err != nil {
-			/* failed to lookup snapshot */
-			continue
+			log.Fatal(err)
+			return 1
 		}
-		snapshotsList = append(snapshotsList, snap)
+
+		result[snap] = make([]string, 0)
+
+		for pathname := range snap.Pathnames {
+			for _, arg := range args {
+				if pathname == arg {
+					found := false
+					for _, e := range result[snap] {
+						if e == pathname {
+							found = true
+							break
+						}
+					}
+					if !found {
+						result[snap] = append(result[snap], pathname)
+					}
+				}
+			}
+		}
+
+		for pathname, fileinfo := range snap.Files {
+			for _, arg := range args {
+				if fileinfo.Name == arg {
+					found := false
+					for _, e := range result[snap] {
+						if e == pathname {
+							found = true
+							break
+						}
+					}
+					if !found {
+						result[snap] = append(result[snap], pathname)
+					}
+				}
+			}
+		}
+
+		for _, chunk := range snap.Chunks {
+			for _, arg := range args {
+				if strings.HasPrefix(chunk.Checksum, arg) {
+					shortcutFound := false
+					for pathname, objectChecksum := range snap.Pathnames {
+						if objectChecksum == chunk.Checksum {
+							found := false
+							for _, e := range result[snap] {
+								if e == pathname {
+									found = true
+									break
+								}
+							}
+							if !found {
+								result[snap] = append(result[snap], pathname)
+							}
+							shortcutFound = true
+							break
+						}
+					}
+					if !shortcutFound {
+						for objectChecksum, object := range snap.Objects {
+							for _, objectChunk := range object.Chunks {
+								if objectChunk.Checksum == chunk.Checksum {
+									for pathname := range snap.Pathnames {
+										if snap.Pathnames[pathname] == objectChecksum {
+											found := false
+											for _, e := range result[snap] {
+												if e == pathname {
+													found = true
+													break
+												}
+											}
+											if !found {
+												result[snap] = append(result[snap], pathname)
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		for _, object := range snap.Objects {
+			for _, arg := range args {
+				if strings.HasPrefix(object.Checksum, arg) || strings.HasPrefix(object.ContentType, arg) {
+					for pathname, objectChecksum := range snap.Pathnames {
+						if objectChecksum == object.Checksum {
+							found := false
+							for _, e := range result[snap] {
+								if e == pathname {
+									found = true
+									break
+								}
+							}
+							if !found {
+								result[snap] = append(result[snap], pathname)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
-	helpers.SnapshotsSortedByDate(snapshotsList)
 
-	for _, snapshot := range snapshotsList {
+	snapshots := make([]*snapshot.Snapshot, 0)
+	for snap, _ := range result {
+		snapshots = append(snapshots, snap)
+	}
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
+	})
 
-		directories := make([]string, 0)
-		for name := range snapshot.Directories {
-			directories = append(directories, name)
-		}
-		sort.Slice(directories, func(i, j int) bool {
-			return strings.Compare(directories[i], directories[j]) < 0
+	for _, snap := range snapshots {
+		files := result[snap]
+		sort.Slice(files, func(i, j int) bool {
+			return files[i] < files[j]
 		})
 
-		for _, name := range directories {
-			fi := snapshot.Directories[name]
-			if fi.Name == flag.Arg(1) {
-				pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-				username := fmt.Sprintf("%d", fi.Uid)
-				if err == nil {
-					username = pwUserLookup.Username
-				}
-
-				grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-				groupname := fmt.Sprintf("%d", fi.Gid)
-				if err == nil {
-					groupname = grGroupLookup.Name
-				}
-				fmt.Fprintf(os.Stdout, "%s: %s %s % 8s % 8s % 8s %s\n",
-					snapshot.Uuid,
-					snapshot.Pathnames[name],
-					fi.Mode,
-					username,
-					groupname,
-					humanize.Bytes(uint64(fi.Size)),
-					name)
-			}
-		}
-
-		filenames := make([]string, 0)
-		for name := range snapshot.Files {
-			filenames = append(filenames, name)
-		}
-		sort.Slice(filenames, func(i, j int) bool {
-			return strings.Compare(filenames[i], filenames[j]) < 0
-		})
-
-		for _, name := range filenames {
-			fi := snapshot.Files[name]
-			if fi.Name == flag.Arg(1) {
-				pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-				username := fmt.Sprintf("%d", fi.Uid)
-				if err == nil {
-					username = pwUserLookup.Username
-				}
-
-				grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-				groupname := fmt.Sprintf("%d", fi.Gid)
-				if err == nil {
-					groupname = grGroupLookup.Name
-				}
-				fmt.Fprintf(os.Stdout, "%s: %s %s % 8s % 8s % 8s %s\n",
-					snapshot.Uuid,
-					snapshot.Pathnames[name],
-					fi.Mode,
-					username,
-					groupname,
-					humanize.Bytes(uint64(fi.Size)),
-					name)
-			}
+		for _, pathname := range files {
+			fmt.Printf("%s  %s %s\n", snap.CreationTime.UTC().Format(time.RFC3339), snap.Uuid, pathname)
 		}
 	}
 

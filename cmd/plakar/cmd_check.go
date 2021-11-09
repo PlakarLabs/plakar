@@ -42,13 +42,11 @@ func cmd_check(ctx Plakar, args []string) int {
 
 	failures := false
 	for offset, snapshot := range snapshots {
-		_, pattern := parseSnapshotID(args[offset])
+		_, pattern := parseSnapshotID(flags.Args()[offset])
 
-		var ok bool
-		if enableFastCheck {
-			ok = snapshot.FastCheck(pattern)
-		} else {
-			ok = snapshot.Check(pattern)
+		ok, err := snapshot.Check(pattern, enableFastCheck)
+		if err != nil {
+			logger.Warn("%s", err)
 		}
 
 		if ok {

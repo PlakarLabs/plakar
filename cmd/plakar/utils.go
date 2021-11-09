@@ -178,9 +178,6 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	case "rm":
 		exitCode = cmd_rm(ctx, args)
 
-	case "search":
-		exitCode = cmd_search(ctx, args)
-
 	case "server":
 		exitCode = cmd_server(ctx, args)
 

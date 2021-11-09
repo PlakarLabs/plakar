@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_keep(ctx Plakar, args []string) int {
@@ -43,18 +42,14 @@ func cmd_keep(ctx Plakar, args []string) int {
 		return 0
 	}
 
-	snapshots := make([]*snapshot.Snapshot, 0)
-	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(ctx.Store(), snapshotUuid)
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), snapshotUuid)
-		}
-		snapshots = append(snapshots, snap)
+	snapshots, err := getSnapshots(ctx.Store(), nil)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	snapshots = helpers.SnapshotsSortedByDate(snapshots)[:len(snapshots)-count]
-	for _, snap := range snapshots {
-		ctx.Store().Purge(snap.Uuid)
+	for _, snapshot := range snapshots {
+		ctx.Store().Purge(snapshot.Uuid)
 	}
 
 	return 0

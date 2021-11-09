@@ -24,15 +24,13 @@ import (
 	"io"
 	"log"
 	"os"
-
-	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_tarball(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("tarball", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) == 0 {
+	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
@@ -41,16 +39,9 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots := getSnapshotsList(ctx)
-
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
+	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	gzipWriter := gzip.NewWriter(os.Stdout)
@@ -59,16 +50,9 @@ func cmd_tarball(ctx Plakar, args []string) int {
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snap, err := snapshot.Load(ctx.Store(), res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
-
-		for file, checksum := range snap.Pathnames {
-			info := snap.Files[file]
+	for _, snapshot := range snapshots {
+		for file, checksum := range snapshot.Pathnames {
+			info := snapshot.Files[file]
 			header := &tar.Header{
 				Name:    file,
 				Size:    info.Size,
@@ -82,9 +66,9 @@ func cmd_tarball(ctx Plakar, args []string) int {
 				continue
 			}
 
-			obj := snap.Objects[checksum]
+			obj := snapshot.Objects[checksum]
 			for _, chunk := range obj.Chunks {
-				data, err := snap.GetChunk(chunk.Checksum)
+				data, err := snapshot.GetChunk(chunk.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "corrupted file %s\n", file)
 					continue

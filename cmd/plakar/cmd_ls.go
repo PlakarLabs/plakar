@@ -54,24 +54,12 @@ func cmd_ls(ctx Plakar, args []string) int {
 }
 
 func list_snapshots(store storage.Store) {
-	snapshots, err := snapshot.List(store)
+	snapshots, err := getSnapshots(store, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	snapshotsList := make([]*snapshot.Snapshot, 0)
-	for _, Uuid := range snapshots {
-
-		snapshot, err := snapshot.Load(store, Uuid)
-		if err != nil {
-			/* failed to lookup snapshot */
-			continue
-		}
-		snapshotsList = append(snapshotsList, snapshot)
-	}
-	helpers.SnapshotsSortedByDate(snapshotsList)
-
-	for _, snapshot := range snapshotsList {
+	for _, snapshot := range snapshots {
 		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			snapshot.Uuid,
@@ -81,37 +69,14 @@ func list_snapshots(store storage.Store) {
 }
 
 func list_snapshot(store storage.Store, args []string) {
-	snapshots, err := snapshot.List(store)
+
+	snapshots, err := getSnapshots(store, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
-	}
-
-	for _, arg := range args {
-		prefix, pattern := parseSnapshotID(arg)
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := snapshot.Load(store, res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
-
-		pattern = filepath.Clean(pattern)
-
-		if pattern == "." || pattern == ".." {
-			pattern = "/"
-		}
-		if !strings.HasPrefix(pattern, "/") {
-			pattern = "/" + pattern
-		}
+	for offset, snapshot := range snapshots {
+		_, prefix := parseSnapshotID(args[offset])
 
 		directories := make([]string, 0)
 		for name := range snapshot.Directories {
@@ -123,10 +88,10 @@ func list_snapshot(store storage.Store, args []string) {
 
 		for _, name := range directories {
 			fi := snapshot.Directories[name]
-			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
-			if name == "/" || name == pattern {
+			if name == "/" || name == prefix {
 				continue
 			}
 
@@ -142,7 +107,6 @@ func list_snapshot(store storage.Store, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				//snapshot.Pathnames[name],
 				fi.ModTime.UTC().Format(time.RFC3339),
 				fi.Mode,
 				username,
@@ -161,7 +125,7 @@ func list_snapshot(store storage.Store, args []string) {
 
 		for _, name := range filenames {
 			fi := snapshot.Files[name]
-			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
 
@@ -177,7 +141,6 @@ func list_snapshot(store storage.Store, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				//snapshot.Pathnames[name],
 				fi.ModTime.UTC().Format(time.RFC3339),
 				fi.Mode,
 				username,
@@ -189,36 +152,21 @@ func list_snapshot(store storage.Store, args []string) {
 }
 
 func list_snapshot_recursive(store storage.Store, args []string) {
-	snapshots, err := snapshot.List(store)
+	snapshots, err := getSnapshots(store, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
-	}
+	for offset, snapshot := range snapshots {
+		_, prefix := parseSnapshotID(args[offset])
 
-	for _, arg := range args {
-		prefix, pattern := parseSnapshotID(arg)
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snapshot, err := snapshot.Load(store, res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
+		prefix = filepath.Clean(prefix)
 
-		pattern = filepath.Clean(pattern)
-
-		if pattern == "." || pattern == ".." {
-			pattern = "/"
+		if prefix == "." || prefix == ".." {
+			prefix = "/"
 		}
-		if !strings.HasPrefix(pattern, "/") {
-			pattern = "/" + pattern
+		if !strings.HasPrefix(prefix, "/") {
+			prefix = "/" + prefix
 		}
 
 		directories := make([]string, 0)
@@ -230,7 +178,7 @@ func list_snapshot_recursive(store storage.Store, args []string) {
 		})
 
 		for _, name := range directories {
-			if !helpers.PathIsWithin(name, pattern) {
+			if !helpers.PathIsWithin(name, prefix) {
 				continue
 			}
 			list_snapshot_recursive_directory(snapshot, name)
@@ -246,7 +194,7 @@ func list_snapshot_recursive(store storage.Store, args []string) {
 
 		for _, name := range filenames {
 			fi := snapshot.Files[name]
-			if !helpers.PathIsWithin(name, pattern) && name != pattern {
+			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
 

@@ -19,9 +19,11 @@ package main
 import (
 	"flag"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func parseSnapshotID(id string) (string, string) {
@@ -60,6 +62,70 @@ func getSnapshotsList(ctx Plakar) []string {
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
+	return snapshots
+}
+
+func getSnapshotsList2(store storage.Store) ([]string, error) {
+	snapshots, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
+	}
+	return snapshots, nil
+}
+
+func getSnapshots(store storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := getSnapshotsList2(store)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Snapshot, 0)
+
+	// no prefixes, this is a full fetch
+	if prefixes == nil {
+		for _, snapshotUuid := range snapshotsList {
+			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, snapshotInstance)
+		}
+		return sortSnapshotsByDate(result), nil
+	}
+
+	// prefixes, preprocess snapshots to only fetch necessary ones
+	for _, prefix := range prefixes {
+		parsedUuidPrefix, _ := parseSnapshotID(prefix)
+
+		matches := 0
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				matches++
+			}
+		}
+		if matches == 0 {
+			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+		} else if matches > 1 {
+			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
+		}
+
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, snapshotInstance)
+			}
+		}
+	}
+	return result, nil
+}
+
+func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
+	})
 	return snapshots
 }
 

@@ -227,6 +227,33 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) CheckObject(checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("CheckObject(%s): %s", checksum, time.Since(t0))
+	}()
+
+	fileinfo, err := os.Stat(store.PathObject(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+}
+
+func (store *FSStore) CheckChunk(checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("CheckChunk(%s): %s", checksum, time.Since(t0))
+	}()
+
+	fileinfo, err := os.Stat(store.PathChunk(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+
+}
+
 func (store *FSStore) Purge(id string) error {
 	t0 := time.Now()
 	defer func() {

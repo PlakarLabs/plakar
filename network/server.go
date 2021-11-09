@@ -131,6 +131,40 @@ func handleConnection(store storage.Store, conn net.Conn) {
 					break
 				}
 
+			case "ReqCheckObject":
+				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
+				exists, err := store.CheckObject(request.Payload.(ReqCheckObject).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResCheckObject",
+					Payload: ResCheckObject{
+						Exists: exists,
+						Err:    err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+					break
+				}
+
+			case "ReqCheckChunk":
+				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
+				exists, err := store.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResCheckChunk",
+					Payload: ResCheckChunk{
+						Exists: exists,
+						Err:    err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+					break
+				}
+
 			case "ReqPurge":
 				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
 				err := store.Purge(request.Payload.(ReqPurge).Uuid)

@@ -298,6 +298,34 @@ func (store *DatabaseStore) GetChunk(checksum string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *DatabaseStore) CheckObject(checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("CheckObject(%s): %s", checksum, time.Since(t0))
+	}()
+
+	var data []byte
+	err := store.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (store *DatabaseStore) CheckChunk(checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("CheckChunk(%s): %s", checksum, time.Since(t0))
+	}()
+
+	var data []byte
+	err := store.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (store *DatabaseStore) Purge(id string) error {
 	t0 := time.Now()
 	defer func() {

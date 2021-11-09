@@ -44,6 +44,9 @@ type Store interface {
 	GetObject(checksum string) ([]byte, error)
 	GetChunk(checksum string) ([]byte, error)
 
+	CheckObject(checksum string) (bool, error)
+	CheckChunk(checksum string) (bool, error)
+
 	Purge(id string) error
 }
 

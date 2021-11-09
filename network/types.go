@@ -54,6 +54,24 @@ type ResGetChunk struct {
 	Err  error
 }
 
+type ReqCheckObject struct {
+	Checksum string
+}
+
+type ResCheckObject struct {
+	Exists bool
+	Err    error
+}
+
+type ReqCheckChunk struct {
+	Checksum string
+}
+
+type ResCheckChunk struct {
+	Exists bool
+	Err    error
+}
+
 type ReqPurge struct {
 	Uuid string
 }
@@ -144,6 +162,12 @@ func ProtocolRegister() {
 
 	gob.Register(ReqGetChunk{})
 	gob.Register(ResGetChunk{})
+
+	gob.Register(ReqCheckObject{})
+	gob.Register(ResCheckObject{})
+
+	gob.Register(ReqCheckChunk{})
+	gob.Register(ResCheckChunk{})
 
 	gob.Register(ReqPurge{})
 	gob.Register(ResPurge{})

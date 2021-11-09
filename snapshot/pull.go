@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/poolpOrg/plakar/logger"
 )
 
-func (snapshot *Snapshot) Pull(root string, pattern string) {
+func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, 1024)
 	maxFilesConcurrency := make(chan bool, 1024)
@@ -70,7 +71,12 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
 			rel := path.Clean(fmt.Sprintf("./%s", file))
-			dest = fmt.Sprintf("%s/%s", root, file)
+			if rebase && strings.HasPrefix(file, dpattern) {
+				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])
+			} else {
+				dest = fmt.Sprintf("%s/%s", root, file)
+			}
+			dest = filepath.Clean(dest)
 
 			checksum := snapshot.Pathnames[file]
 

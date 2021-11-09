@@ -26,16 +26,21 @@ import (
 )
 
 func cmd_pull(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("pull", flag.ExitOnError)
-	flags.Parse(args)
-
-	if flags.NArg() == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
-	}
+	var pullPath string
+	var pullRebase bool
 
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	flags := flag.NewFlagSet("pull", flag.ExitOnError)
+	flags.StringVar(&pullPath, "path", dir, "base directory where pull will restore")
+	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
+	flags.Parse(args)
+
+	if flags.NArg() == 0 {
+		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
 	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
@@ -44,9 +49,9 @@ func cmd_pull(ctx Plakar, args []string) int {
 	}
 
 	for offset, snapshot := range snapshots {
-		_, pattern := parseSnapshotID(args[offset])
+		_, pattern := parseSnapshotID(flags.Args()[offset])
 		t0 := time.Now()
-		snapshot.Pull(dir, pattern)
+		snapshot.Pull(pullPath, pullRebase, pattern)
 		logger.Info("snapshot %s: restored in %s", snapshot.Uuid, time.Since(t0))
 	}
 

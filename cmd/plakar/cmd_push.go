@@ -46,8 +46,8 @@ func cmd_push(ctx Plakar, args []string) int {
 	if flags.NArg() == 0 {
 		snap.Push(dir)
 	} else {
-		for i := 0; i < len(args); i++ {
-			snap.Push(args[i])
+		for i := 0; i < flags.NArg(); i++ {
+			snap.Push(flags.Args()[i])
 		}
 	}
 

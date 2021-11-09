@@ -50,7 +50,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		result[snap] = make([]string, 0)
 
 		for pathname := range snap.Pathnames {
-			for _, arg := range args {
+			for _, arg := range flags.Args() {
 				if pathname == arg {
 					found := false
 					for _, e := range result[snap] {
@@ -67,7 +67,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		}
 
 		for pathname, fileinfo := range snap.Files {
-			for _, arg := range args {
+			for _, arg := range flags.Args() {
 				if fileinfo.Name == arg {
 					found := false
 					for _, e := range result[snap] {
@@ -84,7 +84,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		}
 
 		for _, chunk := range snap.Chunks {
-			for _, arg := range args {
+			for _, arg := range flags.Args() {
 				if strings.HasPrefix(chunk.Checksum, arg) {
 					shortcutFound := false
 					for pathname, objectChecksum := range snap.Pathnames {
@@ -130,7 +130,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		}
 
 		for _, object := range snap.Objects {
-			for _, arg := range args {
+			for _, arg := range flags.Args() {
 				if strings.HasPrefix(object.Checksum, arg) || strings.HasPrefix(object.ContentType, arg) {
 					for pathname, objectChecksum := range snap.Pathnames {
 						if objectChecksum == object.Checksum {

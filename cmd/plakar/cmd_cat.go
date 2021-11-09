@@ -41,7 +41,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 	errors := 0
 	for offset, snapshot := range snapshots {
-		_, pathname := parseSnapshotID(args[offset])
+		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
 			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Uuid)

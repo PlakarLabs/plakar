@@ -94,22 +94,3 @@ type Snapshot struct {
 	WrittenObjects  map[string]bool
 	InflightObjects map[string]*Object
 }
-
-type SnapshotSummary struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
-
-	Roots       uint64
-	Directories uint64
-	Files       uint64
-	NonRegular  uint64
-	Pathnames   uint64
-	Objects     uint64
-	Chunks      uint64
-
-	Size uint64
-}

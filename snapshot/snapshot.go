@@ -368,33 +368,10 @@ func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
 	return nil
 }
 
-func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
-	ss := &SnapshotSummary{}
-	ss.Uuid = snapshot.Uuid
-	ss.CreationTime = snapshot.CreationTime
-	ss.Version = snapshot.Version
-	ss.Hostname = snapshot.Hostname
-	ss.Username = snapshot.Username
-	ss.CommandLine = snapshot.CommandLine
-	ss.Roots = uint64(len(snapshot.Roots))
-	ss.Directories = uint64(len(snapshot.Directories))
-	ss.Files = uint64(len(snapshot.Files))
-	ss.NonRegular = uint64(len(snapshot.NonRegular))
-	ss.Pathnames = uint64(len(snapshot.Pathnames))
-	ss.Objects = uint64(len(snapshot.Objects))
-	ss.Chunks = uint64(len(snapshot.Chunks))
-	ss.Size = snapshot.Size
-	return ss
-}
-
 func (snapshot *Snapshot) HumanSize() string {
 	return humanize.Bytes(snapshot.Size)
 }
 
 func (fi *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fi.Size))
-}
-
-func (summary *SnapshotSummary) HumanSize() string {
-	return humanize.Bytes(summary.Size)
 }

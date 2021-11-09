@@ -26,7 +26,9 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -54,6 +56,48 @@ var searchTemplate string
 
 var templates map[string]*template.Template
 
+type SnapshotSummary struct {
+	Uuid         string
+	CreationTime time.Time
+	Version      string
+	Hostname     string
+	Username     string
+	CommandLine  string
+
+	Roots       uint64
+	Directories uint64
+	Files       uint64
+	NonRegular  uint64
+	Pathnames   uint64
+	Objects     uint64
+	Chunks      uint64
+
+	Size uint64
+}
+
+func (summary *SnapshotSummary) HumanSize() string {
+	return humanize.Bytes(summary.Size)
+}
+
+func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
+	ss := &SnapshotSummary{}
+	ss.Uuid = snapshot.Uuid
+	ss.CreationTime = snapshot.CreationTime
+	ss.Version = snapshot.Version
+	ss.Hostname = snapshot.Hostname
+	ss.Username = snapshot.Username
+	ss.CommandLine = snapshot.CommandLine
+	ss.Roots = uint64(len(snapshot.Roots))
+	ss.Directories = uint64(len(snapshot.Directories))
+	ss.Files = uint64(len(snapshot.Files))
+	ss.NonRegular = uint64(len(snapshot.NonRegular))
+	ss.Pathnames = uint64(len(snapshot.Pathnames))
+	ss.Objects = uint64(len(snapshot.Objects))
+	ss.Chunks = uint64(len(snapshot.Chunks))
+	ss.Size = snapshot.Size
+	return ss
+}
+
 func viewStore(w http.ResponseWriter, r *http.Request) {
 	snapshots, _ := snapshot.List(lstore)
 
@@ -71,14 +115,14 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
 	})
 
-	res := make([]*snapshot.SnapshotSummary, 0)
+	res := make([]*SnapshotSummary, 0)
 	for _, snap := range snapshotsList {
-		res = append(res, snapshot.SnapshotToSummary(snap))
+		res = append(res, SnapshotToSummary(snap))
 	}
 
 	ctx := &struct {
 		Store     storage.StoreConfig
-		Snapshots []*snapshot.SnapshotSummary
+		Snapshots []*SnapshotSummary
 	}{
 		lstore.Configuration(),
 		res,

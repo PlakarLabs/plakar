@@ -183,6 +183,14 @@ func (store *Store) Purge(id string) error {
 	return store.backend.Purge(id)
 }
 
+func (store *Store) Close() error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: Close(): %s", time.Since(t0))
+	}()
+	return store.backend.Close()
+}
+
 type Transaction struct {
 	backend TransactionBackend
 }

@@ -80,6 +80,13 @@ type ResPurge struct {
 	Err error
 }
 
+type ReqClose struct {
+}
+
+type ResClose struct {
+	Err error
+}
+
 type ReqTransaction struct {
 }
 
@@ -171,6 +178,9 @@ func ProtocolRegister() {
 
 	gob.Register(ReqPurge{})
 	gob.Register(ResPurge{})
+
+	gob.Register(ReqClose{})
+	gob.Register(ResClose{})
 
 	gob.Register(ReqTransaction{})
 	gob.Register(ResTransaction{})

@@ -54,8 +54,6 @@ type DatabaseTransaction struct {
 	Uuid  string
 	store *DatabaseStore
 
-	SkipDirs []string
-
 	dbTx *sql.Tx
 	storage.TransactionBackend
 }

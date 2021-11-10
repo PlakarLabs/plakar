@@ -133,6 +133,11 @@ func (snapshot *Snapshot) Push(root string) error {
 				var ok bool
 				if _, ok = snapshot.StateGetObject(msg.Object.Checksum); !ok {
 					snapshot.StateSetObject(msg.Object.Checksum, msg.Object)
+					for _, chunk := range msg.Object.Chunks {
+						snapshot.StateSetChunkToObject(chunk.Checksum, msg.Object.Checksum)
+					}
+					snapshot.StateSetObjectToPathname(msg.Object.Checksum, msg.Object.path)
+					snapshot.StateSetContentTypeToObjects(msg.Object.ContentType, msg.Object.Checksum)
 				}
 				if !ok {
 					if len(msg.Data) != 0 {

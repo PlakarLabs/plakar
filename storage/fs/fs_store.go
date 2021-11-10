@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -84,7 +83,6 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 }
 
 func (store *FSStore) Open(repository string) error {
-	store.SkipDirs = append(store.SkipDirs, path.Clean(repository))
 	store.root = repository
 
 	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", store.root))
@@ -117,7 +115,6 @@ func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 	tx.Uuid = uuid.New().String()
 	tx.store = *store
 	tx.prepared = false
-	tx.SkipDirs = store.SkipDirs
 
 	tx.chunks = make(map[string]bool)
 	tx.objects = make(map[string]bool)
@@ -210,8 +207,14 @@ func (store *FSStore) Purge(id string) error {
 		return err
 	}
 
-	store.Tidy()
+	//store.Tidy()
 
+	return nil
+}
+
+func (store *FSStore) Close() error {
+	// XXX - cleanup pending transactions so they don't linger
+	store.Tidy()
 	return nil
 }
 

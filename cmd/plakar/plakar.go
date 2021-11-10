@@ -230,6 +230,8 @@ func main() {
 		logger.Printf("time: %s", time.Since(t0))
 	}
 
+	ctx.store.Close()
+
 	loggerWait()
 	os.Exit(exitCode)
 }

@@ -274,6 +274,10 @@ func (store *DatabaseStore) Purge(id string) error {
 	return nil
 }
 
+func (store *DatabaseStore) Close() error {
+	return nil
+}
+
 //////
 
 func (transaction *DatabaseTransaction) GetUuid() string {

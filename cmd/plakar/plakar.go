@@ -14,11 +14,10 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/client"
-	"github.com/poolpOrg/plakar/storage/database"
-	"github.com/poolpOrg/plakar/storage/fs"
+	_ "github.com/poolpOrg/plakar/storage/client"
+	_ "github.com/poolpOrg/plakar/storage/database"
+	_ "github.com/poolpOrg/plakar/storage/fs"
 )
 
 type Plakar struct {
@@ -148,15 +147,14 @@ func main() {
 	var store storage.Store
 	if !strings.HasPrefix(ctx.Repository, "/") {
 		if strings.HasPrefix(ctx.Repository, "plakar://") {
-			network.ProtocolRegister()
-			store = &client.ClientStore{}
+			store, _ = storage.New("client")
 		} else if strings.HasPrefix(ctx.Repository, "sqlite://") {
-			store = &database.DatabaseStore{}
+			store, _ = storage.New("database")
 		} else {
 			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
 		}
 	} else {
-		store = &fs.FSStore{}
+		store, _ = storage.New("filesystem")
 	}
 	ctx.store = store
 

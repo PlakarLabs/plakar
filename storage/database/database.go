@@ -30,6 +30,10 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+func init() {
+	storage.Register("database", &DatabaseStore{})
+}
+
 func (store *DatabaseStore) connect(addr string) error {
 	var connectionString string
 	if strings.HasPrefix(addr, "sqlite://") {
@@ -175,11 +179,6 @@ func (store *DatabaseStore) SetKeypair(localKeypair *encryption.Keypair) error {
 }
 
 func (store *DatabaseStore) Open(repository string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Open(%s): %s", repository, time.Since(t0))
-	}()
-
 	err := store.connect(repository)
 	if err != nil {
 		return err
@@ -209,11 +208,6 @@ func (store *DatabaseStore) Configuration() storage.StoreConfig {
 }
 
 func (store *DatabaseStore) Transaction() (storage.Transaction, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Transaction(): %s", time.Since(t0))
-	}()
-
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -233,11 +227,6 @@ func (store *DatabaseStore) Transaction() (storage.Transaction, error) {
 }
 
 func (store *DatabaseStore) GetIndexes() ([]string, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetIndexes(): %s", time.Since(t0))
-	}()
-
 	rows, err := store.conn.Query("SELECT indexUuid FROM indexes")
 	if err != nil {
 		return nil, err
@@ -257,11 +246,6 @@ func (store *DatabaseStore) GetIndexes() ([]string, error) {
 }
 
 func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetIndex(%s): %s", Uuid, time.Since(t0))
-	}()
-
 	var data []byte
 	err := store.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
 	if err != nil {
@@ -271,11 +255,6 @@ func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
 }
 
 func (store *DatabaseStore) GetObject(checksum string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetObject(%s): %s", checksum, time.Since(t0))
-	}()
-
 	var data []byte
 	err := store.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -285,11 +264,6 @@ func (store *DatabaseStore) GetObject(checksum string) ([]byte, error) {
 }
 
 func (store *DatabaseStore) GetChunk(checksum string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetChunk(%s): %s", checksum, time.Since(t0))
-	}()
-
 	var data []byte
 	err := store.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -299,11 +273,6 @@ func (store *DatabaseStore) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (store *DatabaseStore) CheckObject(checksum string) (bool, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("CheckObject(%s): %s", checksum, time.Since(t0))
-	}()
-
 	var data []byte
 	err := store.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -313,11 +282,6 @@ func (store *DatabaseStore) CheckObject(checksum string) (bool, error) {
 }
 
 func (store *DatabaseStore) CheckChunk(checksum string) (bool, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("CheckChunk(%s): %s", checksum, time.Since(t0))
-	}()
-
 	var data []byte
 	err := store.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -327,11 +291,6 @@ func (store *DatabaseStore) CheckChunk(checksum string) (bool, error) {
 }
 
 func (store *DatabaseStore) Purge(id string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Purge(%s): %s", id, time.Since(t0))
-	}()
-
 	return nil
 }
 
@@ -341,11 +300,6 @@ func (transaction *DatabaseTransaction) GetUuid() string {
 	return transaction.Uuid
 }
 func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
-	}()
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
@@ -369,11 +323,6 @@ func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, 
 }
 
 func (transaction *DatabaseTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
-	}()
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
@@ -397,11 +346,6 @@ func (transaction *DatabaseTransaction) ReferenceObjects(keys []string) ([]bool,
 }
 
 func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].PutObject(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
-	}()
-
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -418,11 +362,6 @@ func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) 
 }
 
 func (transaction *DatabaseTransaction) PutChunk(checksum string, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
-	}()
-
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -439,11 +378,6 @@ func (transaction *DatabaseTransaction) PutChunk(checksum string, data []byte) e
 }
 
 func (transaction *DatabaseTransaction) PutIndex(data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
-	}()
-
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -459,10 +393,5 @@ func (transaction *DatabaseTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *DatabaseTransaction) Commit() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("tx[%s].Commit(): %s", transaction.GetUuid(), time.Since(t0))
-	}()
-
 	return transaction.dbTx.Commit()
 }

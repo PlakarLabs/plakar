@@ -58,7 +58,5 @@ type ClientTransaction struct {
 	Uuid  string
 	store *ClientStore
 
-	SkipDirs []string
-
 	storage.TransactionBackend
 }

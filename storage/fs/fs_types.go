@@ -33,7 +33,7 @@ type FSStore struct {
 	Repository string
 	root       string
 
-	SkipDirs []string
+	//SkipDirs []string
 
 	storage.StoreBackend
 }
@@ -43,7 +43,7 @@ type FSTransaction struct {
 	store    FSStore
 	prepared bool
 
-	SkipDirs []string
+	//SkipDirs []string
 
 	chunksMutex  sync.Mutex
 	objectsMutex sync.Mutex

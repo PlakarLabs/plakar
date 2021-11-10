@@ -87,8 +87,9 @@ func cmd_diff(ctx Plakar, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1, fi1 := range snapshot1.Directories {
-				fi2, ok := snapshot2.Directories[dir1]
+			for dir1, _ := range snapshot1.Directories {
+				fi1, _ := snapshot1.StateGetTree(dir1)
+				fi2, ok := snapshot2.StateGetTree(dir1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
 				}
@@ -98,15 +99,18 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for dir2, fi2 := range snapshot2.Directories {
+			for dir2, _ := range snapshot2.Directories {
+				fi2, _ := snapshot2.StateGetTree(dir2)
+
 				_, ok := snapshot1.Directories[dir2]
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), dir2)
 				}
 			}
 
-			for file1, fi1 := range snapshot1.Files {
-				fi2, ok := snapshot2.Files[file1]
+			for file1, _ := range snapshot1.Files {
+				fi1, _ := snapshot1.StateGetTree(file1)
+				fi2, ok := snapshot2.StateGetTree(file1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
 				}
@@ -116,7 +120,9 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file2, fi2 := range snapshot2.Files {
+			for file2, _ := range snapshot2.Files {
+				fi2, _ := snapshot1.StateGetTree(file2)
+				//_, ok := snapshot1.StateGetTree(file2)
 				_, ok := snapshot1.Files[file2]
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)

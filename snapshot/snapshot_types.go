@@ -60,12 +60,13 @@ type SnapshotStorage struct {
 
 	Tree *TreeNode
 
-	Directories map[string]*FileInfo
-	Files       map[string]*FileInfo
-	NonRegular  map[string]*FileInfo
-	Pathnames   map[string]string
-	Objects     map[string]*Object
-	Chunks      map[string]*Chunk
+	Directories []string
+	Files       []string
+	NonRegular  []string
+
+	Pathnames map[string]string
+	Objects   map[string]*Object
+	Chunks    map[string]*Chunk
 
 	// reverse lookups
 	ChunkToObjects       map[string][]string
@@ -90,13 +91,13 @@ type Snapshot struct {
 	Tree   *TreeNode
 
 	muDirectories sync.Mutex
-	Directories   map[string]*FileInfo
+	Directories   map[string]bool
 
 	muFiles sync.Mutex
-	Files   map[string]*FileInfo
+	Files   map[string]bool
 
 	muNonRegular sync.Mutex
-	NonRegular   map[string]*FileInfo
+	NonRegular   map[string]bool
 
 	muPathnames sync.Mutex
 	Pathnames   map[string]string

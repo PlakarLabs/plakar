@@ -35,9 +35,9 @@ func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 
 		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
 
-		Directories: make(map[string]*FileInfo),
-		Files:       make(map[string]*FileInfo),
-		NonRegular:  make(map[string]*FileInfo),
+		Directories: make(map[string]bool),
+		Files:       make(map[string]bool),
+		NonRegular:  make(map[string]bool),
 		Pathnames:   make(map[string]string),
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
@@ -110,9 +110,22 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.CommandLine = snapshotStorage.CommandLine
 	snapshot.Roots = snapshotStorage.Roots
 	snapshot.Tree = snapshotStorage.Tree
-	snapshot.Directories = snapshotStorage.Directories
-	snapshot.Files = snapshotStorage.Files
-	snapshot.NonRegular = snapshotStorage.NonRegular
+
+	snapshot.Directories = make(map[string]bool)
+	for _, directory := range snapshotStorage.Directories {
+		snapshot.Directories[directory] = true
+	}
+
+	snapshot.Files = make(map[string]bool)
+	for _, file := range snapshotStorage.Files {
+		snapshot.Files[file] = true
+	}
+
+	snapshot.NonRegular = make(map[string]bool)
+	for _, file := range snapshotStorage.NonRegular {
+		snapshot.NonRegular[file] = true
+	}
+
 	snapshot.Pathnames = snapshotStorage.Pathnames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
@@ -286,9 +299,22 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.CommandLine = snapshot.CommandLine
 	snapshotStorage.Roots = snapshot.Roots
 	snapshotStorage.Tree = snapshot.Tree
-	snapshotStorage.Directories = snapshot.Directories
-	snapshotStorage.Files = snapshot.Files
-	snapshotStorage.NonRegular = snapshot.NonRegular
+
+	snapshotStorage.Directories = make([]string, 0)
+	for directory := range snapshot.Directories {
+		snapshotStorage.Directories = append(snapshotStorage.Directories, directory)
+	}
+
+	snapshotStorage.Files = make([]string, 0)
+	for file := range snapshot.Files {
+		snapshotStorage.Files = append(snapshotStorage.Files, file)
+	}
+
+	snapshotStorage.NonRegular = make([]string, 0)
+	for file := range snapshot.NonRegular {
+		snapshotStorage.NonRegular = append(snapshotStorage.NonRegular, file)
+	}
+
 	snapshotStorage.Pathnames = snapshot.Pathnames
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
@@ -421,25 +447,44 @@ func (snapshot *Snapshot) StateSetTree(pathname string, fileinfo *FileInfo) {
 	p.Inode = fileinfo
 }
 
-func (snapshot *Snapshot) StateSetDirectory(pathname string, fileinfo *FileInfo) {
+func (snapshot *Snapshot) StateGetTree(pathname string) (*FileInfo, bool) {
+	snapshot.muTree.Lock()
+	defer snapshot.muTree.Unlock()
+
+	p := snapshot.Tree
+	if pathname == "/" {
+		return p.Inode, true
+	}
+
+	atoms := strings.Split(pathname, "/")[1:]
+	for _, atom := range atoms {
+		if _, exists := p.Children[atom]; !exists {
+			return nil, false
+		}
+		p = p.Children[atom]
+	}
+	return p.Inode, true
+}
+
+func (snapshot *Snapshot) StateSetDirectory(pathname string) {
 	snapshot.muDirectories.Lock()
 	defer snapshot.muDirectories.Unlock()
 
-	snapshot.Directories[pathname] = fileinfo
+	snapshot.Directories[pathname] = true
 }
 
-func (snapshot *Snapshot) StateSetFile(pathname string, fileinfo *FileInfo) {
+func (snapshot *Snapshot) StateSetFile(pathname string) {
 	snapshot.muFiles.Lock()
 	defer snapshot.muFiles.Unlock()
 
-	snapshot.Files[pathname] = fileinfo
+	snapshot.Files[pathname] = true
 }
 
-func (snapshot *Snapshot) StateSetNonRegular(pathname string, fileinfo *FileInfo) {
+func (snapshot *Snapshot) StateSetNonRegular(pathname string) {
 	snapshot.muNonRegular.Lock()
 	defer snapshot.muNonRegular.Unlock()
 
-	snapshot.NonRegular[pathname] = fileinfo
+	snapshot.NonRegular[pathname] = true
 }
 
 func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {

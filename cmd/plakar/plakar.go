@@ -31,7 +31,7 @@ type Plakar struct {
 	EncryptedKeypair []byte
 	keypair          *encryption.Keypair
 
-	store storage.Store
+	store *storage.Store
 
 	StdoutChannel  chan string
 	StderrChannel  chan string
@@ -41,7 +41,7 @@ type Plakar struct {
 	localCache *cache.Cache
 }
 
-func (plakar *Plakar) Store() storage.Store {
+func (plakar *Plakar) Store() *storage.Store {
 	return plakar.store
 }
 
@@ -157,7 +157,7 @@ func main() {
 	}
 	ctx.EncryptedKeypair = encryptedKeypair
 
-	var store storage.Store
+	var store *storage.Store
 	if !strings.HasPrefix(ctx.Repository, "/") {
 		if strings.HasPrefix(ctx.Repository, "plakar://") {
 			store, _ = storage.New("client")

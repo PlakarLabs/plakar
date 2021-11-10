@@ -26,9 +26,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 
@@ -85,24 +83,6 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 	return nil
 }
 
-func (store *FSStore) GetCache() *cache.Cache {
-	return store.Cache
-}
-
-func (store *FSStore) GetKeypair() *encryption.Keypair {
-	return store.Keypair
-}
-
-func (store *FSStore) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
-	return nil
-}
-
-func (store *FSStore) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
-	return nil
-}
-
 func (store *FSStore) Open(repository string) error {
 	store.SkipDirs = append(store.SkipDirs, path.Clean(repository))
 	store.root = repository
@@ -132,7 +112,7 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *FSStore) Transaction() (storage.Transaction, error) {
+func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = *store

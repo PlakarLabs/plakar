@@ -35,7 +35,7 @@ type FSStore struct {
 
 	SkipDirs []string
 
-	storage.Store
+	storage.StoreBackend
 }
 
 type FSTransaction struct {
@@ -51,5 +51,5 @@ type FSTransaction struct {
 	chunks  map[string]bool
 	objects map[string]bool
 
-	storage.Transaction
+	storage.TransactionBackend
 }

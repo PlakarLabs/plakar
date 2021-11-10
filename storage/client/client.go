@@ -23,8 +23,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -117,24 +115,6 @@ func (store *ClientStore) Create(repository string, config storage.StoreConfig) 
 	return nil
 }
 
-func (store *ClientStore) GetCache() *cache.Cache {
-	return store.Cache
-}
-
-func (store *ClientStore) GetKeypair() *encryption.Keypair {
-	return store.Keypair
-}
-
-func (store *ClientStore) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
-	return nil
-}
-
-func (store *ClientStore) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
-	return nil
-}
-
 func (store *ClientStore) Open(repository string) error {
 	addr := repository[9:]
 	if !strings.Contains(addr, ":") {
@@ -161,7 +141,7 @@ func (store *ClientStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *ClientStore) Transaction() (storage.Transaction, error) {
+func (store *ClientStore) Transaction() (storage.TransactionBackend, error) {
 	result, err := store.sendRequest("ReqTransaction", nil)
 	if err != nil {
 		return nil, err

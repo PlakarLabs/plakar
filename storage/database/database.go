@@ -24,8 +24,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -160,24 +158,6 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	return nil
 }
 
-func (store *DatabaseStore) GetCache() *cache.Cache {
-	return store.Cache
-}
-
-func (store *DatabaseStore) GetKeypair() *encryption.Keypair {
-	return store.Keypair
-}
-
-func (store *DatabaseStore) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
-	return nil
-}
-
-func (store *DatabaseStore) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
-	return nil
-}
-
 func (store *DatabaseStore) Open(repository string) error {
 	err := store.connect(repository)
 	if err != nil {
@@ -207,7 +187,7 @@ func (store *DatabaseStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *DatabaseStore) Transaction() (storage.Transaction, error) {
+func (store *DatabaseStore) Transaction() (storage.TransactionBackend, error) {
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err

@@ -29,9 +29,9 @@ import (
 )
 
 var muBackends sync.Mutex
-var backends map[string]Store = make(map[string]Store)
+var backends map[string]StoreBackend = make(map[string]StoreBackend)
 
-func Register(name string, backend Store) {
+func Register(name string, backend StoreBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -55,186 +55,186 @@ func Backends() []string {
 	return ret
 }
 
-func New(name string) (Store, error) {
+func New(name string) (*Store, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
 	if backend, exists := backends[name]; !exists {
 		return nil, fmt.Errorf("backend '%s' registered twice", name)
 	} else {
-		wrapper := &WrapperStore{}
-		wrapper.store = backend
-		return wrapper, nil
+		store := &Store{}
+		store.backend = backend
+		return store, nil
 	}
 }
 
-type WrapperStore struct {
-	store Store
+type Store struct {
+	backend StoreBackend
 
 	Cache   *cache.Cache
 	Keypair *encryption.Keypair
 }
 
-func (wrapper *WrapperStore) GetCache() *cache.Cache {
-	return wrapper.Cache
+func (store *Store) GetCache() *cache.Cache {
+	return store.Cache
 }
 
-func (wrapper *WrapperStore) GetKeypair() *encryption.Keypair {
-	return wrapper.Keypair
+func (store *Store) GetKeypair() *encryption.Keypair {
+	return store.Keypair
 }
 
-func (wrapper *WrapperStore) SetCache(localCache *cache.Cache) error {
-	wrapper.Cache = localCache
+func (store *Store) SetCache(localCache *cache.Cache) error {
+	store.Cache = localCache
 	return nil
 }
 
-func (wrapper *WrapperStore) SetKeypair(localKeypair *encryption.Keypair) error {
-	wrapper.Keypair = localKeypair
+func (store *Store) SetKeypair(localKeypair *encryption.Keypair) error {
+	store.Keypair = localKeypair
 	return nil
 }
 
-func (wrapper *WrapperStore) Create(repository string, configuration StoreConfig) error {
+func (store *Store) Create(repository string, configuration StoreConfig) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Create(%s): %s", repository, time.Since(t0))
 	}()
-	return wrapper.store.Create(repository, configuration)
+	return store.backend.Create(repository, configuration)
 }
 
-func (wrapper *WrapperStore) Open(repository string) error {
+func (store *Store) Open(repository string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Open(%s): %s", repository, time.Since(t0))
 	}()
-	return wrapper.store.Open(repository)
+	return store.backend.Open(repository)
 }
 
-func (wrapper *WrapperStore) Configuration() StoreConfig {
-	return wrapper.store.Configuration()
+func (store *Store) Configuration() StoreConfig {
+	return store.backend.Configuration()
 }
 
-func (wrapper *WrapperStore) Transaction() (Transaction, error) {
+func (store *Store) Transaction() (*Transaction, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Transaction(): %s", time.Since(t0))
 	}()
-	tx, err := wrapper.store.Transaction()
+	tx, err := store.backend.Transaction()
 	if err != nil {
 		return nil, err
 	}
 
-	wrapperTx := &WrapperTransaction{}
-	wrapperTx.transaction = tx
+	wrapperTx := &Transaction{}
+	wrapperTx.backend = tx
 	return wrapperTx, nil
 }
 
-func (wrapper *WrapperStore) GetIndexes() ([]string, error) {
+func (store *Store) GetIndexes() ([]string, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexes(): %s", time.Since(t0))
 	}()
-	return wrapper.store.GetIndexes()
+	return store.backend.GetIndexes()
 }
-func (wrapper *WrapperStore) GetIndex(id string) ([]byte, error) {
+func (store *Store) GetIndex(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndex(%s): %s", id, time.Since(t0))
 	}()
-	return wrapper.store.GetIndex(id)
+	return store.backend.GetIndex(id)
 }
 
-func (wrapper *WrapperStore) GetObject(checksum string) ([]byte, error) {
+func (store *Store) GetObject(checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObject(%s): %s", checksum, time.Since(t0))
 	}()
-	return wrapper.store.GetObject(checksum)
+	return store.backend.GetObject(checksum)
 }
 
-func (wrapper *WrapperStore) GetChunk(checksum string) ([]byte, error) {
+func (store *Store) GetChunk(checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunk(%s): %s", checksum, time.Since(t0))
 	}()
-	return wrapper.store.GetChunk(checksum)
+	return store.backend.GetChunk(checksum)
 }
 
-func (wrapper *WrapperStore) CheckObject(checksum string) (bool, error) {
+func (store *Store) CheckObject(checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckObject(%s): %s", checksum, time.Since(t0))
 	}()
-	return wrapper.store.CheckObject(checksum)
+	return store.backend.CheckObject(checksum)
 }
 
-func (wrapper *WrapperStore) CheckChunk(checksum string) (bool, error) {
+func (store *Store) CheckChunk(checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckChunk(%s): %s", checksum, time.Since(t0))
 	}()
-	return wrapper.store.CheckChunk(checksum)
+	return store.backend.CheckChunk(checksum)
 }
 
-func (wrapper *WrapperStore) Purge(id string) error {
+func (store *Store) Purge(id string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Purge(%s): %s", id, time.Since(t0))
 	}()
-	return wrapper.store.Purge(id)
+	return store.backend.Purge(id)
 }
 
-type WrapperTransaction struct {
-	transaction Transaction
+type Transaction struct {
+	backend TransactionBackend
 }
 
-func (wrapper *WrapperTransaction) GetUuid() string {
-	return wrapper.transaction.GetUuid()
+func (transaction *Transaction) GetUuid() string {
+	return transaction.backend.GetUuid()
 }
 
-func (wrapper *WrapperTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+func (transaction *Transaction) ReferenceObjects(keys []string) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.ReferenceObjects([%d keys]): %s", wrapper.GetUuid(), len(keys), time.Since(t0))
+		logger.Profile("storage: %s.ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
 	}()
-	return wrapper.transaction.ReferenceObjects(keys)
+	return transaction.backend.ReferenceObjects(keys)
 }
 
-func (wrapper *WrapperTransaction) PutObject(checksum string, data []byte) error {
+func (transaction *Transaction) PutObject(checksum string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutObject(%s) <- %d bytes: %s", wrapper.GetUuid(), checksum, len(data), time.Since(t0))
+		logger.Profile("storage: %s.PutObject(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
-	return wrapper.transaction.PutObject(checksum, data)
+	return transaction.backend.PutObject(checksum, data)
 }
 
-func (wrapper *WrapperTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+func (transaction *Transaction) ReferenceChunks(keys []string) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.ReferenceChunks([%d keys]): %s", wrapper.GetUuid(), len(keys), time.Since(t0))
+		logger.Profile("storage: %s.ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
 	}()
-	return wrapper.transaction.ReferenceChunks(keys)
+	return transaction.backend.ReferenceChunks(keys)
 }
 
-func (wrapper *WrapperTransaction) PutChunk(checksum string, data []byte) error {
+func (transaction *Transaction) PutChunk(checksum string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutChunk(%s) <- %d bytes: %s", wrapper.GetUuid(), checksum, len(data), time.Since(t0))
+		logger.Profile("storage: %s.PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
-	return wrapper.transaction.PutChunk(checksum, data)
+	return transaction.backend.PutChunk(checksum, data)
 }
 
-func (wrapper *WrapperTransaction) PutIndex(data []byte) error {
+func (transaction *Transaction) PutIndex(data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutIndex() <- %d bytes: %s", wrapper.GetUuid(), len(data), time.Since(t0))
+		logger.Profile("storage: %s.PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
-	return wrapper.transaction.PutIndex(data)
+	return transaction.backend.PutIndex(data)
 }
 
-func (wrapper *WrapperTransaction) Commit() error {
+func (transaction *Transaction) Commit() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.Commit(): %s", wrapper.GetUuid(), time.Since(t0))
+		logger.Profile("storage: %s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
 	}()
-	return wrapper.transaction.Commit()
+	return transaction.backend.Commit()
 }

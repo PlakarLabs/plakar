@@ -16,28 +16,18 @@
 
 package storage
 
-import (
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
-)
-
 type StoreConfig struct {
 	Uuid       string
 	Encrypted  string
 	Compressed string
 }
 
-type Store interface {
-	GetCache() *cache.Cache
-	GetKeypair() *encryption.Keypair
-	SetCache(localCache *cache.Cache) error
-	SetKeypair(localKeypair *encryption.Keypair) error
-
+type StoreBackend interface {
 	Create(repository string, configuration StoreConfig) error
 	Open(repository string) error
 	Configuration() StoreConfig
 
-	Transaction() (Transaction, error)
+	Transaction() (TransactionBackend, error)
 
 	GetIndexes() ([]string, error)
 	GetIndex(id string) ([]byte, error)
@@ -50,7 +40,7 @@ type Store interface {
 	Purge(id string) error
 }
 
-type Transaction interface {
+type TransactionBackend interface {
 	GetUuid() string
 
 	ReferenceObjects(keys []string) ([]bool, error)

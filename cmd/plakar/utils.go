@@ -57,7 +57,7 @@ func findObjectByPrefix(objects []string, prefix string) []string {
 	return ret
 }
 
-func getSnapshotsList(store storage.Store) ([]string, error) {
+func getSnapshotsList(store *storage.Store) ([]string, error) {
 	snapshots, err := snapshot.List(store)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func getSnapshotsList(store storage.Store) ([]string, error) {
 	return snapshots, nil
 }
 
-func getSnapshots(store storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
+func getSnapshots(store *storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
 		return nil, err

@@ -11,7 +11,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func Server(store storage.Store, addr string) {
+func Server(store *storage.Store, addr string) {
 
 	ProtocolRegister()
 
@@ -30,11 +30,11 @@ func Server(store storage.Store, addr string) {
 	}
 }
 
-func handleConnection(store storage.Store, conn net.Conn) {
+func handleConnection(store *storage.Store, conn net.Conn) {
 	decoder := gob.NewDecoder(conn)
 	encoder := gob.NewEncoder(conn)
 
-	transactions := make(map[string]storage.Transaction)
+	transactions := make(map[string]*storage.Transaction)
 
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()

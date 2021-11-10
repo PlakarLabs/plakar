@@ -14,7 +14,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(store storage.Store, Uuid string) (*Snapshot, error) {
+func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	cache := store.GetCache()
 	keypair := store.GetKeypair()
 
@@ -117,7 +117,7 @@ func Load(store storage.Store, Uuid string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func List(store storage.Store) ([]string, error) {
+func List(store *storage.Store) ([]string, error) {
 	return store.GetIndexes()
 }
 

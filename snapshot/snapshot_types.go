@@ -95,8 +95,8 @@ type Snapshot struct {
 
 	Quiet bool
 
-	store       storage.Store
-	transaction storage.Transaction
+	store       *storage.Store
+	transaction *storage.Transaction
 	SkipDirs    []string
 
 	muWrittenChunks sync.Mutex

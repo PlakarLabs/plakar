@@ -47,7 +47,7 @@ type DatabaseStore struct {
 
 	Repository string
 
-	storage.Store
+	storage.StoreBackend
 }
 
 type DatabaseTransaction struct {
@@ -57,5 +57,5 @@ type DatabaseTransaction struct {
 	SkipDirs []string
 
 	dbTx *sql.Tx
-	storage.Transaction
+	storage.TransactionBackend
 }

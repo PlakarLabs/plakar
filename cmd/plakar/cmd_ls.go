@@ -53,7 +53,7 @@ func cmd_ls(ctx Plakar, args []string) int {
 	return 0
 }
 
-func list_snapshots(store storage.Store) {
+func list_snapshots(store *storage.Store) {
 	snapshots, err := getSnapshots(store, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
@@ -68,7 +68,7 @@ func list_snapshots(store storage.Store) {
 	}
 }
 
-func list_snapshot(store storage.Store, args []string) {
+func list_snapshot(store *storage.Store, args []string) {
 
 	snapshots, err := getSnapshots(store, args)
 	if err != nil {
@@ -151,7 +151,7 @@ func list_snapshot(store storage.Store, args []string) {
 	}
 }
 
-func list_snapshot_recursive(store storage.Store, args []string) {
+func list_snapshot_recursive(store *storage.Store, args []string) {
 	snapshots, err := getSnapshots(store, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())

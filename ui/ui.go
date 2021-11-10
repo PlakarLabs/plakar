@@ -34,7 +34,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-var lstore storage.Store
+var lstore *storage.Store
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -414,7 +414,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store storage.Store) {
+func Ui(store *storage.Store) {
 	lstore = store
 
 	templates = make(map[string]*template.Template)

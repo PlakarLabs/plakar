@@ -51,7 +51,7 @@ type ClientStore struct {
 	notifications        chan network.Request
 	maxConcurrentRequest chan bool
 
-	storage.Store
+	storage.StoreBackend
 }
 
 type ClientTransaction struct {
@@ -60,5 +60,5 @@ type ClientTransaction struct {
 
 	SkipDirs []string
 
-	storage.Transaction
+	storage.TransactionBackend
 }

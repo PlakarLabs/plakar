@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -30,7 +31,10 @@ func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 		Username:     "",
 		CommandLine:  "",
 
-		Roots:       make([]string, 0),
+		Roots: make([]string, 0),
+
+		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
+
 		Directories: make(map[string]*FileInfo),
 		Files:       make(map[string]*FileInfo),
 		NonRegular:  make(map[string]*FileInfo),
@@ -105,6 +109,7 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Username = snapshotStorage.Username
 	snapshot.CommandLine = snapshotStorage.CommandLine
 	snapshot.Roots = snapshotStorage.Roots
+	snapshot.Tree = snapshotStorage.Tree
 	snapshot.Directories = snapshotStorage.Directories
 	snapshot.Files = snapshotStorage.Files
 	snapshot.NonRegular = snapshotStorage.NonRegular
@@ -280,6 +285,7 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.Username = snapshot.Username
 	snapshotStorage.CommandLine = snapshot.CommandLine
 	snapshotStorage.Roots = snapshot.Roots
+	snapshotStorage.Tree = snapshot.Tree
 	snapshotStorage.Directories = snapshot.Directories
 	snapshotStorage.Files = snapshot.Files
 	snapshotStorage.NonRegular = snapshot.NonRegular
@@ -393,6 +399,26 @@ func (snapshot *Snapshot) StateAddRoot(pathname string) {
 		}
 	}
 	snapshot.Roots = append(snapshot.Roots, pathname)
+}
+
+func (snapshot *Snapshot) StateSetTree(pathname string, fileinfo *FileInfo) {
+	snapshot.muTree.Lock()
+	defer snapshot.muTree.Unlock()
+
+	p := snapshot.Tree
+	if pathname == "/" {
+		p.Inode = fileinfo
+		return
+	}
+
+	atoms := strings.Split(pathname, "/")[1:]
+	for _, atom := range atoms {
+		if _, exists := p.Children[atom]; !exists {
+			p.Children[atom] = &TreeNode{Children: make(map[string]*TreeNode)}
+		}
+		p = p.Children[atom]
+	}
+	p.Inode = fileinfo
 }
 
 func (snapshot *Snapshot) StateSetDirectory(pathname string, fileinfo *FileInfo) {

@@ -38,6 +38,10 @@ func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
 
+		ChunkToObjects:       make(map[string][]string),
+		ObjectToPathnames:    make(map[string][]string),
+		ContentTypeToObjects: make(map[string][]string),
+
 		WrittenChunks:   make(map[string]bool),
 		WrittenObjects:  make(map[string]bool),
 		InflightChunks:  make(map[string]*Chunk),
@@ -107,6 +111,10 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Pathnames = snapshotStorage.Pathnames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
+	snapshot.ChunkToObjects = snapshotStorage.ChunkToObjects
+	snapshot.ContentTypeToObjects = snapshotStorage.ContentTypeToObjects
+	snapshot.ObjectToPathnames = snapshotStorage.ObjectToPathnames
+
 	snapshot.Size = snapshotStorage.Size
 	snapshot.store = store
 
@@ -278,6 +286,9 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.Pathnames = snapshot.Pathnames
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
+	snapshotStorage.ChunkToObjects = snapshot.ChunkToObjects
+	snapshotStorage.ObjectToPathnames = snapshot.ObjectToPathnames
+	snapshotStorage.ContentTypeToObjects = snapshot.ContentTypeToObjects
 	snapshotStorage.Size = snapshot.Size
 
 	serialized, err := json.Marshal(snapshotStorage)
@@ -448,6 +459,54 @@ func (snapshot *Snapshot) StateSetChunk(checksum string, chunk *Chunk) {
 	defer snapshot.muChunks.Unlock()
 
 	snapshot.Chunks[checksum] = chunk
+}
+
+func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {
+	snapshot.muChunkToObjects.Lock()
+	defer snapshot.muChunkToObjects.Unlock()
+
+	if _, exists := snapshot.ChunkToObjects[chunkChecksum]; !exists {
+		snapshot.ChunkToObjects[chunkChecksum] = make([]string, 0)
+	}
+
+	for _, value := range snapshot.ChunkToObjects[chunkChecksum] {
+		if value == objectChecksum {
+			return
+		}
+	}
+	snapshot.ChunkToObjects[chunkChecksum] = append(snapshot.ChunkToObjects[chunkChecksum], objectChecksum)
+}
+
+func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathname string) {
+	snapshot.muObjectToPathnames.Lock()
+	defer snapshot.muObjectToPathnames.Unlock()
+
+	if _, exists := snapshot.ObjectToPathnames[objectChecksum]; !exists {
+		snapshot.ObjectToPathnames[objectChecksum] = make([]string, 0)
+	}
+
+	for _, value := range snapshot.ObjectToPathnames[objectChecksum] {
+		if value == pathname {
+			return
+		}
+	}
+	snapshot.ObjectToPathnames[objectChecksum] = append(snapshot.ObjectToPathnames[objectChecksum], pathname)
+}
+
+func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum string) {
+	snapshot.muContentTypeToObjects.Lock()
+	defer snapshot.muContentTypeToObjects.Unlock()
+
+	if _, exists := snapshot.ContentTypeToObjects[contentType]; !exists {
+		snapshot.ContentTypeToObjects[contentType] = make([]string, 0)
+	}
+
+	for _, value := range snapshot.ContentTypeToObjects[contentType] {
+		if value == objectChecksum {
+			return
+		}
+	}
+	snapshot.ContentTypeToObjects[contentType] = append(snapshot.ContentTypeToObjects[contentType], objectChecksum)
 }
 
 func (snapshot *Snapshot) StateGetWrittenChunk(checksum string) (bool, bool) {

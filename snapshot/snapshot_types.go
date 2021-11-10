@@ -59,6 +59,11 @@ type SnapshotStorage struct {
 	Objects     map[string]*Object
 	Chunks      map[string]*Chunk
 
+	// reverse lookups
+	ChunkToObjects       map[string][]string
+	ObjectToPathnames    map[string][]string
+	ContentTypeToObjects map[string][]string
+
 	Size uint64
 }
 
@@ -90,6 +95,15 @@ type Snapshot struct {
 
 	muChunks sync.Mutex
 	Chunks   map[string]*Chunk
+
+	muChunkToObjects sync.Mutex
+	ChunkToObjects   map[string][]string
+
+	muObjectToPathnames sync.Mutex
+	ObjectToPathnames   map[string][]string
+
+	muContentTypeToObjects sync.Mutex
+	ContentTypeToObjects   map[string][]string
 
 	Size uint64
 

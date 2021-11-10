@@ -38,6 +38,8 @@ type StoreBackend interface {
 	CheckChunk(checksum string) (bool, error)
 
 	Purge(id string) error
+
+	Close() error
 }
 
 type TransactionBackend interface {

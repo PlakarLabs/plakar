@@ -207,8 +207,14 @@ func (store *FSStore) Purge(id string) error {
 		return err
 	}
 
-	store.Tidy()
+	//store.Tidy()
 
+	return nil
+}
+
+func (store *FSStore) Close() error {
+	// XXX - cleanup pending transactions so they don't linger
+	store.Tidy()
 	return nil
 }
 

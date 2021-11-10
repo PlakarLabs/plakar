@@ -210,6 +210,15 @@ func (store *ClientStore) Purge(id string) error {
 	return result.Payload.(network.ResPurge).Err
 }
 
+func (store *ClientStore) Close() error {
+	result, err := store.sendRequest("ReqClose", nil)
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResClose).Err
+}
+
 //////
 
 func (transaction *ClientTransaction) GetUuid() string {

@@ -93,8 +93,6 @@ type Snapshot struct {
 
 	Size uint64
 
-	Quiet bool
-
 	store       *storage.Store
 	transaction *storage.Transaction
 	SkipDirs    []string

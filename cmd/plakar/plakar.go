@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"runtime"
 	"strings"
 	"time"
 
@@ -58,6 +59,7 @@ func main() {
 	var enableInfoOutput bool
 	var enableProfiling bool
 	var disableCache bool
+	var cpuCount int
 
 	ctx := Plakar{}
 	currentHostname, err := os.Hostname()
@@ -70,12 +72,17 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
+	cpuDefault := runtime.GOMAXPROCS(0)
+	if cpuDefault != 1 {
+		cpuDefault = cpuDefault - 1
+	}
+
 	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
 	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
 	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
-
+	flag.IntVar(&cpuCount, "cpu", cpuDefault, "limit the number of usable cores")
 	flag.Parse()
 
 	ctx.CommandLine = strings.Join(os.Args, " ")
@@ -85,6 +92,12 @@ func main() {
 	}
 
 	//
+	if cpuCount > runtime.NumCPU() {
+		log.Fatalf("%s: can't use more cores than available: %d", flag.CommandLine.Name(), runtime.NumCPU())
+	} else {
+		runtime.GOMAXPROCS(cpuCount)
+	}
+
 	ctx.Username = currentUser.Username
 	ctx.Hostname = currentHostname
 	ctx.Workdir = fmt.Sprintf("%s/.plakar", currentUser.HomeDir)

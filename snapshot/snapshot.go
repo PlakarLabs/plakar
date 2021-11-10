@@ -428,8 +428,6 @@ func (snapshot *Snapshot) StateAddRoot(pathname string) {
 }
 
 func (snapshot *Snapshot) StateSetTree(pathname string, fileinfo *FileInfo) {
-	snapshot.muTree.Lock()
-	defer snapshot.muTree.Unlock()
 
 	p := snapshot.Tree
 	if pathname == "/" {
@@ -439,18 +437,26 @@ func (snapshot *Snapshot) StateSetTree(pathname string, fileinfo *FileInfo) {
 
 	atoms := strings.Split(pathname, "/")[1:]
 	for _, atom := range atoms {
-		if _, exists := p.Children[atom]; !exists {
+		p.muNode.Lock()
+		_, exists := p.Children[atom]
+		p.muNode.Unlock()
+
+		if !exists {
+			p.muNode.Lock()
 			p.Children[atom] = &TreeNode{Children: make(map[string]*TreeNode)}
+			p.muNode.Unlock()
 		}
-		p = p.Children[atom]
+		p.muNode.Lock()
+		tmp := p.Children[atom]
+		p.muNode.Unlock()
+		p = tmp
 	}
+	p.muNode.Lock()
 	p.Inode = fileinfo
+	p.muNode.Unlock()
 }
 
 func (snapshot *Snapshot) StateGetTree(pathname string) (*FileInfo, bool) {
-	snapshot.muTree.Lock()
-	defer snapshot.muTree.Unlock()
-
 	p := snapshot.Tree
 	if pathname == "/" {
 		return p.Inode, true
@@ -458,10 +464,16 @@ func (snapshot *Snapshot) StateGetTree(pathname string) (*FileInfo, bool) {
 
 	atoms := strings.Split(pathname, "/")[1:]
 	for _, atom := range atoms {
-		if _, exists := p.Children[atom]; !exists {
+		p.muNode.Lock()
+		_, exists := p.Children[atom]
+		p.muNode.Unlock()
+		if !exists {
 			return nil, false
 		}
-		p = p.Children[atom]
+		p.muNode.Lock()
+		tmp := p.Children[atom]
+		p.muNode.Unlock()
+		p = tmp
 	}
 	return p.Inode, true
 }

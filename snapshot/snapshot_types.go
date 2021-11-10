@@ -44,6 +44,7 @@ type CachedObject struct {
 }
 
 type TreeNode struct {
+	muNode   sync.Mutex
 	Inode    *FileInfo
 	Children map[string]*TreeNode
 }
@@ -87,8 +88,7 @@ type Snapshot struct {
 	muRoots sync.Mutex
 	Roots   []string
 
-	muTree sync.Mutex
-	Tree   *TreeNode
+	Tree *TreeNode
 
 	muDirectories sync.Mutex
 	Directories   map[string]bool

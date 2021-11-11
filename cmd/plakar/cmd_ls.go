@@ -69,66 +69,35 @@ func list_snapshots(store *storage.Store) {
 }
 
 func list_snapshot(store *storage.Store, args []string) {
-
 	snapshots, err := getSnapshots(store, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	for offset, snapshot := range snapshots {
+	for offset, snap := range snapshots {
 		_, prefix := parseSnapshotID(args[offset])
 
-		directories := make([]string, 0)
-		for name := range snapshot.Directories {
-			directories = append(directories, name)
+		content := make([]string, 0)
+		entries, exists := snap.GetPathChildren(prefix)
+		if !exists {
+			continue
 		}
-		sort.Slice(directories, func(i, j int) bool {
-			return strings.Compare(directories[i], directories[j]) < 0
-		})
-
-		for _, name := range directories {
-			fi, _ := snapshot.GetInode(name)
-			if !helpers.PathIsWithin(name, prefix) && name != prefix {
+		if len(entries) == 0 {
+			info, exists := snap.GetInode(prefix)
+			if !exists {
 				continue
 			}
-			if name == "/" || name == prefix {
-				continue
+			entries[prefix] = info
+		} else {
+			for name, _ := range entries {
+				content = append(content, name)
 			}
-
-			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-			username := fmt.Sprintf("%d", fi.Uid)
-			if err == nil {
-				username = pwUserLookup.Username
-			}
-
-			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-			groupname := fmt.Sprintf("%d", fi.Gid)
-			if err == nil {
-				groupname = grGroupLookup.Name
-			}
-			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				fi.ModTime.UTC().Format(time.RFC3339),
-				fi.Mode,
-				username,
-				groupname,
-				humanize.Bytes(uint64(fi.Size)),
-				fi.Name)
+			sort.Slice(content, func(i, j int) bool {
+				return strings.Compare(content[i], content[j]) < 0
+			})
 		}
-
-		filenames := make([]string, 0)
-		for name := range snapshot.Files {
-			filenames = append(filenames, name)
-		}
-		sort.Slice(filenames, func(i, j int) bool {
-			return strings.Compare(filenames[i], filenames[j]) < 0
-		})
-
-		for _, name := range filenames {
-			fi, _ := snapshot.GetInode(name)
-			if !helpers.PathIsWithin(name, prefix) && name != prefix {
-				continue
-			}
-
+		for _, item := range content {
+			fi := entries[item]
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 			username := fmt.Sprintf("%d", fi.Uid)
 			if err == nil {

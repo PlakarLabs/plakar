@@ -70,6 +70,41 @@ func (snapshot *Snapshot) stateGetTree(pathname string) (*FileInfo, bool) {
 	return p.Inode, true
 }
 
+func (snapshot *Snapshot) GetPathChildren(pathname string) (map[string]*FileInfo, bool) {
+	pathname = filepath.Clean(pathname)
+	ret := make(map[string]*FileInfo)
+
+	p := snapshot.Tree
+	if pathname == "/" {
+		p.muNode.Lock()
+		for child, node := range p.Children {
+			ret[child] = node.Inode
+		}
+		p.muNode.Unlock()
+		return ret, true
+	}
+
+	atoms := strings.Split(pathname, "/")[1:]
+	for _, atom := range atoms {
+		p.muNode.Lock()
+		_, exists := p.Children[atom]
+		p.muNode.Unlock()
+		if !exists {
+			return nil, false
+		}
+		p.muNode.Lock()
+		tmp := p.Children[atom]
+		p.muNode.Unlock()
+		p = tmp
+	}
+	p.muNode.Lock()
+	for child, node := range p.Children {
+		ret[child] = node.Inode
+	}
+	p.muNode.Unlock()
+	return ret, true
+}
+
 func (snapshot *Snapshot) GetInode(pathname string) (*FileInfo, bool) {
 	pathname = filepath.Clean(pathname)
 	return snapshot.stateGetTree(pathname)

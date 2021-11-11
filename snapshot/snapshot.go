@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+func New(store *storage.Store) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
 		return nil, err

@@ -1,0 +1,92 @@
+package snapshot
+
+import (
+	"path/filepath"
+	"strings"
+)
+
+func (snapshot *Snapshot) SetInode(pathname string, fileinfo *FileInfo) {
+
+	p := snapshot.Tree
+	if pathname == "/" {
+		p.Inode = fileinfo
+		return
+	}
+
+	atoms := strings.Split(pathname, "/")[1:]
+	for _, atom := range atoms {
+		p.muNode.Lock()
+		_, exists := p.Children[atom]
+		p.muNode.Unlock()
+
+		if !exists {
+			p.muNode.Lock()
+			p.Children[atom] = &TreeNode{Children: make(map[string]*TreeNode)}
+			p.muNode.Unlock()
+		}
+		p.muNode.Lock()
+		tmp := p.Children[atom]
+		p.muNode.Unlock()
+		p = tmp
+	}
+	p.muNode.Lock()
+	p.Inode = fileinfo
+	p.muNode.Unlock()
+
+	if p.Inode.Mode.IsDir() {
+		snapshot.muDirectories.Lock()
+		snapshot.Directories[pathname] = fileinfo
+		snapshot.muDirectories.Unlock()
+	} else if p.Inode.Mode.IsRegular() {
+		snapshot.muFiles.Lock()
+		snapshot.Files[pathname] = fileinfo
+		snapshot.muFiles.Unlock()
+	} else {
+		snapshot.muNonRegular.Lock()
+		snapshot.NonRegular[pathname] = fileinfo
+		snapshot.muNonRegular.Unlock()
+	}
+}
+
+func (snapshot *Snapshot) stateGetTree(pathname string) (*FileInfo, bool) {
+	p := snapshot.Tree
+	if pathname == "/" {
+		return p.Inode, true
+	}
+
+	atoms := strings.Split(pathname, "/")[1:]
+	for _, atom := range atoms {
+		p.muNode.Lock()
+		_, exists := p.Children[atom]
+		p.muNode.Unlock()
+		if !exists {
+			return nil, false
+		}
+		p.muNode.Lock()
+		tmp := p.Children[atom]
+		p.muNode.Unlock()
+		p = tmp
+	}
+	return p.Inode, true
+}
+
+func (snapshot *Snapshot) GetInode(pathname string) (*FileInfo, bool) {
+	pathname = filepath.Clean(pathname)
+	return snapshot.stateGetTree(pathname)
+}
+
+func (snapshot *Snapshot) GetFileInode(pathname string) (*FileInfo, bool) {
+	pathname = filepath.Clean(pathname)
+	snapshot.muFiles.Lock()
+	info, exists := snapshot.Files[pathname]
+	snapshot.muFiles.Unlock()
+	return info, exists
+}
+
+func (snapshot *Snapshot) GetDirectoryInode(pathname string) (*FileInfo, bool) {
+	pathname = filepath.Clean(pathname)
+	snapshot.muDirectories.Lock()
+	info, exists := snapshot.Directories[pathname]
+	snapshot.muDirectories.Unlock()
+	return info, exists
+}

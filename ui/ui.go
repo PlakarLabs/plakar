@@ -195,7 +195,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	directories := make([]*snapshot.FileInfo, 0)
 	for directory, _ := range snap.Directories {
-		fi, _ := snap.StateGetTree(directory)
+		fi, _ := snap.GetInode(directory)
 
 		if directory == path+"/" {
 			continue
@@ -215,7 +215,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	files := make([]*snapshot.FileInfo, 0)
 	for file, _ := range snap.Files {
-		fi, _ := snap.StateGetTree(file)
+		fi, _ := snap.GetInode(file)
 
 		if !strings.HasPrefix(file, path) {
 			continue
@@ -279,7 +279,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	object := snap.Objects[checksum]
-	info, _ := snap.StateGetTree(path)
+	info, _ := snap.GetInode(path)
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {

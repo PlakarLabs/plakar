@@ -91,13 +91,13 @@ type Snapshot struct {
 	Tree *TreeNode
 
 	muDirectories sync.Mutex
-	Directories   map[string]bool
+	Directories   map[string]*FileInfo
 
 	muFiles sync.Mutex
-	Files   map[string]bool
+	Files   map[string]*FileInfo
 
 	muNonRegular sync.Mutex
-	NonRegular   map[string]bool
+	NonRegular   map[string]*FileInfo
 
 	muPathnames sync.Mutex
 	Pathnames   map[string]string

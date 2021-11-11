@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -35,9 +34,9 @@ func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 
 		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
 
-		Directories: make(map[string]bool),
-		Files:       make(map[string]bool),
-		NonRegular:  make(map[string]bool),
+		Directories: make(map[string]*FileInfo),
+		Files:       make(map[string]*FileInfo),
+		NonRegular:  make(map[string]*FileInfo),
 		Pathnames:   make(map[string]string),
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
@@ -111,19 +110,19 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Roots = snapshotStorage.Roots
 	snapshot.Tree = snapshotStorage.Tree
 
-	snapshot.Directories = make(map[string]bool)
+	snapshot.Directories = make(map[string]*FileInfo)
 	for _, directory := range snapshotStorage.Directories {
-		snapshot.Directories[directory] = true
+		snapshot.Directories[directory], _ = snapshot.GetInode(directory)
 	}
 
-	snapshot.Files = make(map[string]bool)
+	snapshot.Files = make(map[string]*FileInfo)
 	for _, file := range snapshotStorage.Files {
-		snapshot.Files[file] = true
+		snapshot.Files[file], _ = snapshot.GetInode(file)
 	}
 
-	snapshot.NonRegular = make(map[string]bool)
+	snapshot.NonRegular = make(map[string]*FileInfo)
 	for _, file := range snapshotStorage.NonRegular {
-		snapshot.NonRegular[file] = true
+		snapshot.NonRegular[file], _ = snapshot.GetInode(file)
 	}
 
 	snapshot.Pathnames = snapshotStorage.Pathnames
@@ -425,78 +424,6 @@ func (snapshot *Snapshot) StateAddRoot(pathname string) {
 		}
 	}
 	snapshot.Roots = append(snapshot.Roots, pathname)
-}
-
-func (snapshot *Snapshot) StateSetTree(pathname string, fileinfo *FileInfo) {
-
-	p := snapshot.Tree
-	if pathname == "/" {
-		p.Inode = fileinfo
-		return
-	}
-
-	atoms := strings.Split(pathname, "/")[1:]
-	for _, atom := range atoms {
-		p.muNode.Lock()
-		_, exists := p.Children[atom]
-		p.muNode.Unlock()
-
-		if !exists {
-			p.muNode.Lock()
-			p.Children[atom] = &TreeNode{Children: make(map[string]*TreeNode)}
-			p.muNode.Unlock()
-		}
-		p.muNode.Lock()
-		tmp := p.Children[atom]
-		p.muNode.Unlock()
-		p = tmp
-	}
-	p.muNode.Lock()
-	p.Inode = fileinfo
-	p.muNode.Unlock()
-}
-
-func (snapshot *Snapshot) StateGetTree(pathname string) (*FileInfo, bool) {
-	p := snapshot.Tree
-	if pathname == "/" {
-		return p.Inode, true
-	}
-
-	atoms := strings.Split(pathname, "/")[1:]
-	for _, atom := range atoms {
-		p.muNode.Lock()
-		_, exists := p.Children[atom]
-		p.muNode.Unlock()
-		if !exists {
-			return nil, false
-		}
-		p.muNode.Lock()
-		tmp := p.Children[atom]
-		p.muNode.Unlock()
-		p = tmp
-	}
-	return p.Inode, true
-}
-
-func (snapshot *Snapshot) StateSetDirectory(pathname string) {
-	snapshot.muDirectories.Lock()
-	defer snapshot.muDirectories.Unlock()
-
-	snapshot.Directories[pathname] = true
-}
-
-func (snapshot *Snapshot) StateSetFile(pathname string) {
-	snapshot.muFiles.Lock()
-	defer snapshot.muFiles.Unlock()
-
-	snapshot.Files[pathname] = true
-}
-
-func (snapshot *Snapshot) StateSetNonRegular(pathname string) {
-	snapshot.muNonRegular.Lock()
-	defer snapshot.muNonRegular.Unlock()
-
-	snapshot.NonRegular[pathname] = true
 }
 
 func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {

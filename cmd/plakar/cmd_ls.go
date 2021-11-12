@@ -82,12 +82,14 @@ func list_snapshot(store *storage.Store, args []string) {
 		if !exists {
 			continue
 		}
+
 		if len(entries) == 0 {
 			info, exists := snap.GetInode(prefix)
 			if !exists {
 				continue
 			}
 			entries[prefix] = info
+			content = append(content, prefix)
 		} else {
 			for name, _ := range entries {
 				content = append(content, name)
@@ -96,6 +98,7 @@ func list_snapshot(store *storage.Store, args []string) {
 				return strings.Compare(content[i], content[j]) < 0
 			})
 		}
+
 		for _, item := range content {
 			fi := entries[item]
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))

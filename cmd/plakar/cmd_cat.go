@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 
@@ -49,16 +48,9 @@ func cmd_cat(ctx Plakar, args []string) int {
 			continue
 		}
 
-		checksum, ok := snapshot.Pathnames[pathname]
-		if !ok {
-			fmt.Fprintf(os.Stderr, "%s: %s:%s: %s\n", flag.CommandLine.Name(), snapshot.Uuid, pathname, os.ErrNotExist)
-			errors++
-			continue
-		}
-
-		object, err := snapshot.GetObject(checksum)
+		object := snapshot.GetObjectFromPathname(pathname)
 		if err != nil {
-			logger.Error("%s: could not obtain object '%s'", flags.Name(), checksum)
+			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
 			errors++
 			continue
 		}

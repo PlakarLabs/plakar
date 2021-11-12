@@ -117,3 +117,20 @@ func (snapshot *Snapshot) GetDirectoryInode(pathname string) (*FileInfo, bool) {
 	snapshot.muDirectories.Unlock()
 	return info, exists
 }
+
+func (snapshot *Snapshot) GetObjectFromPathname(pathname string) *Object {
+	snapshot.muPathnames.Lock()
+	defer snapshot.muPathnames.Unlock()
+
+	objectChecksum, exists := snapshot.Pathnames[filepath.Clean(pathname)]
+	if !exists {
+		return nil
+	}
+
+	object, exists := snapshot.Objects[objectChecksum]
+	if !exists {
+		return nil
+	}
+
+	return object
+}

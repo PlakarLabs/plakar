@@ -43,6 +43,12 @@ type CachedObject struct {
 	Info        FileInfo
 }
 
+type TreeNode struct {
+	muNode   sync.Mutex
+	Inode    *FileInfo
+	Children map[string]*TreeNode
+}
+
 type SnapshotStorage struct {
 	Uuid         string
 	CreationTime time.Time
@@ -51,13 +57,17 @@ type SnapshotStorage struct {
 	Username     string
 	CommandLine  string
 
-	Roots       []string
-	Directories map[string]*FileInfo
-	Files       map[string]*FileInfo
-	NonRegular  map[string]*FileInfo
-	Pathnames   map[string]string
-	Objects     map[string]*Object
-	Chunks      map[string]*Chunk
+	Roots []string
+
+	Tree *TreeNode
+
+	Directories []string
+	Files       []string
+	NonRegular  []string
+
+	Pathnames map[string]string
+	Objects   map[string]*Object
+	Chunks    map[string]*Chunk
 
 	// reverse lookups
 	ChunkToObjects       map[string][]string
@@ -77,6 +87,8 @@ type Snapshot struct {
 
 	muRoots sync.Mutex
 	Roots   []string
+
+	Tree *TreeNode
 
 	muDirectories sync.Mutex
 	Directories   map[string]*FileInfo

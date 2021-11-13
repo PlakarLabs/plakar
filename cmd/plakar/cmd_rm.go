@@ -37,8 +37,12 @@ func cmd_rm(ctx Plakar, args []string) int {
 	}
 
 	for _, snapshot := range snapshots {
-		ctx.Store().Purge(snapshot.Uuid)
-		fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
+		err := ctx.Store().Purge(snapshot.Uuid)
+		if err == nil {
+			fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
+		} else {
+			fmt.Fprintf(os.Stdout, "%s: KO\n", snapshot.Uuid)
+		}
 	}
 
 	return 0

@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+func New(store *storage.Store) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
 		return nil, err
@@ -30,7 +29,10 @@ func New(store *storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 		Username:     "",
 		CommandLine:  "",
 
-		Roots:       make([]string, 0),
+		Roots: make([]string, 0),
+
+		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
+
 		Directories: make(map[string]*FileInfo),
 		Files:       make(map[string]*FileInfo),
 		NonRegular:  make(map[string]*FileInfo),
@@ -105,9 +107,23 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Username = snapshotStorage.Username
 	snapshot.CommandLine = snapshotStorage.CommandLine
 	snapshot.Roots = snapshotStorage.Roots
-	snapshot.Directories = snapshotStorage.Directories
-	snapshot.Files = snapshotStorage.Files
-	snapshot.NonRegular = snapshotStorage.NonRegular
+	snapshot.Tree = snapshotStorage.Tree
+
+	snapshot.Directories = make(map[string]*FileInfo)
+	for _, directory := range snapshotStorage.Directories {
+		snapshot.Directories[directory], _ = snapshot.GetInode(directory)
+	}
+
+	snapshot.Files = make(map[string]*FileInfo)
+	for _, file := range snapshotStorage.Files {
+		snapshot.Files[file], _ = snapshot.GetInode(file)
+	}
+
+	snapshot.NonRegular = make(map[string]*FileInfo)
+	for _, file := range snapshotStorage.NonRegular {
+		snapshot.NonRegular[file], _ = snapshot.GetInode(file)
+	}
+
 	snapshot.Pathnames = snapshotStorage.Pathnames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
@@ -280,9 +296,23 @@ func (snapshot *Snapshot) Commit() error {
 	snapshotStorage.Username = snapshot.Username
 	snapshotStorage.CommandLine = snapshot.CommandLine
 	snapshotStorage.Roots = snapshot.Roots
-	snapshotStorage.Directories = snapshot.Directories
-	snapshotStorage.Files = snapshot.Files
-	snapshotStorage.NonRegular = snapshot.NonRegular
+	snapshotStorage.Tree = snapshot.Tree
+
+	snapshotStorage.Directories = make([]string, 0)
+	for directory := range snapshot.Directories {
+		snapshotStorage.Directories = append(snapshotStorage.Directories, directory)
+	}
+
+	snapshotStorage.Files = make([]string, 0)
+	for file := range snapshot.Files {
+		snapshotStorage.Files = append(snapshotStorage.Files, file)
+	}
+
+	snapshotStorage.NonRegular = make([]string, 0)
+	for file := range snapshot.NonRegular {
+		snapshotStorage.NonRegular = append(snapshotStorage.NonRegular, file)
+	}
+
 	snapshotStorage.Pathnames = snapshot.Pathnames
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
@@ -393,27 +423,6 @@ func (snapshot *Snapshot) StateAddRoot(pathname string) {
 		}
 	}
 	snapshot.Roots = append(snapshot.Roots, pathname)
-}
-
-func (snapshot *Snapshot) StateSetDirectory(pathname string, fileinfo *FileInfo) {
-	snapshot.muDirectories.Lock()
-	defer snapshot.muDirectories.Unlock()
-
-	snapshot.Directories[pathname] = fileinfo
-}
-
-func (snapshot *Snapshot) StateSetFile(pathname string, fileinfo *FileInfo) {
-	snapshot.muFiles.Lock()
-	defer snapshot.muFiles.Unlock()
-
-	snapshot.Files[pathname] = fileinfo
-}
-
-func (snapshot *Snapshot) StateSetNonRegular(pathname string, fileinfo *FileInfo) {
-	snapshot.muNonRegular.Lock()
-	defer snapshot.muNonRegular.Unlock()
-
-	snapshot.NonRegular[pathname] = fileinfo
 }
 
 func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {

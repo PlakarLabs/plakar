@@ -111,6 +111,8 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 }
 
 func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
+	// XXX - keep a map of current transactions
+
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = *store
@@ -207,13 +209,13 @@ func (store *FSStore) Purge(id string) error {
 		return err
 	}
 
-	//store.Tidy()
+	store.Tidy()
 
 	return nil
 }
 
 func (store *FSStore) Close() error {
-	// XXX - cleanup pending transactions so they don't linger
+	// XXX - rollback all pending transactions so they don't linger
 	store.Tidy()
 	return nil
 }

@@ -36,7 +36,7 @@ func cmd_push(ctx Plakar, args []string) int {
 		os.Exit(1)
 	}
 
-	snap, err := snapshot.New(ctx.Store(), ctx.Cache())
+	snap, err := snapshot.New(ctx.Store())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -86,13 +86,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			chanInodeMax <- 1
 			wg.Add(1)
 			go func(msg *FileInfo) {
-				if msg.Mode.IsDir() {
-					snapshot.StateSetDirectory(msg.path, msg)
-				} else if msg.Mode.IsRegular() {
-					snapshot.StateSetFile(msg.path, msg)
-				} else {
-					snapshot.StateSetNonRegular(msg.path, msg)
-				}
+				snapshot.SetInode(msg.path, msg)
 				wg.Done()
 				<-chanInodeMax
 			}(msg)

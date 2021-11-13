@@ -37,7 +37,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for directory, _ := range snapshot.Directories {
+	for directory := range snapshot.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
@@ -61,7 +61,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for file, _ := range snapshot.Files {
+	for file := range snapshot.Files {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue

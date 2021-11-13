@@ -34,7 +34,7 @@ func cmd_key(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	cmd, args := flags.Arg(0), flags.Args()[1:]
+	cmd, _ := flags.Arg(0), flags.Args()[1:]
 	switch cmd {
 	case "export":
 		if ctx.Store().Configuration().Encrypted == "" {

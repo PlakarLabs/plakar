@@ -87,7 +87,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1, _ := range snapshot1.Directories {
+			for dir1 := range snapshot1.Directories {
 				fi1, _ := snapshot1.GetInode(dir1)
 				fi2, ok := snapshot2.GetInode(dir1)
 				if !ok {
@@ -99,7 +99,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for dir2, _ := range snapshot2.Directories {
+			for dir2 := range snapshot2.Directories {
 				fi2, _ := snapshot2.GetInode(dir2)
 
 				_, ok := snapshot1.Directories[dir2]
@@ -108,7 +108,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file1, _ := range snapshot1.Files {
+			for file1 := range snapshot1.Files {
 				fi1, _ := snapshot1.GetInode(file1)
 				fi2, ok := snapshot2.GetInode(file1)
 				if !ok {
@@ -120,7 +120,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file2, _ := range snapshot2.Files {
+			for file2 := range snapshot2.Files {
 				fi2, _ := snapshot1.GetInode(file2)
 				//_, ok := snapshot1.GetInode(file2)
 				_, ok := snapshot1.Files[file2]

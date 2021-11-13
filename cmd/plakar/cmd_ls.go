@@ -91,7 +91,7 @@ func list_snapshot(store *storage.Store, args []string) {
 			entries[prefix] = info
 			content = append(content, prefix)
 		} else {
-			for name, _ := range entries {
+			for name := range entries {
 				content = append(content, name)
 			}
 			sort.Slice(content, func(i, j int) bool {

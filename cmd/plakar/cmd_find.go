@@ -66,7 +66,7 @@ func cmd_find(ctx Plakar, args []string) int {
 			}
 		}
 
-		for pathname, _ := range snap.Files {
+		for pathname := range snap.Files {
 			fileinfo, _ := snap.GetInode(pathname)
 			for _, arg := range flags.Args() {
 				if fileinfo.Name == arg {
@@ -153,7 +153,7 @@ func cmd_find(ctx Plakar, args []string) int {
 	}
 
 	snapshots := make([]*snapshot.Snapshot, 0)
-	for snap, _ := range result {
+	for snap := range result {
 		snapshots = append(snapshots, snap)
 	}
 	sort.Slice(snapshots, func(i, j int) bool {

@@ -248,7 +248,7 @@ func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return exists == true, nil
+	return exists, nil
 }
 
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
@@ -284,7 +284,7 @@ func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return exists == true, nil
+	return exists, nil
 }
 
 func (snapshot *Snapshot) Commit() error {

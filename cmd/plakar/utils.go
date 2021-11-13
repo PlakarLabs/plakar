@@ -47,16 +47,6 @@ func findSnapshotByPrefix(snapshots []string, prefix string) []string {
 	return ret
 }
 
-func findObjectByPrefix(objects []string, prefix string) []string {
-	ret := make([]string, 0)
-	for _, snapshot := range objects {
-		if strings.HasPrefix(snapshot, prefix) {
-			ret = append(ret, snapshot)
-		}
-	}
-	return ret
-}
-
 func getSnapshotsList(store *storage.Store) ([]string, error) {
 	snapshots, err := snapshot.List(store)
 	if err != nil {

@@ -62,14 +62,14 @@ func cmd_create(ctx Plakar, args []string) int {
 		storeConfig.Encrypted = ctx.keypair.Uuid
 	}
 	if len(flags.Args()) == 0 {
-		err := createStore(ctx, ctx.Repository, storeConfig)
+		err := ctx.store.Create(ctx.Repository, storeConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
 			return 1
 		}
 	} else {
 		for _, storeLocation := range flags.Args() {
-			err := createStore(ctx, storeLocation, storeConfig)
+			err := ctx.store.Create(storeLocation, storeConfig)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
 				continue
@@ -78,8 +78,4 @@ func cmd_create(ctx Plakar, args []string) int {
 
 	}
 	return 0
-}
-
-func createStore(ctx Plakar, storeLocation string, storeConfig storage.StoreConfig) error {
-	return ctx.store.Create(storeLocation, storeConfig)
 }

@@ -14,7 +14,7 @@ func snapshotCheckChunk(snapshot *Snapshot, chunk *Chunk, hasher hash.Hash, fast
 		if err != nil {
 			return false, err
 		}
-		return exists == true, nil
+		return exists, nil
 	}
 
 	data, err := snapshot.GetChunk(chunk.Checksum)

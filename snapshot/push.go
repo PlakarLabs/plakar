@@ -25,70 +25,64 @@ func (snapshot *Snapshot) Push(root string) error {
 		log.Fatal(err)
 	}
 
+	// empirical value for OSX not to blow up
+	maxConcurrentGoroutines := make(chan bool, 1024)
+
 	snapshot.StateAddRoot(root)
 
 	cache := snapshot.store.GetCache()
 
-	chanChunksProcessorMax := make(chan int, 64)
 	chanChunksProcessor := make(chan *Object)
 	chanChunksProcessorDone := make(chan bool)
 
-	chanObjectsProcessorMax := make(chan int, 64)
 	chanObjectsProcessor := make(chan map[string]*Object)
 	chanObjectsProcessorDone := make(chan bool)
 
-	chanObjectWriterMax := make(chan int, 64)
 	chanObjectWriter := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
 	chanObjectWriterDone := make(chan bool)
 
-	chanChunkWriterMax := make(chan int, 64)
 	chanChunkWriter := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
 	chanChunkWriterDone := make(chan bool)
 
-	chanInodeMax := make(chan int, 64)
 	chanInode := make(chan *FileInfo)
 	chanInodeDone := make(chan bool)
 
-	chanPathMax := make(chan int, 64)
 	chanPath := make(chan struct {
 		Pathname string
 		Checksum string
 	})
 	chanPathDone := make(chan bool)
 
-	chanObjectMax := make(chan int, 64)
 	chanObject := make(chan struct {
 		Object *Object
 		Data   []byte
 	})
 	chanObjectDone := make(chan bool)
 
-	chanChunkMax := make(chan int, 64)
 	chanChunk := make(chan struct {
 		Chunk *Chunk
 		Data  []byte
 	})
 	chanChunkDone := make(chan bool)
 
-	chanSizeMax := make(chan int, 64)
 	chanSize := make(chan uint64)
 	chanSizeDone := make(chan bool)
 
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanInode {
-			chanInodeMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg *FileInfo) {
 				snapshot.SetInode(msg.path, msg)
 				wg.Done()
-				<-chanInodeMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -98,7 +92,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanPath {
-			chanPathMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg struct {
 				Pathname string
@@ -108,7 +102,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					snapshot.StateSetPathname(msg.Pathname, msg.Checksum)
 				}
 				wg.Done()
-				<-chanPathMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -118,7 +112,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanObject {
-			chanObjectMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg struct {
 				Object *Object
@@ -139,7 +133,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					}
 				}
 				wg.Done()
-				<-chanObjectMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -149,7 +143,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanChunk {
-			chanChunkMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg struct {
 				Chunk *Chunk
@@ -165,7 +159,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					}
 				}
 				wg.Done()
-				<-chanChunkMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -175,12 +169,12 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanSize {
-			chanSizeMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg uint64) {
 				atomic.AddUint64(&snapshot.Size, msg)
 				wg.Done()
-				<-chanSizeMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -191,7 +185,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanChunkWriter {
-			chanChunkWriterMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg struct {
 				Chunk *Chunk
@@ -213,7 +207,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					}
 				}
 				wg.Done()
-				<-chanChunkWriterMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -224,7 +218,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanObjectWriter {
-			chanObjectWriterMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(msg struct {
 				Object *Object
@@ -246,7 +240,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					}
 				}
 				wg.Done()
-				<-chanObjectWriterMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -257,7 +251,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanChunksProcessor {
-			chanChunksProcessorMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(object *Object) {
 				chunks := make([]string, 0)
@@ -298,7 +292,7 @@ func (snapshot *Snapshot) Push(root string) error {
 				}
 				object.fp.Close()
 				wg.Done()
-				<-chanChunksProcessorMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()
@@ -309,7 +303,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	go func() {
 		var wg sync.WaitGroup
 		for msg := range chanObjectsProcessor {
-			chanObjectsProcessorMax <- 1
+			maxConcurrentGoroutines <- true
 			wg.Add(1)
 			go func(objects map[string]*Object) {
 				checkPathnames := make([]string, 0)
@@ -342,7 +336,7 @@ func (snapshot *Snapshot) Push(root string) error {
 					}
 				}
 				wg.Done()
-				<-chanObjectsProcessorMax
+				<-maxConcurrentGoroutines
 			}(msg)
 		}
 		wg.Wait()

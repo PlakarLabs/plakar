@@ -38,12 +38,7 @@ type objectMsg struct {
 	Data   []byte
 }
 
-type objectPathMsg struct {
-	Object *Object
-	Data   []byte
-}
-
-func (snapshot *Snapshot) inodeChannelHandler() (chan inodeMsg, func()) {
+func pushInodeChannelHandler(snapshot *Snapshot) (chan inodeMsg, func()) {
 	c := make(chan inodeMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -68,7 +63,7 @@ func (snapshot *Snapshot) inodeChannelHandler() (chan inodeMsg, func()) {
 	}
 }
 
-func (snapshot *Snapshot) pathChannelHandler() (chan pathMsg, func()) {
+func pushPathChannelHandler(snapshot *Snapshot) (chan pathMsg, func()) {
 	c := make(chan pathMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -95,7 +90,7 @@ func (snapshot *Snapshot) pathChannelHandler() (chan pathMsg, func()) {
 	}
 }
 
-func (snapshot *Snapshot) objectWriterChannelHandler() (chan objectMsg, func()) {
+func pushObjectWriterChannelHandler(snapshot *Snapshot) (chan objectMsg, func()) {
 	c := make(chan objectMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -134,7 +129,7 @@ func (snapshot *Snapshot) objectWriterChannelHandler() (chan objectMsg, func()) 
 	}
 }
 
-func (snapshot *Snapshot) chunkWriterChannelHandler() (chan chunkMsg, func()) {
+func pushChunkWriterChannelHandler(snapshot *Snapshot) (chan chunkMsg, func()) {
 	c := make(chan chunkMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -173,7 +168,7 @@ func (snapshot *Snapshot) chunkWriterChannelHandler() (chan chunkMsg, func()) {
 	}
 }
 
-func (snapshot *Snapshot) objectChannelHandler(chanObjectWriter chan objectMsg) (chan objectMsg, func()) {
+func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMsg) (chan objectMsg, func()) {
 	c := make(chan objectMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -211,7 +206,7 @@ func (snapshot *Snapshot) objectChannelHandler(chanObjectWriter chan objectMsg) 
 	}
 }
 
-func (snapshot *Snapshot) chunkChannelHandler(chanChunkWriter chan chunkMsg) (chan chunkMsg, func()) {
+func pushChunkChannelHandler(snapshot *Snapshot, chanChunkWriter chan chunkMsg) (chan chunkMsg, func()) {
 	c := make(chan chunkMsg)
 	done := make(chan bool)
 	var wg sync.WaitGroup
@@ -244,9 +239,9 @@ func (snapshot *Snapshot) chunkChannelHandler(chanChunkWriter chan chunkMsg) (ch
 	}
 }
 
-func (snapshot *Snapshot) objectsProcessorChannelHandler() (chan map[string]*Object, func()) {
-	chanObjectWriter, chanObjectWriterDone := snapshot.objectWriterChannelHandler()
-	chanObject, chanObjectDone := snapshot.objectChannelHandler(chanObjectWriter)
+func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Object, func()) {
+	chanObjectWriter, chanObjectWriterDone := pushObjectWriterChannelHandler(snapshot)
+	chanObject, chanObjectDone := pushObjectChannelHandler(snapshot, chanObjectWriter)
 
 	c := make(chan map[string]*Object)
 	done := make(chan bool)
@@ -299,9 +294,9 @@ func (snapshot *Snapshot) objectsProcessorChannelHandler() (chan map[string]*Obj
 	}
 }
 
-func (snapshot *Snapshot) chunksProcessorChannelHandler() (chan *Object, func()) {
-	chanChunkWriter, chanChunkWriterDone := snapshot.chunkWriterChannelHandler()
-	chanChunk, chanChunkDone := snapshot.chunkChannelHandler(chanChunkWriter)
+func pushChunksProcessorChannelHandler(snapshot *Snapshot) (chan *Object, func()) {
+	chanChunkWriter, chanChunkWriterDone := pushChunkWriterChannelHandler(snapshot)
+	chanChunk, chanChunkDone := pushChunkChannelHandler(snapshot, chanChunkWriter)
 
 	c := make(chan *Object)
 	done := make(chan bool)
@@ -410,10 +405,10 @@ func (snapshot *Snapshot) Push(root string) error {
 
 	cache := snapshot.store.GetCache()
 
-	chanInode, chanInodeDone := snapshot.inodeChannelHandler()
-	chanPath, chanPathDone := snapshot.pathChannelHandler()
-	chanObjectsProcessor, chanObjectsProcessorDone := snapshot.objectsProcessorChannelHandler()
-	chanChunksProcessor, chanChunksProcessorDone := snapshot.chunksProcessorChannelHandler()
+	chanInode, chanInodeDone := pushInodeChannelHandler(snapshot)
+	chanPath, chanPathDone := pushPathChannelHandler(snapshot)
+	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
+	chanChunksProcessor, chanChunksProcessorDone := pushChunksProcessorChannelHandler(snapshot)
 
 	objectsMutex := sync.Mutex{}
 	objects := make(map[string]*Object)

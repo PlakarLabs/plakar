@@ -50,7 +50,11 @@ func (snapshot *Snapshot) Push(root string) error {
 	})
 	chanChunkWriterDone := make(chan bool)
 
-	chanInode := make(chan *FileInfo)
+	//	chanInode := make(chan *FileInfo)
+	chanInode := make(chan struct {
+		Pathname string
+		Fileinfo *FileInfo
+	})
 	chanInodeDone := make(chan bool)
 
 	chanPath := make(chan struct {
@@ -79,11 +83,11 @@ func (snapshot *Snapshot) Push(root string) error {
 		for msg := range chanInode {
 			maxConcurrentGoroutines <- true
 			wg.Add(1)
-			go func(msg *FileInfo) {
-				snapshot.SetInode(msg.path, msg)
+			go func(pathname string, fileinfo *FileInfo) {
+				snapshot.SetInode(pathname, fileinfo)
 				wg.Done()
 				<-maxConcurrentGoroutines
-			}(msg)
+			}(msg.Pathname, msg.Fileinfo)
 		}
 		wg.Wait()
 		chanInodeDone <- true
@@ -366,7 +370,10 @@ func (snapshot *Snapshot) Push(root string) error {
 			path:    path,
 		}
 
-		chanInode <- &fi
+		chanInode <- struct {
+			Pathname string
+			Fileinfo *FileInfo
+		}{path, &fi}
 	}
 
 	err = cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
@@ -390,13 +397,15 @@ func (snapshot *Snapshot) Push(root string) error {
 			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
 			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
 			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
-			path:    filepath.Clean(fmt.Sprintf("%s/%s", root, path)),
+			//path:    filepath.Clean(fmt.Sprintf("%s/%s", root, path)),
 		}
+
+		pathname := filepath.Clean(fmt.Sprintf("%s/%s", root, path))
 
 		if f.Mode().IsRegular() {
 
 			if cache != nil {
-				cachedObject, err := snapshot.GetCachedObject(fi.path)
+				cachedObject, err := snapshot.GetCachedObject(pathname)
 				if err == nil {
 					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
 						chunks := make([]string, 0)
@@ -418,12 +427,15 @@ func (snapshot *Snapshot) Push(root string) error {
 
 							if notExistsCount == 0 {
 								object := Object{}
-								object.path = fi.path
+								object.path = pathname
 								object.Checksum = cachedObject.Checksum
 								object.Chunks = cachedObject.Chunks
 								object.ContentType = cachedObject.ContentType
 
-								chanInode <- &cachedObject.Info
+								chanInode <- struct {
+									Pathname string
+									Fileinfo *FileInfo
+								}{pathname, &cachedObject.Info}
 
 								chanChunksProcessor <- &object
 
@@ -443,7 +455,7 @@ func (snapshot *Snapshot) Push(root string) error {
 				}
 			}
 
-			rd, err := os.Open(fi.path)
+			rd, err := os.Open(pathname)
 			if err != nil {
 				logger.Warn("%s", err)
 				return nil
@@ -451,7 +463,7 @@ func (snapshot *Snapshot) Push(root string) error {
 
 			object := Object{}
 			object.fp = rd
-			object.path = fi.path
+			object.path = pathname
 			objectHash := sha256.New()
 
 			chk := chunker.New(rd, 0x3dea92648f6e83)
@@ -493,13 +505,16 @@ func (snapshot *Snapshot) Push(root string) error {
 			chanPath <- struct {
 				Pathname string
 				Checksum string
-			}{object.path, object.Checksum}
+			}{pathname, object.Checksum}
 
 			if cache != nil {
 				snapshot.PutCachedObject(object, fi)
 			}
 		}
-		chanInode <- &fi
+		chanInode <- struct {
+			Pathname string
+			Fileinfo *FileInfo
+		}{pathname, &fi}
 		return nil
 	})
 	if err != nil {

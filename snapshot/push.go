@@ -443,58 +443,57 @@ func (snapshot *Snapshot) Push(root string) error {
 
 		if f.Mode().IsRegular() {
 			object, err := pathnameCached(snapshot, fi, pathname)
-			if err != nil {
-				logger.Warn("%s", err)
-			} else if object != nil {
-				chanInode <- inodeMsg{pathname, &fi}
-				chanChunksProcessor <- object
-				objectsMutex.Lock()
-				objects[object.Checksum] = object
-				objectsMutex.Unlock()
-				chanPath <- pathMsg{object.path, object.Checksum}
-				return nil
-			}
+			if object == nil {
 
-			rd, err := os.Open(pathname)
-			if err != nil {
-				logger.Warn("%s", err)
-				return nil
-			}
-
-			object = &Object{}
-			object.fp = rd
-			objectHash := sha256.New()
-
-			chk := chunker.New(rd, 0x3dea92648f6e83)
-			buf := make([]byte, 16*1024*1024)
-			firstChunk := true
-			for {
-				cdcChunk, err := chk.Next(buf)
-				if err == io.EOF {
-					break
+				if err != nil {
+					// something went wrong in cache
+					logger.Warn("%s", err)
 				}
+
+				rd, err := os.Open(pathname)
 				if err != nil {
 					logger.Warn("%s", err)
 					return nil
 				}
-				if firstChunk {
-					object.ContentType = mimetype.Detect(cdcChunk.Data).String()
-					firstChunk = false
+
+				object = &Object{}
+				object.fp = rd
+				objectHash := sha256.New()
+
+				chk := chunker.New(rd, 0x3dea92648f6e83)
+				buf := make([]byte, 16*1024*1024)
+				firstChunk := true
+				for {
+					cdcChunk, err := chk.Next(buf)
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						logger.Warn("%s", err)
+						return nil
+					}
+					if firstChunk {
+						object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+						firstChunk = false
+					}
+
+					objectHash.Write(cdcChunk.Data)
+
+					chunkHash := sha256.New()
+					chunkHash.Write(cdcChunk.Data)
+
+					chunk := Chunk{}
+					chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
+					chunk.Start = cdcChunk.Start
+					chunk.Length = cdcChunk.Length
+					object.Chunks = append(object.Chunks, &chunk)
 				}
 
-				objectHash.Write(cdcChunk.Data)
-
-				chunkHash := sha256.New()
-				chunkHash.Write(cdcChunk.Data)
-
-				chunk := Chunk{}
-				chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
-				chunk.Start = cdcChunk.Start
-				chunk.Length = cdcChunk.Length
-				object.Chunks = append(object.Chunks, &chunk)
+				object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
+				if cache != nil {
+					snapshot.PutCachedObject(pathname, *object, fi)
+				}
 			}
-
-			object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 
 			chanChunksProcessor <- object
 
@@ -503,10 +502,6 @@ func (snapshot *Snapshot) Push(root string) error {
 			objectsMutex.Unlock()
 
 			chanPath <- pathMsg{pathname, object.Checksum}
-
-			if cache != nil {
-				snapshot.PutCachedObject(pathname, *object, fi)
-			}
 		}
 		chanInode <- inodeMsg{pathname, &fi}
 		return nil

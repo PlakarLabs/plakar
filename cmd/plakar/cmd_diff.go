@@ -92,6 +92,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				fi2, ok := snapshot2.GetInode(dir1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
+					continue
 				}
 				if *fi1 != *fi2 {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
@@ -113,6 +114,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				fi2, ok := snapshot2.GetInode(file1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
+					continue
 				}
 				if *fi1 != *fi2 {
 					fmt.Println("- ", fiToDiff(*fi1), file1)

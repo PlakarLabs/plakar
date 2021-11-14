@@ -39,9 +39,8 @@ type objectMsg struct {
 }
 
 type objectPathMsg struct {
-	Object   *Object
-	Data     []byte
-	Pathname string
+	Object *Object
+	Data   []byte
 }
 
 func (snapshot *Snapshot) inodeChannelHandler() (chan inodeMsg, func()) {

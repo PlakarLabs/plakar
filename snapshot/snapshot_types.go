@@ -134,4 +134,6 @@ type Snapshot struct {
 
 	muInflightObjects sync.Mutex
 	InflightObjects   map[string]*Object
+
+	maxConcurrentGoroutines chan bool
 }

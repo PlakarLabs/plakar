@@ -50,6 +50,8 @@ func New(store *storage.Store) (*Snapshot, error) {
 		WrittenObjects:  make(map[string]bool),
 		InflightChunks:  make(map[string]*Chunk),
 		InflightObjects: make(map[string]*Object),
+
+		maxConcurrentGoroutines: make(chan bool, 1024),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
@@ -139,6 +141,8 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	if cache != nil && cacheMiss {
 		snapshot.PutIndexCache(data)
 	}
+
+	snapshot.maxConcurrentGoroutines = make(chan bool, 1024)
 
 	return snapshot, nil
 }
@@ -378,12 +382,12 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(object Object, fi Fileinfo) error {
+func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fileinfo) error {
 	keypair := snapshot.store.GetKeypair()
 	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
-	pathHash.Write([]byte(object.path))
+	pathHash.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
 
 	cacheObject := CachedObject{}

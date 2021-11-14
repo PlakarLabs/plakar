@@ -359,6 +359,47 @@ func (snapshot *Snapshot) chunksProcessorChannelHandler() (chan *Object, func())
 	}
 }
 
+func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, error) {
+	cache := snapshot.store.GetCache()
+	if cache == nil {
+		return nil, nil
+	}
+
+	cachedObject, err := snapshot.GetCachedObject(pathname)
+	if err != nil {
+		return nil, nil
+	}
+
+	if cachedObject.Info.Mode != fi.Mode || cachedObject.Info.Dev != fi.Dev || cachedObject.Info.Size != fi.Size || cachedObject.Info.ModTime != fi.ModTime {
+		return nil, nil
+	}
+
+	chunks := make([]string, 0)
+	for _, chunk := range cachedObject.Chunks {
+		chunks = append(chunks, chunk.Checksum)
+	}
+
+	res, err := snapshot.ReferenceChunks(chunks)
+	if err != nil {
+		return nil, err
+	}
+
+	notExistsCount := 0
+	for _, exists := range res {
+		if !exists {
+			notExistsCount++
+			return nil, nil
+		}
+	}
+
+	object := Object{}
+	object.path = pathname
+	object.Checksum = cachedObject.Checksum
+	object.Chunks = cachedObject.Chunks
+	object.ContentType = cachedObject.ContentType
+	return &object, nil
+}
+
 func (snapshot *Snapshot) Push(root string) error {
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -406,50 +447,17 @@ func (snapshot *Snapshot) Push(root string) error {
 		pathname := filepath.Clean(fmt.Sprintf("%s/%s", root, path))
 
 		if f.Mode().IsRegular() {
-
-			if cache != nil {
-				cachedObject, err := snapshot.GetCachedObject(pathname)
-				if err == nil {
-					if cachedObject.Info.Mode == fi.Mode && cachedObject.Info.Dev == fi.Dev && cachedObject.Info.Size == fi.Size && cachedObject.Info.ModTime == fi.ModTime {
-						chunks := make([]string, 0)
-						for _, chunk := range cachedObject.Chunks {
-							chunks = append(chunks, chunk.Checksum)
-						}
-
-						res, err := snapshot.ReferenceChunks(chunks)
-						if err != nil {
-							logger.Warn("%s", err)
-						} else {
-							notExistsCount := 0
-							for _, exists := range res {
-								if !exists {
-									notExistsCount++
-									break
-								}
-							}
-
-							if notExistsCount == 0 {
-								object := Object{}
-								object.path = pathname
-								object.Checksum = cachedObject.Checksum
-								object.Chunks = cachedObject.Chunks
-								object.ContentType = cachedObject.ContentType
-
-								chanInode <- inodeMsg{pathname, &cachedObject.Info}
-
-								chanChunksProcessor <- &object
-
-								objectsMutex.Lock()
-								objects[object.Checksum] = &object
-								objectsMutex.Unlock()
-
-								chanPath <- pathMsg{object.path, object.Checksum}
-
-								return nil
-							}
-						}
-					}
-				}
+			object, err := pathnameCached(snapshot, fi, pathname)
+			if err != nil {
+				logger.Warn("%s", err)
+			} else if object != nil {
+				chanInode <- inodeMsg{pathname, &fi}
+				chanChunksProcessor <- object
+				objectsMutex.Lock()
+				objects[object.Checksum] = object
+				objectsMutex.Unlock()
+				chanPath <- pathMsg{object.path, object.Checksum}
+				return nil
 			}
 
 			rd, err := os.Open(pathname)
@@ -458,7 +466,7 @@ func (snapshot *Snapshot) Push(root string) error {
 				return nil
 			}
 
-			object := Object{}
+			object = &Object{}
 			object.fp = rd
 			objectHash := sha256.New()
 
@@ -493,16 +501,16 @@ func (snapshot *Snapshot) Push(root string) error {
 
 			object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 
-			chanChunksProcessor <- &object
+			chanChunksProcessor <- object
 
 			objectsMutex.Lock()
-			objects[object.Checksum] = &object
+			objects[object.Checksum] = object
 			objectsMutex.Unlock()
 
 			chanPath <- pathMsg{pathname, object.Checksum}
 
 			if cache != nil {
-				snapshot.PutCachedObject(pathname, object, fi)
+				snapshot.PutCachedObject(pathname, *object, fi)
 			}
 		}
 		chanInode <- inodeMsg{pathname, &fi}

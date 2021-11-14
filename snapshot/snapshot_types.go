@@ -8,7 +8,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-type FileInfo struct {
+type Fileinfo struct {
 	Name    string
 	Size    int64
 	Mode    os.FileMode
@@ -40,12 +40,12 @@ type CachedObject struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
-	Info        FileInfo
+	Info        Fileinfo
 }
 
 type TreeNode struct {
 	muNode   sync.Mutex
-	Inode    *FileInfo
+	Inode    *Fileinfo
 	Children map[string]*TreeNode
 }
 
@@ -91,13 +91,13 @@ type Snapshot struct {
 	Tree *TreeNode
 
 	muDirectories sync.Mutex
-	Directories   map[string]*FileInfo
+	Directories   map[string]*Fileinfo
 
 	muFiles sync.Mutex
-	Files   map[string]*FileInfo
+	Files   map[string]*Fileinfo
 
 	muNonRegular sync.Mutex
-	NonRegular   map[string]*FileInfo
+	NonRegular   map[string]*Fileinfo
 
 	muPathnames sync.Mutex
 	Pathnames   map[string]string

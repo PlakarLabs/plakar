@@ -53,7 +53,7 @@ func (snapshot *Snapshot) Push(root string) error {
 	//	chanInode := make(chan *FileInfo)
 	chanInode := make(chan struct {
 		Pathname string
-		Fileinfo *FileInfo
+		Fileinfo *Fileinfo
 	})
 	chanInodeDone := make(chan bool)
 
@@ -83,7 +83,7 @@ func (snapshot *Snapshot) Push(root string) error {
 		for msg := range chanInode {
 			maxConcurrentGoroutines <- true
 			wg.Add(1)
-			go func(pathname string, fileinfo *FileInfo) {
+			go func(pathname string, fileinfo *Fileinfo) {
 				snapshot.SetInode(pathname, fileinfo)
 				wg.Done()
 				<-maxConcurrentGoroutines
@@ -358,7 +358,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			return err
 		}
 
-		fi := FileInfo{
+		fi := Fileinfo{
 			Name:    f.Name(),
 			Size:    f.Size(),
 			Mode:    f.Mode(),
@@ -372,7 +372,7 @@ func (snapshot *Snapshot) Push(root string) error {
 
 		chanInode <- struct {
 			Pathname string
-			Fileinfo *FileInfo
+			Fileinfo *Fileinfo
 		}{path, &fi}
 	}
 
@@ -388,7 +388,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			}
 		}
 
-		fi := FileInfo{
+		fi := Fileinfo{
 			Name:    f.Name(),
 			Size:    f.Size(),
 			Mode:    f.Mode(),
@@ -397,7 +397,6 @@ func (snapshot *Snapshot) Push(root string) error {
 			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
 			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
 			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
-			//path:    filepath.Clean(fmt.Sprintf("%s/%s", root, path)),
 		}
 
 		pathname := filepath.Clean(fmt.Sprintf("%s/%s", root, path))
@@ -434,7 +433,7 @@ func (snapshot *Snapshot) Push(root string) error {
 
 								chanInode <- struct {
 									Pathname string
-									Fileinfo *FileInfo
+									Fileinfo *Fileinfo
 								}{pathname, &cachedObject.Info}
 
 								chanChunksProcessor <- &object
@@ -513,7 +512,7 @@ func (snapshot *Snapshot) Push(root string) error {
 		}
 		chanInode <- struct {
 			Pathname string
-			Fileinfo *FileInfo
+			Fileinfo *Fileinfo
 		}{pathname, &fi}
 		return nil
 	})

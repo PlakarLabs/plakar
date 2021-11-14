@@ -29,7 +29,7 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func fiToDiff(fi snapshot.FileInfo) string {
+func fiToDiff(fi snapshot.Fileinfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 	username := fmt.Sprintf("%d", fi.Uid)
 	if err == nil {

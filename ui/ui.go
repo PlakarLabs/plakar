@@ -193,7 +193,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	directories := make([]*snapshot.FileInfo, 0)
+	directories := make([]*snapshot.Fileinfo, 0)
 	for directory, _ := range snap.Directories {
 		fi, _ := snap.GetInode(directory)
 
@@ -213,7 +213,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(directories[i].Name, directories[j].Name) < 0
 	})
 
-	files := make([]*snapshot.FileInfo, 0)
+	files := make([]*snapshot.Fileinfo, 0)
 	for file, _ := range snap.Files {
 		fi, _ := snap.GetInode(file)
 
@@ -251,8 +251,8 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot    *snapshot.Snapshot
-		Directories []*snapshot.FileInfo
-		Files       []*snapshot.FileInfo
+		Directories []*snapshot.Fileinfo
+		Files       []*snapshot.Fileinfo
 		Root        string
 		Path        string
 		Navigation  []string
@@ -311,7 +311,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	ctx := &struct {
 		Snapshot     *snapshot.Snapshot
 		Object       *snapshot.Object
-		Info         *snapshot.FileInfo
+		Info         *snapshot.Fileinfo
 		Root         string
 		Path         string
 		Navigation   []string

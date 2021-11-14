@@ -35,9 +35,9 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
 
-		Directories: make(map[string]*FileInfo),
-		Files:       make(map[string]*FileInfo),
-		NonRegular:  make(map[string]*FileInfo),
+		Directories: make(map[string]*Fileinfo),
+		Files:       make(map[string]*Fileinfo),
+		NonRegular:  make(map[string]*Fileinfo),
 		Pathnames:   make(map[string]string),
 		Objects:     make(map[string]*Object),
 		Chunks:      make(map[string]*Chunk),
@@ -111,17 +111,17 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Roots = snapshotStorage.Roots
 	snapshot.Tree = snapshotStorage.Tree
 
-	snapshot.Directories = make(map[string]*FileInfo)
+	snapshot.Directories = make(map[string]*Fileinfo)
 	for _, directory := range snapshotStorage.Directories {
 		snapshot.Directories[directory], _ = snapshot.GetInode(directory)
 	}
 
-	snapshot.Files = make(map[string]*FileInfo)
+	snapshot.Files = make(map[string]*Fileinfo)
 	for _, file := range snapshotStorage.Files {
 		snapshot.Files[file], _ = snapshot.GetInode(file)
 	}
 
-	snapshot.NonRegular = make(map[string]*FileInfo)
+	snapshot.NonRegular = make(map[string]*Fileinfo)
 	for _, file := range snapshotStorage.NonRegular {
 		snapshot.NonRegular[file], _ = snapshot.GetInode(file)
 	}
@@ -378,7 +378,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
+func (snapshot *Snapshot) PutCachedObject(object Object, fi Fileinfo) error {
 	keypair := snapshot.store.GetKeypair()
 	cache := snapshot.store.GetCache()
 
@@ -594,6 +594,6 @@ func (snapshot *Snapshot) StateDeleteInflightObject(checksum string) {
 	delete(snapshot.InflightObjects, checksum)
 }
 
-func (fi *FileInfo) HumanSize() string {
+func (fi *Fileinfo) HumanSize() string {
 	return humanize.Bytes(uint64(fi.Size))
 }

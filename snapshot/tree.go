@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func (snapshot *Snapshot) SetInode(pathname string, fileinfo *FileInfo) {
+func (snapshot *Snapshot) SetInode(pathname string, fileinfo *Fileinfo) {
 
 	p := snapshot.Tree
 	if pathname == "/" {
@@ -46,7 +46,7 @@ func (snapshot *Snapshot) SetInode(pathname string, fileinfo *FileInfo) {
 	}
 }
 
-func (snapshot *Snapshot) stateGetTree(pathname string) (*FileInfo, bool) {
+func (snapshot *Snapshot) stateGetTree(pathname string) (*Fileinfo, bool) {
 	p := snapshot.Tree
 	if pathname == "/" {
 		return p.Inode, true
@@ -65,9 +65,9 @@ func (snapshot *Snapshot) stateGetTree(pathname string) (*FileInfo, bool) {
 	return p.Inode, true
 }
 
-func (snapshot *Snapshot) GetPathChildren(pathname string) (map[string]*FileInfo, bool) {
+func (snapshot *Snapshot) GetPathChildren(pathname string) (map[string]*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
-	ret := make(map[string]*FileInfo)
+	ret := make(map[string]*Fileinfo)
 
 	p := snapshot.Tree
 	if pathname == "/" {
@@ -97,12 +97,12 @@ func (snapshot *Snapshot) GetPathChildren(pathname string) (map[string]*FileInfo
 	return ret, true
 }
 
-func (snapshot *Snapshot) GetInode(pathname string) (*FileInfo, bool) {
+func (snapshot *Snapshot) GetInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 	return snapshot.stateGetTree(pathname)
 }
 
-func (snapshot *Snapshot) GetFileInode(pathname string) (*FileInfo, bool) {
+func (snapshot *Snapshot) GetFileInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 	snapshot.muFiles.Lock()
 	info, exists := snapshot.Files[pathname]
@@ -110,7 +110,7 @@ func (snapshot *Snapshot) GetFileInode(pathname string) (*FileInfo, bool) {
 	return info, exists
 }
 
-func (snapshot *Snapshot) GetDirectoryInode(pathname string) (*FileInfo, bool) {
+func (snapshot *Snapshot) GetDirectoryInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 	snapshot.muDirectories.Lock()
 	info, exists := snapshot.Directories[pathname]

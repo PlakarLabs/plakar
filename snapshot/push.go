@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/iafan/cwalk"
@@ -358,18 +357,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			return err
 		}
 
-		fi := Fileinfo{
-			Name:    f.Name(),
-			Size:    f.Size(),
-			Mode:    f.Mode(),
-			ModTime: f.ModTime(),
-			Dev:     uint64(f.Sys().(*syscall.Stat_t).Dev),
-			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
-			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
-			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
-			path:    path,
-		}
-
+		fi := FileinfoFromStat(f)
 		chanInode <- struct {
 			Pathname string
 			Fileinfo *Fileinfo
@@ -388,16 +376,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			}
 		}
 
-		fi := Fileinfo{
-			Name:    f.Name(),
-			Size:    f.Size(),
-			Mode:    f.Mode(),
-			ModTime: f.ModTime(),
-			Dev:     uint64(f.Sys().(*syscall.Stat_t).Dev),
-			Ino:     uint64(f.Sys().(*syscall.Stat_t).Ino),
-			Uid:     uint64(f.Sys().(*syscall.Stat_t).Uid),
-			Gid:     uint64(f.Sys().(*syscall.Stat_t).Gid),
-		}
+		fi := FileinfoFromStat(f)
 
 		pathname := filepath.Clean(fmt.Sprintf("%s/%s", root, path))
 

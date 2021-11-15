@@ -78,12 +78,19 @@ type SnapshotStorage struct {
 }
 
 type Snapshot struct {
+	store       *storage.Store
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
 	Uuid         string
 	CreationTime time.Time
 	Version      string
 	Hostname     string
 	Username     string
 	CommandLine  string
+
+	Size uint64
 
 	muRoots sync.Mutex
 	Roots   []string
@@ -116,10 +123,4 @@ type Snapshot struct {
 
 	muContentTypeToObjects sync.Mutex
 	ContentTypeToObjects   map[string][]string
-
-	Size uint64
-
-	store       *storage.Store
-	transaction *storage.Transaction
-	SkipDirs    []string
 }

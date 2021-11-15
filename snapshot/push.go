@@ -136,20 +136,9 @@ func pushChunkWriterChannelHandler(snapshot *Snapshot) (chan chunkMsg, func()) {
 			maxGoroutines <- true
 			wg.Add(1)
 			go func(chunk *Chunk, data []byte) {
-				var ok bool
-				if _, ok := snapshot.StateGetWrittenChunk(chunk.Checksum); !ok {
-					snapshot.StateSetWrittenChunk(chunk.Checksum, false)
-					snapshot.StateSetInflightChunk(chunk.Checksum, chunk)
-				}
-				if !ok {
-					err := snapshot.PutChunk(chunk.Checksum, data)
-
-					snapshot.StateDeleteInflightChunk(chunk.Checksum)
-					if err != nil {
-						//						errchan <- err
-					} else {
-						snapshot.StateSetWrittenChunk(chunk.Checksum, true)
-					}
+				err := snapshot.PutChunk(chunk.Checksum, data)
+				if err != nil {
+					// errchan <- err
 				}
 				wg.Done()
 				<-maxGoroutines

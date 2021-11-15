@@ -48,7 +48,6 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		WrittenChunks:  make(map[string]bool),
 		WrittenObjects: make(map[string]bool),
-		InflightChunks: make(map[string]*Chunk),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
@@ -532,28 +531,6 @@ func (snapshot *Snapshot) StateSetWrittenChunk(checksum string, written bool) {
 	defer snapshot.muWrittenChunks.Unlock()
 
 	snapshot.WrittenChunks[checksum] = written
-}
-
-func (snapshot *Snapshot) StateGetInflightChunk(checksum string) (*Chunk, bool) {
-	snapshot.muInflightChunks.Lock()
-	defer snapshot.muInflightChunks.Unlock()
-
-	value, exists := snapshot.InflightChunks[checksum]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetInflightChunk(checksum string, chunk *Chunk) {
-	snapshot.muInflightChunks.Lock()
-	defer snapshot.muInflightChunks.Unlock()
-
-	snapshot.InflightChunks[checksum] = chunk
-}
-
-func (snapshot *Snapshot) StateDeleteInflightChunk(checksum string) {
-	snapshot.muInflightChunks.Lock()
-	defer snapshot.muInflightChunks.Unlock()
-
-	delete(snapshot.InflightChunks, checksum)
 }
 
 func (snapshot *Snapshot) StateGetWrittenObject(checksum string) (bool, bool) {

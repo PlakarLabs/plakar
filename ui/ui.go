@@ -68,7 +68,7 @@ type SnapshotSummary struct {
 	Directories uint64
 	Files       uint64
 	NonRegular  uint64
-	Pathnames   uint64
+	Filenames   uint64
 	Objects     uint64
 	Chunks      uint64
 
@@ -91,7 +91,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Directories = uint64(len(snapshot.Directories))
 	ss.Files = uint64(len(snapshot.Files))
 	ss.NonRegular = uint64(len(snapshot.NonRegular))
-	ss.Pathnames = uint64(len(snapshot.Pathnames))
+	ss.Filenames = uint64(len(snapshot.Filenames))
 	ss.Objects = uint64(len(snapshot.Objects))
 	ss.Chunks = uint64(len(snapshot.Chunks))
 	ss.Size = snapshot.Size
@@ -272,7 +272,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checksum, ok := snap.Pathnames[path]
+	checksum, ok := snap.Filenames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -331,7 +331,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checksum, ok := snap.Pathnames[path]
+	checksum, ok := snap.Filenames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -388,7 +388,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}{snap.Uuid, directory})
 			}
 		}
-		for file := range snap.Pathnames {
+		for file := range snap.Filenames {
 			if strings.Contains(file, q) {
 				files = append(files, struct {
 					Snapshot string

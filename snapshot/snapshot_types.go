@@ -65,7 +65,7 @@ type SnapshotStorage struct {
 	Files       []string
 	NonRegular  []string
 
-	Pathnames map[string]string
+	Filenames map[string]string
 	Objects   map[string]*Object
 	Chunks    map[string]*Chunk
 
@@ -106,8 +106,8 @@ type Snapshot struct {
 	muNonRegular sync.Mutex
 	NonRegular   map[string]*Fileinfo
 
-	muPathnames sync.Mutex
-	Pathnames   map[string]string
+	muFilenames sync.Mutex
+	Filenames   map[string]string
 
 	muObjects sync.Mutex
 	Objects   map[string]*Object

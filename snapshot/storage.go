@@ -33,7 +33,7 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 		snapshot.NonRegular[file], _ = snapshot.GetInode(file)
 	}
 
-	snapshot.Pathnames = snapshotStorage.Pathnames
+	snapshot.Filenames = snapshotStorage.Filenames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
 	snapshot.ChunkToObjects = snapshotStorage.ChunkToObjects
@@ -71,7 +71,7 @@ func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 		snapshotStorage.NonRegular = append(snapshotStorage.NonRegular, file)
 	}
 
-	snapshotStorage.Pathnames = snapshot.Pathnames
+	snapshotStorage.Filenames = snapshot.Filenames
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
 	snapshotStorage.ChunkToObjects = snapshot.ChunkToObjects

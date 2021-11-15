@@ -37,9 +37,10 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Directories: make(map[string]*Fileinfo),
 		Files:       make(map[string]*Fileinfo),
 		NonRegular:  make(map[string]*Fileinfo),
-		Pathnames:   make(map[string]string),
-		Objects:     make(map[string]*Object),
-		Chunks:      make(map[string]*Chunk),
+
+		Filenames: make(map[string]string),
+		Objects:   make(map[string]*Object),
+		Chunks:    make(map[string]*Chunk),
 
 		ChunkToObjects:       make(map[string][]string),
 		ObjectToPathnames:    make(map[string][]string),
@@ -351,18 +352,18 @@ func (snapshot *Snapshot) StateAddRoot(pathname string) {
 }
 
 func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {
-	snapshot.muPathnames.Lock()
-	defer snapshot.muPathnames.Unlock()
+	snapshot.muFilenames.Lock()
+	defer snapshot.muFilenames.Unlock()
 
-	value, exists := snapshot.Pathnames[pathname]
+	value, exists := snapshot.Filenames[pathname]
 	return value, exists
 }
 
 func (snapshot *Snapshot) StateSetPathname(pathname string, checksum string) {
-	snapshot.muPathnames.Lock()
-	defer snapshot.muPathnames.Unlock()
+	snapshot.muFilenames.Lock()
+	defer snapshot.muFilenames.Unlock()
 
-	snapshot.Pathnames[pathname] = checksum
+	snapshot.Filenames[pathname] = checksum
 }
 
 func (snapshot *Snapshot) StateGetObject(checksum string) (*Object, bool) {

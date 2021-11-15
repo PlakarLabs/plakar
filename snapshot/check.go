@@ -70,7 +70,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum string, fast bool) (bool, 
 }
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
-	checksum, ok := snapshot.Pathnames[resource]
+	checksum, ok := snapshot.Filenames[resource]
 	if !ok {
 		logger.Warn("%s: no such file %s", snapshot.Uuid, resource)
 		return false, nil
@@ -161,7 +161,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	}
 
 	for file := range snapshot.Files {
-		checksum, ok := snapshot.Pathnames[file]
+		checksum, ok := snapshot.Filenames[file]
 		if !ok {
 			logger.Warn("%s: unlisted file %s", snapshot.Uuid, file)
 			ret = false

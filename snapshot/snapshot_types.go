@@ -123,8 +123,8 @@ type Snapshot struct {
 	transaction *storage.Transaction
 	SkipDirs    []string
 
-	muWrittenChunks sync.Mutex
-	WrittenChunks   map[string]bool
+	//muWrittenChunks sync.Mutex
+	//WrittenChunks   map[string]bool
 
 	//	muInflightChunks sync.Mutex
 	//	InflightChunks   map[string]*Chunk

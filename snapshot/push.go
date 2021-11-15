@@ -106,20 +106,9 @@ func pushObjectWriterChannelHandler(snapshot *Snapshot) (chan objectMsg, func())
 			maxGoroutines <- true
 			wg.Add(1)
 			go func(object *Object, data []byte) {
-				var ok bool
-				if _, ok := snapshot.StateGetWrittenObject(object.Checksum); !ok {
-					snapshot.StateSetWrittenObject(object.Checksum, false)
-					snapshot.StateSetInflightObject(object.Checksum, object)
-				}
-				if !ok {
-					err := snapshot.PutObject(object.Checksum, data)
-
-					snapshot.StateDeleteInflightObject(object.Checksum)
-					if err != nil {
-						//errchan <- err
-					} else {
-						snapshot.StateSetWrittenObject(object.Checksum, true)
-					}
+				err := snapshot.PutObject(object.Checksum, data)
+				if err != nil {
+					//errchan <- err
 				}
 				wg.Done()
 				<-maxGoroutines

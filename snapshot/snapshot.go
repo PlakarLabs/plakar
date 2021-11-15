@@ -46,10 +46,9 @@ func New(store *storage.Store) (*Snapshot, error) {
 		ObjectToPathnames:    make(map[string][]string),
 		ContentTypeToObjects: make(map[string][]string),
 
-		WrittenChunks:   make(map[string]bool),
-		WrittenObjects:  make(map[string]bool),
-		InflightChunks:  make(map[string]*Chunk),
-		InflightObjects: make(map[string]*Object),
+		WrittenChunks:  make(map[string]bool),
+		WrittenObjects: make(map[string]bool),
+		InflightChunks: make(map[string]*Chunk),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
@@ -570,28 +569,6 @@ func (snapshot *Snapshot) StateSetWrittenObject(checksum string, written bool) {
 	defer snapshot.muWrittenObjects.Unlock()
 
 	snapshot.WrittenObjects[checksum] = written
-}
-
-func (snapshot *Snapshot) StateGetInflightObject(checksum string) (*Object, bool) {
-	snapshot.muInflightObjects.Lock()
-	defer snapshot.muInflightObjects.Unlock()
-
-	value, exists := snapshot.InflightObjects[checksum]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetInflightObject(checksum string, object *Object) {
-	snapshot.muInflightObjects.Lock()
-	defer snapshot.muInflightObjects.Unlock()
-
-	snapshot.InflightObjects[checksum] = object
-}
-
-func (snapshot *Snapshot) StateDeleteInflightObject(checksum string) {
-	snapshot.muInflightObjects.Lock()
-	defer snapshot.muInflightObjects.Unlock()
-
-	delete(snapshot.InflightObjects, checksum)
 }
 
 func (fi *Fileinfo) HumanSize() string {

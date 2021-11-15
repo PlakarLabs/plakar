@@ -50,8 +50,6 @@ func New(store *storage.Store) (*Snapshot, error) {
 		WrittenObjects:  make(map[string]bool),
 		InflightChunks:  make(map[string]*Chunk),
 		InflightObjects: make(map[string]*Object),
-
-		maxConcurrentGoroutines: make(chan bool, 1024),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
@@ -141,8 +139,6 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	if cache != nil && cacheMiss {
 		snapshot.PutIndexCache(data)
 	}
-
-	snapshot.maxConcurrentGoroutines = make(chan bool, 1024)
 
 	return snapshot, nil
 }

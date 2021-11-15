@@ -32,17 +32,17 @@ func (snapshot *Snapshot) SetInode(pathname string, fileinfo *Fileinfo) {
 	p.muNode.Unlock()
 
 	if p.Inode.Mode.IsDir() {
-		snapshot.muDirectories.Lock()
-		snapshot.Directories[pathname] = fileinfo
-		snapshot.muDirectories.Unlock()
+		snapshot.Filesystem.muDirectories.Lock()
+		snapshot.Filesystem.Directories[pathname] = fileinfo
+		snapshot.Filesystem.muDirectories.Unlock()
 	} else if p.Inode.Mode.IsRegular() {
-		snapshot.muFiles.Lock()
-		snapshot.Files[pathname] = fileinfo
-		snapshot.muFiles.Unlock()
+		snapshot.Filesystem.muFiles.Lock()
+		snapshot.Filesystem.Files[pathname] = fileinfo
+		snapshot.Filesystem.muFiles.Unlock()
 	} else {
-		snapshot.muNonRegular.Lock()
-		snapshot.NonRegular[pathname] = fileinfo
-		snapshot.muNonRegular.Unlock()
+		snapshot.Filesystem.muNonRegular.Lock()
+		snapshot.Filesystem.NonRegular[pathname] = fileinfo
+		snapshot.Filesystem.muNonRegular.Unlock()
 	}
 }
 
@@ -104,17 +104,17 @@ func (snapshot *Snapshot) GetInode(pathname string) (*Fileinfo, bool) {
 
 func (snapshot *Snapshot) GetFileInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
-	snapshot.muFiles.Lock()
-	info, exists := snapshot.Files[pathname]
-	snapshot.muFiles.Unlock()
+	snapshot.Filesystem.muFiles.Lock()
+	info, exists := snapshot.Filesystem.Files[pathname]
+	snapshot.Filesystem.muFiles.Unlock()
 	return info, exists
 }
 
 func (snapshot *Snapshot) GetDirectoryInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
-	snapshot.muDirectories.Lock()
-	info, exists := snapshot.Directories[pathname]
-	snapshot.muDirectories.Unlock()
+	snapshot.Filesystem.muDirectories.Lock()
+	info, exists := snapshot.Filesystem.Directories[pathname]
+	snapshot.Filesystem.muDirectories.Unlock()
 	return info, exists
 }
 

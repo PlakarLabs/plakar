@@ -29,7 +29,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := snapshot.Files[fpattern]; ok {
+	if _, ok := snapshot.Filesystem.Files[fpattern]; ok {
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
@@ -37,7 +37,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for directory := range snapshot.Directories {
+	for directory := range snapshot.Filesystem.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
@@ -61,7 +61,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for file := range snapshot.Files {
+	for file := range snapshot.Filesystem.Files {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue

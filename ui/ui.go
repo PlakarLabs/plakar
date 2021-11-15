@@ -88,9 +88,9 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Username = snapshot.Username
 	ss.CommandLine = snapshot.CommandLine
 	ss.Roots = uint64(len(snapshot.Roots))
-	ss.Directories = uint64(len(snapshot.Directories))
-	ss.Files = uint64(len(snapshot.Files))
-	ss.NonRegular = uint64(len(snapshot.NonRegular))
+	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
+	ss.Files = uint64(len(snapshot.Filesystem.Files))
+	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
 	ss.Filenames = uint64(len(snapshot.Filenames))
 	ss.Objects = uint64(len(snapshot.Objects))
 	ss.Chunks = uint64(len(snapshot.Chunks))
@@ -142,7 +142,7 @@ func _snapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	roots := make(map[string]struct{})
-	for directory, _ := range snap.Directories {
+	for directory, _ := range snap.Filesystem.Directories {
 		tmp := strings.Split(directory, "/")
 		root := ""
 		for i := 0; i < len(tmp); i++ {
@@ -151,7 +151,7 @@ func _snapshot(w http.ResponseWriter, r *http.Request) {
 			} else {
 				root = strings.Join([]string{root, tmp[i]}, "/")
 			}
-			if _, ok := snap.Directories[root+"/"]; ok {
+			if _, ok := snap.Filesystem.Directories[root+"/"]; ok {
 				roots[root] = struct{}{}
 				break
 			}
@@ -184,9 +184,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := snap.Directories[path]
+	_, ok := snap.Filesystem.Directories[path]
 	if !ok {
-		_, ok := snap.Directories[path+"/"]
+		_, ok := snap.Filesystem.Directories[path+"/"]
 		if !ok {
 			http.Error(w, "", http.StatusNotFound)
 			return
@@ -194,7 +194,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	directories := make([]*snapshot.Fileinfo, 0)
-	for directory, _ := range snap.Directories {
+	for directory, _ := range snap.Filesystem.Directories {
 		fi, _ := snap.GetInode(directory)
 
 		if directory == path+"/" {
@@ -214,7 +214,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	})
 
 	files := make([]*snapshot.Fileinfo, 0)
-	for file, _ := range snap.Files {
+	for file, _ := range snap.Filesystem.Files {
 		fi, _ := snap.GetInode(file)
 
 		if !strings.HasPrefix(file, path) {
@@ -234,7 +234,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Directories[root]; ok {
+		if _, ok := snap.Filesystem.Directories[root]; ok {
 			break
 		}
 	}
@@ -284,7 +284,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Directories[root]; ok {
+		if _, ok := snap.Filesystem.Directories[root]; ok {
 			break
 		}
 	}
@@ -380,7 +380,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
-		for directory := range snap.Directories {
+		for directory := range snap.Filesystem.Directories {
 			if strings.Contains(directory, q) {
 				directories = append(directories, struct {
 					Snapshot string

@@ -15,23 +15,11 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	snapshot.Hostname = snapshotStorage.Hostname
 	snapshot.Username = snapshotStorage.Username
 	snapshot.CommandLine = snapshotStorage.CommandLine
+
+	snapshot.Filesystem = snapshotStorage.Filesystem
+
 	snapshot.Roots = snapshotStorage.Roots
 	snapshot.Tree = snapshotStorage.Tree
-
-	snapshot.Directories = make(map[string]*Fileinfo)
-	for _, directory := range snapshotStorage.Directories {
-		snapshot.Directories[directory], _ = snapshot.GetInode(directory)
-	}
-
-	snapshot.Files = make(map[string]*Fileinfo)
-	for _, file := range snapshotStorage.Files {
-		snapshot.Files[file], _ = snapshot.GetInode(file)
-	}
-
-	snapshot.NonRegular = make(map[string]*Fileinfo)
-	for _, file := range snapshotStorage.NonRegular {
-		snapshot.NonRegular[file], _ = snapshot.GetInode(file)
-	}
 
 	snapshot.Filenames = snapshotStorage.Filenames
 	snapshot.Objects = snapshotStorage.Objects
@@ -53,23 +41,11 @@ func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 	snapshotStorage.Hostname = snapshot.Hostname
 	snapshotStorage.Username = snapshot.Username
 	snapshotStorage.CommandLine = snapshot.CommandLine
+
+	snapshotStorage.Filesystem = snapshot.Filesystem
+
 	snapshotStorage.Roots = snapshot.Roots
 	snapshotStorage.Tree = snapshot.Tree
-
-	snapshotStorage.Directories = make([]string, 0)
-	for directory := range snapshot.Directories {
-		snapshotStorage.Directories = append(snapshotStorage.Directories, directory)
-	}
-
-	snapshotStorage.Files = make([]string, 0)
-	for file := range snapshot.Files {
-		snapshotStorage.Files = append(snapshotStorage.Files, file)
-	}
-
-	snapshotStorage.NonRegular = make([]string, 0)
-	for file := range snapshot.NonRegular {
-		snapshotStorage.NonRegular = append(snapshotStorage.NonRegular, file)
-	}
 
 	snapshotStorage.Filenames = snapshot.Filenames
 	snapshotStorage.Objects = snapshot.Objects

@@ -8,19 +8,6 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-type Fileinfo struct {
-	Name    string
-	Size    int64
-	Mode    os.FileMode
-	ModTime time.Time
-	Dev     uint64
-	Ino     uint64
-	Uid     uint64
-	Gid     uint64
-
-	path string
-}
-
 type Chunk struct {
 	Checksum string
 	Start    uint
@@ -57,13 +44,15 @@ type SnapshotStorage struct {
 	Username     string
 	CommandLine  string
 
+	Filesystem *Filesystem
+
 	Roots []string
 
 	Tree *TreeNode
 
-	Directories []string
-	Files       []string
-	NonRegular  []string
+	//Directories []string
+	//Files       []string
+	//NonRegular  []string
 
 	Filenames map[string]string
 	Objects   map[string]*Object
@@ -92,19 +81,12 @@ type Snapshot struct {
 
 	Size uint64
 
+	Filesystem *Filesystem
+
 	muRoots sync.Mutex
 	Roots   []string
 
 	Tree *TreeNode
-
-	muDirectories sync.Mutex
-	Directories   map[string]*Fileinfo
-
-	muFiles sync.Mutex
-	Files   map[string]*Fileinfo
-
-	muNonRegular sync.Mutex
-	NonRegular   map[string]*Fileinfo
 
 	muFilenames sync.Mutex
 	Filenames   map[string]string

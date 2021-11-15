@@ -395,6 +395,149 @@ func (snapshot *Snapshot) Push(root string) error {
 		log.Fatal(err)
 	}
 
+	snapshot.Filesystem.Scan(root, snapshot.SkipDirs)
+
+	snapshot.StateAddRoot(root)
+
+	cache := snapshot.store.GetCache()
+
+	chanInode, chanInodeDone := pushInodeChannelHandler(snapshot)
+	chanPath, chanPathDone := pushPathChannelHandler(snapshot)
+	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
+	chanChunksProcessor, chanChunksProcessorDone := pushChunksProcessorChannelHandler(snapshot)
+
+	objectsMutex := sync.Mutex{}
+	objects := make(map[string]*Object)
+
+	bufPool := sync.Pool{
+		New: func() interface{} {
+			b := make([]byte, 16*1024*1024)
+			return &b
+		},
+	}
+
+	atoms := strings.Split(root, "/")
+	for i := len(atoms) - 1; i != 0; i-- {
+		path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
+		f, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		fi := FileinfoFromStat(f)
+		chanInode <- inodeMsg{path, &fi}
+	}
+
+	err = cwalk.Walk(root, func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			logger.Warn("%s", err)
+			return nil
+		}
+
+		for _, skipPath := range snapshot.SkipDirs {
+			if strings.HasPrefix(fmt.Sprintf("%s/%s", root, path), skipPath) {
+				return nil
+			}
+		}
+
+		fi := FileinfoFromStat(f)
+
+		pathname := filepath.Clean(fmt.Sprintf("%s/%s", root, path))
+
+		if f.Mode().IsRegular() {
+			object, err := pathnameCached(snapshot, fi, pathname)
+			if object == nil {
+
+				if err != nil {
+					// something went wrong in cache
+					logger.Warn("%s", err)
+				}
+
+				rd, err := os.Open(pathname)
+				if err != nil {
+					logger.Warn("%s", err)
+					return nil
+				}
+
+				object = &Object{}
+				object.fp = rd
+				objectHash := sha256.New()
+
+				chk := chunker.New(rd, 0x3dea92648f6e83)
+				buf := bufPool.Get().(*[]byte)
+				firstChunk := true
+				for {
+					cdcChunk, err := chk.Next(*buf)
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						logger.Warn("%s", err)
+						return nil
+					}
+					if firstChunk {
+						object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+						firstChunk = false
+					}
+
+					objectHash.Write(cdcChunk.Data)
+
+					chunkHash := sha256.New()
+					chunkHash.Write(cdcChunk.Data)
+
+					chunk := Chunk{}
+					chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
+					chunk.Start = cdcChunk.Start
+					chunk.Length = cdcChunk.Length
+					object.Chunks = append(object.Chunks, &chunk)
+				}
+
+				bufPool.Put(buf)
+				object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
+				if cache != nil {
+					snapshot.PutCachedObject(pathname, *object, fi)
+				}
+			}
+
+			chanChunksProcessor <- object
+
+			objectsMutex.Lock()
+			objects[object.Checksum] = object
+			objectsMutex.Unlock()
+
+			chanPath <- pathMsg{pathname, object.Checksum}
+		}
+		chanInode <- inodeMsg{pathname, &fi}
+		return nil
+	})
+	if err != nil {
+		logger.Warn("%s", err)
+	}
+
+	// no more inodes to discover
+	chanInodeDone()
+
+	// no more chunks to discover
+	chanChunksProcessorDone()
+
+	// process objects
+	chanObjectsProcessor <- objects
+
+	// no more objects to discover
+	chanObjectsProcessorDone()
+
+	// no more paths to discover
+	chanPathDone()
+	// ... and we're done
+	return nil
+}
+
+func (snapshot *Snapshot) PushBAK(root string) error {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	snapshot.StateAddRoot(root)
 
 	cache := snapshot.store.GetCache()

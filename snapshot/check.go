@@ -160,7 +160,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		}
 	}
 
-	for file := range snapshot.Files {
+	for file := range snapshot.Filesystem.Files {
 		checksum, ok := snapshot.Filenames[file]
 		if !ok {
 			logger.Warn("%s: unlisted file %s", snapshot.Uuid, file)

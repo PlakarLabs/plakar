@@ -30,13 +30,11 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Username:     "",
 		CommandLine:  "",
 
+		Filesystem: NewFilesystem(),
+
 		Roots: make([]string, 0),
 
 		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
-
-		Directories: make(map[string]*Fileinfo),
-		Files:       make(map[string]*Fileinfo),
-		NonRegular:  make(map[string]*Fileinfo),
 
 		Filenames: make(map[string]string),
 		Objects:   make(map[string]*Object),

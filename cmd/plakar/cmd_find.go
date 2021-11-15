@@ -66,7 +66,7 @@ func cmd_find(ctx Plakar, args []string) int {
 			}
 		}
 
-		for pathname := range snap.Files {
+		for pathname := range snap.Filesystem.Files {
 			fileinfo, _ := snap.GetInode(pathname)
 			for _, arg := range flags.Args() {
 				if fileinfo.Name == arg {

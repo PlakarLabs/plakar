@@ -129,8 +129,8 @@ type Snapshot struct {
 	//	muInflightChunks sync.Mutex
 	//	InflightChunks   map[string]*Chunk
 
-	muWrittenObjects sync.Mutex
-	WrittenObjects   map[string]bool
+	//muWrittenObjects sync.Mutex
+	//WrittenObjects   map[string]bool
 
 	//	muInflightChunks sync.Mutex
 	//	InflightChunks   map[string]*Chunk

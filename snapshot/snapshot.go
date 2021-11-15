@@ -46,8 +46,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		ObjectToPathnames:    make(map[string][]string),
 		ContentTypeToObjects: make(map[string][]string),
 
-		WrittenChunks:  make(map[string]bool),
-		WrittenObjects: make(map[string]bool),
+		WrittenChunks: make(map[string]bool),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
@@ -531,21 +530,6 @@ func (snapshot *Snapshot) StateSetWrittenChunk(checksum string, written bool) {
 	defer snapshot.muWrittenChunks.Unlock()
 
 	snapshot.WrittenChunks[checksum] = written
-}
-
-func (snapshot *Snapshot) StateGetWrittenObject(checksum string) (bool, bool) {
-	snapshot.muWrittenObjects.Lock()
-	defer snapshot.muWrittenObjects.Unlock()
-
-	value, exists := snapshot.WrittenObjects[checksum]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetWrittenObject(checksum string, written bool) {
-	snapshot.muWrittenObjects.Lock()
-	defer snapshot.muWrittenObjects.Unlock()
-
-	snapshot.WrittenObjects[checksum] = written
 }
 
 func (fi *Fileinfo) HumanSize() string {

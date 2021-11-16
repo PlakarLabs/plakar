@@ -97,7 +97,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 				continue
 			}
 
-			obj := snapshot.Objects[checksum]
+			obj := snapshot.LookupObjectForChecksum(checksum)
 			for _, chunk := range obj.Chunks {
 				data, err := snapshot.GetChunk(chunk.Checksum)
 				if err != nil {

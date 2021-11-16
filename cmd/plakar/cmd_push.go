@@ -44,22 +44,12 @@ func cmd_push(ctx Plakar, args []string) int {
 	snap.CommandLine = ctx.CommandLine
 
 	if flags.NArg() == 0 {
-		snap.Push(dir)
+		err = snap.Push([]string{dir})
 	} else {
-		for i := 0; i < flags.NArg(); i++ {
-			snap.Push(flags.Args()[i])
-		}
+		err = snap.Push(flags.Args())
 	}
-
-	if len(snap.Filesystem.Directories) == 0 && len(snap.Filesystem.Files) == 0 {
-		logger.Warn("empty snapshot, not committing")
-		return 1
-	}
-
-	err = snap.Commit()
 	if err != nil {
-		os.Exit(1)
+		logger.Info("%s: OK", snap.Uuid)
 	}
-	logger.Info("%s: OK", snap.Uuid)
 	return 0
 }

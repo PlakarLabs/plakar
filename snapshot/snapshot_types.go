@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"os"
 	"sync"
 	"time"
 
@@ -18,9 +17,6 @@ type Object struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
-
-	fp   *os.File
-	path string
 }
 
 type CachedObject struct {

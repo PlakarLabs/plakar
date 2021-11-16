@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/plakar/logger"
@@ -56,36 +55,6 @@ func pushObjectWriterChannelHandler(snapshot *Snapshot) (chan objectMsg, func())
 	}
 }
 
-func pushChunkWriterChannelHandler(snapshot *Snapshot) (chan chunkMsg, func()) {
-	maxGoroutines := make(chan bool, 1024)
-
-	c := make(chan chunkMsg)
-	done := make(chan bool)
-	var wg sync.WaitGroup
-
-	go func() {
-		for msg := range c {
-			maxGoroutines <- true
-			wg.Add(1)
-			go func(chunk *Chunk, data []byte) {
-				err := snapshot.PutChunk(chunk.Checksum, data)
-				if err != nil {
-					// errchan <- err
-				}
-				wg.Done()
-				<-maxGoroutines
-			}(msg.Chunk, msg.Data)
-		}
-		wg.Wait()
-		done <- true
-	}()
-
-	return c, func() {
-		close(c)
-		<-done
-	}
-}
-
 func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMsg) (chan objectMsg, func()) {
 	maxGoroutines := make(chan bool, 1024)
 
@@ -107,41 +76,6 @@ func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMs
 				wg.Done()
 				<-maxGoroutines
 			}(msg.Object, msg.Data)
-		}
-		wg.Wait()
-		done <- true
-	}()
-
-	return c, func() {
-		close(c)
-		<-done
-	}
-}
-
-func pushChunkChannelHandler(snapshot *Snapshot, chanChunkWriter chan chunkMsg) (chan chunkMsg, func()) {
-	maxGoroutines := make(chan bool, 1024)
-
-	c := make(chan chunkMsg)
-	done := make(chan bool)
-	var wg sync.WaitGroup
-
-	go func() {
-		for msg := range c {
-			maxGoroutines <- true
-			wg.Add(1)
-			go func(chunk *Chunk, data []byte) {
-				var ok bool
-				if _, ok = snapshot.StateGetChunk(chunk.Checksum); !ok {
-					snapshot.StateSetChunk(chunk.Checksum, chunk)
-				}
-				if !ok {
-					if len(data) != 0 {
-						chanChunkWriter <- chunkMsg{chunk, data}
-					}
-				}
-				wg.Done()
-				<-maxGoroutines
-			}(msg.Chunk, msg.Data)
 		}
 		wg.Wait()
 		done <- true
@@ -210,71 +144,9 @@ func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Ob
 	}
 }
 
-func pushChunksProcessorChannelHandler(snapshot *Snapshot) (chan *Object, func()) {
-	chanChunkWriter, chanChunkWriterDone := pushChunkWriterChannelHandler(snapshot)
-	chanChunk, chanChunkDone := pushChunkChannelHandler(snapshot, chanChunkWriter)
-
-	maxGoroutines := make(chan bool, 1024)
-
-	c := make(chan *Object)
-	done := make(chan bool)
-	var wg sync.WaitGroup
-
-	go func() {
-		for msg := range c {
-			maxGoroutines <- true
-			wg.Add(1)
-			go func(object *Object) {
-				chunks := make([]string, 0)
-				for _, chunk := range object.Chunks {
-					chunks = append(chunks, chunk.Checksum)
-				}
-
-				res, err := snapshot.ReferenceChunks(chunks)
-				if err != nil {
-					//					errchan <- err
-					return
-				}
-				for i, exists := range res {
-					chunk := object.Chunks[i]
-					if exists {
-						chanChunk <- chunkMsg{chunk, []byte("")}
-					} else {
-						object.fp.Seek(int64(chunk.Start), 0)
-
-						chunkData := make([]byte, chunk.Length)
-						n, err := object.fp.Read(chunkData)
-						if err != nil || n != int(chunk.Length) {
-							if err != nil {
-								//errchan <- err
-							}
-							break
-						}
-						chanChunk <- chunkMsg{chunk, chunkData}
-					}
-					atomic.AddUint64(&snapshot.Size, uint64(chunk.Length))
-				}
-				object.fp.Close()
-				wg.Done()
-				<-maxGoroutines
-			}(msg)
-		}
-
-		wg.Wait()
-		done <- true
-	}()
-
-	return c, func() {
-		close(c)
-		<-done
-		chanChunkDone()
-		chanChunkWriterDone()
-	}
-}
-
 func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, error) {
 	cache := snapshot.store.GetCache()
-	cache = nil
+
 	if cache == nil {
 		return nil, nil
 	}
@@ -307,23 +179,23 @@ func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, 
 	}
 
 	object := Object{}
-	object.path = pathname
+	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = cachedObject.Chunks
 	object.ContentType = cachedObject.ContentType
 	return &object, nil
 }
 
-func chunkify(bufPool sync.Pool, pathname string) (*Object, error) {
+func chunkify(snapshot *Snapshot, bufPool sync.Pool, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
 		return nil, err
 	}
-	//defer rd.Close()
+	defer rd.Close()
 
 	object := &Object{}
-	object.fp = rd
+	//object.fp = rd
 	objectHash := sha256.New()
 
 	chk := chunker.New(rd, 0x3dea92648f6e83)
@@ -353,24 +225,43 @@ func chunkify(bufPool sync.Pool, pathname string) (*Object, error) {
 		chunk.Start = cdcChunk.Start
 		chunk.Length = cdcChunk.Length
 		object.Chunks = append(object.Chunks, &chunk)
+
+		chunks := make([]string, 0)
+		chunks = append(chunks, chunk.Checksum)
+
+		res, err := snapshot.ReferenceChunks(chunks)
+		if err != nil {
+			return nil, err
+		}
+		if !res[0] {
+			err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		snapshot.muChunks.Lock()
+		snapshot.Chunks[chunk.Checksum] = &chunk
+		snapshot.muChunks.Unlock()
+
 	}
 	bufPool.Put(buf)
 	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(root string) error {
-	//cache := snapshot.store.Cache
+func (snapshot *Snapshot) Push(scanDirs []string) error {
+	cache := snapshot.store.Cache
 
-	root, err := filepath.Abs(root)
-	if err != nil {
-		log.Fatal(err)
+	for _, scanDir := range scanDirs {
+		scanDir, err := filepath.Abs(scanDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+		snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
 	}
 
-	snapshot.Filesystem.Scan(root, snapshot.SkipDirs)
-
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
-	chanChunksProcessor, chanChunksProcessorDone := pushChunksProcessorChannelHandler(snapshot)
 
 	bufPool := sync.Pool{
 		New: func() interface{} {
@@ -378,7 +269,7 @@ func (snapshot *Snapshot) Push(root string) error {
 			return &b
 		},
 	}
-	maxConcurrency := make(chan bool, 8192)
+	maxConcurrency := make(chan bool, 32)
 	wg := sync.WaitGroup{}
 	for pathname, fileinfo := range snapshot.Filesystem.Files {
 		maxConcurrency <- true
@@ -389,26 +280,24 @@ func (snapshot *Snapshot) Push(root string) error {
 
 			var object *Object
 
-			//object, err = pathnameCached(snapshot, *fileinfo, pathname)
-			//if err != nil {
-			//	// something went wrong with the cache
-			//}
-
-			//DEBUG: for now, pretend there's no cache
-			object = nil
+			object, err := pathnameCached(snapshot, *fileinfo, pathname)
+			if err != nil {
+				// something went wrong with the cache
+				// errchan <- err
+			}
 
 			// can't reuse object from cache, chunkify
 			if object == nil {
-				object, err = chunkify(bufPool, pathname)
+				object, err = chunkify(snapshot, bufPool, pathname)
 				if err != nil {
 					// something went wrong, skip this file
 					// errchan <- err
 					return
 				}
+				if cache != nil {
+					snapshot.PutCachedObject(pathname, *object, *fileinfo)
+				}
 			}
-			//if cache != nil {
-			//	snapshot.PutCachedObject(pathname, *object, *fileinfo)
-			//}
 
 			snapshot.muFilenames.Lock()
 			snapshot.Filenames[pathname] = object.Checksum
@@ -425,16 +314,12 @@ func (snapshot *Snapshot) Push(root string) error {
 			snapshot.muContentTypeToObjects.Lock()
 			snapshot.ContentTypeToObjects[object.ContentType] = append(snapshot.ContentTypeToObjects[object.ContentType], object.Checksum)
 			snapshot.muContentTypeToObjects.Unlock()
-
-			chanChunksProcessor <- object
-
 		}(pathname, fileinfo)
 	}
 	wg.Wait()
-	chanChunksProcessorDone()
 
 	chanObjectsProcessor <- snapshot.Objects
 	chanObjectsProcessorDone()
 
-	return nil
+	return snapshot.Commit()
 }

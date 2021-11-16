@@ -23,7 +23,7 @@ import (
 )
 
 func cmd_ui(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("version", flag.ExitOnError)
+	flags := flag.NewFlagSet("ui", flag.ExitOnError)
 	flags.Parse(args)
 
 	ui.Ui(ctx.Store())

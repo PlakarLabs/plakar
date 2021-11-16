@@ -8,6 +8,7 @@ import (
 
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -30,7 +31,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Username:     "",
 		CommandLine:  "",
 
-		Filesystem: NewFilesystem(),
+		Filesystem: filesystem.NewFilesystem(),
 
 		Filenames: make(map[string]string),
 		Objects:   make(map[string]*Object),
@@ -296,11 +297,11 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	if err != nil {
 		return nil, err
 	}
-	cacheObject.Info.path = pathname
+	//	cacheObject.Info.path = pathname
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fileinfo) error {
+func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
 	keypair := snapshot.store.GetKeypair()
 	cache := snapshot.store.GetCache()
 
@@ -328,7 +329,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fil
 		jobject = tmp
 	}
 
-	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, fi.path)
+	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, pathname)
 	cache.PutPath(hashedPath, jobject)
 	return nil
 }

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/restic/chunker"
 )
@@ -144,7 +144,7 @@ func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Ob
 	}
 }
 
-func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, error) {
+func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string) (*Object, error) {
 	cache := snapshot.store.GetCache()
 
 	if cache == nil {
@@ -259,9 +259,12 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	for _, scanDir := range scanDirs {
 		scanDir, err := filepath.Abs(scanDir)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		err = snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		if err != nil {
+			//errchan<-err
+		}
 	}
 
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
@@ -277,7 +280,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	for pathname, fileinfo := range snapshot.Filesystem.Files {
 		maxConcurrency <- true
 		wg.Add(1)
-		go func(pathname string, fileinfo *Fileinfo) {
+		go func(pathname string, fileinfo *filesystem.Fileinfo) {
 			defer wg.Done()
 			defer func() { <-maxConcurrency }()
 

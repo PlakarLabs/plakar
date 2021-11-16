@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -23,12 +24,12 @@ type CachedObject struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
-	Info        Fileinfo
+	Info        filesystem.Fileinfo
 }
 
 type TreeNode struct {
 	muNode   sync.Mutex
-	Inode    *Fileinfo
+	Inode    *filesystem.Fileinfo
 	Children map[string]*TreeNode
 }
 
@@ -42,7 +43,7 @@ type SnapshotStorage struct {
 
 	Size uint64
 
-	Filesystem *Filesystem
+	Filesystem *filesystem.Filesystem
 
 	//	Tree *TreeNode
 
@@ -71,7 +72,7 @@ type Snapshot struct {
 
 	Size uint64
 
-	Filesystem *Filesystem
+	Filesystem *filesystem.Filesystem
 
 	//	Tree *TreeNode
 

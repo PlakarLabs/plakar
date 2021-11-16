@@ -2,9 +2,11 @@ package snapshot
 
 import (
 	"path/filepath"
+
+	"github.com/poolpOrg/plakar/filesystem"
 )
 
-func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*Fileinfo, bool) {
+func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*filesystem.Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 
 	parent, err := snapshot.Filesystem.Lookup(pathname)
@@ -12,20 +14,15 @@ func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*Filei
 		return nil, false
 	}
 
-	ret := make(map[string]*Fileinfo)
+	ret := make(map[string]*filesystem.Fileinfo)
 	for child, node := range parent.Children {
 		ret[child] = node.Inode
 	}
 	return ret, true
 }
 
-func (snapshot *Snapshot) LookupInodeFromPathname(pathname string) (*Fileinfo, bool) {
-	pathname = filepath.Clean(pathname)
-
-	snapshot.Filesystem.muInodes.Lock()
-	fileinfo, exists := snapshot.Filesystem.Inodes[pathname]
-	snapshot.Filesystem.muInodes.Unlock()
-	return fileinfo, exists
+func (snapshot *Snapshot) LookupInodeFromPathname(pathname string) (*filesystem.Fileinfo, bool) {
+	return snapshot.Filesystem.LookupInode(pathname)
 }
 
 func (snapshot *Snapshot) LookupObjectFromPathname(pathname string) *Object {

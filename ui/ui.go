@@ -30,6 +30,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -193,7 +194,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	directories := make([]*snapshot.Fileinfo, 0)
+	directories := make([]*filesystem.Fileinfo, 0)
 	for directory, _ := range snap.Filesystem.Directories {
 		fi, _ := snap.LookupInodeFromPathname(directory)
 
@@ -213,7 +214,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(directories[i].Name, directories[j].Name) < 0
 	})
 
-	files := make([]*snapshot.Fileinfo, 0)
+	files := make([]*filesystem.Fileinfo, 0)
 	for file, _ := range snap.Filesystem.Files {
 		fi, _ := snap.LookupInodeFromPathname(file)
 
@@ -251,8 +252,8 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot    *snapshot.Snapshot
-		Directories []*snapshot.Fileinfo
-		Files       []*snapshot.Fileinfo
+		Directories []*filesystem.Fileinfo
+		Files       []*filesystem.Fileinfo
 		Root        string
 		Path        string
 		Navigation  []string
@@ -311,7 +312,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	ctx := &struct {
 		Snapshot     *snapshot.Snapshot
 		Object       *snapshot.Object
-		Info         *snapshot.Fileinfo
+		Info         *filesystem.Fileinfo
 		Root         string
 		Path         string
 		Navigation   []string

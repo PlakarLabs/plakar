@@ -195,7 +195,6 @@ func chunkify(snapshot *Snapshot, bufPool sync.Pool, pathname string) (*Object, 
 	defer rd.Close()
 
 	object := &Object{}
-	//object.fp = rd
 	objectHash := sha256.New()
 
 	chk := chunker.New(rd, 0x3dea92648f6e83)
@@ -228,6 +227,10 @@ func chunkify(snapshot *Snapshot, bufPool sync.Pool, pathname string) (*Object, 
 
 		chunks := make([]string, 0)
 		chunks = append(chunks, chunk.Checksum)
+
+		// XXX - we can reduce the number of ReferenceChunks calls
+		// by grouping chunks but let's do that later when everything
+		// is already working
 
 		res, err := snapshot.ReferenceChunks(chunks)
 		if err != nil {

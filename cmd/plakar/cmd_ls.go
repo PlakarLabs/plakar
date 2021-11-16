@@ -64,7 +64,7 @@ func list_snapshots(store *storage.Store) {
 			snapshot.CreationTime.UTC().Format(time.RFC3339),
 			snapshot.Uuid,
 			humanize.Bytes(snapshot.Size),
-			strings.Join(snapshot.Roots, ", "))
+			strings.Join(snapshot.Filesystem.ScannedDirectories, ", "))
 	}
 }
 
@@ -78,13 +78,13 @@ func list_snapshot(store *storage.Store, args []string) {
 		_, prefix := parseSnapshotID(args[offset])
 
 		content := make([]string, 0)
-		entries, exists := snap.GetPathChildren(prefix)
+		entries, exists := snap.LookupPathChildren(prefix)
 		if !exists {
 			continue
 		}
 
 		if len(entries) == 0 {
-			info, exists := snap.GetInode(prefix)
+			info, exists := snap.LookupInodeFromPathname(prefix)
 			if !exists {
 				continue
 			}
@@ -165,7 +165,7 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 		})
 
 		for _, name := range filenames {
-			fi, _ := snapshot.GetInode(name)
+			fi, _ := snapshot.LookupInodeFromPathname(name)
 			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
@@ -203,7 +203,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	})
 
 	for _, name := range directories {
-		fi, _ := snapshot.GetInode(name)
+		fi, _ := snapshot.LookupInodeFromPathname(name)
 		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
@@ -242,7 +242,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	})
 
 	for _, name := range filenames {
-		fi, _ := snapshot.GetInode(name)
+		fi, _ := snapshot.LookupInodeFromPathname(name)
 		if !helpers.PathIsWithin(name, directory) && name != directory {
 			continue
 		}

@@ -44,15 +44,11 @@ type SnapshotStorage struct {
 	Username     string
 	CommandLine  string
 
+	Size uint64
+
 	Filesystem *Filesystem
 
-	Roots []string
-
-	Tree *TreeNode
-
-	//Directories []string
-	//Files       []string
-	//NonRegular  []string
+	//	Tree *TreeNode
 
 	Filenames map[string]string
 	Objects   map[string]*Object
@@ -62,8 +58,6 @@ type SnapshotStorage struct {
 	ChunkToObjects       map[string][]string
 	ObjectToPathnames    map[string][]string
 	ContentTypeToObjects map[string][]string
-
-	Size uint64
 }
 
 type Snapshot struct {
@@ -83,10 +77,7 @@ type Snapshot struct {
 
 	Filesystem *Filesystem
 
-	muRoots sync.Mutex
-	Roots   []string
-
-	Tree *TreeNode
+	//	Tree *TreeNode
 
 	muFilenames sync.Mutex
 	Filenames   map[string]string

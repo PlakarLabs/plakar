@@ -79,7 +79,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 				}
 			}
 
-			info, _ := snapshot.GetInode(file)
+			info, _ := snapshot.LookupInodeFromPathname(file)
 			filepath := file
 			if tarballRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)

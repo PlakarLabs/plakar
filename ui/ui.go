@@ -87,7 +87,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Hostname = snapshot.Hostname
 	ss.Username = snapshot.Username
 	ss.CommandLine = snapshot.CommandLine
-	ss.Roots = uint64(len(snapshot.Roots))
+	ss.Roots = uint64(len(snapshot.Filesystem.ScannedDirectories))
 	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
 	ss.Files = uint64(len(snapshot.Filesystem.Files))
 	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
@@ -195,7 +195,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	directories := make([]*snapshot.Fileinfo, 0)
 	for directory, _ := range snap.Filesystem.Directories {
-		fi, _ := snap.GetInode(directory)
+		fi, _ := snap.LookupInodeFromPathname(directory)
 
 		if directory == path+"/" {
 			continue
@@ -215,7 +215,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	files := make([]*snapshot.Fileinfo, 0)
 	for file, _ := range snap.Filesystem.Files {
-		fi, _ := snap.GetInode(file)
+		fi, _ := snap.LookupInodeFromPathname(file)
 
 		if !strings.HasPrefix(file, path) {
 			continue
@@ -279,7 +279,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	object := snap.Objects[checksum]
-	info, _ := snap.GetInode(path)
+	info, _ := snap.LookupInodeFromPathname(path)
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {

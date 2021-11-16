@@ -32,10 +32,6 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		Filesystem: NewFilesystem(),
 
-		Roots: make([]string, 0),
-
-		Tree: &TreeNode{Children: make(map[string]*TreeNode)},
-
 		Filenames: make(map[string]string),
 		Objects:   make(map[string]*Object),
 		Chunks:    make(map[string]*Chunk),
@@ -335,18 +331,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fil
 	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, fi.path)
 	cache.PutPath(hashedPath, jobject)
 	return nil
-}
-
-func (snapshot *Snapshot) StateAddRoot(pathname string) {
-	snapshot.muRoots.Lock()
-	defer snapshot.muRoots.Unlock()
-
-	for _, path := range snapshot.Roots {
-		if pathname == path {
-			return
-		}
-	}
-	snapshot.Roots = append(snapshot.Roots, pathname)
 }
 
 func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {

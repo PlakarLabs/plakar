@@ -18,9 +18,6 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 
 	snapshot.Filesystem = snapshotStorage.Filesystem
 
-	snapshot.Roots = snapshotStorage.Roots
-	snapshot.Tree = snapshotStorage.Tree
-
 	snapshot.Filenames = snapshotStorage.Filenames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
@@ -43,9 +40,6 @@ func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 	snapshotStorage.CommandLine = snapshot.CommandLine
 
 	snapshotStorage.Filesystem = snapshot.Filesystem
-
-	snapshotStorage.Roots = snapshot.Roots
-	snapshotStorage.Tree = snapshot.Tree
 
 	snapshotStorage.Filenames = snapshot.Filenames
 	snapshotStorage.Objects = snapshot.Objects

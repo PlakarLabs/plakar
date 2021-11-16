@@ -47,7 +47,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
-			fi, _ := snapshot.GetInode(directory)
+			fi, _ := snapshot.LookupInodeFromPathname(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
 			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
@@ -71,7 +71,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
-			fi, _ := snapshot.GetInode(file)
+			fi, _ := snapshot.LookupInodeFromPathname(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])

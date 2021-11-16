@@ -136,6 +136,9 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	case "diff":
 		exitCode = cmd_diff(ctx, args)
 
+	case "exec":
+		exitCode = cmd_exec(ctx, args)
+
 	case "find":
 		exitCode = cmd_find(ctx, args)
 

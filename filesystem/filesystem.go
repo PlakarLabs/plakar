@@ -140,3 +140,19 @@ func (filesystem *Filesystem) LookupInode(pathname string) (*Fileinfo, bool) {
 	filesystem.muInodes.Unlock()
 	return fileinfo, exists
 }
+
+func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*Fileinfo, bool) {
+	pathname = filepath.Clean(pathname)
+	filesystem.muFiles.Lock()
+	fileinfo, exists := filesystem.Files[pathname]
+	filesystem.muFiles.Unlock()
+	return fileinfo, exists
+}
+
+func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*Fileinfo, bool) {
+	pathname = filepath.Clean(pathname)
+	filesystem.muDirectories.Lock()
+	fileinfo, exists := filesystem.Directories[pathname]
+	filesystem.muDirectories.Unlock()
+	return fileinfo, exists
+}

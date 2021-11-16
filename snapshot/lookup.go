@@ -21,11 +21,19 @@ func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*files
 	return ret, true
 }
 
-func (snapshot *Snapshot) LookupInodeFromPathname(pathname string) (*filesystem.Fileinfo, bool) {
+func (snapshot *Snapshot) LookupInodeForPathname(pathname string) (*filesystem.Fileinfo, bool) {
 	return snapshot.Filesystem.LookupInode(pathname)
 }
 
-func (snapshot *Snapshot) LookupObjectFromPathname(pathname string) *Object {
+func (snapshot *Snapshot) LookupInodeForFilename(pathname string) (*filesystem.Fileinfo, bool) {
+	return snapshot.Filesystem.LookupInodeForFile(pathname)
+}
+
+func (snapshot *Snapshot) LookupInodeForDirectory(pathname string) (*filesystem.Fileinfo, bool) {
+	return snapshot.Filesystem.LookupInodeForDirectory(pathname)
+}
+
+func (snapshot *Snapshot) LookupObjectForPathname(pathname string) *Object {
 	snapshot.muFilenames.Lock()
 	defer snapshot.muFilenames.Unlock()
 
@@ -34,10 +42,10 @@ func (snapshot *Snapshot) LookupObjectFromPathname(pathname string) *Object {
 		return nil
 	}
 
-	return snapshot.LookupObjectFromChecksum(objectChecksum)
+	return snapshot.LookupObjectForChecksum(objectChecksum)
 }
 
-func (snapshot *Snapshot) LookupObjectFromChecksum(checksum string) *Object {
+func (snapshot *Snapshot) LookupObjectForChecksum(checksum string) *Object {
 	snapshot.muObjects.Lock()
 	defer snapshot.muObjects.Unlock()
 
@@ -49,7 +57,7 @@ func (snapshot *Snapshot) LookupObjectFromChecksum(checksum string) *Object {
 	return object
 }
 
-func (snapshot *Snapshot) LookupChunkFromChecksum(checksum string) *Chunk {
+func (snapshot *Snapshot) LookupChunkForChecksum(checksum string) *Chunk {
 	snapshot.muChunks.Lock()
 	defer snapshot.muChunks.Unlock()
 

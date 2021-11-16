@@ -8,17 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/restic/chunker"
 )
-
-type chunkMsg struct {
-	Chunk *Chunk
-	Data  []byte
-}
 
 type objectMsg struct {
 	Object *Object
@@ -286,6 +282,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			var object *Object
 
+			// XXX - later optim: if fileinfo.Dev && fileinfo.Ino already exist in this snapshot
+			// lookup object from snapshot and bypass scanning
+
 			object, err := pathnameCached(snapshot, *fileinfo, pathname)
 			if err != nil {
 				// something went wrong with the cache
@@ -320,6 +319,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			snapshot.muContentTypeToObjects.Lock()
 			snapshot.ContentTypeToObjects[object.ContentType] = append(snapshot.ContentTypeToObjects[object.ContentType], object.Checksum)
 			snapshot.muContentTypeToObjects.Unlock()
+
+			atomic.AddUint64(&snapshot.Size, uint64(fileinfo.Size))
+
 		}(pathname, fileinfo)
 	}
 	wg.Wait()

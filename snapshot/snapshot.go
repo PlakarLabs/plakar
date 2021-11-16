@@ -1,9 +1,7 @@
 package snapshot
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/poolpOrg/plakar/compression"
@@ -262,121 +260,6 @@ func (snapshot *Snapshot) Commit() error {
 
 	logger.Trace("%s: Commit()", snapshot.Uuid)
 	return snapshot.transaction.Commit()
-}
-
-func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	keypair := snapshot.store.GetKeypair()
-	cache := snapshot.store.GetCache()
-
-	pathHash := sha256.New()
-	pathHash.Write([]byte(pathname))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
-
-	data, err := cache.GetPath(hashedPath)
-	if err != nil {
-		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Uuid, pathname)
-		return nil, err
-	}
-	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
-
-	if snapshot.store.Configuration().Encrypted != "" {
-		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-		if err != nil {
-			return nil, err
-		}
-		data = tmp
-	}
-
-	data, err = compression.Inflate(data)
-	if err != nil {
-		return nil, err
-	}
-
-	cacheObject := CachedObject{}
-	err = json.Unmarshal(data, &cacheObject)
-	if err != nil {
-		return nil, err
-	}
-	//	cacheObject.Info.path = pathname
-	return &cacheObject, nil
-}
-
-func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
-	keypair := snapshot.store.GetKeypair()
-	cache := snapshot.store.GetCache()
-
-	pathHash := sha256.New()
-	pathHash.Write([]byte(pathname))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
-
-	cacheObject := CachedObject{}
-	cacheObject.Checksum = object.Checksum
-	cacheObject.Chunks = object.Chunks
-	cacheObject.ContentType = object.ContentType
-	cacheObject.Info = fi
-
-	jobject, err := json.Marshal(cacheObject)
-	if err != nil {
-		return err
-	}
-
-	jobject = compression.Deflate(jobject)
-	if snapshot.store.Configuration().Encrypted != "" {
-		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
-		if err != nil {
-			return err
-		}
-		jobject = tmp
-	}
-
-	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, pathname)
-	cache.PutPath(hashedPath, jobject)
-	return nil
-}
-
-func (snapshot *Snapshot) StateGetPathname(pathname string) (string, bool) {
-	snapshot.muFilenames.Lock()
-	defer snapshot.muFilenames.Unlock()
-
-	value, exists := snapshot.Filenames[pathname]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetPathname(pathname string, checksum string) {
-	snapshot.muFilenames.Lock()
-	defer snapshot.muFilenames.Unlock()
-
-	snapshot.Filenames[pathname] = checksum
-}
-
-func (snapshot *Snapshot) StateGetObject(checksum string) (*Object, bool) {
-	snapshot.muObjects.Lock()
-	defer snapshot.muObjects.Unlock()
-
-	value, exists := snapshot.Objects[checksum]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetObject(checksum string, object *Object) {
-	snapshot.muObjects.Lock()
-	defer snapshot.muObjects.Unlock()
-
-	snapshot.Objects[checksum] = object
-}
-
-func (snapshot *Snapshot) StateGetChunk(checksum string) (*Chunk, bool) {
-	snapshot.muChunks.Lock()
-	defer snapshot.muChunks.Unlock()
-
-	value, exists := snapshot.Chunks[checksum]
-	return value, exists
-}
-
-func (snapshot *Snapshot) StateSetChunk(checksum string, chunk *Chunk) {
-	snapshot.muChunks.Lock()
-	defer snapshot.muChunks.Unlock()
-
-	snapshot.Chunks[checksum] = chunk
 }
 
 func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {

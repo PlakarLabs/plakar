@@ -20,41 +20,12 @@ type Object struct {
 	ContentType string
 }
 
+// CachedObject needs to be killed
 type CachedObject struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
 	Info        filesystem.Fileinfo
-}
-
-type TreeNode struct {
-	muNode   sync.Mutex
-	Inode    *filesystem.Fileinfo
-	Children map[string]*TreeNode
-}
-
-type SnapshotStorage struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
-
-	Size uint64
-
-	Filesystem *filesystem.Filesystem
-
-	//	Tree *TreeNode
-
-	Filenames map[string]string
-	Objects   map[string]*Object
-	Chunks    map[string]*Chunk
-
-	// reverse lookups
-	ChunkToObjects       map[string][]string
-	ObjectToPathnames    map[string][]string
-	ContentTypeToObjects map[string][]string
 }
 
 type Snapshot struct {
@@ -74,23 +45,58 @@ type Snapshot struct {
 
 	Filesystem *filesystem.Filesystem
 
-	//	Tree *TreeNode
-
+	// Filename -> Object checksum
 	muFilenames sync.Mutex
 	Filenames   map[string]string
 
+	// Object checksum -> Object
 	muObjects sync.Mutex
 	Objects   map[string]*Object
 
+	// Chunk checksum -> Chunk
 	muChunks sync.Mutex
 	Chunks   map[string]*Chunk
 
+	// Chunk checksum -> Object checksums
 	muChunkToObjects sync.Mutex
 	ChunkToObjects   map[string][]string
 
+	// Object checksum -> Filenames
 	muObjectToPathnames sync.Mutex
 	ObjectToPathnames   map[string][]string
 
+	// Content Type -> Object checksums
 	muContentTypeToObjects sync.Mutex
 	ContentTypeToObjects   map[string][]string
+}
+
+type SnapshotStorage struct {
+	Uuid         string
+	CreationTime time.Time
+	Version      string
+	Hostname     string
+	Username     string
+	CommandLine  string
+
+	Size uint64
+
+	Filesystem *filesystem.Filesystem
+
+	// Filename -> Object checksum
+	Filenames map[string]string
+
+	// Object checksum -> Object
+	Objects map[string]*Object
+
+	// Chunk checksum -> Chunk
+	Chunks map[string]*Chunk
+
+	// Chunk checksum -> Object checksums
+	ChunkToObjects map[string][]string
+
+	// Object checksum -> Filenames
+	ObjectToPathnames map[string][]string
+
+	// Content Type -> Object checksums
+	ContentTypeToObjects map[string][]string
 }

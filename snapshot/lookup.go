@@ -34,10 +34,29 @@ func (snapshot *Snapshot) LookupObjectFromPathname(pathname string) *Object {
 		return nil
 	}
 
-	object, exists := snapshot.Objects[objectChecksum]
+	return snapshot.LookupObjectFromChecksum(objectChecksum)
+}
+
+func (snapshot *Snapshot) LookupObjectFromChecksum(checksum string) *Object {
+	snapshot.muObjects.Lock()
+	defer snapshot.muObjects.Unlock()
+
+	object, exists := snapshot.Objects[checksum]
 	if !exists {
 		return nil
 	}
 
 	return object
+}
+
+func (snapshot *Snapshot) LookupChunkFromChecksum(checksum string) *Chunk {
+	snapshot.muChunks.Lock()
+	defer snapshot.muChunks.Unlock()
+
+	chunk, exists := snapshot.Chunks[checksum]
+	if !exists {
+		return nil
+	}
+
+	return chunk
 }

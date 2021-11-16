@@ -6,15 +6,16 @@
     {{$Snapshot:=.Snapshot}}
     {{$Path:=.Path}}
     {{$Navigation:=.Navigation}}
+    {{$NavigationLinks:=.NavigationLinks}}
     {{$Directories:=.Directories}}
     {{$Files:=.Files}}
 
     <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="/">plakar</a></li>
-        <li class="breadcrumb-item"><a href="/snapshot/{{$Snapshot.Uuid}}">{{$Snapshot.Uuid}}</a></li>
+        <li class="breadcrumb-item"><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}</a></li>
         {{range $atom := $Navigation }}
-            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{$atom}}/">{{$atom}}</a></li>
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
         {{end}}
     </ol>
     </nav>

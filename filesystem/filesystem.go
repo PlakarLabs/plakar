@@ -23,27 +23,24 @@ func NewFilesystem() *Filesystem {
 
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 	pathname = filepath.Clean(pathname)
+
 	p := filesystem.Root
-	if pathname == "/" {
-		p.Inode = fileinfo
-		return
-	}
-
-	atoms := strings.Split(pathname, "/")[1:]
-	for _, atom := range atoms {
-		p.muNode.Lock()
-		tmp, exists := p.Children[atom]
-		p.muNode.Unlock()
-
-		if !exists {
+	if pathname != "/" {
+		atoms := strings.Split(pathname, "/")[1:]
+		for _, atom := range atoms {
 			p.muNode.Lock()
-			p.Children[atom] = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
-			tmp = p.Children[atom]
+			tmp, exists := p.Children[atom]
 			p.muNode.Unlock()
-		}
-		p = tmp
-	}
 
+			if !exists {
+				p.muNode.Lock()
+				p.Children[atom] = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
+				tmp = p.Children[atom]
+				p.muNode.Unlock()
+			}
+			p = tmp
+		}
+	}
 	p.muNode.Lock()
 	p.Inode = fileinfo
 	p.muNode.Unlock()

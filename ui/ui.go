@@ -43,9 +43,6 @@ var baseTemplate string
 //go:embed store.tmpl
 var storeTemplate string
 
-//go:embed snapshot.tmpl
-var snapshotTemplate string
-
 //go:embed browse.tmpl
 var browseTemplate string
 
@@ -132,24 +129,6 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 	templates["store"].Execute(w, ctx)
 }
 
-func _snapshot(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["snapshot"]
-
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	ctx := &struct {
-		Snapshot *snapshot.Snapshot
-		Roots    []string
-	}{snap, snap.Filesystem.ScannedDirectories}
-
-	templates["snapshot"].Execute(w, ctx)
-}
-
 func browse(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
@@ -161,79 +140,52 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := snap.Filesystem.Directories[path]
-	if !ok {
-		_, ok := snap.Filesystem.Directories[path+"/"]
-		if !ok {
-			http.Error(w, "", http.StatusNotFound)
-			return
-		}
+	if path == "" {
+		path = "/"
+	}
+
+	_, exists := snap.LookupInodeForPathname(path)
+	if !exists {
+		http.Error(w, "", http.StatusNotFound)
+		return
+
 	}
 
 	directories := make([]*filesystem.Fileinfo, 0)
-	for directory, _ := range snap.Filesystem.Directories {
-		fi, _ := snap.LookupInodeForPathname(directory)
+	files := make([]*filesystem.Fileinfo, 0)
 
-		if directory == path+"/" {
-			continue
+	children, _ := snap.LookupPathChildren(path)
+	for _, fileinfo := range children {
+		if fileinfo.Mode.IsDir() {
+			directories = append(directories, fileinfo)
+		} else if fileinfo.Mode.IsRegular() {
+			files = append(files, fileinfo)
 		}
-		if !strings.HasPrefix(directory, path) {
-			continue
-		}
-
-		if strings.Count(directory[len(path):], "/") != 1 {
-			continue
-		}
-		directories = append(directories, fi)
 	}
+
 	sort.Slice(directories, func(i, j int) bool {
 		return strings.Compare(directories[i].Name, directories[j].Name) < 0
 	})
-
-	files := make([]*filesystem.Fileinfo, 0)
-	for file, _ := range snap.Filesystem.Files {
-		fi, _ := snap.LookupInodeForPathname(file)
-
-		if !strings.HasPrefix(file, path) {
-			continue
-		}
-
-		if strings.Count(file[len(path):], "/") != 1 {
-			continue
-		}
-
-		files = append(files, fi)
-	}
 	sort.Slice(files, func(i, j int) bool {
 		return strings.Compare(files[i].Name, files[j].Name) < 0
 	})
 
-	root := ""
-	for _, atom := range strings.Split(path, "/") {
-		root = root + atom + "/"
-		if _, ok := snap.Filesystem.Directories[root]; ok {
-			break
-		}
-	}
-
 	nav := make([]string, 0)
-	nav = append(nav, root[:len(root)-1])
-	buf := ""
-	for _, atom := range strings.Split(path, "/")[1:] {
-		buf = buf + atom + "/"
-		if len(buf) > len(root) {
-			nav = append(nav, atom)
-		}
+	navLinks := make(map[string]string)
+	atoms := strings.Split(path, "/")[1:]
+	for offset, atom := range atoms {
+		nav = append(nav, atom)
+		navLinks[atom] = "/" + strings.Join(atoms[:offset+1], "/")
 	}
 
 	ctx := &struct {
-		Snapshot    *snapshot.Snapshot
-		Directories []*filesystem.Fileinfo
-		Files       []*filesystem.Fileinfo
-		Root        string
-		Path        string
-		Navigation  []string
-	}{snap, directories, files, root, path, nav}
+		Snapshot        *snapshot.Snapshot
+		Directories     []*filesystem.Fileinfo
+		Files           []*filesystem.Fileinfo
+		Path            string
+		Navigation      []string
+		NavigationLinks map[string]string
+	}{snap, directories, files, path, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -406,12 +358,6 @@ func Ui(store *storage.Store) {
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("snapshot").Parse(baseTemplate + snapshotTemplate)
-	if err != nil {
-		panic(err)
-	}
-	templates[t.Name()] = t
-
 	t, err = template.New("browse").Parse(baseTemplate + browseTemplate)
 	if err != nil {
 		panic(err)
@@ -448,7 +394,8 @@ func Ui(store *storage.Store) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)
-	r.HandleFunc("/snapshot/{snapshot}", _snapshot)
+	//	r.HandleFunc("/snapshot/{snapshot}", _snapshot)
+	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)

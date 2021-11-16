@@ -3,6 +3,8 @@ package filesystem
 import (
 	"os"
 	"syscall"
+
+	"github.com/dustin/go-humanize"
 )
 
 func FileinfoFromStat(stat os.FileInfo) Fileinfo {
@@ -16,4 +18,8 @@ func FileinfoFromStat(stat os.FileInfo) Fileinfo {
 		Uid:     uint64(stat.Sys().(*syscall.Stat_t).Uid),
 		Gid:     uint64(stat.Sys().(*syscall.Stat_t).Gid),
 	}
+}
+
+func (fileinfo *Fileinfo) HumanSize() string {
+	return humanize.Bytes(uint64(fileinfo.Size))
 }

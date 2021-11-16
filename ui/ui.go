@@ -142,34 +142,10 @@ func _snapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roots := make(map[string]struct{})
-	for directory, _ := range snap.Filesystem.Directories {
-		tmp := strings.Split(directory, "/")
-		root := ""
-		for i := 0; i < len(tmp); i++ {
-			if i == 0 {
-				root = tmp[i]
-			} else {
-				root = strings.Join([]string{root, tmp[i]}, "/")
-			}
-			if _, ok := snap.Filesystem.Directories[root+"/"]; ok {
-				roots[root] = struct{}{}
-				break
-			}
-		}
-	}
-	rootsList := make([]string, 0)
-	for root, _ := range roots {
-		rootsList = append(rootsList, root)
-	}
-	sort.Slice(rootsList, func(i, j int) bool {
-		return strings.Compare(rootsList[i], rootsList[j]) < 0
-	})
-
 	ctx := &struct {
 		Snapshot *snapshot.Snapshot
 		Roots    []string
-	}{snap, rootsList}
+	}{snap, snap.Filesystem.ScannedDirectories}
 
 	templates["snapshot"].Execute(w, ctx)
 }

@@ -259,6 +259,20 @@ $ plakar diff b3 a0 /private/etc/group
 $
 ```
 
+### exec
+
+The `exec` subcommand runs an executable from the snapshot restoring it to a temporary file and removing it after.
+```diff
+$ ./plakar exec 31:/bin/cat /etc/passwd |grep ^root
+root:*:0:0:System Administrator:/var/root:/bin/sh
+$
+```
+
+Of course this has the same limitations as if the executable was copied from a remote machine,
+namely the requirement that the host machine can actually run the executable,
+and that it doesn't rely on shared libraries that are unavailable on the host machine.
+
+
 ### find
 
 The `find` subcommand is used to list snapshots containing a specific file or directory,

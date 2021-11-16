@@ -7,14 +7,14 @@ import (
 func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 
-	node, err := snapshot.Filesystem.Lookup(pathname)
+	parent, err := snapshot.Filesystem.Lookup(pathname)
 	if err != nil {
 		return nil, false
 	}
 
 	ret := make(map[string]*Fileinfo)
-	for child, nodes := range node.Children {
-		ret[child] = nodes.Inode
+	for child, node := range parent.Children {
+		ret[child] = node.Inode
 	}
 	return ret, true
 }

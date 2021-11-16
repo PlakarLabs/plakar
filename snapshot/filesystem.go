@@ -62,6 +62,7 @@ func NewFilesystem() *Filesystem {
 }
 
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
+	pathname = filepath.Clean(pathname)
 	p := filesystem.Root
 	if pathname == "/" {
 		p.Inode = fileinfo
@@ -82,6 +83,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 		}
 		p = tmp
 	}
+
 	p.muNode.Lock()
 	p.Inode = fileinfo
 	p.muNode.Unlock()
@@ -106,6 +108,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 }
 
 func (filesystem *Filesystem) Scan(directory string, skip []string) error {
+	directory = filepath.Clean(directory)
 	for _, scanned := range filesystem.ScannedDirectories {
 		if scanned == directory {
 			return nil
@@ -148,10 +151,10 @@ func (filesystem *Filesystem) Scan(directory string, skip []string) error {
 	return err
 }
 
-func (filesystem *Filesystem) Lookup(pathname string) (FilesystemNode, error) {
+func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 	p := filesystem.Root
 	if pathname == "/" {
-		return *p, nil
+		return p, nil
 	}
 
 	atoms := strings.Split(pathname, "/")[1:]
@@ -161,9 +164,9 @@ func (filesystem *Filesystem) Lookup(pathname string) (FilesystemNode, error) {
 		p.muNode.Unlock()
 
 		if !exists {
-			return FilesystemNode{}, fs.ErrNotExist
+			return nil, fs.ErrNotExist
 		}
 		p = tmp
 	}
-	return *p, nil
+	return p, nil
 }

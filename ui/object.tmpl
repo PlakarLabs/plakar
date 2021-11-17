@@ -94,15 +94,12 @@
 
     {{if .EnableViewer}}
     <p>
-      <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#collapseViewer" aria-expanded="false" aria-controls="collapseViewer">
-        View {{$Info.Name}}
-      </button>
 
-    <div class="collapse" id="collapseViewer">
-        <div class="card card-body">
-        <iframe width="100%" height="100%" src="/raw/{{$Snapshot.Uuid}}:{{$Path}}?raw"></iframe>
-        </div>
-    </div>
+    <div style="height: auto;" width="100%">
+<div class="ratio ratio-16x9">
+  <iframe src="/raw/{{$Snapshot.Uuid}}:{{$Path}}?raw"></iframe>
+</div>
+</div>
     </p>
 
     {{end}}

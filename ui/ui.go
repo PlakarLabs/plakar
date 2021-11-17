@@ -183,9 +183,10 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Directories     []*filesystem.Fileinfo
 		Files           []*filesystem.Fileinfo
 		Path            string
+		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, path, nav, navLinks}
+	}{snap, directories, files, path, snap.Filesystem.ScannedDirectories, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -219,13 +220,11 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nav := make([]string, 0)
-	nav = append(nav, root[:len(root)-1])
-	buf := ""
-	for _, atom := range strings.Split(path, "/")[1:] {
-		buf = buf + atom + "/"
-		if len(buf) > len(root) {
-			nav = append(nav, atom)
-		}
+	navLinks := make(map[string]string)
+	atoms := strings.Split(path, "/")[1:]
+	for offset, atom := range atoms {
+		nav = append(nav, atom)
+		navLinks[atom] = "/" + strings.Join(atoms[:offset+1], "/")
 	}
 
 	enableViewer := false
@@ -238,14 +237,15 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Snapshot     *snapshot.Snapshot
-		Object       *snapshot.Object
-		Info         *filesystem.Fileinfo
-		Root         string
-		Path         string
-		Navigation   []string
-		EnableViewer bool
-	}{snap, object, info, root, path, nav, enableViewer}
+		Snapshot        *snapshot.Snapshot
+		Object          *snapshot.Object
+		Info            *filesystem.Fileinfo
+		Root            string
+		Path            string
+		Navigation      []string
+		NavigationLinks map[string]string
+		EnableViewer    bool
+	}{snap, object, info, root, path, nav, navLinks, enableViewer}
 	templates["object"].Execute(w, ctx)
 }
 

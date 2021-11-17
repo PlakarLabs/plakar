@@ -8,16 +8,17 @@
     {{$Info:=.Info}}
     {{$Path:=.Path}}
     {{$Navigation:=.Navigation}}
+    {{$NavigationLinks:=.NavigationLinks}}
 
-    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+    <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
+    <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/">plakar</a></li>
-        <li class="breadcrumb-item"><a href="/snapshot/{{$Snapshot.Uuid}}">{{$Snapshot.Uuid}}</a></li>
         {{range $atom := $Navigation }}
-            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{$atom}}">{{$atom}}</a></li>
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
         {{end}}
     </ol>
     </nav>
+
 
     <h2>Informations</h2>
     <table class="table table-striped">

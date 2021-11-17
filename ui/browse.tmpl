@@ -5,20 +5,40 @@
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
     {{$Path:=.Path}}
+    {{$Scanned:=.Scanned}}
     {{$Navigation:=.Navigation}}
     {{$NavigationLinks:=.NavigationLinks}}
     {{$Directories:=.Directories}}
     {{$Files:=.Files}}
 
-    <nav style="--bs-breadcrumb-divider: '>';" aria-label="breadcrumb">
+    <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
+    <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/">plakar</a></li>
-        <li class="breadcrumb-item"><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}</a></li>
         {{range $atom := $Navigation }}
             <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
         {{end}}
     </ol>
     </nav>
+
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Top directories</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $directory := .Scanned}}
+            <tr>
+                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$directory}}/">{{$directory}}</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+
+    <hr />
+
+
 
     {{if len $Directories}}
     <h2>Directories</h2>

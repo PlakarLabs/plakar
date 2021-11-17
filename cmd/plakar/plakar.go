@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"runtime"
 	"strings"
 	"time"
 
@@ -14,22 +15,23 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/storage/client"
-	"github.com/poolpOrg/plakar/storage/fs"
+	_ "github.com/poolpOrg/plakar/storage/client"
+	_ "github.com/poolpOrg/plakar/storage/database"
+	_ "github.com/poolpOrg/plakar/storage/fs"
 )
 
 type Plakar struct {
-	Hostname   string
-	Username   string
-	Workdir    string
-	Repository string
+	Hostname    string
+	Username    string
+	Workdir     string
+	Repository  string
+	CommandLine string
 
 	EncryptedKeypair []byte
 	keypair          *encryption.Keypair
 
-	store storage.Store
+	store *storage.Store
 
 	StdoutChannel  chan string
 	StderrChannel  chan string
@@ -39,7 +41,7 @@ type Plakar struct {
 	localCache *cache.Cache
 }
 
-func (plakar *Plakar) Store() storage.Store {
+func (plakar *Plakar) Store() *storage.Store {
 	return plakar.store
 }
 
@@ -57,9 +59,9 @@ func main() {
 	var enableInfoOutput bool
 	var enableProfiling bool
 	var disableCache bool
+	var cpuCount int
 
 	ctx := Plakar{}
-
 	currentHostname, err := os.Hostname()
 	if err != nil {
 		currentHostname = "localhost"
@@ -70,19 +72,32 @@ func main() {
 		log.Fatalf("%s: user %s has turned into Casper", flag.CommandLine.Name(), currentUser.Username)
 	}
 
+	cpuDefault := runtime.GOMAXPROCS(0)
+	if cpuDefault != 1 {
+		cpuDefault = cpuDefault - 1
+	}
+
 	flag.BoolVar(&disableCache, "no-cache", false, "disable local cache")
 	flag.BoolVar(&enableTime, "time", false, "enable time")
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
 	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
-
+	flag.IntVar(&cpuCount, "cpu", cpuDefault, "limit the number of usable cores")
 	flag.Parse()
+
+	ctx.CommandLine = strings.Join(os.Args, " ")
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("%s: missing command", flag.CommandLine.Name())
 	}
 
 	//
+	if cpuCount > runtime.NumCPU() {
+		log.Fatalf("%s: can't use more cores than available: %d", flag.CommandLine.Name(), runtime.NumCPU())
+	} else {
+		runtime.GOMAXPROCS(cpuCount)
+	}
+
 	ctx.Username = currentUser.Username
 	ctx.Hostname = currentHostname
 	ctx.Workdir = fmt.Sprintf("%s/.plakar", currentUser.HomeDir)
@@ -99,7 +114,7 @@ func main() {
 	if enableProfiling {
 		logger.EnableProfiling()
 	}
-	defer logger.Start()()
+	loggerWait := logger.Start()
 
 	command, args := flag.Arg(0), flag.Args()[1:]
 
@@ -142,6 +157,20 @@ func main() {
 	}
 	ctx.EncryptedKeypair = encryptedKeypair
 
+	var store *storage.Store
+	if !strings.HasPrefix(ctx.Repository, "/") {
+		if strings.HasPrefix(ctx.Repository, "plakar://") {
+			store, _ = storage.New("client")
+		} else if strings.HasPrefix(ctx.Repository, "sqlite://") {
+			store, _ = storage.New("database")
+		} else {
+			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
+		}
+	} else {
+		store, _ = storage.New("filesystem")
+	}
+	ctx.store = store
+
 	// create command needs to be handled early _after_ key is available
 	if command == "create" {
 		cmd_create(ctx, args)
@@ -151,28 +180,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	var store storage.Store
-	if !strings.HasPrefix(ctx.Repository, "/") {
-		if strings.HasPrefix(ctx.Repository, "plakar://") {
-			network.ProtocolRegister()
-			store = &client.ClientStore{}
-			err = store.Open(ctx.Repository)
-			if err != nil {
-				log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
-			}
+	err = store.Open(ctx.Repository)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
 		} else {
-			log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-		}
-	} else {
-		store = &fs.FSStore{}
-		err = store.Open(ctx.Repository)
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-			}
-			return
+			log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
 		}
 	}
 
@@ -200,53 +213,12 @@ func main() {
 	ctx.store.SetCache(ctx.localCache)
 
 	t0 := time.Now()
-	switch command {
-	case "cat":
-		cmd_cat(ctx, args)
+	exitCode, err := executeCommand(ctx, command, args)
 
-	case "check":
-		cmd_check(ctx, args)
-
-	case "diff":
-		cmd_diff(ctx, args)
-
-	case "find":
-		cmd_find(ctx, args)
-
-	case "info":
-		cmd_info(ctx, args)
-
-	case "key":
-		cmd_key(ctx, args)
-
-	case "ls":
-		cmd_ls(ctx, args)
-
-	case "mount":
-		cmd_mount(ctx, args)
-
-	case "pull":
-		cmd_pull(ctx, args)
-
-	case "push":
-		cmd_push(ctx, args)
-
-	case "rm":
-		cmd_rm(ctx, args)
-
-	case "tarball":
-		cmd_tarball(ctx, args)
-
-	case "ui":
-		cmd_ui(ctx, args)
-
-	case "server":
-		cmd_server(ctx, args)
-
-	case "version":
-		cmd_version(ctx, args)
-
-	default:
+	if err != nil {
+		log.Fatal(err)
+	}
+	if exitCode == -1 {
 		log.Fatalf("%s: unsupported command: %s", flag.CommandLine.Name(), command)
 	}
 
@@ -257,4 +229,9 @@ func main() {
 	if enableTime {
 		logger.Printf("time: %s", time.Since(t0))
 	}
+
+	ctx.store.Close()
+
+	loggerWait()
+	os.Exit(exitCode)
 }

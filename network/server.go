@@ -11,7 +11,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func Server(store storage.Store, addr string) {
+func Server(store *storage.Store, addr string) {
 
 	ProtocolRegister()
 
@@ -30,11 +30,11 @@ func Server(store storage.Store, addr string) {
 	}
 }
 
-func handleConnection(store storage.Store, conn net.Conn) {
+func handleConnection(store *storage.Store, conn net.Conn) {
 	decoder := gob.NewDecoder(conn)
 	encoder := gob.NewEncoder(conn)
 
-	transactions := make(map[string]storage.Transaction)
+	transactions := make(map[string]*storage.Transaction)
 
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()
@@ -123,6 +123,40 @@ func handleConnection(store storage.Store, conn net.Conn) {
 					Payload: ResGetChunk{
 						Data: data,
 						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+					break
+				}
+
+			case "ReqCheckObject":
+				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
+				exists, err := store.CheckObject(request.Payload.(ReqCheckObject).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResCheckObject",
+					Payload: ResCheckObject{
+						Exists: exists,
+						Err:    err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+					break
+				}
+
+			case "ReqCheckChunk":
+				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
+				exists, err := store.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResCheckChunk",
+					Payload: ResCheckChunk{
+						Exists: exists,
+						Err:    err,
 					},
 				}
 				err = encoder.Encode(&result)

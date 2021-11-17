@@ -29,29 +29,27 @@ import (
 func cmd_push(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Parse(args)
+
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
-	snap, err := snapshot.New(ctx.Store(), ctx.Cache())
+	snap, err := snapshot.New(ctx.Store())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if len(args) == 0 {
-		snap.Push(dir)
-	} else {
-		for i := 0; i < len(args); i++ {
-			snap.Push(args[i])
-		}
-	}
+	snap.CommandLine = ctx.CommandLine
 
-	err = snap.Commit()
-	if err != nil {
-		os.Exit(1)
+	if flags.NArg() == 0 {
+		err = snap.Push([]string{dir})
+	} else {
+		err = snap.Push(flags.Args())
 	}
-	logger.Info("%s: OK", snap.Uuid)
+	if err != nil {
+		logger.Info("%s: OK", snap.Uuid)
+	}
 	return 0
 }

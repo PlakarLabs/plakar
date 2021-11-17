@@ -54,11 +54,36 @@ type ResGetChunk struct {
 	Err  error
 }
 
+type ReqCheckObject struct {
+	Checksum string
+}
+
+type ResCheckObject struct {
+	Exists bool
+	Err    error
+}
+
+type ReqCheckChunk struct {
+	Checksum string
+}
+
+type ResCheckChunk struct {
+	Exists bool
+	Err    error
+}
+
 type ReqPurge struct {
 	Uuid string
 }
 
 type ResPurge struct {
+	Err error
+}
+
+type ReqClose struct {
+}
+
+type ResClose struct {
 	Err error
 }
 
@@ -145,8 +170,17 @@ func ProtocolRegister() {
 	gob.Register(ReqGetChunk{})
 	gob.Register(ResGetChunk{})
 
+	gob.Register(ReqCheckObject{})
+	gob.Register(ResCheckObject{})
+
+	gob.Register(ReqCheckChunk{})
+	gob.Register(ResCheckChunk{})
+
 	gob.Register(ReqPurge{})
 	gob.Register(ResPurge{})
+
+	gob.Register(ReqClose{})
+	gob.Register(ResClose{})
 
 	gob.Register(ReqTransaction{})
 	gob.Register(ResTransaction{})

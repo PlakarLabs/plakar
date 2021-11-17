@@ -14,17 +14,44 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package helpers
+package main
 
 import (
-	"sort"
+	"bufio"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
 
-	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/anmitsu/go-shlex"
 )
 
-func SnapshotsSortedByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
-	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
-	})
-	return snapshots
+func cmd_shell(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("shell", flag.ExitOnError)
+	flags.Parse(args)
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Printf("plakar@%s> ", ctx.Repository)
+		text, err := reader.ReadString('\n')
+		if err != nil {
+			return 1
+		}
+		text = strings.TrimSuffix(text, "\n")
+
+		argv, err := shlex.Split(text, true)
+		if err != nil {
+			continue
+		}
+
+		if argv[0] == "exit" || argv[0] == "quit" || argv[0] == "q" {
+			break
+		}
+
+		exitCode, _ := executeCommand(ctx, argv[0], argv[1:])
+		if exitCode == -1 {
+			fmt.Fprintf(os.Stderr, "%s: unsupported command: %s", flag.CommandLine.Name(), argv[0])
+		}
+	}
+	return 0
 }

@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/poolpOrg/plakar/logger"
 )
 
-func (snapshot *Snapshot) Pull(root string, pattern string) {
+func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, 1024)
 	maxFilesConcurrency := make(chan bool, 1024)
@@ -28,7 +29,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := snapshot.Files[fpattern]; ok {
+	if _, ok := snapshot.Filesystem.Files[fpattern]; ok {
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
@@ -36,16 +37,17 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 	}
 
 	directoriesCount := 0
-	for directory, fi := range snapshot.Directories {
+	for directory := range snapshot.Filesystem.Directories {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
 		}
 		maxDirectoriesConcurrency <- true
 		wg.Add(1)
-		go func(fi *FileInfo, directory string) {
+		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
+			fi, _ := snapshot.LookupInodeForPathname(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
 			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
@@ -53,26 +55,32 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
 			directoriesCount++
-		}(fi, directory)
+		}(directory)
 	}
 	wg.Wait()
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for file, fi := range snapshot.Files {
+	for file := range snapshot.Filesystem.Files {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue
 		}
 		maxFilesConcurrency <- true
 		wg.Add(1)
-		go func(fi *FileInfo, file string) {
+		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
+			fi, _ := snapshot.LookupInodeForPathname(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
-			dest = fmt.Sprintf("%s/%s", root, file)
+			if rebase && strings.HasPrefix(file, dpattern) {
+				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])
+			} else {
+				dest = fmt.Sprintf("%s/%s", root, file)
+			}
+			dest = filepath.Clean(dest)
 
-			checksum := snapshot.Pathnames[file]
+			checksum := snapshot.Filenames[file]
 
 			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 
@@ -114,7 +122,7 @@ func (snapshot *Snapshot) Pull(root string, pattern string) {
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
 			filesCount++
-		}(fi, file)
+		}(file)
 	}
 	wg.Wait()
 }

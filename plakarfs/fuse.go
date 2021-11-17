@@ -50,10 +50,10 @@ var inodeToPath map[fuseops.InodeID]string
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	store storage.Store
+	store *storage.Store
 }
 
-func NewPlakarFS(store storage.Store) (fuse.Server, error) {
+func NewPlakarFS(store *storage.Store) (fuse.Server, error) {
 	snapshotToInode = make(map[string]fuseops.InodeID)
 	inodeToSnapshot = make(map[fuseops.InodeID]string)
 	inodeInSnapshot = make(map[fuseops.InodeID]string)
@@ -78,7 +78,7 @@ func NewPlakarFS(store storage.Store) (fuse.Server, error) {
 		inodeToInfo[snapshotInodeID] = inodeInfo
 		inodeToSnapshot[snapshotInodeID] = snapshotUuid
 
-		for pathname, fileInfo := range snapshotInstance.Directories {
+		for pathname, fileInfo := range snapshotInstance.Filesystem.Directories {
 			dirInodeID := allocateInodeID()
 			inodeInfo := InodeInfo{
 				Name:  fileInfo.Name,
@@ -92,7 +92,7 @@ func NewPlakarFS(store storage.Store) (fuse.Server, error) {
 			pathToInode[path.Clean(pathname)] = dirInodeID
 		}
 
-		for pathname, fileInfo := range snapshotInstance.Files {
+		for pathname, fileInfo := range snapshotInstance.Filesystem.Files {
 			inodeID := allocateInodeID()
 			inodeInfo := InodeInfo{
 				Name:  fileInfo.Name,
@@ -217,8 +217,8 @@ func (fs *plakarFS) ReadFile(
 
 	snapshotUuid := inodeInSnapshot[op.Inode]
 	snapshotInstance, _ := snapshot.Load(fs.store, snapshotUuid)
-	objectChecksum := snapshotInstance.Pathnames[inodeToPath[op.Inode]]
-	fileInfo := snapshotInstance.Files[inodeToPath[op.Inode]]
+	objectChecksum := snapshotInstance.Filenames[inodeToPath[op.Inode]]
+	fileInfo := snapshotInstance.Filesystem.Files[inodeToPath[op.Inode]]
 	object := snapshotInstance.Objects[objectChecksum]
 
 	if op.Offset > fileInfo.Size {

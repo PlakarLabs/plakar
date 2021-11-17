@@ -26,7 +26,7 @@ func Info(format string, args ...interface{}) {
 }
 
 func Warn(format string, args ...interface{}) {
-	stderrChannel <- fmt.Sprintf(format, args...)
+	stderrChannel <- fmt.Sprintf("[warning] "+format, args...)
 }
 
 func Error(format string, args ...interface{}) {

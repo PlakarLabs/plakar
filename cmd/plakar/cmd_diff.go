@@ -26,10 +26,11 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func fiToDiff(fi snapshot.FileInfo) string {
+func fiToDiff(fi filesystem.Fileinfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 	username := fmt.Sprintf("%d", fi.Uid)
 	if err == nil {
@@ -54,14 +55,17 @@ func cmd_diff(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
 
-	if len(args) < 2 {
+	if flags.NArg() < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
-	snapshots := getSnapshotsList(ctx)
+	snapshots, err := getSnapshotsList(ctx.Store())
+	if err != nil {
+		log.Fatal(err)
+	}
 	checkSnapshotsArgs(snapshots)
 
-	if len(args) == 2 {
+	if len(flags.Args()) == 2 {
 		// check if snapshot id's both reference a file
 		// if not, stat diff of snapshots, else diff files
 		rel1 := strings.Contains(args[0], ":")
@@ -84,10 +88,12 @@ func cmd_diff(ctx Plakar, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1, fi1 := range snapshot1.Directories {
-				fi2, ok := snapshot2.Directories[dir1]
+			for dir1 := range snapshot1.Filesystem.Directories {
+				fi1, _ := snapshot1.LookupInodeForDirectory(dir1)
+				fi2, ok := snapshot2.LookupInodeForDirectory(dir1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
+					continue
 				}
 				if *fi1 != *fi2 {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
@@ -95,17 +101,20 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for dir2, fi2 := range snapshot2.Directories {
-				_, ok := snapshot1.Directories[dir2]
+			for dir2 := range snapshot2.Filesystem.Directories {
+				fi2, _ := snapshot2.LookupInodeForDirectory(dir2)
+				_, ok := snapshot1.LookupInodeForDirectory(dir2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), dir2)
 				}
 			}
 
-			for file1, fi1 := range snapshot1.Files {
-				fi2, ok := snapshot2.Files[file1]
+			for file1 := range snapshot1.Filesystem.Files {
+				fi1, _ := snapshot1.LookupInodeForPathname(file1)
+				fi2, ok := snapshot2.LookupInodeForPathname(file1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
+					continue
 				}
 				if *fi1 != *fi2 {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
@@ -113,8 +122,10 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file2, fi2 := range snapshot2.Files {
-				_, ok := snapshot1.Files[file2]
+			for file2 := range snapshot2.Filesystem.Files {
+				fi2, _ := snapshot1.LookupInodeForPathname(file2)
+				//_, ok := snapshot1.GetInode(file2)
+				_, ok := snapshot1.LookupInodeForFilename(file2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)
 				}
@@ -154,8 +165,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Pathnames[args[i]]
-			_, ok2 := snapshot2.Pathnames[args[i]]
+			_, ok1 := snapshot1.Filenames[args[i]]
+			_, ok2 := snapshot2.Filenames[args[i]]
 			if !ok1 && !ok2 {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -167,8 +178,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Pathnames[filename1]
-	sum2, ok2 := snapshot2.Pathnames[filename2]
+	sum1, ok1 := snapshot1.Filenames[filename1]
+	sum2, ok2 := snapshot2.Filenames[filename2]
 
 	// file does not exist in either snapshot
 	if !ok1 && !ok2 {

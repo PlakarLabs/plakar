@@ -1,24 +1,12 @@
 package snapshot
 
 import (
-	"os"
+	"sync"
 	"time"
 
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/storage"
 )
-
-type FileInfo struct {
-	Name    string
-	Size    int64
-	Mode    os.FileMode
-	ModTime time.Time
-	Dev     uint64
-	Ino     uint64
-	Uid     uint64
-	Gid     uint64
-
-	path string
-}
 
 type Chunk struct {
 	Checksum string
@@ -30,16 +18,56 @@ type Object struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
-
-	fp   *os.File
-	path string
 }
 
+// CachedObject needs to be killed
 type CachedObject struct {
 	Checksum    string
 	Chunks      []*Chunk
 	ContentType string
-	Info        FileInfo
+	Info        filesystem.Fileinfo
+}
+
+type Snapshot struct {
+	store       *storage.Store
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
+	Uuid         string
+	CreationTime time.Time
+	Version      string
+	Hostname     string
+	Username     string
+	CommandLine  string
+
+	Size uint64
+
+	Filesystem *filesystem.Filesystem
+
+	// Filename -> Object checksum
+	muFilenames sync.Mutex
+	Filenames   map[string]string
+
+	// Object checksum -> Object
+	muObjects sync.Mutex
+	Objects   map[string]*Object
+
+	// Chunk checksum -> Chunk
+	muChunks sync.Mutex
+	Chunks   map[string]*Chunk
+
+	// Chunk checksum -> Object checksums
+	muChunkToObjects sync.Mutex
+	ChunkToObjects   map[string][]string
+
+	// Object checksum -> Filenames
+	muObjectToPathnames sync.Mutex
+	ObjectToPathnames   map[string][]string
+
+	// Content Type -> Object checksums
+	muContentTypeToObjects sync.Mutex
+	ContentTypeToObjects   map[string][]string
 }
 
 type SnapshotStorage struct {
@@ -48,59 +76,27 @@ type SnapshotStorage struct {
 	Version      string
 	Hostname     string
 	Username     string
-
-	Directories map[string]*FileInfo
-	Files       map[string]*FileInfo
-	NonRegular  map[string]*FileInfo
-	Pathnames   map[string]string
-	Objects     map[string]*Object
-	Chunks      map[string]*Chunk
-
-	Size uint64
-}
-
-type Snapshot struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-
-	Directories map[string]*FileInfo
-	Files       map[string]*FileInfo
-	NonRegular  map[string]*FileInfo
-	Pathnames   map[string]string
-	Objects     map[string]*Object
-	Chunks      map[string]*Chunk
+	CommandLine  string
 
 	Size uint64
 
-	Quiet bool
+	Filesystem *filesystem.Filesystem
 
-	store       storage.Store
-	transaction storage.Transaction
-	SkipDirs    []string
+	// Filename -> Object checksum
+	Filenames map[string]string
 
-	WrittenChunks  map[string]bool
-	InflightChunks map[string]*Chunk
+	// Object checksum -> Object
+	Objects map[string]*Object
 
-	WrittenObjects  map[string]bool
-	InflightObjects map[string]*Object
-}
+	// Chunk checksum -> Chunk
+	Chunks map[string]*Chunk
 
-type SnapshotSummary struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
+	// Chunk checksum -> Object checksums
+	ChunkToObjects map[string][]string
 
-	Directories uint64
-	Files       uint64
-	NonRegular  uint64
-	Pathnames   uint64
-	Objects     uint64
-	Chunks      uint64
+	// Object checksum -> Filenames
+	ObjectToPathnames map[string][]string
 
-	Size uint64
+	// Content Type -> Object checksums
+	ContentTypeToObjects map[string][]string
 }

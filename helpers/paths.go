@@ -14,49 +14,28 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package client
+package helpers
 
 import (
-	"encoding/gob"
-	"net"
-	"sync"
-
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/network"
-	"github.com/poolpOrg/plakar/storage"
+	"strings"
 )
 
-type inflight struct {
-	Add  bool
-	Uuid string
-	Chan chan network.Request
-}
+func PathIsWithin(pathname string, within string) bool {
+	withinArr := strings.Split(within, "/")
+	pathnameArr := strings.Split(pathname, "/")
 
-type ClientStore struct {
-	config storage.StoreConfig
+	if within == "/" && len(pathnameArr) == 2 {
+		return true
+	}
 
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
+	if len(pathnameArr) != len(withinArr)+1 {
+		return false
+	}
 
-	conn    net.Conn
-	encoder *gob.Encoder
-	decoder *gob.Decoder
-	mu      sync.Mutex
-
-	Repository string
-
-	inflightRequests     map[string]chan network.Request
-	registerInflight     chan inflight
-	notifications        chan network.Request
-	maxConcurrentRequest chan bool
-
-	storage.StoreBackend
-}
-
-type ClientTransaction struct {
-	Uuid  string
-	store *ClientStore
-
-	storage.TransactionBackend
+	for offset, _ := range withinArr {
+		if withinArr[offset] != pathnameArr[offset] {
+			return false
+		}
+	}
+	return true
 }

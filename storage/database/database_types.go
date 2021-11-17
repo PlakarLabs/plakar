@@ -14,12 +14,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package client
+package database
 
 import (
-	"encoding/gob"
-	"net"
+	"database/sql"
 	"sync"
+
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/encryption"
@@ -33,30 +34,26 @@ type inflight struct {
 	Chan chan network.Request
 }
 
-type ClientStore struct {
+type DatabaseStore struct {
 	config storage.StoreConfig
 
 	Cache   *cache.Cache
 	Keypair *encryption.Keypair
 
-	conn    net.Conn
-	encoder *gob.Encoder
-	decoder *gob.Decoder
-	mu      sync.Mutex
+	backend string
+
+	conn *sql.DB
+	mu   sync.Mutex
 
 	Repository string
-
-	inflightRequests     map[string]chan network.Request
-	registerInflight     chan inflight
-	notifications        chan network.Request
-	maxConcurrentRequest chan bool
 
 	storage.StoreBackend
 }
 
-type ClientTransaction struct {
+type DatabaseTransaction struct {
 	Uuid  string
-	store *ClientStore
+	store *DatabaseStore
 
+	dbTx *sql.Tx
 	storage.TransactionBackend
 }

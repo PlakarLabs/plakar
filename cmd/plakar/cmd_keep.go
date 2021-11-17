@@ -18,38 +18,39 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
-
-	"github.com/dustin/go-humanize"
+	"strconv"
 )
 
-func cmd_info(ctx Plakar, args []string) int {
-	flags := flag.NewFlagSet("info", flag.ExitOnError)
+func cmd_keep(ctx Plakar, args []string) int {
+	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
+		log.Fatalf("%s: need a number of snapshots to keep", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	count, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
+	}
+
+	snapshotsList, err := getSnapshotsList(ctx.Store())
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(snapshotsList) < count {
+		return 0
+	}
+
+	snapshots, err := getSnapshots(ctx.Store(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	snapshots = sortSnapshotsByDate(snapshots)[:len(snapshots)-count]
 	for _, snapshot := range snapshots {
-		fmt.Printf("Uuid: %s\n", snapshot.Uuid)
-		fmt.Printf("CreationTime: %s\n", snapshot.CreationTime)
-		fmt.Printf("Version: %s\n", snapshot.Version)
-		fmt.Printf("Hostname: %s\n", snapshot.Hostname)
-		fmt.Printf("Username: %s\n", snapshot.Username)
-		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
-		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
-		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Filenames))
-		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
-		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Size), snapshot.Size)
+		ctx.Store().Purge(snapshot.Uuid)
 	}
 
 	return 0

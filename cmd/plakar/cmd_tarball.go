@@ -24,15 +24,23 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
+	"time"
 
-	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/helpers"
+	"github.com/poolpOrg/plakar/logger"
 )
 
 func cmd_tarball(ctx Plakar, args []string) int {
+	var tarballPath string
+	var tarballRebase bool
+
 	flags := flag.NewFlagSet("tarball", flag.ExitOnError)
+	flags.StringVar(&tarballPath, "output", fmt.Sprintf("plakar-%s.tar.gz", time.Now().UTC().Format(time.RFC3339)), "tarball pathname")
+	flags.BoolVar(&tarballRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
 
-	if len(args) == 0 {
+	if flags.NArg() == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
@@ -41,36 +49,43 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots := getSnapshotsList(ctx)
-
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
+	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	gzipWriter := gzip.NewWriter(os.Stdout)
+	var gzipWriter *gzip.Writer
+	if tarballPath == "-" {
+		gzipWriter = gzip.NewWriter(os.Stdout)
+	} else {
+		fp, err := os.Create(tarballPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		gzipWriter = gzip.NewWriter(fp)
+	}
 	defer gzipWriter.Close()
 
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
-	for i := 0; i < len(args); i++ {
-		prefix, _ := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snap, err := snapshot.Load(ctx.Store(), res[0])
-		if err != nil {
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
-		}
+	for offset, snapshot := range snapshots {
+		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file, checksum := range snap.Pathnames {
-			info := snap.Files[file]
+		for file, checksum := range snapshot.Filenames {
+			if prefix != "" {
+				if !helpers.PathIsWithin(file, prefix) {
+					continue
+				}
+			}
+
+			info, _ := snapshot.LookupInodeForPathname(file)
+			filepath := file
+			if tarballRebase {
+				filepath = strings.TrimPrefix(filepath, prefix)
+			}
 			header := &tar.Header{
-				Name:    file,
+				Name:    filepath,
 				Size:    info.Size,
 				Mode:    int64(info.Mode),
 				ModTime: info.ModTime,
@@ -78,21 +93,21 @@ func cmd_tarball(ctx Plakar, args []string) int {
 
 			err = tarWriter.WriteHeader(header)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "could not write header for file %s\n", file)
+				logger.Error("could not write header for file %s", file)
 				continue
 			}
 
-			obj := snap.Objects[checksum]
+			obj := snapshot.LookupObjectForChecksum(checksum)
 			for _, chunk := range obj.Chunks {
-				data, err := snap.GetChunk(chunk.Checksum)
+				data, err := snapshot.GetChunk(chunk.Checksum)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "corrupted file %s\n", file)
+					logger.Error("corrupted file %s", file)
 					continue
 				}
 
 				_, err = io.WriteString(tarWriter, string(data))
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "could not write file %s\n", file)
+					logger.Error("could not write file %s", file)
 					continue
 				}
 			}
@@ -100,5 +115,8 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		}
 	}
 
+	if tarballPath != "-" {
+		logger.Info("created tarball %s", tarballPath)
+	}
 	return 0
 }

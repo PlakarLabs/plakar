@@ -17,146 +17,48 @@
 package main
 
 import (
-	"crypto/sha256"
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_check(ctx Plakar, args []string) int {
+	var enableFastCheck bool
+
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.Parse(args)
 
-	if len(flags.Args()) == 0 {
+	if flags.NArg() == 0 {
 		logger.Error("%s: at least one parameter is required", flags.Name())
 		return 1
 	}
 
-	snapshots := getSnapshotsList(ctx)
-	checkSnapshotsArgs(snapshots)
+	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	for i := 0; i < len(args); i++ {
-		prefix, pattern := parseSnapshotID(args[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		snap, err := snapshot.Load(ctx.Store(), res[0])
+	failures := false
+	for offset, snapshot := range snapshots {
+		_, pattern := parseSnapshotID(flags.Args()[offset])
+
+		ok, err := snapshot.Check(pattern, enableFastCheck)
 		if err != nil {
-			fmt.Println(err)
-			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res[0])
+			logger.Warn("%s", err)
 		}
 
-		snapshotOk := false
-		if pattern != "" {
-			checksum, ok := snap.Pathnames[pattern]
-			if !ok {
-				logger.Warn("%s: unlisted file %s", snap.Uuid, pattern)
-				snapshotOk = false
-				continue
-			}
-			object, ok := snap.Objects[checksum]
-			if !ok {
-				logger.Warn("%s: unlisted object %s", snap.Uuid, checksum)
-				snapshotOk = false
-				continue
-			}
-
-			objectHash := sha256.New()
-			for _, chunk := range object.Chunks {
-				data, err := snap.GetChunk(chunk.Checksum)
-				if err != nil {
-					logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-				objectHash.Write(data)
-			}
-			if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-				logger.Warn("%s: corrupted object %s", snap.Uuid, checksum)
-				snapshotOk = false
-				continue
-			}
-
+		if ok {
+			logger.Info("%s: OK", snapshot.Uuid)
 		} else {
-
-			for _, chunk := range snap.Chunks {
-
-				data, err := snap.GetChunk(chunk.Checksum)
-				if err != nil {
-					logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-				chunkHash := sha256.New()
-				chunkHash.Write(data)
-				if fmt.Sprintf("%032x", chunkHash.Sum(nil)) != chunk.Checksum {
-					logger.Warn("%s: corrupted chunk %s", snap.Uuid, chunk.Checksum)
-					snapshotOk = false
-					continue
-				}
-
-			}
-
-			for checksum := range snap.Objects {
-				object, err := snap.GetObject(checksum)
-				if err != nil {
-					logger.Warn("%s: missing object %s", snap.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-				objectHash := sha256.New()
-
-				for _, chunk := range object.Chunks {
-					_, ok := snap.Chunks[chunk.Checksum]
-					if !ok {
-						logger.Warn("%s: unlisted chunk %s", snap.Uuid, chunk.Checksum)
-						snapshotOk = false
-						continue
-					}
-
-					data, err := snap.GetChunk(chunk.Checksum)
-					if err != nil {
-						logger.Warn("%s: missing chunk %s", snap.Uuid, chunk.Checksum)
-						snapshotOk = false
-						continue
-					}
-					objectHash.Write(data)
-				}
-				if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
-					logger.Warn("%s: corrupted object %s", snap.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-			}
-
-			for file := range snap.Files {
-				checksum, ok := snap.Pathnames[file]
-				if !ok {
-					logger.Warn("%s: unlisted file %s", snap.Uuid, file)
-					snapshotOk = false
-					continue
-				}
-				_, ok = snap.Objects[checksum]
-				if !ok {
-					logger.Warn("%s: unlisted object %s", snap.Uuid, checksum)
-					snapshotOk = false
-					continue
-				}
-			}
-		}
-
-		key := snap.Uuid
-		if pattern != "" {
-			key = fmt.Sprintf("%s:%s", snap.Uuid, pattern)
-		}
-		_ = key
-
-		if snapshotOk {
-			logger.Info("%s: OK", snap.Uuid)
-		} else {
-			logger.Error("%s: KO", snap.Uuid)
+			logger.Info("%s: KO", snapshot.Uuid)
+			failures = true
 		}
 	}
-	return 0
+
+	if !failures {
+		return 0
+	}
+	return 1
 }

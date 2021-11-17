@@ -1,20 +1,19 @@
 package snapshot
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
+const VERSION = "0.1.1"
+
+func New(store *storage.Store) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
 		return nil, err
@@ -25,28 +24,27 @@ func New(store storage.Store, localCache *cache.Cache) (*Snapshot, error) {
 
 		Uuid:         tx.GetUuid(),
 		CreationTime: time.Now(),
-		Version:      "0.1.0",
+		Version:      VERSION,
 		Hostname:     "",
 		Username:     "",
+		CommandLine:  "",
 
-		Directories: make(map[string]*FileInfo),
-		Files:       make(map[string]*FileInfo),
-		NonRegular:  make(map[string]*FileInfo),
-		Pathnames:   make(map[string]string),
-		Objects:     make(map[string]*Object),
-		Chunks:      make(map[string]*Chunk),
+		Filesystem: filesystem.NewFilesystem(),
 
-		WrittenChunks:   make(map[string]bool),
-		WrittenObjects:  make(map[string]bool),
-		InflightChunks:  make(map[string]*Chunk),
-		InflightObjects: make(map[string]*Object),
+		Filenames: make(map[string]string),
+		Objects:   make(map[string]*Object),
+		Chunks:    make(map[string]*Chunk),
+
+		ChunkToObjects:       make(map[string][]string),
+		ObjectToPathnames:    make(map[string][]string),
+		ContentTypeToObjects: make(map[string][]string),
 	}
 
 	logger.Trace("%s: New()", snapshot.Uuid)
 	return snapshot, nil
 }
 
-func Load(store storage.Store, Uuid string) (*Snapshot, error) {
+func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	cache := store.GetCache()
 	keypair := store.GetKeypair()
 
@@ -86,24 +84,10 @@ func Load(store storage.Store, Uuid string) (*Snapshot, error) {
 		return nil, err
 	}
 
-	var snapshotStorage SnapshotStorage
-	if err := json.Unmarshal(data, &snapshotStorage); err != nil {
+	snapshot, err := snapshotFromBytes(data)
+	if err != nil {
 		return nil, err
 	}
-
-	snapshot := &Snapshot{}
-	snapshot.Uuid = snapshotStorage.Uuid
-	snapshot.CreationTime = snapshotStorage.CreationTime
-	snapshot.Version = snapshotStorage.Version
-	snapshot.Hostname = snapshotStorage.Hostname
-	snapshot.Username = snapshotStorage.Username
-	snapshot.Directories = snapshotStorage.Directories
-	snapshot.Files = snapshotStorage.Files
-	snapshot.NonRegular = snapshotStorage.NonRegular
-	snapshot.Pathnames = snapshotStorage.Pathnames
-	snapshot.Objects = snapshotStorage.Objects
-	snapshot.Chunks = snapshotStorage.Chunks
-	snapshot.Size = snapshotStorage.Size
 	snapshot.store = store
 
 	if cache != nil && cacheMiss {
@@ -113,7 +97,7 @@ func Load(store storage.Store, Uuid string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func List(store storage.Store) ([]string, error) {
+func List(store *storage.Store) ([]string, error) {
 	return store.GetIndexes()
 }
 
@@ -165,6 +149,16 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
+func (snapshot *Snapshot) ReferenceChunks(keys []string) ([]bool, error) {
+	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Uuid, len(keys))
+	return snapshot.transaction.ReferenceChunks(keys)
+}
+
+func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
+	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Uuid, len(keys))
+	return snapshot.transaction.ReferenceObjects(keys)
+}
+
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()
@@ -202,6 +196,15 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	return compression.Inflate(buffer)
 }
 
+func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
+	logger.Trace("%s: CheckChunk(%s)", snapshot.Uuid, checksum)
+	exists, err := snapshot.store.CheckChunk(checksum)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	keypair := snapshot.store.GetKeypair()
 
@@ -229,24 +232,19 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	return object, err
 }
 
+func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
+	logger.Trace("%s: CheckObject(%s)", snapshot.Uuid, checksum)
+	exists, err := snapshot.store.CheckObject(checksum)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.store.GetCache()
 
-	snapshotStorage := SnapshotStorage{}
-	snapshotStorage.Uuid = snapshot.Uuid
-	snapshotStorage.CreationTime = snapshot.CreationTime
-	snapshotStorage.Version = snapshot.Version
-	snapshotStorage.Hostname = snapshot.Hostname
-	snapshotStorage.Username = snapshot.Username
-	snapshotStorage.Directories = snapshot.Directories
-	snapshotStorage.Files = snapshot.Files
-	snapshotStorage.NonRegular = snapshot.NonRegular
-	snapshotStorage.Pathnames = snapshot.Pathnames
-	snapshotStorage.Objects = snapshot.Objects
-	snapshotStorage.Chunks = snapshot.Chunks
-	snapshotStorage.Size = snapshot.Size
-
-	serialized, err := json.Marshal(snapshotStorage)
+	serialized, err := snapshotToBytes(snapshot)
 	if err != nil {
 		return err
 	}
@@ -264,101 +262,50 @@ func (snapshot *Snapshot) Commit() error {
 	return snapshot.transaction.Commit()
 }
 
-func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	keypair := snapshot.store.GetKeypair()
-	cache := snapshot.store.GetCache()
+func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {
+	snapshot.muChunkToObjects.Lock()
+	defer snapshot.muChunkToObjects.Unlock()
 
-	pathHash := sha256.New()
-	pathHash.Write([]byte(pathname))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
-
-	data, err := cache.GetPath(hashedPath)
-	if err != nil {
-		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Uuid, pathname)
-		return nil, err
+	if _, exists := snapshot.ChunkToObjects[chunkChecksum]; !exists {
+		snapshot.ChunkToObjects[chunkChecksum] = make([]string, 0)
 	}
-	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
 
-	if snapshot.store.Configuration().Encrypted != "" {
-		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
-		if err != nil {
-			return nil, err
+	for _, value := range snapshot.ChunkToObjects[chunkChecksum] {
+		if value == objectChecksum {
+			return
 		}
-		data = tmp
 	}
-
-	data, err = compression.Inflate(data)
-	if err != nil {
-		return nil, err
-	}
-
-	cacheObject := CachedObject{}
-	err = json.Unmarshal(data, &cacheObject)
-	if err != nil {
-		return nil, err
-	}
-	cacheObject.Info.path = pathname
-	return &cacheObject, nil
+	snapshot.ChunkToObjects[chunkChecksum] = append(snapshot.ChunkToObjects[chunkChecksum], objectChecksum)
 }
 
-func (snapshot *Snapshot) PutCachedObject(object Object, fi FileInfo) error {
-	keypair := snapshot.store.GetKeypair()
-	cache := snapshot.store.GetCache()
+func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathname string) {
+	snapshot.muObjectToPathnames.Lock()
+	defer snapshot.muObjectToPathnames.Unlock()
 
-	pathHash := sha256.New()
-	pathHash.Write([]byte(object.path))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
-
-	cacheObject := CachedObject{}
-	cacheObject.Checksum = object.Checksum
-	cacheObject.Chunks = object.Chunks
-	cacheObject.ContentType = object.ContentType
-	cacheObject.Info = fi
-
-	jobject, err := json.Marshal(cacheObject)
-	if err != nil {
-		return err
+	if _, exists := snapshot.ObjectToPathnames[objectChecksum]; !exists {
+		snapshot.ObjectToPathnames[objectChecksum] = make([]string, 0)
 	}
 
-	jobject = compression.Deflate(jobject)
-	if snapshot.store.Configuration().Encrypted != "" {
-		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
-		if err != nil {
-			return err
+	for _, value := range snapshot.ObjectToPathnames[objectChecksum] {
+		if value == pathname {
+			return
 		}
-		jobject = tmp
+	}
+	snapshot.ObjectToPathnames[objectChecksum] = append(snapshot.ObjectToPathnames[objectChecksum], pathname)
+}
+
+func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum string) {
+	snapshot.muContentTypeToObjects.Lock()
+	defer snapshot.muContentTypeToObjects.Unlock()
+
+	if _, exists := snapshot.ContentTypeToObjects[contentType]; !exists {
+		snapshot.ContentTypeToObjects[contentType] = make([]string, 0)
 	}
 
-	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, fi.path)
-	cache.PutPath(hashedPath, jobject)
-	return nil
-}
-
-func SnapshotToSummary(snapshot *Snapshot) *SnapshotSummary {
-	ss := &SnapshotSummary{}
-	ss.Uuid = snapshot.Uuid
-	ss.CreationTime = snapshot.CreationTime
-	ss.Version = snapshot.Version
-	ss.Hostname = snapshot.Hostname
-	ss.Username = snapshot.Username
-	ss.Directories = uint64(len(snapshot.Directories))
-	ss.Files = uint64(len(snapshot.Files))
-	ss.NonRegular = uint64(len(snapshot.NonRegular))
-	ss.Pathnames = uint64(len(snapshot.Pathnames))
-	ss.Objects = uint64(len(snapshot.Objects))
-	ss.Chunks = uint64(len(snapshot.Chunks))
-	ss.Size = snapshot.Size
-	return ss
-}
-
-func (snapshot *Snapshot) HumanSize() string {
-	return humanize.Bytes(snapshot.Size)
-}
-
-func (fi *FileInfo) HumanSize() string {
-	return humanize.Bytes(uint64(fi.Size))
-}
-
-func (summary *SnapshotSummary) HumanSize() string {
-	return humanize.Bytes(summary.Size)
+	for _, value := range snapshot.ContentTypeToObjects[contentType] {
+		if value == objectChecksum {
+			return
+		}
+	}
+	snapshot.ContentTypeToObjects[contentType] = append(snapshot.ContentTypeToObjects[contentType], objectChecksum)
 }

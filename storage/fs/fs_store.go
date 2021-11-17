@@ -21,20 +21,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
 )
+
+func init() {
+	storage.Register("filesystem", &FSStore{})
+}
 
 func (store *FSStore) objectExists(checksum string) bool {
 	return pathnameExists(store.PathObject(checksum))
@@ -81,31 +82,7 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 	return nil
 }
 
-func (store *FSStore) GetCache() *cache.Cache {
-	return store.Cache
-}
-
-func (store *FSStore) GetKeypair() *encryption.Keypair {
-	return store.Keypair
-}
-
-func (store *FSStore) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
-	return nil
-}
-
-func (store *FSStore) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
-	return nil
-}
-
 func (store *FSStore) Open(repository string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Open(%s): %s", repository, time.Since(t0))
-	}()
-
-	store.SkipDirs = append(store.SkipDirs, path.Clean(repository))
 	store.root = repository
 
 	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", store.root))
@@ -133,17 +110,13 @@ func (store *FSStore) Configuration() storage.StoreConfig {
 	return store.config
 }
 
-func (store *FSStore) Transaction() (storage.Transaction, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Transaction(): %s", time.Since(t0))
-	}()
+func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
+	// XXX - keep a map of current transactions
 
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
 	tx.store = *store
 	tx.prepared = false
-	tx.SkipDirs = store.SkipDirs
 
 	tx.chunks = make(map[string]bool)
 	tx.objects = make(map[string]bool)
@@ -152,11 +125,6 @@ func (store *FSStore) Transaction() (storage.Transaction, error) {
 }
 
 func (store *FSStore) GetIndexes() ([]string, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetIndexes(): %s", time.Since(t0))
-	}()
-
 	ret := make([]string, 0)
 
 	buckets, err := ioutil.ReadDir(store.PathIndexes())
@@ -181,17 +149,12 @@ func (store *FSStore) GetIndexes() ([]string, error) {
 }
 
 func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetIndex(%s): %s", Uuid, time.Since(t0))
-	}()
-
-	_, err := uuid.Parse(Uuid)
+	parsedUuid, err := uuid.Parse(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathIndex(Uuid)))
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathIndex(parsedUuid.String())))
 	if err != nil {
 		return nil, err
 	}
@@ -200,11 +163,6 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 }
 
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetObject(%s): %s", checksum, time.Since(t0))
-	}()
-
 	data, err := ioutil.ReadFile(store.PathObject(checksum))
 	if err != nil {
 		return nil, err
@@ -214,11 +172,6 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 }
 
 func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("GetChunk(%s): %s", checksum, time.Since(t0))
-	}()
-
 	data, err := ioutil.ReadFile(store.PathChunk(checksum))
 	if err != nil {
 		return nil, err
@@ -227,12 +180,24 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	return data, nil
 }
 
-func (store *FSStore) Purge(id string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Purge(%s): %s", id, time.Since(t0))
-	}()
+func (store *FSStore) CheckObject(checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathObject(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+}
 
+func (store *FSStore) CheckChunk(checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathChunk(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+
+}
+
+func (store *FSStore) Purge(id string) error {
 	dest := fmt.Sprintf("%s/%s", store.PathPurge(), id)
 	err := os.Rename(store.PathIndex(id), dest)
 	if err != nil {
@@ -246,6 +211,12 @@ func (store *FSStore) Purge(id string) error {
 
 	store.Tidy()
 
+	return nil
+}
+
+func (store *FSStore) Close() error {
+	// XXX - rollback all pending transactions so they don't linger
+	store.Tidy()
 	return nil
 }
 

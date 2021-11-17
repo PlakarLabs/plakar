@@ -19,9 +19,11 @@ package main
 import (
 	"flag"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func parseSnapshotID(id string) (string, string) {
@@ -45,21 +47,67 @@ func findSnapshotByPrefix(snapshots []string, prefix string) []string {
 	return ret
 }
 
-func findObjectByPrefix(objects []string, prefix string) []string {
-	ret := make([]string, 0)
-	for _, snapshot := range objects {
-		if strings.HasPrefix(snapshot, prefix) {
-			ret = append(ret, snapshot)
-		}
+func getSnapshotsList(store *storage.Store) ([]string, error) {
+	snapshots, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
 	}
-	return ret
+	return snapshots, nil
 }
 
-func getSnapshotsList(ctx Plakar) []string {
-	snapshots, err := snapshot.List(ctx.Store())
+func getSnapshots(store *storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+		return nil, err
 	}
+
+	result := make([]*snapshot.Snapshot, 0)
+
+	// no prefixes, this is a full fetch
+	if prefixes == nil {
+		for _, snapshotUuid := range snapshotsList {
+			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, snapshotInstance)
+		}
+		return sortSnapshotsByDate(result), nil
+	}
+
+	// prefixes, preprocess snapshots to only fetch necessary ones
+	for _, prefix := range prefixes {
+		parsedUuidPrefix, _ := parseSnapshotID(prefix)
+
+		matches := 0
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				matches++
+			}
+		}
+		if matches == 0 {
+			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+		} else if matches > 1 {
+			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
+		}
+
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, snapshotInstance)
+			}
+		}
+	}
+	return result, nil
+}
+
+func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
+	})
 	return snapshots
 }
 
@@ -73,4 +121,69 @@ func checkSnapshotsArgs(snapshots []string) {
 			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
 		}
 	}
+}
+
+func executeCommand(ctx Plakar, command string, args []string) (int, error) {
+	var exitCode int
+
+	switch command {
+	case "cat":
+		exitCode = cmd_cat(ctx, args)
+
+	case "check":
+		exitCode = cmd_check(ctx, args)
+
+	case "diff":
+		exitCode = cmd_diff(ctx, args)
+
+	case "exec":
+		exitCode = cmd_exec(ctx, args)
+
+	case "find":
+		exitCode = cmd_find(ctx, args)
+
+	case "info":
+		exitCode = cmd_info(ctx, args)
+
+	case "keep":
+		exitCode = cmd_keep(ctx, args)
+
+	case "key":
+		exitCode = cmd_key(ctx, args)
+
+	case "ls":
+		exitCode = cmd_ls(ctx, args)
+
+	case "mount":
+		exitCode = cmd_mount(ctx, args)
+
+	case "pull":
+		exitCode = cmd_pull(ctx, args)
+
+	case "push":
+		exitCode = cmd_push(ctx, args)
+
+	case "rm":
+		exitCode = cmd_rm(ctx, args)
+
+	case "server":
+		exitCode = cmd_server(ctx, args)
+
+	case "shell":
+		exitCode = cmd_shell(ctx, args)
+
+	case "tarball":
+		exitCode = cmd_tarball(ctx, args)
+
+	case "ui":
+		exitCode = cmd_ui(ctx, args)
+
+	case "version":
+		exitCode = cmd_version(ctx, args)
+
+	default:
+		return -1, nil
+	}
+
+	return exitCode, nil
 }

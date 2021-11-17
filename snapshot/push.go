@@ -189,7 +189,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, bufPool *sync.Pool, pathname string) (*Object, error) {
+func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -201,7 +201,6 @@ func chunkify(snapshot *Snapshot, bufPool *sync.Pool, pathname string) (*Object,
 	objectHash := sha256.New()
 
 	chk := chunker.New(rd, 0x3dea92648f6e83)
-	buf := bufPool.Get().(*[]byte)
 	firstChunk := true
 	for {
 		cdcChunk, err := chk.Next(*buf)
@@ -251,7 +250,6 @@ func chunkify(snapshot *Snapshot, bufPool *sync.Pool, pathname string) (*Object,
 		snapshot.muChunks.Unlock()
 
 	}
-	bufPool.Put(buf)
 	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 	return object, nil
 }
@@ -278,7 +276,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			return &b
 		},
 	}
-	maxConcurrency := make(chan bool, 32)
+	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
 	for pathname, fileinfo := range snapshot.Filesystem.Files {
 		maxConcurrency <- true
@@ -300,7 +298,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil {
-				object, err = chunkify(snapshot, &bufPool, pathname)
+				buf := bufPool.Get().(*[]byte)
+				object, err = chunkify(snapshot, buf, pathname)
+				bufPool.Put(buf)
 				if err != nil {
 					// something went wrong, skip this file
 					// errchan <- err

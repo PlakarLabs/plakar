@@ -29,8 +29,11 @@ type Filesystem struct {
 	muScannedDirectories sync.Mutex
 	ScannedDirectories   []string
 
-	muInodes sync.Mutex
-	Inodes   map[string]*Fileinfo
+	muStat sync.Mutex
+	Stat   map[string]*Fileinfo
+
+	muLstat sync.Mutex
+	Lstat   map[string]*Fileinfo
 
 	muDirectories sync.Mutex
 	Directories   map[string]*Fileinfo
@@ -40,4 +43,7 @@ type Filesystem struct {
 
 	muNonRegular sync.Mutex
 	NonRegular   map[string]*Fileinfo
+
+	muSymlinks sync.Mutex
+	Symlinks   map[string]string
 }

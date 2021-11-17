@@ -179,6 +179,13 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = cachedObject.Chunks
 	object.ContentType = cachedObject.ContentType
+
+	for _, chunk := range object.Chunks {
+		snapshot.muChunks.Lock()
+		snapshot.Chunks[chunk.Checksum] = chunk
+		snapshot.muChunks.Unlock()
+	}
+
 	return &object, nil
 }
 

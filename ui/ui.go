@@ -154,6 +154,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	directories := make([]*filesystem.Fileinfo, 0)
 	files := make([]*filesystem.Fileinfo, 0)
+	symlinks := make([]*filesystem.Fileinfo, 0)
+	symlinksResolve := make(map[string]string)
+	others := make([]*filesystem.Fileinfo, 0)
 
 	children, _ := snap.LookupPathChildren(path)
 	for _, fileinfo := range children {
@@ -161,6 +164,14 @@ func browse(w http.ResponseWriter, r *http.Request) {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode.IsRegular() {
 			files = append(files, fileinfo)
+		} else {
+			pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name)
+			if _, exists := snap.Filesystem.Symlinks[pathname]; exists {
+				symlinks = append(symlinks, fileinfo)
+				symlinksResolve[fileinfo.Name] = snap.Filesystem.Symlinks[pathname]
+			} else {
+				others = append(others, fileinfo)
+			}
 		}
 	}
 
@@ -169,6 +180,12 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	})
 	sort.Slice(files, func(i, j int) bool {
 		return strings.Compare(files[i].Name, files[j].Name) < 0
+	})
+	sort.Slice(symlinks, func(i, j int) bool {
+		return strings.Compare(symlinks[i].Name, symlinks[j].Name) < 0
+	})
+	sort.Slice(others, func(i, j int) bool {
+		return strings.Compare(others[i].Name, others[j].Name) < 0
 	})
 
 	nav := make([]string, 0)
@@ -183,11 +200,14 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Snapshot        *snapshot.Snapshot
 		Directories     []*filesystem.Fileinfo
 		Files           []*filesystem.Fileinfo
+		Symlinks        []*filesystem.Fileinfo
+		SymlinksResolve map[string]string
+		Others          []*filesystem.Fileinfo
 		Path            string
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, path, snap.Filesystem.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Filesystem.ScannedDirectories, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }

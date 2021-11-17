@@ -10,6 +10,9 @@
     {{$NavigationLinks:=.NavigationLinks}}
     {{$Directories:=.Directories}}
     {{$Files:=.Files}}
+    {{$Symlinks:=.Symlinks}}
+    {{$SymlinksResolve:=.SymlinksResolve}}
+    {{$Others:=.Others}}
 
     <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
@@ -107,4 +110,57 @@
     </table>
     {{end}}
 
+    {{if len $Symlinks}}
+    <h2>Symlinks</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Uid</th>
+                <th scope="col">Gid</th>
+                <th scope="col">Date</th>
+                <th scope="col">Origin</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $fi := .Symlinks}}            
+            <tr>
+                <td>{{$fi.Name}}</td>
+                <td>{{.Mode }}</td>
+                <td>{{.Uid }}</td>
+                <td>{{.Gid }}</td>
+                <td>{{.ModTime }}</td>
+                <td>{{index $SymlinksResolve $fi.Name}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
+
+    {{if len $Others}}
+    <h2>Others</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Uid</th>
+                <th scope="col">Gid</th>
+                <th scope="col">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $fi := .Others}}            
+            <tr>
+                <td>{{$fi.Name}}</td>
+                <td>{{.Mode }}</td>
+                <td>{{.Uid }}</td>
+                <td>{{.Gid }}</td>
+                <td>{{.ModTime }}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{end}}
 {{end}}

@@ -23,6 +23,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -253,6 +254,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
 	path := vars["path"]
+	download := r.URL.Query().Get("download")
 
 	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
@@ -269,6 +271,9 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	object := snap.Objects[checksum]
 
 	w.Header().Add("Content-Type", object.ContentType)
+	if download != "" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
+	}
 	for _, chunk := range object.Chunks {
 		data, err := snap.GetChunk(chunk.Checksum)
 		if err != nil {

@@ -189,7 +189,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, bufPool sync.Pool, pathname string) (*Object, error) {
+func chunkify(snapshot *Snapshot, bufPool *sync.Pool, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -300,7 +300,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil {
-				object, err = chunkify(snapshot, bufPool, pathname)
+				object, err = chunkify(snapshot, &bufPool, pathname)
 				if err != nil {
 					// something went wrong, skip this file
 					// errchan <- err

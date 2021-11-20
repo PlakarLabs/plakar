@@ -14,10 +14,12 @@ import (
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
-	filesystem.Inodes = make(map[string]*Fileinfo)
+	filesystem.Stat = make(map[string]*Fileinfo)
+	filesystem.Lstat = make(map[string]*Fileinfo)
 	filesystem.Directories = make(map[string]*Fileinfo)
 	filesystem.Files = make(map[string]*Fileinfo)
 	filesystem.NonRegular = make(map[string]*Fileinfo)
+	filesystem.Symlinks = make(map[string]string)
 	return filesystem
 }
 
@@ -45,9 +47,9 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 	p.Inode = fileinfo
 	p.muNode.Unlock()
 
-	filesystem.muInodes.Lock()
-	filesystem.Inodes[pathname] = fileinfo
-	filesystem.muInodes.Unlock()
+	filesystem.muStat.Lock()
+	filesystem.Stat[pathname] = fileinfo
+	filesystem.muStat.Unlock()
 
 	if p.Inode.Mode.IsDir() {
 		filesystem.muDirectories.Lock()
@@ -98,8 +100,36 @@ func (filesystem *Filesystem) Scan(directory string, skip []string) error {
 			}
 		}
 
+		pathname := fmt.Sprintf("%s/%s", directory, path)
+
 		fileinfo := FileinfoFromStat(f)
-		filesystem.buildTree(fmt.Sprintf("%s/%s", directory, path), &fileinfo)
+		filesystem.buildTree(pathname, &fileinfo)
+
+		if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
+			lstat, err := os.Lstat(pathname)
+			if err != nil {
+				logger.Warn("%s", err)
+				return nil
+			}
+
+			lfileinfo := FileinfoFromStat(lstat)
+			if lfileinfo.Mode&os.ModeSymlink != 0 {
+				originFile, err := os.Readlink(lfileinfo.Name)
+				if err != nil {
+					logger.Warn("%s", err)
+					return nil
+				}
+
+				filesystem.muStat.Lock()
+				filesystem.Lstat[pathname] = &lfileinfo
+				filesystem.muStat.Unlock()
+
+				filesystem.muSymlinks.Lock()
+				filesystem.Symlinks[pathname] = originFile
+				filesystem.muSymlinks.Unlock()
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -132,9 +162,9 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 
 func (filesystem *Filesystem) LookupInode(pathname string) (*Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
-	filesystem.muInodes.Lock()
-	fileinfo, exists := filesystem.Inodes[pathname]
-	filesystem.muInodes.Unlock()
+	filesystem.muStat.Lock()
+	fileinfo, exists := filesystem.Stat[pathname]
+	filesystem.muStat.Unlock()
 	return fileinfo, exists
 }
 

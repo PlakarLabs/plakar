@@ -143,8 +143,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Filenames[args[i]]
-			_, ok2 := snapshot2.Filenames[args[i]]
+			_, ok1 := snapshot1.Pathnames[args[i]]
+			_, ok2 := snapshot2.Pathnames[args[i]]
 			if !ok1 && !ok2 {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -177,8 +177,8 @@ func fiToDiff(fi filesystem.Fileinfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Filenames[filename1]
-	sum2, ok2 := snapshot2.Filenames[filename2]
+	sum1, ok1 := snapshot1.Pathnames[filename1]
+	sum2, ok2 := snapshot2.Pathnames[filename2]
 
 	// file does not exist in either snapshot
 	if !ok1 && !ok2 {

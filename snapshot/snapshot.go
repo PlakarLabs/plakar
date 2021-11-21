@@ -31,7 +31,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		Filesystem: filesystem.NewFilesystem(),
 
-		Filenames: make(map[string]string),
+		Pathnames: make(map[string]string),
 		Objects:   make(map[string]*Object),
 		Chunks:    make(map[string]*Chunk),
 

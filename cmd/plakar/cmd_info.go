@@ -47,7 +47,7 @@ func cmd_info(ctx Plakar, args []string) int {
 		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
 		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
 		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Filenames))
+		fmt.Printf("Sums: %d\n", len(snapshot.Pathnames))
 		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
 		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
 		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Size), snapshot.Size)

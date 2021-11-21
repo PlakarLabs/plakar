@@ -311,9 +311,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				}
 			}
 
-			snapshot.muFilenames.Lock()
-			snapshot.Filenames[pathname] = object.Checksum
-			snapshot.muFilenames.Unlock()
+			snapshot.muPathnames.Lock()
+			snapshot.Pathnames[pathname] = object.Checksum
+			snapshot.muPathnames.Unlock()
 
 			snapshot.muObjects.Lock()
 			snapshot.Objects[object.Checksum] = object

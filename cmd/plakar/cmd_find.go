@@ -49,7 +49,7 @@ func cmd_find(ctx Plakar, args []string) int {
 
 		result[snap] = make([]string, 0)
 
-		for pathname := range snap.Filenames {
+		for pathname := range snap.Pathnames {
 			for _, arg := range flags.Args() {
 				if pathname == arg {
 					found := false
@@ -88,7 +88,7 @@ func cmd_find(ctx Plakar, args []string) int {
 			for _, arg := range flags.Args() {
 				if strings.HasPrefix(chunk.Checksum, arg) {
 					shortcutFound := false
-					for pathname, objectChecksum := range snap.Filenames {
+					for pathname, objectChecksum := range snap.Pathnames {
 						if objectChecksum == chunk.Checksum {
 							found := false
 							for _, e := range result[snap] {
@@ -108,8 +108,8 @@ func cmd_find(ctx Plakar, args []string) int {
 						for objectChecksum, object := range snap.Objects {
 							for _, objectChunk := range object.Chunks {
 								if objectChunk.Checksum == chunk.Checksum {
-									for pathname := range snap.Filenames {
-										if snap.Filenames[pathname] == objectChecksum {
+									for pathname := range snap.Pathnames {
+										if snap.Pathnames[pathname] == objectChecksum {
 											found := false
 											for _, e := range result[snap] {
 												if e == pathname {
@@ -133,7 +133,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		for _, object := range snap.Objects {
 			for _, arg := range flags.Args() {
 				if strings.HasPrefix(object.Checksum, arg) || strings.HasPrefix(object.ContentType, arg) {
-					for pathname, objectChecksum := range snap.Filenames {
+					for pathname, objectChecksum := range snap.Pathnames {
 						if objectChecksum == object.Checksum {
 							found := false
 							for _, e := range result[snap] {

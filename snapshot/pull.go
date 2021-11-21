@@ -80,7 +80,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			checksum := snapshot.Filenames[file]
+			checksum := snapshot.Pathnames[file]
 
 			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 

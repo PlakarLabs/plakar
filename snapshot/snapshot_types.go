@@ -45,9 +45,9 @@ type Snapshot struct {
 
 	Filesystem *filesystem.Filesystem
 
-	// Filename -> Object checksum
-	muFilenames sync.Mutex
-	Filenames   map[string]string
+	// Pathnames -> Object checksum
+	muPathnames sync.Mutex
+	Pathnames   map[string]string
 
 	// Object checksum -> Object
 	muObjects sync.Mutex
@@ -82,8 +82,8 @@ type SnapshotStorage struct {
 
 	Filesystem *filesystem.Filesystem
 
-	// Filename -> Object checksum
-	Filenames map[string]string
+	// Pathname -> Object checksum
+	Pathnames map[string]string
 
 	// Object checksum -> Object
 	Objects map[string]*Object

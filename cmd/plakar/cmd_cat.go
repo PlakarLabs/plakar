@@ -49,7 +49,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 		}
 
 		object := snapshot.LookupObjectForPathname(pathname)
-		if err != nil {
+		if object == nil {
 			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
 			errors++
 			continue

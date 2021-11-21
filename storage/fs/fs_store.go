@@ -222,6 +222,9 @@ func (store *FSStore) Close() error {
 
 func (store *FSStore) Tidy() {
 	cwalk.Walk(store.PathObjects(), func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
 		object := fmt.Sprintf("%s/%s", store.PathObjects(), path)
 		if filepath.Clean(object) == filepath.Clean(store.PathObjects()) {
 			return nil
@@ -235,6 +238,9 @@ func (store *FSStore) Tidy() {
 	})
 
 	cwalk.Walk(store.PathChunks(), func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
 		chunk := fmt.Sprintf("%s/%s", store.PathChunks(), path)
 		if filepath.Clean(chunk) == filepath.Clean(store.PathChunks()) {
 			return nil

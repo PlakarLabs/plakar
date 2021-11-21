@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
+
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_rm(ctx Plakar, args []string) int {
@@ -36,14 +39,20 @@ func cmd_rm(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	for _, snapshot := range snapshots {
-		err := ctx.Store().Purge(snapshot.Uuid)
-		if err == nil {
-			fmt.Fprintf(os.Stdout, "%s: OK\n", snapshot.Uuid)
-		} else {
-			fmt.Fprintf(os.Stdout, "%s: KO\n", snapshot.Uuid)
-		}
+	wg := sync.WaitGroup{}
+	for _, snap := range snapshots {
+		wg.Add(1)
+		go func(snap *snapshot.Snapshot) {
+			err := ctx.Store().Purge(snap.Uuid)
+			if err == nil {
+				fmt.Fprintf(os.Stdout, "%s: OK\n", snap.Uuid)
+			} else {
+				fmt.Fprintf(os.Stdout, "%s: KO\n", snap.Uuid)
+			}
+			wg.Done()
+		}(snap)
 	}
+	wg.Wait()
 
 	return 0
 }

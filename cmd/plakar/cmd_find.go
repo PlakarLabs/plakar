@@ -35,7 +35,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		log.Fatalf("%s: need at least a chunk prefix to search", flag.CommandLine.Name())
 	}
 
-	result := make(map[*snapshot.Snapshot][]string)
+	result := make(map[*snapshot.Snapshot]map[string]bool)
 	snapshotsList, err := getSnapshotsList(ctx.Store())
 	if err != nil {
 		log.Fatal(err)
@@ -47,108 +47,31 @@ func cmd_find(ctx Plakar, args []string) int {
 			return 1
 		}
 
-		result[snap] = make([]string, 0)
+		result[snap] = make(map[string]bool)
 
-		for pathname := range snap.Pathnames {
-			for _, arg := range flags.Args() {
-				if pathname == arg {
-					found := false
-					for _, e := range result[snap] {
-						if e == pathname {
-							found = true
-							break
-						}
-					}
-					if !found {
-						result[snap] = append(result[snap], pathname)
-					}
-				}
-			}
-		}
-
-		for pathname := range snap.Filesystem.Files {
-			fileinfo, _ := snap.LookupInodeForPathname(pathname)
-			for _, arg := range flags.Args() {
-				if fileinfo.Name == arg {
-					found := false
-					for _, e := range result[snap] {
-						if e == pathname {
-							found = true
-							break
-						}
-					}
-					if !found {
-						result[snap] = append(result[snap], pathname)
-					}
-				}
-			}
-		}
-
-		for _, chunk := range snap.Chunks {
-			for _, arg := range flags.Args() {
-				if strings.HasPrefix(chunk.Checksum, arg) {
-					shortcutFound := false
-					for pathname, objectChecksum := range snap.Pathnames {
-						if objectChecksum == chunk.Checksum {
-							found := false
-							for _, e := range result[snap] {
-								if e == pathname {
-									found = true
-									break
-								}
-							}
-							if !found {
-								result[snap] = append(result[snap], pathname)
-							}
-							shortcutFound = true
-							break
-						}
-					}
-					if !shortcutFound {
-						for objectChecksum, object := range snap.Objects {
-							for _, objectChunk := range object.Chunks {
-								if objectChunk.Checksum == chunk.Checksum {
-									for pathname := range snap.Pathnames {
-										if snap.Pathnames[pathname] == objectChecksum {
-											found := false
-											for _, e := range result[snap] {
-												if e == pathname {
-													found = true
-													break
-												}
-											}
-											if !found {
-												result[snap] = append(result[snap], pathname)
-											}
-										}
-									}
-								}
-							}
+		for _, arg := range flags.Args() {
+			// try finding a pathname to a directory of file
+			if strings.Contains(arg, "/") {
+				for pathname := range snap.Filesystem.Stat {
+					if pathname == arg {
+						if exists := result[snap][pathname]; !exists {
+							result[snap][pathname] = true
 						}
 					}
 				}
 			}
-		}
 
-		for _, object := range snap.Objects {
-			for _, arg := range flags.Args() {
-				if strings.HasPrefix(object.Checksum, arg) || strings.HasPrefix(object.ContentType, arg) {
-					for pathname, objectChecksum := range snap.Pathnames {
-						if objectChecksum == object.Checksum {
-							found := false
-							for _, e := range result[snap] {
-								if e == pathname {
-									found = true
-									break
-								}
-							}
-							if !found {
-								result[snap] = append(result[snap], pathname)
-							}
+			// try finding a directory or file
+			for name, pathnames := range snap.Filesystem.Names {
+				if name == arg {
+					for _, pathname := range pathnames {
+						if exists := result[snap][arg]; !exists {
+							result[snap][pathname] = true
 						}
 					}
 				}
 			}
+
 		}
 	}
 
@@ -161,7 +84,11 @@ func cmd_find(ctx Plakar, args []string) int {
 	})
 
 	for _, snap := range snapshots {
-		files := result[snap]
+		files := make([]string, 0)
+		for file := range result[snap] {
+			files = append(files, file)
+		}
+
 		sort.Slice(files, func(i, j int) bool {
 			return files[i] < files[j]
 		})

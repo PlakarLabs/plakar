@@ -29,6 +29,9 @@ type Filesystem struct {
 	muScannedDirectories sync.Mutex
 	ScannedDirectories   []string
 
+	muNames sync.Mutex
+	Names   map[string][]string
+
 	muStat sync.Mutex
 	Stat   map[string]*Fileinfo
 

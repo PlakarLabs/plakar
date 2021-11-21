@@ -14,6 +14,7 @@ import (
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
+	filesystem.Names = make(map[string][]string)
 	filesystem.Stat = make(map[string]*Fileinfo)
 	filesystem.Lstat = make(map[string]*Fileinfo)
 	filesystem.Directories = make(map[string]*Fileinfo)
@@ -46,6 +47,10 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 	p.muNode.Lock()
 	p.Inode = fileinfo
 	p.muNode.Unlock()
+
+	filesystem.muNames.Lock()
+	filesystem.Names[p.Inode.Name] = append(filesystem.Names[p.Inode.Name], pathname)
+	filesystem.muNames.Unlock()
 
 	filesystem.muStat.Lock()
 	filesystem.Stat[pathname] = fileinfo

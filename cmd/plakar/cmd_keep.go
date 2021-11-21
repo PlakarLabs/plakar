@@ -20,6 +20,9 @@ import (
 	"flag"
 	"log"
 	"strconv"
+	"sync"
+
+	"github.com/poolpOrg/plakar/snapshot"
 )
 
 func cmd_keep(ctx Plakar, args []string) int {
@@ -48,10 +51,16 @@ func cmd_keep(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
+	wg := sync.WaitGroup{}
 	snapshots = sortSnapshotsByDate(snapshots)[:len(snapshots)-count]
-	for _, snapshot := range snapshots {
-		ctx.Store().Purge(snapshot.Uuid)
+	for _, snap := range snapshots {
+		wg.Add(1)
+		go func(snap *snapshot.Snapshot) {
+			ctx.Store().Purge(snap.Uuid)
+			wg.Done()
+		}(snap)
 	}
+	wg.Wait()
 
 	return 0
 }

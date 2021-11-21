@@ -43,6 +43,7 @@ func cmd_info(ctx Plakar, args []string) int {
 		fmt.Printf("Version: %s\n", snapshot.Version)
 		fmt.Printf("Hostname: %s\n", snapshot.Hostname)
 		fmt.Printf("Username: %s\n", snapshot.Username)
+		fmt.Printf("CommandLine: %s\n", snapshot.CommandLine)
 		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
 		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
 		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))

@@ -71,6 +71,10 @@ func New(name string) (*Store, error) {
 type Store struct {
 	backend StoreBackend
 
+	Username    string
+	Hostname    string
+	CommandLine string
+
 	Cache   *cache.Cache
 	Keypair *encryption.Keypair
 }
@@ -83,6 +87,18 @@ func (store *Store) GetKeypair() *encryption.Keypair {
 	return store.Keypair
 }
 
+func (store *Store) GetUsername() string {
+	return store.Username
+}
+
+func (store *Store) GetHostname() string {
+	return store.Hostname
+}
+
+func (store *Store) GetCommandLine() string {
+	return store.CommandLine
+}
+
 func (store *Store) SetCache(localCache *cache.Cache) error {
 	store.Cache = localCache
 	return nil
@@ -90,6 +106,21 @@ func (store *Store) SetCache(localCache *cache.Cache) error {
 
 func (store *Store) SetKeypair(localKeypair *encryption.Keypair) error {
 	store.Keypair = localKeypair
+	return nil
+}
+
+func (store *Store) SetUsername(username string) error {
+	store.Username = username
+	return nil
+}
+
+func (store *Store) SetHostname(hostname string) error {
+	store.Hostname = hostname
+	return nil
+}
+
+func (store *Store) SetCommandLine(commandLine string) error {
+	store.CommandLine = commandLine
 	return nil
 }
 

@@ -211,6 +211,9 @@ func main() {
 	ctx.store = store
 	ctx.store.SetKeypair(ctx.keypair)
 	ctx.store.SetCache(ctx.localCache)
+	ctx.store.SetUsername(ctx.Username)
+	ctx.store.SetHostname(ctx.Hostname)
+	ctx.store.SetCommandLine(ctx.CommandLine)
 
 	t0 := time.Now()
 	exitCode, err := executeCommand(ctx, command, args)

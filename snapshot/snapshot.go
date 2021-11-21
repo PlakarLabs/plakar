@@ -25,9 +25,9 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Uuid:         tx.GetUuid(),
 		CreationTime: time.Now(),
 		Version:      VERSION,
-		Hostname:     "",
-		Username:     "",
-		CommandLine:  "",
+		Hostname:     store.GetHostname(),
+		Username:     store.GetUsername(),
+		CommandLine:  store.GetCommandLine(),
 
 		Filesystem: filesystem.NewFilesystem(),
 

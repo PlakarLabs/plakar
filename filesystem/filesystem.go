@@ -125,9 +125,9 @@ func (filesystem *Filesystem) Scan(directory string, skip []string) error {
 					return nil
 				}
 
-				filesystem.muStat.Lock()
+				filesystem.muLstat.Lock()
 				filesystem.Lstat[pathname] = &lfileinfo
-				filesystem.muStat.Unlock()
+				filesystem.muLstat.Unlock()
 
 				filesystem.muSymlinks.Lock()
 				filesystem.Symlinks[pathname] = originFile

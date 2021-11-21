@@ -30,27 +30,6 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func fiToDiff(fi filesystem.Fileinfo) string {
-	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-	username := fmt.Sprintf("%d", fi.Uid)
-	if err == nil {
-		username = pwUserLookup.Username
-	}
-
-	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-	groupname := fmt.Sprintf("%d", fi.Gid)
-	if err == nil {
-		groupname = grGroupLookup.Name
-	}
-
-	return fmt.Sprintf("%s % 8s % 8s % 8s %s",
-		fi.Mode,
-		username,
-		groupname,
-		humanize.Bytes(uint64(fi.Size)),
-		fi.ModTime.UTC())
-}
-
 func cmd_diff(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
@@ -123,8 +102,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 			}
 
 			for file2 := range snapshot2.Filesystem.Files {
-				fi2, _ := snapshot1.LookupInodeForPathname(file2)
-				//_, ok := snapshot1.GetInode(file2)
+				fi2, _ := snapshot2.LookupInodeForPathname(file2)
 				_, ok := snapshot1.LookupInodeForFilename(file2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)
@@ -175,6 +153,27 @@ func cmd_diff(ctx Plakar, args []string) int {
 		}
 	}
 	return 0
+}
+
+func fiToDiff(fi filesystem.Fileinfo) string {
+	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+	username := fmt.Sprintf("%d", fi.Uid)
+	if err == nil {
+		username = pwUserLookup.Username
+	}
+
+	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+	groupname := fmt.Sprintf("%d", fi.Gid)
+	if err == nil {
+		groupname = grGroupLookup.Name
+	}
+
+	return fmt.Sprintf("%s % 8s % 8s % 8s %s",
+		fi.Mode,
+		username,
+		groupname,
+		humanize.Bytes(uint64(fi.Size)),
+		fi.ModTime.UTC())
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {

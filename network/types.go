@@ -81,6 +81,7 @@ type ResPurge struct {
 }
 
 type ReqClose struct {
+	Uuid string
 }
 
 type ResClose struct {

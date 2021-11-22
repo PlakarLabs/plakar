@@ -47,10 +47,11 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			break
 		}
 
-		wg.Add(1)
-		go func() {
-			switch request.Type {
-			case "ReqOpen":
+		switch request.Type {
+		case "ReqOpen":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				logger.Trace("%s: Open", clientUuid)
 				result := Request{
 					Uuid:    request.Uuid,
@@ -60,10 +61,13 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqGetIndexes":
+		case "ReqGetIndexes":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				logger.Trace("%s: GetIndexes", clientUuid)
 				indexes, err := store.GetIndexes()
 				result := Request{
@@ -77,10 +81,13 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqGetIndex":
+		case "ReqGetIndex":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				logger.Trace("%s: GetIndex(%s)", clientUuid, request.Payload.(ReqGetIndex).Uuid)
 				data, err := store.GetIndex(request.Payload.(ReqGetIndex).Uuid)
 				result := Request{
@@ -94,10 +101,13 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqGetObject":
+		case "ReqGetObject":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				logger.Trace("%s: GetObject(%s)", clientUuid, request.Payload.(ReqGetObject).Checksum)
 				data, err := store.GetObject(request.Payload.(ReqGetObject).Checksum)
 				result := Request{
@@ -111,10 +121,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqGetChunk":
+		case "ReqGetChunk":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: GetChunk(%s)", clientUuid, request.Payload.(ReqGetChunk).Checksum)
 				data, err := store.GetChunk(request.Payload.(ReqGetChunk).Checksum)
 				result := Request{
@@ -128,10 +142,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqCheckObject":
+		case "ReqCheckObject":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
 				exists, err := store.CheckObject(request.Payload.(ReqCheckObject).Checksum)
 				result := Request{
@@ -145,10 +163,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqCheckChunk":
+		case "ReqCheckChunk":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
 				exists, err := store.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
 				result := Request{
@@ -162,10 +184,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqPurge":
+		case "ReqPurge":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
 				err := store.Purge(request.Payload.(ReqPurge).Uuid)
 				result := Request{
@@ -178,10 +204,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqTransaction":
+		case "ReqTransaction":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: Transaction", clientUuid)
 				tx, err := store.Transaction()
 				result := Request{
@@ -195,11 +225,15 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
 				transactions[tx.GetUuid()] = tx
+			}()
 
-			case "ReqReferenceChunks":
+		case "ReqReferenceChunks":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: ReferenceChunks()", clientUuid)
 				txUuid := request.Payload.(ReqReferenceChunks).Transaction
 				tx := transactions[txUuid]
@@ -215,10 +249,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqReferenceObjects":
+		case "ReqReferenceObjects":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: ReferenceObjects()", clientUuid)
 				txUuid := request.Payload.(ReqReferenceObjects).Transaction
 				tx := transactions[txUuid]
@@ -234,10 +272,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqPutChunk":
+		case "ReqPutChunk":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: PutChunk(%s)", clientUuid, request.Payload.(ReqPutChunk).Checksum)
 				txUuid := request.Payload.(ReqPutChunk).Transaction
 				tx := transactions[txUuid]
@@ -252,10 +294,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqPutObject":
+		case "ReqPutObject":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
 				txUuid := request.Payload.(ReqPutObject).Transaction
 				tx := transactions[txUuid]
@@ -270,10 +316,13 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqPutIndex":
+		case "ReqPutIndex":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				logger.Trace("%s: PutIndex()", clientUuid)
 				txUuid := request.Payload.(ReqPutIndex).Transaction
 				tx := transactions[txUuid]
@@ -288,10 +337,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqCommit":
+		case "ReqCommit":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: Commit()", clientUuid)
 				txUuid := request.Payload.(ReqCommit).Transaction
 				tx := transactions[txUuid]
@@ -306,10 +359,14 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
+			}()
 
-			case "ReqClose":
+		case "ReqClose":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
 				logger.Trace("%s: Close()", clientUuid)
 				err := store.Close()
 				result := Request{
@@ -322,12 +379,9 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
-					break
 				}
-
-			}
-			wg.Done()
-		}()
+			}()
+		}
 	}
 	wg.Wait()
 }

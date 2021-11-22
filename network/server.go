@@ -311,7 +311,6 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 
 			case "ReqClose":
 				logger.Trace("%s: Close()", clientUuid)
-				_ = request.Payload.(ReqClose).Uuid
 				err := store.Close()
 				result := Request{
 					Uuid: request.Uuid,

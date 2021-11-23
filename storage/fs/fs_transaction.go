@@ -105,7 +105,10 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 	}
 	defer f.Close()
 
-	f.Write(data)
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
 
 	transaction.objectsMutex.Lock()
 	transaction.objects[checksum] = true
@@ -124,7 +127,10 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 	}
 	defer f.Close()
 
-	f.Write(data)
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
 
 	transaction.chunksMutex.Lock()
 	transaction.chunks[checksum] = true
@@ -142,7 +148,10 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 	}
 	defer f.Close()
 
-	f.Write(data)
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -29,7 +29,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := snapshot.Filesystem.Files[fpattern]; ok {
+	if _, ok := snapshot.Filesystem.LookupInodeForFile(fpattern); ok {
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
@@ -37,7 +37,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for directory := range snapshot.Filesystem.Directories {
+	for _, directory := range snapshot.Filesystem.ListDirectories() {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
@@ -61,7 +61,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for file := range snapshot.Filesystem.Files {
+	for _, file := range snapshot.Filesystem.ListFiles() {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue
@@ -96,11 +96,13 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 
 			objectHash := sha256.New()
-			for _, chunk := range object.Chunks {
-				data, err := snapshot.GetChunk(chunk.Checksum)
+			for _, chunkChecksum := range object.Chunks {
+				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
 					continue
 				}
+
+				chunk, _ := snapshot.GetChunkInfo(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
 					continue
@@ -115,7 +117,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
+			if checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
 			}
 
 			f.Close()

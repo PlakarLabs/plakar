@@ -1,6 +1,8 @@
 package snapshot
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	var snapshotStorage SnapshotStorage
@@ -26,6 +28,8 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	snapshot.ObjectToPathnames = snapshotStorage.ObjectToPathnames
 
 	snapshot.Size = snapshotStorage.Size
+
+	snapshot.Filesystem.Reindex()
 
 	return snapshot, nil
 }

@@ -101,6 +101,13 @@ func List(store *storage.Store) ([]string, error) {
 	return store.GetIndexes()
 }
 
+func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
+	snapshot.muChunks.Lock()
+	chunk, exists := snapshot.Chunks[checksum]
+	snapshot.muChunks.Unlock()
+	return chunk, exists
+}
+
 func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 	keypair := snapshot.store.GetKeypair()
 

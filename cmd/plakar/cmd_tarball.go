@@ -98,8 +98,8 @@ func cmd_tarball(ctx Plakar, args []string) int {
 			}
 
 			obj := snapshot.LookupObjectForChecksum(checksum)
-			for _, chunk := range obj.Chunks {
-				data, err := snapshot.GetChunk(chunk.Checksum)
+			for _, chunkChecksum := range obj.Chunks {
+				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
 					logger.Error("corrupted file %s", file)
 					continue

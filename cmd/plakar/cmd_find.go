@@ -52,7 +52,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for pathname := range snap.Filesystem.Stat {
+				for _, pathname := range snap.Filesystem.Stat {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true

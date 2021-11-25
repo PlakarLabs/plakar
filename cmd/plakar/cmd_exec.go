@@ -59,10 +59,10 @@ func cmd_exec(ctx Plakar, args []string) int {
 	file.Chmod(0500)
 
 	errors := 0
-	for _, chunk := range object.Chunks {
-		data, err := snapshot.GetChunk(chunk.Checksum)
+	for _, chunkChecksum := range object.Chunks {
+		data, err := snapshot.GetChunk(chunkChecksum)
 		if err != nil {
-			logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunk.Checksum)
+			logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunkChecksum)
 			errors++
 			break
 		}

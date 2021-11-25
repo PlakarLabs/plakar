@@ -199,8 +199,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		object, err := snapshot1.GetObject(sum1)
 		if err != nil {
 		}
-		for _, chunk := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunk.Checksum)
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snapshot2.GetChunk(chunkChecksum)
 			if err != nil {
 			}
 			buf1 = buf1 + string(data)
@@ -211,8 +211,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		object, err := snapshot2.GetObject(sum2)
 		if err != nil {
 		}
-		for _, chunk := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunk.Checksum)
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snapshot2.GetChunk(chunkChecksum)
 			if err != nil {
 			}
 			buf2 = buf2 + string(data)

@@ -294,8 +294,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	if download != "" {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 	}
-	for _, chunk := range object.Chunks {
-		data, err := snap.GetChunk(chunk.Checksum)
+	for _, chunkChecksum := range object.Chunks {
+		data, err := snap.GetChunk(chunkChecksum)
 		if err != nil {
 		}
 		w.Write(data)

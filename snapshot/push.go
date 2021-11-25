@@ -63,8 +63,8 @@ func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMs
 			maxGoroutines <- true
 			wg.Add(1)
 			go func(object *Object, data []byte) {
-				for _, chunk := range object.Chunks {
-					snapshot.StateSetChunkToObject(chunk.Checksum, object.Checksum)
+				for _, chunkChecksum := range object.Chunks {
+					snapshot.StateSetChunkToObject(chunkChecksum, object.Checksum)
 				}
 				if len(data) != 0 {
 					chanObjectWriter <- objectMsg{object, data}
@@ -177,12 +177,15 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object := Object{}
 	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
-	object.Chunks = cachedObject.Chunks
+	object.Chunks = make([]string, 0)
+	for _, chunk := range cachedObject.Chunks {
+		object.Chunks = append(object.Chunks, chunk.Checksum)
+	}
 	object.ContentType = cachedObject.ContentType
 
-	for _, chunk := range object.Chunks {
+	for offset, chunkChecksum := range object.Chunks {
 		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunk.Checksum] = chunk
+		snapshot.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
 		snapshot.muChunks.Unlock()
 	}
 
@@ -225,7 +228,7 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 		chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
 		chunk.Start = cdcChunk.Start
 		chunk.Length = cdcChunk.Length
-		object.Chunks = append(object.Chunks, &chunk)
+		object.Chunks = append(object.Chunks, chunk.Checksum)
 
 		chunks := make([]string, 0)
 		chunks = append(chunks, chunk.Checksum)

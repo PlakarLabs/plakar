@@ -61,7 +61,7 @@ func (snapshot *Snapshot) LookupChunkForChecksum(checksum string) *Chunk {
 	snapshot.muChunks.Lock()
 	defer snapshot.muChunks.Unlock()
 
-	chunk, exists := snapshot.Chunks[checksum]
+	chunk, exists := snapshot.GetChunkInfo(checksum)
 	if !exists {
 		return nil
 	}

@@ -8,16 +8,16 @@ import (
 	"github.com/poolpOrg/plakar/logger"
 )
 
-func snapshotCheckChunk(snapshot *Snapshot, chunk *Chunk, hasher hash.Hash, fast bool) (bool, error) {
+func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum string, hasher hash.Hash, fast bool) (bool, error) {
 	if fast {
-		exists, err := snapshot.CheckChunk(chunk.Checksum)
+		exists, err := snapshot.CheckChunk(chunkChecksum)
 		if err != nil {
 			return false, err
 		}
 		return exists, nil
 	}
 
-	data, err := snapshot.GetChunk(chunk.Checksum)
+	data, err := snapshot.GetChunk(chunkChecksum)
 	if err != nil {
 		return false, err
 	}
@@ -52,10 +52,10 @@ func snapshotCheckObject(snapshot *Snapshot, checksum string, fast bool) (bool, 
 
 	ret := true
 	objectHash := sha256.New()
-	for _, chunk := range object.Chunks {
-		_, err := snapshotCheckChunk(snapshot, chunk, objectHash, fast)
+	for _, chunkChecksum := range object.Chunks {
+		_, err := snapshotCheckChunk(snapshot, chunkChecksum, objectHash, fast)
 		if err != nil {
-			logger.Warn("%s: chunk %s: %s", snapshot.Uuid, chunk.Checksum, err)
+			logger.Warn("%s: chunk %s: %s", snapshot.Uuid, chunkChecksum, err)
 			continue
 		}
 	}
@@ -136,17 +136,17 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 			}
 
 			objectHash := sha256.New()
-			for _, chunk := range object.Chunks {
-				_, ok := snapshot.Chunks[chunk.Checksum]
+			for _, chunkChecksum := range object.Chunks {
+				_, ok := snapshot.GetChunkInfo(chunkChecksum)
 				if !ok {
-					logger.Warn("%s: unlisted chunk %s", snapshot.Uuid, chunk.Checksum)
+					logger.Warn("%s: unlisted chunk %s", snapshot.Uuid, chunkChecksum)
 					ret = false
 					continue
 				}
 
-				data, err := snapshot.GetChunk(chunk.Checksum)
+				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
-					logger.Warn("%s: missing chunk %s", snapshot.Uuid, chunk.Checksum)
+					logger.Warn("%s: missing chunk %s", snapshot.Uuid, chunkChecksum)
 					ret = false
 					continue
 				}

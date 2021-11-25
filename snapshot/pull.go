@@ -96,11 +96,13 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 
 			objectHash := sha256.New()
-			for _, chunk := range object.Chunks {
-				data, err := snapshot.GetChunk(chunk.Checksum)
+			for _, chunkChecksum := range object.Chunks {
+				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
 					continue
 				}
+
+				chunk, _ := snapshot.GetChunkInfo(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
 					continue
@@ -115,7 +117,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if object.Checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
+			if checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
 			}
 
 			f.Close()

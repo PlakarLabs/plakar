@@ -16,7 +16,7 @@ type Chunk struct {
 
 type Object struct {
 	Checksum    string
-	Chunks      []*Chunk
+	Chunks      []string
 	ContentType string
 }
 

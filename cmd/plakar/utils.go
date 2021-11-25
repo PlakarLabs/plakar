@@ -21,6 +21,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -65,13 +66,22 @@ func getSnapshots(store *storage.Store, prefixes []string) ([]*snapshot.Snapshot
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {
+		wg := sync.WaitGroup{}
+		mu := sync.Mutex{}
 		for _, snapshotUuid := range snapshotsList {
-			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, snapshotInstance)
+			wg.Add(1)
+			go func(snapshotUuid string) {
+				defer wg.Done()
+				snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+				if err != nil {
+					return
+				}
+				mu.Lock()
+				result = append(result, snapshotInstance)
+				mu.Unlock()
+			}(snapshotUuid)
 		}
+		wg.Wait()
 		return sortSnapshotsByDate(result), nil
 	}
 

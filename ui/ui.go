@@ -235,7 +235,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Filesystem.Directories[root]; ok {
+		if _, ok := snap.Filesystem.LookupInodeForDirectory(root); ok {
 			break
 		}
 	}
@@ -334,7 +334,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
-		for directory := range snap.Filesystem.Directories {
+		for _, directory := range snap.Filesystem.ListDirectories() {
 			if strings.Contains(directory, q) {
 				directories = append(directories, struct {
 					Snapshot string

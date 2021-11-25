@@ -278,7 +278,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	}
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
-	for pathname, fileinfo := range snapshot.Filesystem.Files {
+	for _, pathname := range snapshot.Filesystem.ListFiles() {
+		fileinfo, _ := snapshot.Filesystem.LookupInodeForFile(pathname)
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(pathname string, fileinfo *filesystem.Fileinfo) {

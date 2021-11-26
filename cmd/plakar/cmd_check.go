@@ -140,7 +140,7 @@ func check_plakar(store *storage.Store) int {
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
-		} else if refCount != count {
+		} else if refCount != uint64(count) {
 			logger.Warn("invalid references count: %s", chunkChecksum)
 			errors++
 		}
@@ -151,7 +151,7 @@ func check_plakar(store *storage.Store) int {
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
-		} else if refCount != count {
+		} else if refCount != uint64(count) {
 			logger.Warn("invalid references count: %s", objectChecksum)
 			errors++
 		}

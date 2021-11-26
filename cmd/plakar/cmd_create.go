@@ -38,6 +38,7 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.Parse(args)
 
 	storeConfig := storage.StoreConfig{}
+	storeConfig.Version = storage.VERSION
 	storeConfig.Uuid = uuid.NewString()
 	if no_compression {
 		storeConfig.Compressed = ""

@@ -11,8 +11,6 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-const VERSION = "0.1.1"
-
 func New(store *storage.Store) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
@@ -24,7 +22,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		Uuid:         tx.GetUuid(),
 		CreationTime: time.Now(),
-		Version:      VERSION,
+		Version:      storage.VERSION,
 		Hostname:     store.GetHostname(),
 		Username:     store.GetUsername(),
 		CommandLine:  store.GetCommandLine(),

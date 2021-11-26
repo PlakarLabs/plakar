@@ -136,7 +136,7 @@ func check_plakar(store *storage.Store) int {
 	}
 
 	for chunkChecksum, count := range chunks {
-		refCount, err := store.GetChunkRefs(chunkChecksum)
+		refCount, err := store.GetChunkRefCount(chunkChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -147,7 +147,7 @@ func check_plakar(store *storage.Store) int {
 	}
 
 	for objectChecksum, count := range objects {
-		refCount, err := store.GetObjectRefs(objectChecksum)
+		refCount, err := store.GetObjectRefCount(objectChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++

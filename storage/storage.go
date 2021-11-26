@@ -199,20 +199,20 @@ func (store *Store) GetIndexChunk(id string, checksum string) ([]byte, error) {
 	return store.backend.GetIndexChunk(id, checksum)
 }
 
-func (store *Store) RefIndexChunk(id string, checksum string) error {
+func (store *Store) ReferenceIndexChunk(id string, checksum string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexChunk(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.RefIndexChunk(id, checksum)
+	return store.backend.ReferenceIndexChunk(id, checksum)
 }
 
-func (store *Store) RefIndexObject(id string, checksum string) error {
+func (store *Store) ReferenceIndexObject(id string, checksum string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.RefIndexObject(id, checksum)
+	return store.backend.ReferenceIndexObject(id, checksum)
 }
 
 func (store *Store) GetObjects() ([]string, error) {

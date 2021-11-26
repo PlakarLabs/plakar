@@ -39,8 +39,8 @@ type StoreBackend interface {
 	CheckIndexObject(id string, checksum string) (bool, error)
 	GetIndexChunk(id string, checksum string) ([]byte, error)
 	CheckIndexChunk(id string, checksum string) (bool, error)
-	RefIndexObject(id string, checksum string) error
-	RefIndexChunk(id string, checksum string) error
+	ReferenceIndexObject(id string, checksum string) error
+	ReferenceIndexChunk(id string, checksum string) error
 
 	GetObjects() ([]string, error)
 	GetObject(checksum string) ([]byte, error)

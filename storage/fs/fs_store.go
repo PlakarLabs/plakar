@@ -186,13 +186,13 @@ func (store *FSStore) PutIndex(id string, data []byte) error {
 	return nil
 }
 
-func (store *FSStore) RefIndexChunk(id string, checksum string) error {
+func (store *FSStore) ReferenceIndexChunk(id string, checksum string) error {
 	os.Mkdir(store.PathIndexChunkBucket(id, checksum), 0700)
 	os.Link(store.PathChunk(checksum), store.PathIndexChunk(id, checksum))
 	return nil
 }
 
-func (store *FSStore) RefIndexObject(id string, checksum string) error {
+func (store *FSStore) ReferenceIndexObject(id string, checksum string) error {
 	os.Mkdir(store.PathIndexObjectBucket(id, checksum), 0700)
 	os.Link(store.PathChunk(checksum), store.PathIndexObject(id, checksum))
 	return nil

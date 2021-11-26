@@ -232,6 +232,22 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) GetObjectRefs(checksum string) (uint16, error) {
+	st, err := os.Stat(store.PathObject(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return st.Sys().(*syscall.Stat_t).Nlink - 1, nil
+}
+
+func (store *FSStore) GetChunkRefs(checksum string) (uint16, error) {
+	st, err := os.Stat(store.PathChunk(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return st.Sys().(*syscall.Stat_t).Nlink - 1, nil
+}
+
 func (store *FSStore) PutObject(checksum string, data []byte) error {
 	os.Mkdir(store.PathObjectBucket(checksum), 0700)
 	f, err := os.Create(store.PathObject(checksum))

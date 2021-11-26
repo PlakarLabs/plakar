@@ -19,8 +19,11 @@ package main
 import (
 	"flag"
 	"log"
+	"sync"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func cmd_check(ctx Plakar, args []string) int {
@@ -31,8 +34,7 @@ func cmd_check(ctx Plakar, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		logger.Error("%s: at least one parameter is required", flags.Name())
-		return 1
+		return check_plakar(ctx.Store())
 	}
 
 	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
@@ -61,4 +63,100 @@ func cmd_check(ctx Plakar, args []string) int {
 		return 0
 	}
 	return 1
+}
+
+func check_plakar(store *storage.Store) int {
+	indexes, err := store.GetIndexes()
+	if err != nil {
+		logger.Warn("%s", err)
+		return 1
+	}
+
+	muChunks := sync.Mutex{}
+	chunks := make(map[string]uint16)
+
+	muObjects := sync.Mutex{}
+	objects := make(map[string]uint16)
+
+	errors := 0
+
+	for _, index := range indexes {
+		snap, err := snapshot.Load(store, index)
+		if err != nil {
+			logger.Warn("%s", err)
+			errors++
+			continue
+		}
+
+		for chunkChecksum := range snap.Chunks {
+			muChunks.Lock()
+			if _, exists := chunks[chunkChecksum]; !exists {
+				chunks[chunkChecksum] = 0
+			}
+			chunks[chunkChecksum] = chunks[chunkChecksum] + 1
+			muChunks.Unlock()
+		}
+
+		for objectChecksum := range snap.Objects {
+			muObjects.Lock()
+			if _, exists := objects[objectChecksum]; !exists {
+				objects[objectChecksum] = 0
+			}
+			objects[objectChecksum] = objects[objectChecksum] + 1
+			muObjects.Unlock()
+		}
+	}
+
+	chunksChecksums, err := store.GetChunks()
+	if err != nil {
+		logger.Warn("%s", err)
+		errors++
+		return 1
+	}
+
+	objectsChecksums, err := store.GetObjects()
+	if err != nil {
+		logger.Warn("%s", err)
+		errors++
+		return 1
+	}
+
+	for _, checksum := range chunksChecksums {
+		if _, exists := chunks[checksum]; !exists {
+			logger.Warn("orphan chunk: %s", checksum)
+			errors++
+		}
+	}
+
+	for _, checksum := range objectsChecksums {
+		if _, exists := objects[checksum]; !exists {
+			logger.Warn("orphan object: %s", checksum)
+			errors++
+		}
+	}
+
+	for chunkChecksum, count := range chunks {
+		refCount, err := store.GetChunkRefs(chunkChecksum)
+		if err != nil {
+			logger.Warn("%s", err)
+			errors++
+		} else if refCount != count {
+			logger.Warn("invalid references count: %s", chunkChecksum)
+			errors++
+		}
+	}
+
+	for objectChecksum, count := range objects {
+		refCount, err := store.GetObjectRefs(objectChecksum)
+		if err != nil {
+			logger.Warn("%s", err)
+			errors++
+		} else if refCount != count {
+			logger.Warn("invalid references count: %s", objectChecksum)
+			errors++
+		}
+	}
+	//fmt.Println(chunks)
+
+	return 0
 }

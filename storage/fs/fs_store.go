@@ -223,6 +223,24 @@ func (store *FSStore) GetObjects() ([]string, error) {
 	return ret, nil
 }
 
+func (store *FSStore) GetIndexObject(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(store.PathIndexObject(id, checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (store *FSStore) GetIndexChunk(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(store.PathIndexChunk(id, checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	data, err := ioutil.ReadFile(store.PathObject(checksum))
 	if err != nil {
@@ -317,6 +335,23 @@ func (store *FSStore) PutChunk(checksum string, data []byte) error {
 	}
 
 	return nil
+}
+
+func (store *FSStore) CheckIndexObject(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathIndexObject(id, checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+}
+
+func (store *FSStore) CheckIndexChunk(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathIndexChunk(id, checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+
 }
 
 func (store *FSStore) CheckObject(checksum string) (bool, error) {

@@ -183,6 +183,22 @@ func (store *Store) PutIndex(id string, data []byte) error {
 	return store.backend.PutIndex(id, data)
 }
 
+func (store *Store) GetIndexObject(id string, checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.GetIndexObject(id, checksum)
+}
+
+func (store *Store) GetIndexChunk(id string, checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetIndexObject(%s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.GetIndexChunk(id, checksum)
+}
+
 func (store *Store) RefIndexChunk(id string, checksum string) error {
 	t0 := time.Now()
 	defer func() {
@@ -261,6 +277,22 @@ func (store *Store) GetChunkRefs(checksum string) (uint16, error) {
 		logger.Profile("storage: GetChunkRefs(%s): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.GetChunkRefs(checksum)
+}
+
+func (store *Store) CheckIndexObject(id string, checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: CheckIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.CheckIndexObject(id, checksum)
+}
+
+func (store *Store) CheckIndexChunk(id string, checksum string) (bool, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: CheckIndexChunk(%s, %s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.CheckIndexChunk(id, checksum)
 }
 
 func (store *Store) CheckObject(checksum string) (bool, error) {

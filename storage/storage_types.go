@@ -35,6 +35,10 @@ type StoreBackend interface {
 	GetIndexes() ([]string, error)
 	GetIndex(id string) ([]byte, error)
 	PutIndex(id string, data []byte) error
+	GetIndexObject(id string, checksum string) ([]byte, error)
+	CheckIndexObject(id string, checksum string) (bool, error)
+	GetIndexChunk(id string, checksum string) ([]byte, error)
+	CheckIndexChunk(id string, checksum string) (bool, error)
 	RefIndexObject(id string, checksum string) error
 	RefIndexChunk(id string, checksum string) error
 

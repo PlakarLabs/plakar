@@ -337,7 +337,7 @@ func (store *FSStore) Purge(id string) error {
 
 func (store *FSStore) Close() error {
 	// XXX - rollback all pending transactions so they don't linger
-	//store.Tidy()
+	store.Tidy()
 	return nil
 }
 

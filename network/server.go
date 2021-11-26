@@ -84,6 +84,46 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				}
 			}()
 
+		case "ReqGetChunks":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetChunks", clientUuid)
+				chunks, err := store.GetChunks()
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetChunks",
+					Payload: ResGetChunks{
+						Chunks: chunks,
+						Err:    err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqGetObjects":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetObjects", clientUuid)
+				objects, err := store.GetObjects()
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetObjects",
+					Payload: ResGetObjects{
+						Objects: objects,
+						Err:     err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetIndex":
 			wg.Add(1)
 			go func() {

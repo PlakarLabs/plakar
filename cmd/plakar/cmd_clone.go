@@ -55,13 +55,16 @@ func cmd_clone(ctx Plakar, args []string) int {
 	for _, repository := range flags.Args() {
 		var cloneStore *storage.Store
 		if !strings.HasPrefix(repository, "/") {
-			if strings.HasPrefix(repository, "plakar://") {
-				cloneStore, _ = storage.New("client")
-			} else if strings.HasPrefix(repository, "sqlite://") {
-				cloneStore, _ = storage.New("database")
-			} else {
-				log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-			}
+			log.Fatalf("%s: does not support non filesystem plakar destinations for now", flag.CommandLine.Name())
+			/*
+				if strings.HasPrefix(repository, "plakar://") {
+					cloneStore, _ = storage.New("client")
+				} else if strings.HasPrefix(repository, "sqlite://") {
+					cloneStore, _ = storage.New("database")
+				} else {
+					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
+				}
+			*/
 		} else {
 			cloneStore, _ = storage.New("filesystem")
 		}

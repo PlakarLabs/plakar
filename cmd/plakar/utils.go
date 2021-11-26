@@ -173,9 +173,6 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	case "push":
 		exitCode = cmd_push(ctx, args)
 
-	case "repair":
-		exitCode = cmd_repair(ctx, args)
-
 	case "rm":
 		exitCode = cmd_rm(ctx, args)
 

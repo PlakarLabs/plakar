@@ -229,6 +229,44 @@ func (store *DatabaseStore) GetIndexes() ([]string, error) {
 	return indexes, nil
 }
 
+func (store *DatabaseStore) GetChunks() ([]string, error) {
+	rows, err := store.conn.Query("SELECT chunkChecksum FROM chunks")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checksums []string
+	for rows.Next() {
+		var checksum string
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		checksums = append(checksums, checksum)
+	}
+	return checksums, nil
+}
+
+func (store *DatabaseStore) GetObjects() ([]string, error) {
+	rows, err := store.conn.Query("SELECT objectChecksum FROM objects")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checksums []string
+	for rows.Next() {
+		var checksum string
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		checksums = append(checksums, checksum)
+	}
+	return checksums, nil
+}
+
 func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
 	var data []byte
 	err := store.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)

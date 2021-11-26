@@ -35,7 +35,11 @@ import (
 )
 
 func init() {
-	storage.Register("filesystem", &FSStore{})
+	storage.Register("filesystem", NewFSStore)
+}
+
+func NewFSStore() storage.StoreBackend {
+	return &FSStore{}
 }
 
 func (store *FSStore) objectExists(checksum string) bool {
@@ -163,6 +167,62 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) PutIndex(id string, data []byte) error {
+	os.Mkdir(store.PathIndexBucket(id), 0700)
+	os.Mkdir(store.PathIndex(id), 0700)
+	os.Mkdir(store.PathIndexObjects(id), 0700)
+	os.Mkdir(store.PathIndexChunks(id), 0700)
+
+	f, err := os.Create(fmt.Sprintf("%s/INDEX", store.PathIndex(id)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (store *FSStore) RefIndexChunk(id string, checksum string) error {
+	os.Mkdir(store.PathIndexChunkBucket(id, checksum), 0700)
+	os.Link(store.PathChunk(checksum), store.PathIndexChunk(id, checksum))
+	return nil
+}
+
+func (store *FSStore) RefIndexObject(id string, checksum string) error {
+	os.Mkdir(store.PathIndexObjectBucket(id, checksum), 0700)
+	os.Link(store.PathChunk(checksum), store.PathIndexObject(id, checksum))
+	return nil
+}
+
+func (store *FSStore) GetObjects() ([]string, error) {
+	ret := make([]string, 0)
+
+	buckets, err := ioutil.ReadDir(store.PathObjects())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range buckets {
+		objects, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathObjects(), bucket.Name()))
+		if err != nil {
+			return ret, err
+		}
+
+		for _, object := range objects {
+			//_, err = uuid.Parse(object.Name())
+			//if err != nil {
+			//		return ret, nil
+			//	}
+			ret = append(ret, object.Name())
+		}
+	}
+	return ret, nil
+}
+
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	data, err := ioutil.ReadFile(store.PathObject(checksum))
 	if err != nil {
@@ -172,6 +232,46 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) PutObject(checksum string, data []byte) error {
+	os.Mkdir(store.PathObjectBucket(checksum), 0700)
+	f, err := os.Create(store.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (store *FSStore) GetChunks() ([]string, error) {
+	ret := make([]string, 0)
+
+	buckets, err := ioutil.ReadDir(store.PathChunks())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range buckets {
+		chunks, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathChunks(), bucket.Name()))
+		if err != nil {
+			return ret, err
+		}
+
+		for _, chunk := range chunks {
+			//_, err = uuid.Parse(object.Name())
+			//if err != nil {
+			//		return ret, nil
+			//	}
+			ret = append(ret, chunk.Name())
+		}
+	}
+	return ret, nil
+}
+
 func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	data, err := ioutil.ReadFile(store.PathChunk(checksum))
 	if err != nil {
@@ -179,6 +279,28 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (store *FSStore) PutChunk(checksum string, data []byte) error {
+	err := os.Mkdir(store.PathChunkBucket(checksum), 0700)
+	if err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+
+	f, err := os.Create(store.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (store *FSStore) CheckObject(checksum string) (bool, error) {
@@ -215,7 +337,7 @@ func (store *FSStore) Purge(id string) error {
 
 func (store *FSStore) Close() error {
 	// XXX - rollback all pending transactions so they don't linger
-	store.Tidy()
+	//store.Tidy()
 	return nil
 }
 

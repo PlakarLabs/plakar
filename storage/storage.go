@@ -29,9 +29,9 @@ import (
 )
 
 var muBackends sync.Mutex
-var backends map[string]StoreBackend = make(map[string]StoreBackend)
+var backends map[string]func() StoreBackend = make(map[string]func() StoreBackend)
 
-func Register(name string, backend StoreBackend) {
+func Register(name string, backend func() StoreBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -63,7 +63,7 @@ func New(name string) (*Store, error) {
 		return nil, fmt.Errorf("backend '%s' registered twice", name)
 	} else {
 		store := &Store{}
-		store.backend = backend
+		store.backend = backend()
 		return store, nil
 	}
 }
@@ -166,12 +166,45 @@ func (store *Store) GetIndexes() ([]string, error) {
 	}()
 	return store.backend.GetIndexes()
 }
+
 func (store *Store) GetIndex(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndex(%s): %s", id, time.Since(t0))
 	}()
 	return store.backend.GetIndex(id)
+}
+
+func (store *Store) PutIndex(id string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: PutIndex(%s): %s", id, time.Since(t0))
+	}()
+	return store.backend.PutIndex(id, data)
+}
+
+func (store *Store) RefIndexChunk(id string, checksum string) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: RefIndexChunk(%s, %s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.RefIndexChunk(id, checksum)
+}
+
+func (store *Store) RefIndexObject(id string, checksum string) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: RefIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
+	}()
+	return store.backend.RefIndexObject(id, checksum)
+}
+
+func (store *Store) GetObjects() ([]string, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetObjects(): %s", time.Since(t0))
+	}()
+	return store.backend.GetObjects()
 }
 
 func (store *Store) GetObject(checksum string) ([]byte, error) {
@@ -182,12 +215,36 @@ func (store *Store) GetObject(checksum string) ([]byte, error) {
 	return store.backend.GetObject(checksum)
 }
 
+func (store *Store) PutObject(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: PutObject(%s): %s", checksum, time.Since(t0))
+	}()
+	return store.backend.PutObject(checksum, data)
+}
+
+func (store *Store) GetChunks() ([]string, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetChunks(): %s", time.Since(t0))
+	}()
+	return store.backend.GetChunks()
+}
+
 func (store *Store) GetChunk(checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunk(%s): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.GetChunk(checksum)
+}
+
+func (store *Store) PutChunk(checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: PutChunk(%s): %s", checksum, time.Since(t0))
+	}()
+	return store.backend.PutChunk(checksum, data)
 }
 
 func (store *Store) CheckObject(checksum string) (bool, error) {

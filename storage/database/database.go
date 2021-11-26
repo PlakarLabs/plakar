@@ -29,7 +29,11 @@ import (
 )
 
 func init() {
-	storage.Register("database", &DatabaseStore{})
+	storage.Register("database", NewDatabaseStore)
+}
+
+func NewDatabaseStore() storage.StoreBackend {
+	return &DatabaseStore{}
 }
 
 func (store *DatabaseStore) connect(addr string) error {

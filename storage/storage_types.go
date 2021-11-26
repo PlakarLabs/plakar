@@ -34,11 +34,19 @@ type StoreBackend interface {
 
 	GetIndexes() ([]string, error)
 	GetIndex(id string) ([]byte, error)
-	GetObject(checksum string) ([]byte, error)
-	GetChunk(checksum string) ([]byte, error)
+	PutIndex(id string, data []byte) error
+	RefIndexObject(id string, checksum string) error
+	RefIndexChunk(id string, checksum string) error
 
+	GetObjects() ([]string, error)
+	GetObject(checksum string) ([]byte, error)
 	CheckObject(checksum string) (bool, error)
+	PutObject(checksum string, data []byte) error
+
+	GetChunks() ([]string, error)
+	GetChunk(checksum string) ([]byte, error)
 	CheckChunk(checksum string) (bool, error)
+	PutChunk(checksum string, data []byte) error
 
 	Purge(id string) error
 

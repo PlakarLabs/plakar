@@ -143,6 +143,9 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	case "check":
 		exitCode = cmd_check(ctx, args)
 
+	case "clone":
+		exitCode = cmd_clone(ctx, args)
+
 	case "diff":
 		exitCode = cmd_diff(ctx, args)
 

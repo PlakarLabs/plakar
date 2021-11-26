@@ -29,7 +29,11 @@ import (
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("client", &ClientStore{})
+	storage.Register("client", NewClientStore)
+}
+
+func NewClientStore() storage.StoreBackend {
+	return &ClientStore{}
 }
 
 func (store *ClientStore) connect(addr string) error {

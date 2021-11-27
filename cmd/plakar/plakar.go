@@ -189,7 +189,7 @@ func main() {
 		}
 	}
 
-	if store.Configuration().Encrypted != "" {
+	if store.Configuration().Encryption != "" {
 		var keypair *encryption.Keypair
 		for {
 			passphrase, err := helpers.GetPassphrase()

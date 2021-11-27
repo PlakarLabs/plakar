@@ -19,10 +19,10 @@ package storage
 const VERSION string = "0.1.0"
 
 type StoreConfig struct {
-	Uuid       string
-	Version    string
-	Encrypted  string
-	Compressed string
+	Uuid        string
+	Version     string
+	Encryption  string
+	Compression string
 }
 
 type StoreBackend interface {

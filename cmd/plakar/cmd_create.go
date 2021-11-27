@@ -41,9 +41,9 @@ func cmd_create(ctx Plakar, args []string) int {
 	storeConfig.Version = storage.VERSION
 	storeConfig.Uuid = uuid.NewString()
 	if no_compression {
-		storeConfig.Compressed = ""
+		storeConfig.Compression = ""
 	} else {
-		storeConfig.Compressed = "gzip"
+		storeConfig.Compression = "gzip"
 	}
 	if !no_encryption {
 		for {
@@ -60,7 +60,7 @@ func cmd_create(ctx Plakar, args []string) int {
 			ctx.keypair = keypair
 			break
 		}
-		storeConfig.Encrypted = ctx.keypair.Uuid
+		storeConfig.Encryption = ctx.keypair.Uuid
 	}
 	if len(flags.Args()) == 0 {
 		err := ctx.store.Create(ctx.Repository, storeConfig)

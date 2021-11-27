@@ -149,12 +149,12 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 		return err
 	}
 
-	_, err = statement.Exec("Compressed", config.Compressed)
+	_, err = statement.Exec("Compression", config.Compression)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec("Encrypted", config.Encrypted)
+	_, err = statement.Exec("Encryption", config.Encryption)
 	if err != nil {
 		return err
 	}
@@ -173,11 +173,11 @@ func (store *DatabaseStore) Open(repository string) error {
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compressed'`).Scan(&storeConfig.Compressed)
+	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&storeConfig.Compression)
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encrypted'`).Scan(&storeConfig.Encrypted)
+	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&storeConfig.Encryption)
 	if err != nil {
 		return err
 	}

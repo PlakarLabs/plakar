@@ -34,7 +34,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
 	if err != nil {
-		logger.Error("%s: could not obtain snapshots list: err", flags.Name(), err)
+		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
@@ -64,7 +64,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 			}
 			_, err = os.Stdout.Write(data)
 			if err != nil {
-				logger.Error("%s: %s: could not write chunk to stdout: %s", flags.Name(), pathname, chunkChecksum, err)
+				logger.Error("%s: %s: could not write chunk '%s' to stdout: %s", flags.Name(), pathname, chunkChecksum, err)
 				break
 			}
 		}

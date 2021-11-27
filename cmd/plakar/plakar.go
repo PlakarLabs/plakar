@@ -144,19 +144,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	/* load keypair from plakar */
-	encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "key not found, run `plakar keygen`\n")
-			os.Exit(1)
-		} else {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			os.Exit(1)
-		}
-	}
-	ctx.EncryptedKeypair = encryptedKeypair
-
 	var store *storage.Store
 	if !strings.HasPrefix(ctx.Repository, "/") {
 		if strings.HasPrefix(ctx.Repository, "plakar://") {
@@ -184,12 +171,26 @@ func main() {
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "store does not seem to exist: run `plakar create`\n")
+			os.Exit(1)
 		} else {
 			log.Fatalf("%s: could not open repository %s", flag.CommandLine.Name(), ctx.Repository)
 		}
 	}
 
 	if store.Configuration().Encryption != "" {
+		/* load keypair from plakar */
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "key %s not found, uh oh, emergency !...\n", store.Configuration().Encryption)
+				os.Exit(1)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+		}
+		ctx.EncryptedKeypair = encryptedKeypair
+
 		var keypair *encryption.Keypair
 		for {
 			passphrase, err := helpers.GetPassphrase()

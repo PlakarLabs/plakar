@@ -156,7 +156,6 @@ func check_plakar(store *storage.Store) int {
 			errors++
 		}
 	}
-	//fmt.Println(chunks)
 
 	return 0
 }

@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
@@ -35,7 +34,8 @@ func cmd_cat(ctx Plakar, args []string) int {
 
 	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("%s: could not obtain snapshots list: err", flags.Name(), err)
+		return 1
 	}
 
 	errors := 0
@@ -58,11 +58,15 @@ func cmd_cat(ctx Plakar, args []string) int {
 		for _, chunkChecksum := range object.Chunks {
 			data, err := snapshot.GetChunk(chunkChecksum)
 			if err != nil {
-				logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunkChecksum)
+				logger.Error("%s: %s: could not obtain chunk '%s': %s", flags.Name(), pathname, chunkChecksum, err)
 				errors++
 				continue
 			}
-			os.Stdout.Write(data)
+			_, err = os.Stdout.Write(data)
+			if err != nil {
+				logger.Error("%s: %s: could not write chunk to stdout: %s", flags.Name(), pathname, chunkChecksum, err)
+				break
+			}
 		}
 	}
 

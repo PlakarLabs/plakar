@@ -5,6 +5,7 @@
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
     {{$Object:=.Object}}
+    {{$Chunks:=.Chunks}}
     {{$Info:=.Info}}
     {{$Path:=.Path}}
     {{$Navigation:=.Navigation}}
@@ -82,7 +83,7 @@
             </tr>
         </thead>
         <tbody>
-            {{range $chunk := $Object.Chunks}} 
+            {{range $chunk := $Chunks}} 
             <tr>
                 <td>{{$chunk.Checksum}}</td>
                 <td>{{$chunk.Start}}</td>

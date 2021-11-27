@@ -232,6 +232,11 @@ func object(w http.ResponseWriter, r *http.Request) {
 	object := snap.Objects[checksum]
 	info, _ := snap.LookupInodeForPathname(path)
 
+	chunks := make([]*snapshot.Chunk, 0)
+	for _, chunkChecksum := range object.Chunks {
+		chunks = append(chunks, snap.Chunks[chunkChecksum])
+	}
+
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
@@ -260,13 +265,14 @@ func object(w http.ResponseWriter, r *http.Request) {
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
 		Object          *snapshot.Object
+		Chunks          []*snapshot.Chunk
 		Info            *filesystem.Fileinfo
 		Root            string
 		Path            string
 		Navigation      []string
 		NavigationLinks map[string]string
 		EnableViewer    bool
-	}{snap, object, info, root, path, nav, navLinks, enableViewer}
+	}{snap, object, chunks, info, root, path, nav, navLinks, enableViewer}
 	templates["object"].Execute(w, ctx)
 }
 

@@ -71,6 +71,14 @@ func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
 	cache.mu_snapshots.Lock()
 	cache.snapshots[checksum] = data
 	cache.mu_snapshots.Unlock()
+
+	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO snapshots("uuid", "blob") VALUES(?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	statement.Exec(checksum, data)
+	statement.Close()
+
 	return nil
 }
 
@@ -94,6 +102,14 @@ func (cache *Cache) PutPath(checksum string, data []byte) error {
 	cache.mu_pathnames.Lock()
 	cache.pathnames[checksum] = data
 	cache.mu_pathnames.Unlock()
+
+	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	statement.Exec(checksum, data)
+	statement.Close()
+
 	return nil
 }
 
@@ -137,29 +153,6 @@ func (cache *Cache) GetObject(checksum string) ([]byte, error) {
 }
 
 func (cache *Cache) Commit() error {
-	// XXX - to handle parallel use, New() needs to open a read-only version of the database
-	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
-	//
-
-	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for checksum, data := range cache.pathnames {
-		statement.Exec(checksum, data)
-	}
-	statement.Close()
-
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO snapshots("uuid", "blob") VALUES(?, ?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for checksum, data := range cache.snapshots {
-		statement.Exec(checksum, data)
-	}
-	statement.Close()
-
 	cache.conn.Close()
-
 	return nil
 }

@@ -11,9 +11,10 @@ import (
 	"sync/atomic"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/restic/chunker"
+	//	"github.com/restic/chunker"
 )
 
 type objectMsg struct {
@@ -192,7 +193,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error) {
+func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -203,8 +204,12 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 	object := &Object{}
 	objectHash := sha256.New()
 
-	chk := chunker.NewWithBoundaries(rd, 0x3dea92648f6e83, chunker.MinSize, 1*
-		1024*1024)
+	chk, err := fastcdc.NewChunker(rd, chunkerOptions)
+	if err != nil {
+		logger.Warn("%s", err)
+		return nil, err
+	}
+
 	firstChunk := true
 	for {
 		cdcChunk, err := chk.Next(*buf)
@@ -227,8 +232,8 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 
 		chunk := Chunk{}
 		chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
-		chunk.Start = cdcChunk.Start
-		chunk.Length = cdcChunk.Length
+		chunk.Start = uint(cdcChunk.Offset)
+		chunk.Length = uint(cdcChunk.Size)
 		object.Chunks = append(object.Chunks, chunk.Checksum)
 
 		chunks := make([]string, 0)
@@ -274,12 +279,17 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
 
+	chunkerOptions := fastcdc.ChunkerOpts{
+		NormalSize: 1 * 1024 * 1024,
+		MaxSize:    4 * 1024 * 1024,
+	}
 	bufPool := &sync.Pool{
 		New: func() interface{} {
-			b := make([]byte, 1*1024*1024)
+			b := make([]byte, chunkerOptions.MaxSize)
 			return &b
 		},
 	}
+
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
 	for _, pathname := range snapshot.Filesystem.ListFiles() {
@@ -304,7 +314,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			// can't reuse object from cache, chunkify
 			if object == nil {
 				buf := bufPool.Get().(*[]byte)
-				object, err = chunkify(snapshot, buf, pathname)
+				object, err = chunkify(&chunkerOptions, snapshot, buf, pathname)
 				bufPool.Put(buf)
 				if err != nil {
 					// something went wrong, skip this file

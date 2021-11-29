@@ -31,6 +31,21 @@ import (
 var muBackends sync.Mutex
 var backends map[string]func() StoreBackend = make(map[string]func() StoreBackend)
 
+type Store struct {
+	backend StoreBackend
+
+	Username    string
+	Hostname    string
+	CommandLine string
+
+	Cache   *cache.Cache
+	Keypair *encryption.Keypair
+}
+
+type Transaction struct {
+	backend TransactionBackend
+}
+
 func Register(name string, backend func() StoreBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
@@ -66,17 +81,6 @@ func New(name string) (*Store, error) {
 		store.backend = backend()
 		return store, nil
 	}
-}
-
-type Store struct {
-	backend StoreBackend
-
-	Username    string
-	Hostname    string
-	CommandLine string
-
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
 }
 
 func (store *Store) GetCache() *cache.Cache {
@@ -341,10 +345,6 @@ func (store *Store) Close() error {
 		logger.Profile("storage: Close(): %s", time.Since(t0))
 	}()
 	return store.backend.Close()
-}
-
-type Transaction struct {
-	backend TransactionBackend
 }
 
 func (transaction *Transaction) GetUuid() string {

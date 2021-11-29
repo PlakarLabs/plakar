@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
@@ -33,12 +32,13 @@ func cmd_push(ctx Plakar, args []string) int {
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	snap, err := snapshot.New(ctx.Store())
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("%s", err)
+		return 1
 	}
 
 	snap.CommandLine = ctx.CommandLine
@@ -48,8 +48,12 @@ func cmd_push(ctx Plakar, args []string) int {
 	} else {
 		err = snap.Push(flags.Args())
 	}
+
 	if err != nil {
-		logger.Info("%s: OK", snap.Uuid)
+		logger.Error("%s", err)
+		return 1
 	}
+
+	logger.Info("created snapshot %s", snap.Uuid)
 	return 0
 }

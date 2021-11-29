@@ -51,5 +51,11 @@ type FSTransaction struct {
 	chunks  map[string]bool
 	objects map[string]bool
 
+	muChunkBucket sync.Mutex
+	chunkBucket   map[string]bool
+
+	muObjectBucket sync.Mutex
+	objectBucket   map[string]bool
+
 	storage.TransactionBackend
 }

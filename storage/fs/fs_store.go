@@ -68,6 +68,13 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
 
+	for i := 0; i < 256; i++ {
+		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", store.root, i), 0700)
+	}
+
 	f, err := os.Create(fmt.Sprintf("%s/CONFIG", store.root))
 	if err != nil {
 		return err
@@ -125,6 +132,11 @@ func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 
 	tx.chunks = make(map[string]bool)
 	tx.objects = make(map[string]bool)
+	tx.chunkBucket = make(map[string]bool)
+	tx.objectBucket = make(map[string]bool)
+
+	//tx.prepare()
+	//tx.prepared = true
 
 	return tx, nil
 }
@@ -283,8 +295,7 @@ func (store *FSStore) GetChunkSize(checksum string) (uint64, error) {
 }
 
 func (store *FSStore) PutObject(checksum string, data []byte) error {
-	os.Mkdir(store.PathObjectBucket(checksum), 0700)
-	f, err := os.Create(store.PathObject(checksum))
+	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -294,6 +305,12 @@ func (store *FSStore) PutObject(checksum string, data []byte) error {
 	if err != nil {
 		return err
 	}
+
+	err = os.Rename(f.Name(), store.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -332,20 +349,18 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (store *FSStore) PutChunk(checksum string, data []byte) error {
-	err := os.Mkdir(store.PathChunkBucket(checksum), 0700)
-	if err != nil {
-		if !os.IsExist(err) {
-			return err
-		}
-	}
-
-	f, err := os.Create(store.PathChunk(checksum))
+	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathChunk(checksum))
 	if err != nil {
 		return err
 	}

@@ -152,9 +152,18 @@ func stats_plakar(store *storage.Store) int {
 		}
 	}
 
+	dedupedChunksPercentage := 0.0
+	if dedupedChunksSize != 0 {
+		dedupedChunksPercentage = float64(dedupedChunksSize-chunksSize) / float64(dedupedChunksSize) * 100
+	}
+	dedupedObjectsPercentage := 0.0
+	if dedupedObjectsSize != 0 {
+		dedupedObjectsPercentage = float64(dedupedObjectsSize-objectsSize) / float64(dedupedObjectsSize) * 100
+	}
+
 	fmt.Println("Snapshots:", len(indexes))
-	fmt.Printf("Chunks: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), float64(dedupedChunksSize-chunksSize)/float64(dedupedChunksSize)*100)
-	fmt.Printf("Objects: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), float64(dedupedObjectsSize-objectsSize)/float64(dedupedObjectsSize)*100)
+	fmt.Printf("Chunks: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
+	fmt.Printf("Objects: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
 
 	return 0
 }

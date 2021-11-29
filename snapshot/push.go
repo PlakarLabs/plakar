@@ -193,7 +193,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	return &object, nil
 }
 
-func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error) {
+func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -212,7 +212,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, buf *[]by
 
 	firstChunk := true
 	for {
-		cdcChunk, err := chk.Next(*buf)
+		cdcChunk, err := chk.Next()
 		if err == io.EOF {
 			break
 		}
@@ -279,15 +279,19 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
 
-	chunkerOptions := fastcdc.ChunkerOpts{
-		NormalSize: 1 * 1024 * 1024,
-		MaxSize:    4 * 1024 * 1024,
-	}
+	chunkerOptions := fastcdc.NewChunkerOptions()
+
 	bufPool := &sync.Pool{
 		New: func() interface{} {
 			b := make([]byte, chunkerOptions.MaxSize)
 			return &b
 		},
+	}
+	chunkerOptions.BufferAllocate = func() *[]byte {
+		return bufPool.Get().(*[]byte)
+	}
+	chunkerOptions.BufferRelease = func(buffer *[]byte) {
+		bufPool.Put(buffer)
 	}
 
 	maxConcurrency := make(chan bool, 1024)
@@ -313,9 +317,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil {
-				buf := bufPool.Get().(*[]byte)
-				object, err = chunkify(&chunkerOptions, snapshot, buf, pathname)
-				bufPool.Put(buf)
+				object, err = chunkify(chunkerOptions, snapshot, pathname)
 				if err != nil {
 					// something went wrong, skip this file
 					// errchan <- err

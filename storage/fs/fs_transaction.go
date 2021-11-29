@@ -65,10 +65,6 @@ func (transaction *FSTransaction) prepare() {
 }
 
 func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		err := transaction.CreateChunkBucket(key)
@@ -97,10 +93,6 @@ func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error)
 }
 
 func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		err := transaction.CreateObjectBucket(key)
@@ -129,9 +121,6 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 }
 
 func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
 	store := transaction.store
 
 	err := transaction.CreateObjectBucket(checksum)
@@ -139,12 +128,7 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 		return err
 	}
 
-	err = store.PutObject(checksum, data)
-	if err != nil {
-		return err
-	}
-
-	err = os.Link(store.PathObject(checksum), transaction.PathObject(checksum))
+	err = store.PutObjectSafe(checksum, data, transaction.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -156,10 +140,6 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 }
 
 func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
 	store := transaction.store
 
 	err := transaction.CreateChunkBucket(checksum)
@@ -167,12 +147,7 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 		return err
 	}
 
-	err = store.PutChunk(checksum, data)
-	if err != nil {
-		return err
-	}
-
-	err = os.Link(store.PathChunk(checksum), transaction.PathChunk(checksum))
+	err = store.PutChunkSafe(checksum, data, transaction.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -184,9 +159,6 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 }
 
 func (transaction *FSTransaction) PutIndex(data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
 	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
 	if err != nil {
 		return err
@@ -202,12 +174,5 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *FSTransaction) Commit() error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
-	//os.Mkdir(transaction.store.PathIndexBucket(transaction.Uuid), 0700)
-	os.Rename(transaction.Path(), transaction.store.PathIndex(transaction.Uuid))
-
-	return nil
+	return os.Rename(transaction.Path(), transaction.store.PathIndex(transaction.Uuid))
 }

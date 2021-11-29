@@ -135,8 +135,7 @@ func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 	tx.chunkBucket = make(map[string]bool)
 	tx.objectBucket = make(map[string]bool)
 
-	//tx.prepare()
-	//tx.prepared = true
+	tx.prepare()
 
 	return tx, nil
 }
@@ -314,6 +313,31 @@ func (store *FSStore) PutObject(checksum string, data []byte) error {
 	return nil
 }
 
+func (store *FSStore) PutObjectSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Link(f.Name(), link)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (store *FSStore) GetChunks() ([]string, error) {
 	ret := make([]string, 0)
 
@@ -356,6 +380,31 @@ func (store *FSStore) PutChunk(checksum string, data []byte) error {
 	defer f.Close()
 
 	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) PutChunkSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Link(f.Name(), link)
 	if err != nil {
 		return err
 	}

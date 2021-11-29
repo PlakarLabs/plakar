@@ -247,6 +247,14 @@ func (store *Store) GetObjectRefCount(checksum string) (uint64, error) {
 	return store.backend.GetObjectRefCount(checksum)
 }
 
+func (store *Store) GetObjectSize(checksum string) (uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetObjectSize(%s): %s", checksum, time.Since(t0))
+	}()
+	return store.backend.GetObjectSize(checksum)
+}
+
 func (store *Store) GetChunks() ([]string, error) {
 	t0 := time.Now()
 	defer func() {
@@ -277,6 +285,14 @@ func (store *Store) GetChunkRefCount(checksum string) (uint64, error) {
 		logger.Profile("storage: GetChunkRefCount(%s): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.GetChunkRefCount(checksum)
+}
+
+func (store *Store) GetChunkSize(checksum string) (uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetChunkSize(%s): %s", checksum, time.Since(t0))
+	}()
+	return store.backend.GetChunkSize(checksum)
 }
 
 func (store *Store) CheckIndexObject(id string, checksum string) (bool, error) {

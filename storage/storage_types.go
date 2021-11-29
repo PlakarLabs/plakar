@@ -47,12 +47,14 @@ type StoreBackend interface {
 	CheckObject(checksum string) (bool, error)
 	PutObject(checksum string, data []byte) error
 	GetObjectRefCount(checksum string) (uint64, error)
+	GetObjectSize(checksum string) (uint64, error)
 
 	GetChunks() ([]string, error)
 	GetChunk(checksum string) ([]byte, error)
 	CheckChunk(checksum string) (bool, error)
 	PutChunk(checksum string, data []byte) error
 	GetChunkRefCount(checksum string) (uint64, error)
+	GetChunkSize(checksum string) (uint64, error)
 
 	Purge(id string) error
 

@@ -182,6 +182,9 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	case "shell":
 		exitCode = cmd_shell(ctx, args)
 
+	case "stats":
+		exitCode = cmd_stats(ctx, args)
+
 	case "tarball":
 		exitCode = cmd_tarball(ctx, args)
 

@@ -203,7 +203,8 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 	object := &Object{}
 	objectHash := sha256.New()
 
-	chk := chunker.New(rd, 0x3dea92648f6e83)
+	chk := chunker.NewWithBoundaries(rd, 0x3dea92648f6e83, chunker.MinSize, 1*
+		1024*1024)
 	firstChunk := true
 	for {
 		cdcChunk, err := chk.Next(*buf)
@@ -273,9 +274,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
 
-	bufPool := sync.Pool{
+	bufPool := &sync.Pool{
 		New: func() interface{} {
-			b := make([]byte, 16*1024*1024)
+			b := make([]byte, 1*1024*1024)
 			return &b
 		},
 	}

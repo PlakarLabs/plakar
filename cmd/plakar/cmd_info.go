@@ -122,14 +122,12 @@ func info_plakar(store *storage.Store) int {
 
 	for _, checksum := range chunksChecksums {
 		if _, exists := chunks[checksum]; !exists {
-			logger.Warn("orphan chunk: %s", checksum)
 			errors++
 		}
 	}
 
 	for _, checksum := range objectsChecksums {
 		if _, exists := objects[checksum]; !exists {
-			logger.Warn("orphan object: %s", checksum)
 			errors++
 		}
 	}
@@ -140,7 +138,6 @@ func info_plakar(store *storage.Store) int {
 			logger.Warn("%s", err)
 			errors++
 		} else if refCount != uint64(count) {
-			logger.Warn("invalid references count: %s", chunkChecksum)
 			errors++
 		}
 		size, err := store.GetChunkSize(chunkChecksum)
@@ -159,7 +156,6 @@ func info_plakar(store *storage.Store) int {
 			logger.Warn("%s", err)
 			errors++
 		} else if refCount != uint64(count) {
-			logger.Warn("invalid references count: %s", objectChecksum)
 			errors++
 		}
 		size, err := store.GetObjectSize(objectChecksum)

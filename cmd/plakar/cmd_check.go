@@ -51,18 +51,15 @@ func cmd_check(ctx Plakar, args []string) int {
 			logger.Warn("%s", err)
 		}
 
-		if ok {
-			logger.Info("%s: OK", snapshot.Uuid)
-		} else {
-			logger.Info("%s: KO", snapshot.Uuid)
+		if !ok {
 			failures = true
 		}
 	}
 
-	if !failures {
-		return 0
+	if failures {
+		return 1
 	}
-	return 1
+	return 0
 }
 
 func check_plakar(store *storage.Store) int {

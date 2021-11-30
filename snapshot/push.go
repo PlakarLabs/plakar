@@ -281,18 +281,18 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
-	bufPool := &sync.Pool{
-		New: func() interface{} {
-			b := make([]byte, chunkerOptions.MaxSize)
-			return &b
-		},
-	}
-	chunkerOptions.BufferAllocate = func() *[]byte {
-		return bufPool.Get().(*[]byte)
-	}
-	chunkerOptions.BufferRelease = func(buffer *[]byte) {
-		bufPool.Put(buffer)
-	}
+	//bufPool := &sync.Pool{
+	//	New: func() interface{} {
+	//		b := make([]byte, chunkerOptions.MaxSize)
+	//		return &b
+	//	},
+	//}
+	//chunkerOptions.BufferAllocate = func() *[]byte {
+	//	return bufPool.Get().(*[]byte)
+	//}
+	//chunkerOptions.BufferRelease = func(buffer *[]byte) {
+	//	bufPool.Put(buffer)
+	//}
 
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}

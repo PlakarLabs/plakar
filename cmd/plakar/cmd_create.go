@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/storage"
 	"golang.org/x/term"
 )
@@ -37,12 +38,28 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.BoolVar(&no_compression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
 
+	/* load keypair from plakar */
+	if !no_encryption {
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "key not found, run `plakar keygen`\n")
+				os.Exit(1)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+		}
+		ctx.EncryptedKeypair = encryptedKeypair
+	}
+
 	storeConfig := storage.StoreConfig{}
+	storeConfig.Version = storage.VERSION
 	storeConfig.Uuid = uuid.NewString()
 	if no_compression {
-		storeConfig.Compressed = ""
+		storeConfig.Compression = ""
 	} else {
-		storeConfig.Compressed = "gzip"
+		storeConfig.Compression = "gzip"
 	}
 	if !no_encryption {
 		for {
@@ -59,7 +76,7 @@ func cmd_create(ctx Plakar, args []string) int {
 			ctx.keypair = keypair
 			break
 		}
-		storeConfig.Encrypted = ctx.keypair.Uuid
+		storeConfig.Encryption = ctx.keypair.Uuid
 	}
 	if len(flags.Args()) == 0 {
 		err := ctx.store.Create(ctx.Repository, storeConfig)

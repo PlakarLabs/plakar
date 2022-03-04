@@ -30,9 +30,14 @@ github.com/mattn/go-sqlite3 v1.14.9 h1:10HX2Td0ocZpYEjhilsuo6WWtUqttj2Kb0KtD86/K
 github.com/mattn/go-sqlite3 v1.14.9/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/restic/chunker v0.4.0 h1:YUPYCUn70MYP7VO4yllypp2SjmsRhRJaad3xKu1QFRw=
-github.com/restic/chunker v0.4.0/go.mod h1:z0cH2BejpW636LXw0R/BGyv+Ey8+m9QGiOanDHItzyw=
-golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129135316-892536bbbe00 h1:RpqvRsWeT88vplLgiBxE3HWMl+yt7QcaPy8iW2ZbTn0=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129135316-892536bbbe00/go.mod h1:9KpZcfiu0ZuQsRGTJ8ggDEjKUndlV6TFf8IMKNhW1qA=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129204114-1bd810c68a0a h1:r6hbHidfBvHqncgeOheDOgKjoHx166surzE/kpFaaGg=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129204114-1bd810c68a0a/go.mod h1:9KpZcfiu0ZuQsRGTJ8ggDEjKUndlV6TFf8IMKNhW1qA=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129213732-3eaf31cff0bf h1:7MjEaS2JxSw+Tc78k7VJfBCK25E/ot5TxEzskX9CMvQ=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211129213732-3eaf31cff0bf/go.mod h1:9KpZcfiu0ZuQsRGTJ8ggDEjKUndlV6TFf8IMKNhW1qA=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211130115626-1f6e826f4a2f h1:HMoEQS1Q6FGxcDKreb5ZGzY24bIzopKlFdkfkn6rhX4=
+github.com/poolpOrg/go-fastcdc v0.0.0-20211130115626-1f6e826f4a2f/go.mod h1:9KpZcfiu0ZuQsRGTJ8ggDEjKUndlV6TFf8IMKNhW1qA=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 h1:7I4JAnoQBe7ZtJcBaYHi5UtiO8tQHbUSXxL+pnGRANg=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/net v0.0.0-20200301022130-244492dfa37a/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=

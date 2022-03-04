@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -34,7 +35,11 @@ import (
 )
 
 func init() {
-	storage.Register("filesystem", &FSStore{})
+	storage.Register("filesystem", NewFSStore)
+}
+
+func NewFSStore() storage.StoreBackend {
+	return &FSStore{}
 }
 
 func (store *FSStore) objectExists(checksum string) bool {
@@ -62,6 +67,13 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 	os.MkdirAll(fmt.Sprintf("%s/transactions", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
+
+	for i := 0; i < 256; i++ {
+		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", store.root, i), 0700)
+	}
 
 	f, err := os.Create(fmt.Sprintf("%s/CONFIG", store.root))
 	if err != nil {
@@ -120,6 +132,10 @@ func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 
 	tx.chunks = make(map[string]bool)
 	tx.objects = make(map[string]bool)
+	tx.chunkBucket = make(map[string]bool)
+	tx.objectBucket = make(map[string]bool)
+
+	tx.prepare()
 
 	return tx, nil
 }
@@ -162,6 +178,80 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) PutIndex(id string, data []byte) error {
+	os.Mkdir(store.PathIndexBucket(id), 0700)
+	os.Mkdir(store.PathIndex(id), 0700)
+	os.Mkdir(store.PathIndexObjects(id), 0700)
+	os.Mkdir(store.PathIndexChunks(id), 0700)
+
+	f, err := os.Create(fmt.Sprintf("%s/INDEX", store.PathIndex(id)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (store *FSStore) ReferenceIndexChunk(id string, checksum string) error {
+	os.Mkdir(store.PathIndexChunkBucket(id, checksum), 0700)
+	os.Link(store.PathChunk(checksum), store.PathIndexChunk(id, checksum))
+	return nil
+}
+
+func (store *FSStore) ReferenceIndexObject(id string, checksum string) error {
+	os.Mkdir(store.PathIndexObjectBucket(id, checksum), 0700)
+	os.Link(store.PathChunk(checksum), store.PathIndexObject(id, checksum))
+	return nil
+}
+
+func (store *FSStore) GetObjects() ([]string, error) {
+	ret := make([]string, 0)
+
+	buckets, err := ioutil.ReadDir(store.PathObjects())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range buckets {
+		objects, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathObjects(), bucket.Name()))
+		if err != nil {
+			return ret, err
+		}
+
+		for _, object := range objects {
+			//_, err = uuid.Parse(object.Name())
+			//if err != nil {
+			//		return ret, nil
+			//	}
+			ret = append(ret, object.Name())
+		}
+	}
+	return ret, nil
+}
+
+func (store *FSStore) GetIndexObject(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(store.PathIndexObject(id, checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (store *FSStore) GetIndexChunk(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(store.PathIndexChunk(id, checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	data, err := ioutil.ReadFile(store.PathObject(checksum))
 	if err != nil {
@@ -171,6 +261,108 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	return data, nil
 }
 
+func (store *FSStore) GetObjectRefCount(checksum string) (uint64, error) {
+	st, err := os.Stat(store.PathObject(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
+}
+
+func (store *FSStore) GetChunkRefCount(checksum string) (uint64, error) {
+	st, err := os.Stat(store.PathChunk(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
+}
+
+func (store *FSStore) GetObjectSize(checksum string) (uint64, error) {
+	st, err := os.Stat(store.PathObject(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(st.Size()), nil
+}
+
+func (store *FSStore) GetChunkSize(checksum string) (uint64, error) {
+	st, err := os.Stat(store.PathChunk(checksum))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(st.Size()), nil
+}
+
+func (store *FSStore) PutObject(checksum string, data []byte) error {
+	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) PutObjectSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Link(f.Name(), link)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) GetChunks() ([]string, error) {
+	ret := make([]string, 0)
+
+	buckets, err := ioutil.ReadDir(store.PathChunks())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range buckets {
+		chunks, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathChunks(), bucket.Name()))
+		if err != nil {
+			return ret, err
+		}
+
+		for _, chunk := range chunks {
+			//_, err = uuid.Parse(object.Name())
+			//if err != nil {
+			//		return ret, nil
+			//	}
+			ret = append(ret, chunk.Name())
+		}
+	}
+	return ret, nil
+}
+
 func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	data, err := ioutil.ReadFile(store.PathChunk(checksum))
 	if err != nil {
@@ -178,6 +370,68 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (store *FSStore) PutChunk(checksum string, data []byte) error {
+	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) PutChunkSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	err = os.Link(f.Name(), link)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(f.Name(), store.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (store *FSStore) CheckIndexObject(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathIndexObject(id, checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+}
+
+func (store *FSStore) CheckIndexChunk(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(store.PathIndexChunk(id, checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+
 }
 
 func (store *FSStore) CheckObject(checksum string) (bool, error) {
@@ -209,8 +463,6 @@ func (store *FSStore) Purge(id string) error {
 		return err
 	}
 
-	store.Tidy()
-
 	return nil
 }
 
@@ -222,6 +474,9 @@ func (store *FSStore) Close() error {
 
 func (store *FSStore) Tidy() {
 	cwalk.Walk(store.PathObjects(), func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			log.Fatal(err)
+		}
 		object := fmt.Sprintf("%s/%s", store.PathObjects(), path)
 		if filepath.Clean(object) == filepath.Clean(store.PathObjects()) {
 			return nil
@@ -235,6 +490,9 @@ func (store *FSStore) Tidy() {
 	})
 
 	cwalk.Walk(store.PathChunks(), func(path string, f os.FileInfo, err error) error {
+		if err != nil {
+			log.Fatal(err)
+		}
 		chunk := fmt.Sprintf("%s/%s", store.PathChunks(), path)
 		if filepath.Clean(chunk) == filepath.Clean(store.PathChunks()) {
 			return nil

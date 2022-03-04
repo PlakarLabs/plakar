@@ -29,7 +29,11 @@ import (
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("client", &ClientStore{})
+	storage.Register("client", NewClientStore)
+}
+
+func NewClientStore() storage.StoreBackend {
+	return &ClientStore{}
 }
 
 func (store *ClientStore) connect(addr string) error {
@@ -164,6 +168,24 @@ func (store *ClientStore) GetIndexes() ([]string, error) {
 	}
 
 	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
+}
+
+func (store *ClientStore) GetChunks() ([]string, error) {
+	result, err := store.sendRequest("ReqGetChunks", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Payload.(network.ResGetChunks).Chunks, result.Payload.(network.ResGetChunks).Err
+}
+
+func (store *ClientStore) GetObjects() ([]string, error) {
+	result, err := store.sendRequest("ReqGetObjects", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
 }
 
 func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {

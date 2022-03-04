@@ -11,8 +11,6 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-const VERSION = "0.1.1"
-
 func New(store *storage.Store) (*Snapshot, error) {
 	tx, err := store.Transaction()
 	if err != nil {
@@ -24,14 +22,14 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 		Uuid:         tx.GetUuid(),
 		CreationTime: time.Now(),
-		Version:      VERSION,
-		Hostname:     "",
-		Username:     "",
-		CommandLine:  "",
+		Version:      storage.VERSION,
+		Hostname:     store.GetHostname(),
+		Username:     store.GetUsername(),
+		CommandLine:  store.GetCommandLine(),
 
 		Filesystem: filesystem.NewFilesystem(),
 
-		Filenames: make(map[string]string),
+		Pathnames: make(map[string]string),
 		Objects:   make(map[string]*Object),
 		Chunks:    make(map[string]*Chunk),
 
@@ -79,9 +77,13 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		buffer = tmp
 	}
 
-	data, err := compression.Inflate(buffer)
-	if err != nil {
-		return nil, err
+	data := buffer
+	if store.Configuration().Compression != "" {
+		tmp, err := compression.Inflate(data)
+		if err != nil {
+			return nil, err
+		}
+		data = tmp
 	}
 
 	snapshot, err := snapshotFromBytes(data)
@@ -101,10 +103,21 @@ func List(store *storage.Store) ([]string, error) {
 	return store.GetIndexes()
 }
 
+func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
+	snapshot.muChunks.Lock()
+	chunk, exists := snapshot.Chunks[checksum]
+	snapshot.muChunks.Unlock()
+	return chunk, exists
+}
+
 func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 	keypair := snapshot.store.GetKeypair()
 
-	buffer := compression.Deflate(data)
+	buffer := data
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
 	if keypair != nil {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, buffer)
 		if err != nil {
@@ -120,7 +133,11 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 	keypair := snapshot.store.GetKeypair()
 
-	buffer := compression.Deflate(data)
+	buffer := data
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
 	if keypair != nil {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, buffer)
 		if err != nil {
@@ -136,7 +153,11 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 func (snapshot *Snapshot) PutIndex(data []byte) error {
 	keypair := snapshot.store.GetKeypair()
 
-	buffer := compression.Deflate(data)
+	buffer := data
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
 	if keypair != nil {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, buffer)
 		if err != nil {
@@ -163,7 +184,11 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()
 
-	buffer := compression.Deflate(data)
+	buffer := data
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
 	if keypair != nil {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, buffer)
 		if err != nil {
@@ -193,7 +218,10 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 		buffer = tmp
 	}
 
-	return compression.Inflate(buffer)
+	if snapshot.store.Configuration().Compression != "" {
+		return compression.Inflate(buffer)
+	}
+	return buffer, nil
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {

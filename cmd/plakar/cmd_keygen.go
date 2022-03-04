@@ -67,6 +67,5 @@ func cmd_keygen(ctx Plakar, args []string) error {
 		return err
 	}
 
-	fmt.Println("keypair saved to local store")
 	return nil
 }

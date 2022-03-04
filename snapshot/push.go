@@ -11,9 +11,10 @@ import (
 	"sync/atomic"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/restic/chunker"
+	//	"github.com/restic/chunker"
 )
 
 type objectMsg struct {
@@ -63,8 +64,8 @@ func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMs
 			maxGoroutines <- true
 			wg.Add(1)
 			go func(object *Object, data []byte) {
-				for _, chunk := range object.Chunks {
-					snapshot.StateSetChunkToObject(chunk.Checksum, object.Checksum)
+				for _, chunkChecksum := range object.Chunks {
+					snapshot.StateSetChunkToObject(chunkChecksum, object.Checksum)
 				}
 				if len(data) != 0 {
 					chanObjectWriter <- objectMsg{object, data}
@@ -177,19 +178,22 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object := Object{}
 	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
-	object.Chunks = cachedObject.Chunks
+	object.Chunks = make([]string, 0)
+	for _, chunk := range cachedObject.Chunks {
+		object.Chunks = append(object.Chunks, chunk.Checksum)
+	}
 	object.ContentType = cachedObject.ContentType
 
-	for _, chunk := range object.Chunks {
+	for offset, chunkChecksum := range object.Chunks {
 		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunk.Checksum] = chunk
+		snapshot.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
 		snapshot.muChunks.Unlock()
 	}
 
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error) {
+func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -200,10 +204,15 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 	object := &Object{}
 	objectHash := sha256.New()
 
-	chk := chunker.New(rd, 0x3dea92648f6e83)
+	chk, err := fastcdc.NewChunker(rd, chunkerOptions)
+	if err != nil {
+		logger.Warn("%s", err)
+		return nil, err
+	}
+
 	firstChunk := true
 	for {
-		cdcChunk, err := chk.Next(*buf)
+		cdcChunk, err := chk.Next()
 		if err == io.EOF {
 			break
 		}
@@ -223,9 +232,9 @@ func chunkify(snapshot *Snapshot, buf *[]byte, pathname string) (*Object, error)
 
 		chunk := Chunk{}
 		chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
-		chunk.Start = cdcChunk.Start
-		chunk.Length = cdcChunk.Length
-		object.Chunks = append(object.Chunks, &chunk)
+		chunk.Start = uint(cdcChunk.Offset)
+		chunk.Length = uint(cdcChunk.Size)
+		object.Chunks = append(object.Chunks, chunk.Checksum)
 
 		chunks := make([]string, 0)
 		chunks = append(chunks, chunk.Checksum)
@@ -270,15 +279,25 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chanObjectsProcessor, chanObjectsProcessorDone := pushObjectsProcessorChannelHandler(snapshot)
 
-	bufPool := sync.Pool{
-		New: func() interface{} {
-			b := make([]byte, 16*1024*1024)
-			return &b
-		},
-	}
+	chunkerOptions := fastcdc.NewChunkerOptions()
+
+	//bufPool := &sync.Pool{
+	//	New: func() interface{} {
+	//		b := make([]byte, chunkerOptions.MaxSize)
+	//		return &b
+	//	},
+	//}
+	//chunkerOptions.BufferAllocate = func() *[]byte {
+	//	return bufPool.Get().(*[]byte)
+	//}
+	//chunkerOptions.BufferRelease = func(buffer *[]byte) {
+	//	bufPool.Put(buffer)
+	//}
+
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
-	for pathname, fileinfo := range snapshot.Filesystem.Files {
+	for _, pathname := range snapshot.Filesystem.ListFiles() {
+		fileinfo, _ := snapshot.Filesystem.LookupInodeForFile(pathname)
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(pathname string, fileinfo *filesystem.Fileinfo) {
@@ -298,9 +317,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil {
-				buf := bufPool.Get().(*[]byte)
-				object, err = chunkify(snapshot, buf, pathname)
-				bufPool.Put(buf)
+				object, err = chunkify(chunkerOptions, snapshot, pathname)
 				if err != nil {
 					// something went wrong, skip this file
 					// errchan <- err
@@ -311,9 +328,9 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				}
 			}
 
-			snapshot.muFilenames.Lock()
-			snapshot.Filenames[pathname] = object.Checksum
-			snapshot.muFilenames.Unlock()
+			snapshot.muPathnames.Lock()
+			snapshot.Pathnames[pathname] = object.Checksum
+			snapshot.muPathnames.Unlock()
 
 			snapshot.muObjects.Lock()
 			snapshot.Objects[object.Checksum] = object

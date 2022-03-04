@@ -34,10 +34,10 @@ func (snapshot *Snapshot) LookupInodeForDirectory(pathname string) (*filesystem.
 }
 
 func (snapshot *Snapshot) LookupObjectForPathname(pathname string) *Object {
-	snapshot.muFilenames.Lock()
-	defer snapshot.muFilenames.Unlock()
+	snapshot.muPathnames.Lock()
+	defer snapshot.muPathnames.Unlock()
 
-	objectChecksum, exists := snapshot.Filenames[filepath.Clean(pathname)]
+	objectChecksum, exists := snapshot.Pathnames[filepath.Clean(pathname)]
 	if !exists {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (snapshot *Snapshot) LookupChunkForChecksum(checksum string) *Chunk {
 	snapshot.muChunks.Lock()
 	defer snapshot.muChunks.Unlock()
 
-	chunk, exists := snapshot.Chunks[checksum]
+	chunk, exists := snapshot.GetChunkInfo(checksum)
 	if !exists {
 		return nil
 	}

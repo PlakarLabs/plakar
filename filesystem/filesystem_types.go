@@ -29,20 +29,28 @@ type Filesystem struct {
 	muScannedDirectories sync.Mutex
 	ScannedDirectories   []string
 
-	muStat sync.Mutex
-	Stat   map[string]*Fileinfo
+	muNames sync.Mutex
+	Names   map[string][]string
 
-	muLstat sync.Mutex
-	Lstat   map[string]*Fileinfo
+	muStat   sync.Mutex
+	Stat     []string
+	statInfo map[string]*Fileinfo
 
-	muDirectories sync.Mutex
-	Directories   map[string]*Fileinfo
+	muLstat   sync.Mutex
+	Lstat     []string
+	lstatInfo map[string]*Fileinfo
 
-	muFiles sync.Mutex
-	Files   map[string]*Fileinfo
+	muDirectories   sync.Mutex
+	Directories     []string
+	directoriesInfo map[string]*Fileinfo
 
-	muNonRegular sync.Mutex
-	NonRegular   map[string]*Fileinfo
+	muFiles   sync.Mutex
+	Files     []string
+	filesInfo map[string]*Fileinfo
+
+	muNonRegular   sync.Mutex
+	NonRegular     []string
+	nonRegularInfo map[string]*Fileinfo
 
 	muSymlinks sync.Mutex
 	Symlinks   map[string]string

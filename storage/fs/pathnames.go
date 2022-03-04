@@ -70,6 +70,30 @@ func (store *FSStore) PathIndex(checksum string) string {
 	return fmt.Sprintf("%s/%s", store.PathIndexBucket(checksum), checksum)
 }
 
+func (store *FSStore) PathIndexChunks(id string) string {
+	return fmt.Sprintf("%s/chunks", store.PathIndex(id))
+}
+
+func (store *FSStore) PathIndexChunkBucket(id string, checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathIndexChunks(id), checksum[0:2])
+}
+
+func (store *FSStore) PathIndexChunk(id string, checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathIndexChunkBucket(id, checksum), checksum)
+}
+
+func (store *FSStore) PathIndexObjects(id string) string {
+	return fmt.Sprintf("%s/objects", store.PathIndex(id))
+}
+
+func (store *FSStore) PathIndexObjectBucket(id string, checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathIndexObjects(id), checksum[0:2])
+}
+
+func (store *FSStore) PathIndexObject(id string, checksum string) string {
+	return fmt.Sprintf("%s/%s", store.PathIndexObjectBucket(id, checksum), checksum)
+}
+
 func (transaction *FSTransaction) Path() string {
 	return fmt.Sprintf("%s/%s/%s", transaction.store.PathTransactions(),
 		transaction.Uuid[0:2], transaction.Uuid)

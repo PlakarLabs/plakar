@@ -26,7 +26,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	}
 	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
 
-	if snapshot.store.Configuration().Encrypted != "" {
+	if snapshot.store.Configuration().Encryption != "" {
 		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
 			return nil, err
@@ -58,7 +58,13 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 
 	cacheObject := CachedObject{}
 	cacheObject.Checksum = object.Checksum
-	cacheObject.Chunks = object.Chunks
+
+	cacheObject.Chunks = make([]*Chunk, 0)
+	for _, chunkChecksum := range object.Chunks {
+		chunk, _ := snapshot.GetChunkInfo(chunkChecksum)
+		cacheObject.Chunks = append(cacheObject.Chunks, chunk)
+	}
+
 	cacheObject.ContentType = object.ContentType
 	cacheObject.Info = fi
 
@@ -68,7 +74,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 	}
 
 	jobject = compression.Deflate(jobject)
-	if snapshot.store.Configuration().Encrypted != "" {
+	if snapshot.store.Configuration().Encryption != "" {
 		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
 		if err != nil {
 			return err

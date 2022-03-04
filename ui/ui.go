@@ -67,7 +67,7 @@ type SnapshotSummary struct {
 	Directories uint64
 	Files       uint64
 	NonRegular  uint64
-	Filenames   uint64
+	Pathnames   uint64
 	Objects     uint64
 	Chunks      uint64
 
@@ -90,7 +90,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
 	ss.Files = uint64(len(snapshot.Filesystem.Files))
 	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
-	ss.Filenames = uint64(len(snapshot.Filenames))
+	ss.Pathnames = uint64(len(snapshot.Pathnames))
 	ss.Objects = uint64(len(snapshot.Objects))
 	ss.Chunks = uint64(len(snapshot.Chunks))
 	ss.Size = snapshot.Size
@@ -223,7 +223,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checksum, ok := snap.Filenames[path]
+	checksum, ok := snap.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -232,10 +232,15 @@ func object(w http.ResponseWriter, r *http.Request) {
 	object := snap.Objects[checksum]
 	info, _ := snap.LookupInodeForPathname(path)
 
+	chunks := make([]*snapshot.Chunk, 0)
+	for _, chunkChecksum := range object.Chunks {
+		chunks = append(chunks, snap.Chunks[chunkChecksum])
+	}
+
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Filesystem.Directories[root]; ok {
+		if _, ok := snap.Filesystem.LookupInodeForDirectory(root); ok {
 			break
 		}
 	}
@@ -260,13 +265,14 @@ func object(w http.ResponseWriter, r *http.Request) {
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
 		Object          *snapshot.Object
+		Chunks          []*snapshot.Chunk
 		Info            *filesystem.Fileinfo
 		Root            string
 		Path            string
 		Navigation      []string
 		NavigationLinks map[string]string
 		EnableViewer    bool
-	}{snap, object, info, root, path, nav, navLinks, enableViewer}
+	}{snap, object, chunks, info, root, path, nav, navLinks, enableViewer}
 	templates["object"].Execute(w, ctx)
 }
 
@@ -282,7 +288,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checksum, ok := snap.Filenames[path]
+	checksum, ok := snap.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -294,8 +300,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	if download != "" {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 	}
-	for _, chunk := range object.Chunks {
-		data, err := snap.GetChunk(chunk.Checksum)
+	for _, chunkChecksum := range object.Chunks {
+		data, err := snap.GetChunk(chunkChecksum)
 		if err != nil {
 		}
 		w.Write(data)
@@ -334,7 +340,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
-		for directory := range snap.Filesystem.Directories {
+		for _, directory := range snap.Filesystem.ListDirectories() {
 			if strings.Contains(directory, q) {
 				directories = append(directories, struct {
 					Snapshot string
@@ -342,7 +348,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}{snap.Uuid, directory})
 			}
 		}
-		for file := range snap.Filenames {
+		for file := range snap.Pathnames {
 			if strings.Contains(file, q) {
 				files = append(files, struct {
 					Snapshot string

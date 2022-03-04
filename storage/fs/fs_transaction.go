@@ -19,8 +19,37 @@ package fs
 import (
 	"fmt"
 	"os"
-	"sync"
 )
+
+func (transaction *FSTransaction) CreateChunkBucket(checksum string) error {
+	transaction.muChunkBucket.Lock()
+	defer transaction.muChunkBucket.Unlock()
+
+	bucket := checksum[0:2]
+	if _, exists := transaction.chunkBucket[bucket]; !exists {
+		err := os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
+		if err != nil {
+			return err
+		}
+		transaction.chunkBucket[bucket] = true
+	}
+	return nil
+}
+
+func (transaction *FSTransaction) CreateObjectBucket(checksum string) error {
+	transaction.muObjectBucket.Lock()
+	defer transaction.muObjectBucket.Unlock()
+
+	bucket := checksum[0:2]
+	if _, exists := transaction.objectBucket[bucket]; !exists {
+		err := os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
+		if err != nil {
+			return err
+		}
+		transaction.objectBucket[bucket] = true
+	}
+	return nil
+}
 
 func (transaction *FSTransaction) GetUuid() string {
 	return transaction.Uuid
@@ -36,14 +65,13 @@ func (transaction *FSTransaction) prepare() {
 }
 
 func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
-		os.Mkdir(transaction.PathChunkBucket(key), 0700)
-		err := os.Link(transaction.store.PathChunk(key), transaction.PathChunk(key))
+		err := transaction.CreateChunkBucket(key)
+		if err != nil {
+			return nil, err
+		}
+		err = os.Link(transaction.store.PathChunk(key), transaction.PathChunk(key))
 		if err != nil {
 			if os.IsNotExist(err) {
 				ret = append(ret, false)
@@ -65,14 +93,13 @@ func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error)
 }
 
 func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
 	ret := make([]bool, 0)
 	for _, key := range keys {
-		os.Mkdir(transaction.PathObjectBucket(key), 0700)
-		err := os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
+		err := transaction.CreateObjectBucket(key)
+		if err != nil {
+			return nil, err
+		}
+		err = os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
 		if err != nil {
 			if os.IsNotExist(err) {
 				ret = append(ret, false)
@@ -94,18 +121,17 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 }
 
 func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
+	store := transaction.store
 
-	os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
-	f, err := os.Create(transaction.PathObject(checksum))
+	err := transaction.CreateObjectBucket(checksum)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	f.Write(data)
+	err = store.PutObjectSafe(checksum, data, transaction.PathObject(checksum))
+	if err != nil {
+		return err
+	}
 
 	transaction.objectsMutex.Lock()
 	transaction.objects[checksum] = true
@@ -114,17 +140,17 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 }
 
 func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-	os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
-	f, err := os.Create(transaction.PathChunk(checksum))
+	store := transaction.store
+
+	err := transaction.CreateChunkBucket(checksum)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	f.Write(data)
+	err = store.PutChunkSafe(checksum, data, transaction.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
 
 	transaction.chunksMutex.Lock()
 	transaction.chunks[checksum] = true
@@ -133,68 +159,20 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 }
 
 func (transaction *FSTransaction) PutIndex(data []byte) error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
 	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	f.Write(data)
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (transaction *FSTransaction) Commit() error {
-	if !transaction.prepared {
-		transaction.prepare()
-	}
-
-	var wg sync.WaitGroup
-
-	// first pass, link chunks to store
-	parallelChunksMax := make(chan int, 64)
-	for chunk, _ := range transaction.chunks {
-		parallelChunksMax <- 1
-		wg.Add(1)
-		go func(chunk string) {
-			if !transaction.store.chunkExists(chunk) {
-				os.Mkdir(transaction.store.PathChunkBucket(chunk), 0700)
-				os.Rename(transaction.PathChunk(chunk), transaction.store.PathChunk(chunk))
-			} else {
-				os.Remove(transaction.PathChunk(chunk))
-			}
-			os.Link(transaction.store.PathChunk(chunk), transaction.PathChunk(chunk))
-			<-parallelChunksMax
-			wg.Done()
-		}(chunk)
-	}
-	wg.Wait()
-
-	// second pass, link objects to store
-	parallelObjectsMax := make(chan int, 64)
-	for object, _ := range transaction.objects {
-		parallelObjectsMax <- 1
-		wg.Add(1)
-		go func(object string) {
-			if !transaction.store.objectExists(object) {
-				os.Mkdir(transaction.store.PathObjectBucket(object), 0700)
-				os.Rename(transaction.PathObject(object), transaction.store.PathObject(object))
-			} else {
-				os.Remove(transaction.PathObject(object))
-			}
-			os.Link(transaction.store.PathObject(object), transaction.PathObject(object))
-			<-parallelObjectsMax
-			wg.Done()
-		}(object)
-	}
-	wg.Wait()
-
-	// final pass, move snapshot to store
-	os.Mkdir(transaction.store.PathIndexBucket(transaction.Uuid), 0700)
-	os.Rename(transaction.Path(), transaction.store.PathIndex(transaction.Uuid))
-
-	return nil
+	return os.Rename(transaction.Path(), transaction.store.PathIndex(transaction.Uuid))
 }

@@ -1,6 +1,8 @@
 package snapshot
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	var snapshotStorage SnapshotStorage
@@ -18,7 +20,7 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 
 	snapshot.Filesystem = snapshotStorage.Filesystem
 
-	snapshot.Filenames = snapshotStorage.Filenames
+	snapshot.Pathnames = snapshotStorage.Pathnames
 	snapshot.Objects = snapshotStorage.Objects
 	snapshot.Chunks = snapshotStorage.Chunks
 	snapshot.ChunkToObjects = snapshotStorage.ChunkToObjects
@@ -26,6 +28,8 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	snapshot.ObjectToPathnames = snapshotStorage.ObjectToPathnames
 
 	snapshot.Size = snapshotStorage.Size
+
+	snapshot.Filesystem.Reindex()
 
 	return snapshot, nil
 }
@@ -41,7 +45,7 @@ func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 
 	snapshotStorage.Filesystem = snapshot.Filesystem
 
-	snapshotStorage.Filenames = snapshot.Filenames
+	snapshotStorage.Pathnames = snapshot.Pathnames
 	snapshotStorage.Objects = snapshot.Objects
 	snapshotStorage.Chunks = snapshot.Chunks
 	snapshotStorage.ChunkToObjects = snapshot.ChunkToObjects

@@ -30,27 +30,6 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
-func fiToDiff(fi filesystem.Fileinfo) string {
-	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-	username := fmt.Sprintf("%d", fi.Uid)
-	if err == nil {
-		username = pwUserLookup.Username
-	}
-
-	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-	groupname := fmt.Sprintf("%d", fi.Gid)
-	if err == nil {
-		groupname = grGroupLookup.Name
-	}
-
-	return fmt.Sprintf("%s % 8s % 8s % 8s %s",
-		fi.Mode,
-		username,
-		groupname,
-		humanize.Bytes(uint64(fi.Size)),
-		fi.ModTime.UTC())
-}
-
 func cmd_diff(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
@@ -88,7 +67,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1 := range snapshot1.Filesystem.Directories {
+			for _, dir1 := range snapshot1.Filesystem.ListDirectories() {
 				fi1, _ := snapshot1.LookupInodeForDirectory(dir1)
 				fi2, ok := snapshot2.LookupInodeForDirectory(dir1)
 				if !ok {
@@ -101,7 +80,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for dir2 := range snapshot2.Filesystem.Directories {
+			for _, dir2 := range snapshot2.Filesystem.ListDirectories() {
 				fi2, _ := snapshot2.LookupInodeForDirectory(dir2)
 				_, ok := snapshot1.LookupInodeForDirectory(dir2)
 				if !ok {
@@ -109,7 +88,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file1 := range snapshot1.Filesystem.Files {
+			for _, file1 := range snapshot1.Filesystem.ListFiles() {
 				fi1, _ := snapshot1.LookupInodeForPathname(file1)
 				fi2, ok := snapshot2.LookupInodeForPathname(file1)
 				if !ok {
@@ -122,9 +101,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for file2 := range snapshot2.Filesystem.Files {
-				fi2, _ := snapshot1.LookupInodeForPathname(file2)
-				//_, ok := snapshot1.GetInode(file2)
+			for _, file2 := range snapshot2.Filesystem.ListFiles() {
+				fi2, _ := snapshot2.LookupInodeForPathname(file2)
 				_, ok := snapshot1.LookupInodeForFilename(file2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)
@@ -165,8 +143,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Filenames[args[i]]
-			_, ok2 := snapshot2.Filenames[args[i]]
+			_, ok1 := snapshot1.Pathnames[args[i]]
+			_, ok2 := snapshot2.Pathnames[args[i]]
 			if !ok1 && !ok2 {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -177,9 +155,30 @@ func cmd_diff(ctx Plakar, args []string) int {
 	return 0
 }
 
+func fiToDiff(fi filesystem.Fileinfo) string {
+	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
+	username := fmt.Sprintf("%d", fi.Uid)
+	if err == nil {
+		username = pwUserLookup.Username
+	}
+
+	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
+	groupname := fmt.Sprintf("%d", fi.Gid)
+	if err == nil {
+		groupname = grGroupLookup.Name
+	}
+
+	return fmt.Sprintf("%s % 8s % 8s % 8s %s",
+		fi.Mode,
+		username,
+		groupname,
+		humanize.Bytes(uint64(fi.Size)),
+		fi.ModTime.UTC())
+}
+
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Filenames[filename1]
-	sum2, ok2 := snapshot2.Filenames[filename2]
+	sum1, ok1 := snapshot1.Pathnames[filename1]
+	sum2, ok2 := snapshot2.Pathnames[filename2]
 
 	// file does not exist in either snapshot
 	if !ok1 && !ok2 {
@@ -200,8 +199,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		object, err := snapshot1.GetObject(sum1)
 		if err != nil {
 		}
-		for _, chunk := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunk.Checksum)
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snapshot2.GetChunk(chunkChecksum)
 			if err != nil {
 			}
 			buf1 = buf1 + string(data)
@@ -212,8 +211,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		object, err := snapshot2.GetObject(sum2)
 		if err != nil {
 		}
-		for _, chunk := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunk.Checksum)
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snapshot2.GetChunk(chunkChecksum)
 			if err != nil {
 			}
 			buf2 = buf2 + string(data)

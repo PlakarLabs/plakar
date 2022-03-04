@@ -37,7 +37,7 @@ func cmd_key(ctx Plakar, args []string) int {
 	cmd, _ := flags.Arg(0), flags.Args()[1:]
 	switch cmd {
 	case "export":
-		if ctx.Store().Configuration().Encrypted == "" {
+		if ctx.Store().Configuration().Encryption == "" {
 			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
 			return 1
 		}
@@ -51,7 +51,7 @@ func cmd_key(ctx Plakar, args []string) int {
 		fmt.Println(base64.StdEncoding.EncodeToString([]byte(keypair)))
 
 	case "info":
-		if ctx.Store().Configuration().Encrypted == "" {
+		if ctx.Store().Configuration().Encryption == "" {
 			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
 			return 1
 		}

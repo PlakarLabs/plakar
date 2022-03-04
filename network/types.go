@@ -19,6 +19,22 @@ type ResOpen struct {
 	StoreConfig storage.StoreConfig
 }
 
+type ReqGetChunks struct {
+}
+
+type ResGetChunks struct {
+	Chunks []string
+	Err    error
+}
+
+type ReqGetObjects struct {
+}
+
+type ResGetObjects struct {
+	Objects []string
+	Err     error
+}
+
 type ReqGetIndexes struct {
 }
 
@@ -81,6 +97,7 @@ type ResPurge struct {
 }
 
 type ReqClose struct {
+	Uuid string
 }
 
 type ResClose struct {
@@ -160,6 +177,12 @@ func ProtocolRegister() {
 
 	gob.Register(ReqGetIndexes{})
 	gob.Register(ResGetIndexes{})
+
+	gob.Register(ReqGetChunks{})
+	gob.Register(ResGetChunks{})
+
+	gob.Register(ReqGetObjects{})
+	gob.Register(ResGetObjects{})
 
 	gob.Register(ReqGetIndex{})
 	gob.Register(ResGetIndex{})

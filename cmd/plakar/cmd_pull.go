@@ -20,9 +20,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"time"
-
-	"github.com/poolpOrg/plakar/logger"
 )
 
 func cmd_pull(ctx Plakar, args []string) int {
@@ -50,9 +47,7 @@ func cmd_pull(ctx Plakar, args []string) int {
 
 	for offset, snapshot := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		t0 := time.Now()
 		snapshot.Pull(pullPath, pullRebase, pattern)
-		logger.Info("snapshot %s: restored in %s", snapshot.Uuid, time.Since(t0))
 	}
 
 	return 0

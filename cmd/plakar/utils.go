@@ -133,6 +133,15 @@ func checkSnapshotsArgs(snapshots []string) {
 	}
 }
 
+func arrayContains(a []string, x string) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
 func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 	var exitCode int
 
@@ -181,6 +190,9 @@ func executeCommand(ctx Plakar, command string, args []string) (int, error) {
 
 	case "shell":
 		exitCode = cmd_shell(ctx, args)
+
+	case "sync":
+		exitCode = cmd_sync(ctx, args)
 
 	case "tarball":
 		exitCode = cmd_tarball(ctx, args)

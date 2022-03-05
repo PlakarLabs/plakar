@@ -74,7 +74,12 @@ func cmd_clone(ctx Plakar, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
 			return 1
 		}
-		defer cloneStore.Close()
+
+		err = cloneStore.Open(repository)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not open store: %s\n", ctx.Repository, err)
+			return 1
+		}
 
 		for _, chunkChecksum := range chunkChecksums {
 			data, err := sourceStore.GetChunk(chunkChecksum)

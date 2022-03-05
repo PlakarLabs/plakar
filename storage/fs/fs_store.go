@@ -205,7 +205,7 @@ func (store *FSStore) ReferenceIndexChunk(id string, checksum string) error {
 
 func (store *FSStore) ReferenceIndexObject(id string, checksum string) error {
 	os.Mkdir(store.PathIndexObjectBucket(id, checksum), 0700)
-	os.Link(store.PathChunk(checksum), store.PathIndexObject(id, checksum))
+	os.Link(store.PathObject(checksum), store.PathIndexObject(id, checksum))
 	return nil
 }
 

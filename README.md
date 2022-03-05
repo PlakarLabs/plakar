@@ -19,9 +19,6 @@ HERE IS A FLOW CHART TO BETTER EXPLAIN VALID CURRENT USE-CASES:
 ## TODO
 
 - general cleanup as this is my first real Go project
-- performances need to be improved, there are still bottlenecks
-- implement a nice search engine
-- improve the UI
 
 
 ## Quickstart

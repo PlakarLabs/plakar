@@ -69,15 +69,15 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		buffer = tmp
 	}
 
+	data := buffer
 	if keypair != nil {
-		tmp, err := encryption.Decrypt(keypair.MasterKey, buffer)
+		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
 		if err != nil {
 			return nil, err
 		}
-		buffer = tmp
+		data = tmp
 	}
 
-	data := buffer
 	if store.Configuration().Compression != "" {
 		tmp, err := compression.Inflate(data)
 		if err != nil {

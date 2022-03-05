@@ -248,16 +248,22 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if !res[0] {
-			err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+			snapshot.muChunks.Lock()
+			if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
+				err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+				if err == nil {
+					snapshot.Chunks[chunk.Checksum] = &chunk
+				}
+			}
+			snapshot.muChunks.Unlock()
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			snapshot.muChunks.Lock()
+			snapshot.Chunks[chunk.Checksum] = &chunk
+			snapshot.muChunks.Unlock()
 		}
-
-		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunk.Checksum] = &chunk
-		snapshot.muChunks.Unlock()
-
 	}
 	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 	return object, nil

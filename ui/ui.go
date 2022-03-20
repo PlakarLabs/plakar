@@ -1,3 +1,6 @@
+//go:build go.1.15
+// +build go.1.15
+
 /*
  * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
  *

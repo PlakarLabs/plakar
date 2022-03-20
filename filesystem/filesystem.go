@@ -2,7 +2,6 @@ package filesystem
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,7 +167,7 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 		p.muNode.Unlock()
 
 		if !exists {
-			return nil, fs.ErrNotExist
+			return nil, os.ErrNotExist
 		}
 		p = tmp
 	}

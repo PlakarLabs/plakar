@@ -228,9 +228,8 @@ func main() {
 		ctx.keypair = keypair
 
 		if store.Configuration().Encryption != ctx.keypair.MasterKeyUuid {
-			fmt.Fprintf(os.Stderr, "invalid key %s for this repository, expected %s\n",
-				keypair.MasterKeyUuid,
-				store.Configuration().Encryption)
+			fmt.Fprintf(os.Stderr, "invalid key %s for this repository\n",
+				keypair.Uuid)
 			os.Exit(1)
 		}
 	}

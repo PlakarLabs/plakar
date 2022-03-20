@@ -80,7 +80,7 @@ func cmd_create(ctx Plakar, args []string) int {
 			ctx.keypair = keypair
 			break
 		}
-		storeConfig.Encryption = ctx.keypair.Uuid
+		storeConfig.Encryption = ctx.keypair.MasterKeyUuid
 	}
 	if len(flags.Args()) == 0 {
 		err := ctx.store.Create(ctx.Repository, storeConfig)

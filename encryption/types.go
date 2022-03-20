@@ -22,17 +22,19 @@ import (
 )
 
 type Keypair struct {
-	CreationTime time.Time
-	Uuid         string
-	PrivateKey   *ecdsa.PrivateKey
-	PublicKey    *ecdsa.PublicKey
-	MasterKey    []byte
+	CreationTime  time.Time
+	Uuid          string
+	MasterKeyUuid string
+	PrivateKey    *ecdsa.PrivateKey
+	PublicKey     *ecdsa.PublicKey
+	MasterKey     []byte
 }
 
 type SerializedKeypair struct {
-	CreationTime time.Time
-	Uuid         string
-	PrivateKey   string
-	PublicKey    string
-	MasterKey    string
+	CreationTime  time.Time
+	Uuid          string
+	MasterKeyUuid string
+	PrivateKey    string
+	PublicKey     string
+	MasterKey     string
 }

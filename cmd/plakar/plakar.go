@@ -196,13 +196,6 @@ func main() {
 		}
 	}
 
-	if store.Configuration().Encryption != key {
-		fmt.Fprintf(os.Stderr, "invalid key %s for this repository, expected %s\n",
-			key,
-			store.Configuration().Encryption)
-		os.Exit(1)
-	}
-
 	if store.Configuration().Encryption != "" {
 		/* load keypair from plakar */
 		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, key)
@@ -234,9 +227,9 @@ func main() {
 		}
 		ctx.keypair = keypair
 
-		if store.Configuration().Encryption != ctx.keypair.Uuid {
+		if store.Configuration().Encryption != ctx.keypair.MasterKeyUuid {
 			fmt.Fprintf(os.Stderr, "invalid key %s for this repository, expected %s\n",
-				keypair.Uuid,
+				keypair.MasterKeyUuid,
 				store.Configuration().Encryption)
 			os.Exit(1)
 		}

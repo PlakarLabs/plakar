@@ -44,6 +44,7 @@ func Keygen() (*Keypair, error) {
 
 	keypair := &Keypair{}
 	keypair.CreationTime = time.Now()
+	keypair.MasterKeyUuid = uuid.NewString()
 	keypair.Uuid = uuid.NewString()
 	keypair.PrivateKey = privateKey
 	keypair.PublicKey = &privateKey.PublicKey
@@ -51,6 +52,26 @@ func Keygen() (*Keypair, error) {
 	rand.Read(keypair.MasterKey)
 
 	return keypair, nil
+}
+
+func KeygenDerive(keypair *Keypair) (*Keypair, error) {
+	//see http://golang.org/pkg/crypto/elliptic/#P256
+	pubkeyCurve := elliptic.P384()
+
+	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	nkeypair := &Keypair{}
+	nkeypair.CreationTime = time.Now()
+	nkeypair.MasterKeyUuid = keypair.MasterKeyUuid
+	nkeypair.Uuid = uuid.NewString()
+	nkeypair.PrivateKey = privateKey
+	nkeypair.PublicKey = &privateKey.PublicKey
+	nkeypair.MasterKey = make([]byte, 32)
+	nkeypair.MasterKey = keypair.MasterKey
+	return nkeypair, nil
 }
 
 func Keyload(passphrase []byte, data []byte) (*Keypair, error) {
@@ -77,6 +98,7 @@ func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
 	skeypair := &SerializedKeypair{}
 	skeypair.CreationTime = keypair.CreationTime
 	skeypair.Uuid = keypair.Uuid
+	skeypair.MasterKeyUuid = keypair.MasterKeyUuid
 	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(x509priv)
 	skeypair.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
 	skeypair.MasterKey = base64.StdEncoding.EncodeToString(keypair.MasterKey)
@@ -115,6 +137,7 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 	nkeypair := &Keypair{}
 	nkeypair.CreationTime = skeypair.CreationTime
 	nkeypair.Uuid = skeypair.Uuid
+	nkeypair.MasterKeyUuid = skeypair.MasterKeyUuid
 	nkeypair.PrivateKey = privateKey
 	nkeypair.PublicKey = publicKey
 	nkeypair.MasterKey = masterKey

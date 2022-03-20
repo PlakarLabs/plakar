@@ -63,6 +63,7 @@ func main() {
 	var enableProfiling bool
 	var disableCache bool
 	var cpuCount int
+	var key string
 
 	ctx := Plakar{}
 	currentHostname, err := os.Hostname()
@@ -86,6 +87,7 @@ func main() {
 	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
 	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
 	flag.IntVar(&cpuCount, "cpu", cpuDefault, "limit the number of usable cores")
+	flag.StringVar(&key, "key", "", "key ID for encrypted plakar")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 	flag.Parse()
@@ -153,8 +155,8 @@ func main() {
 	}
 
 	/* keygen command needs to be handled very early */
-	if command == "keygen" {
-		os.Exit(cmd_keygen(ctx, args))
+	if command == "key" && len(args) != 0 && args[0] == "gen" {
+		os.Exit(cmd_key(ctx, args))
 	}
 
 	var store *storage.Store
@@ -180,6 +182,10 @@ func main() {
 		os.Exit(0)
 	}
 
+	if command == "key" {
+		os.Exit(cmd_key(ctx, args))
+	}
+
 	err = store.Open(ctx.Repository)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -190,9 +196,16 @@ func main() {
 		}
 	}
 
+	if store.Configuration().Encryption != key {
+		fmt.Fprintf(os.Stderr, "invalid key %s for this repository, expected %s\n",
+			key,
+			store.Configuration().Encryption)
+		os.Exit(1)
+	}
+
 	if store.Configuration().Encryption != "" {
 		/* load keypair from plakar */
-		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir)
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, key)
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintf(os.Stderr, "key %s not found, uh oh, emergency !...\n", store.Configuration().Encryption)
@@ -220,6 +233,13 @@ func main() {
 			break
 		}
 		ctx.keypair = keypair
+
+		if store.Configuration().Encryption != ctx.keypair.Uuid {
+			fmt.Fprintf(os.Stderr, "invalid key %s for this repository, expected %s\n",
+				keypair.Uuid,
+				store.Configuration().Encryption)
+			os.Exit(1)
+		}
 	}
 
 	ctx.store = store

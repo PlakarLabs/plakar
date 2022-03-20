@@ -22,11 +22,37 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/local"
 )
 
 func init() {
 	registerCommand("key", cmd_key)
+}
+
+func keypairGenerate() (string, []byte, error) {
+	keypair, err := encryption.Keygen()
+	if err != nil {
+		return "", nil, err
+	}
+
+	var passphrase []byte
+	for {
+		passphrase, err = helpers.GetPassphraseConfirm()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			continue
+		}
+		break
+	}
+
+	pem, err := keypair.Encrypt(passphrase)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return keypair.Uuid, pem, err
 }
 
 func cmd_key(ctx Plakar, args []string) int {
@@ -38,15 +64,45 @@ func cmd_key(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	cmd, _ := flags.Arg(0), flags.Args()[1:]
+	cmd, subargs := flags.Arg(0), flags.Args()[1:]
 	switch cmd {
-	case "export":
-		if ctx.Store().Configuration().Encryption == "" {
-			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
+	case "ls":
+		keys, err := local.GetKeys(ctx.Workdir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not get keys\n", flag.CommandLine.Name())
 			return 1
 		}
+		for _, key := range keys {
+			fmt.Println(key)
+		}
 
-		keypair, err := local.GetEncryptedKeypair(ctx.Workdir)
+	case "gen":
+		uuid, encryptedKeypair, err := keypairGenerate()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not generate keypair: %s\n", err)
+			return 1
+		}
+		err = local.SetEncryptedKeypair(ctx.Workdir, uuid, encryptedKeypair)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
+			return 1
+		}
+		local.SetDefaultKeypairID(ctx.Workdir, uuid)
+
+	case "export":
+		keyUuid := ""
+		if len(subargs) == 0 {
+			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
+				return 1
+			}
+			keyUuid = tmp
+		} else {
+			keyUuid = subargs[0]
+		}
+
+		keypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
 		if err != nil {
 			// not supposed to happen at this point
 			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
@@ -55,12 +111,40 @@ func cmd_key(ctx Plakar, args []string) int {
 		fmt.Println(base64.StdEncoding.EncodeToString([]byte(keypair)))
 
 	case "info":
-		if ctx.Store().Configuration().Encryption == "" {
-			fmt.Fprintf(os.Stderr, "%s: plakar repository is not encrypted\n", flag.CommandLine.Name())
+		keyUuid := ""
+		if len(subargs) == 0 {
+			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
+				return 1
+			}
+			keyUuid = tmp
+		} else {
+			keyUuid = subargs[0]
+		}
+
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
 			return 1
 		}
 
-		skeypair, err := ctx.keypair.Serialize()
+		var keypair *encryption.Keypair
+		for {
+			passphrase, err := helpers.GetPassphrase()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+
+			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			break
+		}
+		skeypair, err := keypair.Serialize()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not serialize keypair\n", flag.CommandLine.Name())
 			return 1
@@ -71,6 +155,16 @@ func cmd_key(ctx Plakar, args []string) int {
 		fmt.Println("Master:", skeypair.MasterKey)
 		fmt.Println("Private:", skeypair.PrivateKey)
 		fmt.Println("Public:", skeypair.PublicKey)
+
+	case "default":
+		if len(subargs) == 0 {
+			keyUuid, _ := local.GetDefaultKeypairID(ctx.Workdir)
+			if keyUuid != "" {
+				fmt.Println(keyUuid)
+			}
+		} else if len(subargs) == 1 {
+			local.SetDefaultKeypairID(ctx.Workdir, subargs[0])
+		}
 
 	default:
 		fmt.Fprintf(os.Stderr, "%s: unknown subcommand: %s\n", flag.CommandLine.Name(), cmd)

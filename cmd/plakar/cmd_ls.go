@@ -33,6 +33,10 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+func init() {
+	registerCommand("ls", cmd_ls)
+}
+
 func cmd_ls(ctx Plakar, args []string) int {
 	var recursive bool
 

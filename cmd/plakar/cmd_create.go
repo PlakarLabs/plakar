@@ -29,6 +29,10 @@ import (
 	"golang.org/x/term"
 )
 
+func init() {
+	registerCommand("create", cmd_create)
+}
+
 func cmd_create(ctx Plakar, args []string) int {
 	var no_encryption bool
 	var no_compression bool

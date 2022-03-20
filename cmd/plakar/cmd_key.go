@@ -25,6 +25,10 @@ import (
 	"github.com/poolpOrg/plakar/local"
 )
 
+func init() {
+	registerCommand("key", cmd_key)
+}
+
 func cmd_key(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("key", flag.ExitOnError)
 	flags.Parse(args)

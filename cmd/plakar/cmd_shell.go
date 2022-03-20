@@ -26,6 +26,10 @@ import (
 	"github.com/anmitsu/go-shlex"
 )
 
+func init() {
+	registerCommand("shell", cmd_shell)
+}
+
 func cmd_shell(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("shell", flag.ExitOnError)
 	flags.Parse(args)

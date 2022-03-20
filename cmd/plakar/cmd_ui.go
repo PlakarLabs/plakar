@@ -1,3 +1,6 @@
+//go:build !go.1.16
+// +build !go.1.16
+
 /*
  * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
  *
@@ -21,6 +24,10 @@ import (
 
 	"github.com/poolpOrg/plakar/ui"
 )
+
+func init() {
+	registerCommand("ui", cmd_ui)
+}
 
 func cmd_ui(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("ui", flag.ExitOnError)

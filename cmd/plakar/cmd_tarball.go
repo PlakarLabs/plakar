@@ -31,6 +31,10 @@ import (
 	"github.com/poolpOrg/plakar/logger"
 )
 
+func init() {
+	registerCommand("tarball", cmd_tarball)
+}
+
 func cmd_tarball(ctx Plakar, args []string) int {
 	var tarballPath string
 	var tarballRebase bool

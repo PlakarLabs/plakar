@@ -25,6 +25,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
+func init() {
+	registerCommand("keep", cmd_keep)
+}
+
 func cmd_keep(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)

@@ -25,6 +25,10 @@ import (
 	"github.com/poolpOrg/plakar/local"
 )
 
+func init() {
+	registerCommand("keygen", cmd_keygen)
+}
+
 func keypairGenerate() ([]byte, error) {
 	keypair, err := encryption.Keygen()
 	if err != nil {
@@ -49,23 +53,23 @@ func keypairGenerate() ([]byte, error) {
 	return pem, err
 }
 
-func cmd_keygen(ctx Plakar, args []string) error {
+func cmd_keygen(ctx Plakar, args []string) int {
 	_, err := local.GetEncryptedKeypair(ctx.Workdir)
 	if err == nil {
 		fmt.Fprintf(os.Stderr, "key already exists in local store\n")
-		return err
+		return 1
 	}
 
 	encryptedKeypair, err := keypairGenerate()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not generate keypair: %s\n", err)
-		return err
+		return 1
 	}
 	err = local.SetEncryptedKeypair(ctx.Workdir, encryptedKeypair)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
-		return err
+		return 1
 	}
 
-	return nil
+	return 0
 }

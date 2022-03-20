@@ -27,6 +27,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
+func init() {
+	registerCommand("find", cmd_find)
+}
+
 func cmd_find(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)

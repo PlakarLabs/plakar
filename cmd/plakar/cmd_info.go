@@ -28,6 +28,10 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+func init() {
+	registerCommand("info", cmd_info)
+}
+
 func cmd_info(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)

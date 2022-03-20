@@ -23,6 +23,10 @@ import (
 
 const VERSION = "0.0.1"
 
+func init() {
+	registerCommand("version", cmd_version)
+}
+
 func cmd_version(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)

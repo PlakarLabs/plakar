@@ -142,70 +142,18 @@ func arrayContains(a []string, x string) bool {
 	return false
 }
 
+//var backends map[string]func() StoreBackend = make(map[string]func() StoreBackend)
+
+var commands map[string]func(Plakar, []string) int = make(map[string]func(Plakar, []string) int)
+
+func registerCommand(command string, fn func(Plakar, []string) int) {
+	commands[command] = fn
+}
+
 func executeCommand(ctx Plakar, command string, args []string) (int, error) {
-	var exitCode int
-
-	switch command {
-	case "cat":
-		exitCode = cmd_cat(ctx, args)
-
-	case "check":
-		exitCode = cmd_check(ctx, args)
-
-	case "clone":
-		exitCode = cmd_clone(ctx, args)
-
-	case "diff":
-		exitCode = cmd_diff(ctx, args)
-
-	case "exec":
-		exitCode = cmd_exec(ctx, args)
-
-	case "find":
-		exitCode = cmd_find(ctx, args)
-
-	case "info":
-		exitCode = cmd_info(ctx, args)
-
-	case "keep":
-		exitCode = cmd_keep(ctx, args)
-
-	case "key":
-		exitCode = cmd_key(ctx, args)
-
-	case "ls":
-		exitCode = cmd_ls(ctx, args)
-
-	case "pull":
-		exitCode = cmd_pull(ctx, args)
-
-	case "push":
-		exitCode = cmd_push(ctx, args)
-
-	case "rm":
-		exitCode = cmd_rm(ctx, args)
-
-	case "server":
-		exitCode = cmd_server(ctx, args)
-
-	case "shell":
-		exitCode = cmd_shell(ctx, args)
-
-	case "sync":
-		exitCode = cmd_sync(ctx, args)
-
-	case "tarball":
-		exitCode = cmd_tarball(ctx, args)
-
-	case "ui":
-		exitCode = cmd_ui(ctx, args)
-
-	case "version":
-		exitCode = cmd_version(ctx, args)
-
-	default:
+	fn, exists := commands[command]
+	if !exists {
 		return -1, nil
 	}
-
-	return exitCode, nil
+	return fn(ctx, args), nil
 }

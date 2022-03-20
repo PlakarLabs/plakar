@@ -26,6 +26,10 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+func init() {
+	registerCommand("check", cmd_check)
+}
+
 func cmd_check(ctx Plakar, args []string) int {
 	var enableFastCheck bool
 

@@ -23,6 +23,10 @@ import (
 	"github.com/poolpOrg/plakar/logger"
 )
 
+func init() {
+	registerCommand("cat", cmd_cat)
+}
+
 func cmd_cat(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.Parse(args)

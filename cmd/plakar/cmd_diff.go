@@ -30,6 +30,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
+func init() {
+	registerCommand("diff", cmd_diff)
+}
+
 func cmd_diff(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)

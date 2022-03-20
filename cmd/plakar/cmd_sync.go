@@ -27,6 +27,10 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+func init() {
+	registerCommand("sync", cmd_sync)
+}
+
 func cmd_sync(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)

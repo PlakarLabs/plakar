@@ -154,11 +154,7 @@ func main() {
 
 	/* keygen command needs to be handled very early */
 	if command == "keygen" {
-		err = cmd_keygen(ctx, args)
-		if err != nil {
-			os.Exit(1)
-		}
-		os.Exit(0)
+		os.Exit(cmd_keygen(ctx, args))
 	}
 
 	var store *storage.Store

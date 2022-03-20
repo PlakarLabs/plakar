@@ -25,6 +25,10 @@ import (
 	"github.com/poolpOrg/plakar/snapshot"
 )
 
+func init() {
+	registerCommand("rm", cmd_rm)
+}
+
 func cmd_rm(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
 	flags.Parse(args)

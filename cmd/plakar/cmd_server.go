@@ -22,6 +22,10 @@ import (
 	"github.com/poolpOrg/plakar/network"
 )
 
+func init() {
+	registerCommand("server", cmd_server)
+}
+
 func cmd_server(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.Parse(args)

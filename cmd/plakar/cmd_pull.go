@@ -22,6 +22,10 @@ import (
 	"os"
 )
 
+func init() {
+	registerCommand("pull", cmd_pull)
+}
+
 func cmd_pull(ctx Plakar, args []string) int {
 	var pullPath string
 	var pullRebase bool

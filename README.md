@@ -37,17 +37,17 @@ $ go get github.com/poolpOrg/plakar/cmd/plakar
 
 ### Generating the user key-pair
 
-First thing to do is to generate the key-pair and master key:
+First thing to do is to generate the key-pair:
 
 ```
-$ plakar keygen
+$ plakar key gen
 passphrase: 
 passphrase (confirm): 
 keypair saved to local store
 $ 
 ```
 
-This results in a passphrase protected key-pair being stored in `~/.plakar/plakar.key`.
+This results in a passphrase protected key-pair being stored in `~/.plakar/keypairs/`.
 Note that if you lose this file,
 or forget the passphrase,
 there is no way to recover your encrypted backups to the best of my knowledge.

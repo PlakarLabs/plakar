@@ -53,25 +53,6 @@ func KeypairGenerate() (*Keypair, error) {
 	return keypair, nil
 }
 
-func KeypairDerive(keypair *Keypair) (*Keypair, error) {
-	//see http://golang.org/pkg/crypto/elliptic/#P256
-	pubkeyCurve := elliptic.P384()
-
-	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	nkeypair := &Keypair{}
-	nkeypair.CreationTime = time.Now()
-	nkeypair.Uuid = uuid.NewString()
-	nkeypair.PrivateKey = privateKey
-	nkeypair.PublicKey = &privateKey.PublicKey
-	nkeypair.MasterKey = make([]byte, 32)
-	nkeypair.MasterKey = keypair.MasterKey
-	return nkeypair, nil
-}
-
 func KeypairLoad(passphrase []byte, data []byte) (*Keypair, error) {
 	keypair := &Keypair{}
 	data, err := keypair.Decrypt(passphrase, data)

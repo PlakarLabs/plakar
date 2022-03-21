@@ -32,7 +32,6 @@ type Plakar struct {
 	CommandLine string
 	KeyID       string
 
-	//EncryptedKeypair []byte
 	//	keypair          *encryption.Keypair
 	key *encryption.MasterKey
 
@@ -154,8 +153,8 @@ func main() {
 	}
 
 	/* keygen command needs to be handled very early */
-	if command == "key" && len(args) != 0 && args[0] == "gen" {
-		os.Exit(cmd_key(ctx, args))
+	if command == "keypair" && len(args) != 0 && args[0] == "gen" {
+		os.Exit(cmd_keypair(ctx, args))
 	}
 
 	var store *storage.Store
@@ -181,8 +180,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	if command == "key" {
-		os.Exit(cmd_key(ctx, args))
+	if command == "keypair" {
+		os.Exit(cmd_keypair(ctx, args))
 	}
 
 	err = store.Open(ctx.Repository)

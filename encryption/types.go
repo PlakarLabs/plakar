@@ -37,6 +37,18 @@ type SerializedKeypair struct {
 	MasterKey    string
 }
 
+type PublicKey struct {
+	CreationTime time.Time
+	Uuid         string
+	PublicKey    *ecdsa.PublicKey
+}
+
+type SerializedPublicKey struct {
+	CreationTime time.Time
+	Uuid         string
+	PublicKey    string
+}
+
 type MasterKey struct {
 	CreationTime time.Time
 	Uuid         string

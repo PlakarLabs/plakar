@@ -159,6 +159,51 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 	return nkeypair, nil
 }
 
+func (keypair *Keypair) Public() (*PublicKey, error) {
+	publicKey := &PublicKey{}
+	publicKey.CreationTime = keypair.CreationTime
+	publicKey.Uuid = keypair.Uuid
+	publicKey.PublicKey = keypair.PublicKey
+	return publicKey, nil
+}
+
+func (publicKey *PublicKey) Serialize() (*SerializedPublicKey, error) {
+
+	x509pub, err := x509.MarshalPKIXPublicKey(publicKey.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	spublicKey := &SerializedPublicKey{}
+	spublicKey.CreationTime = publicKey.CreationTime
+	spublicKey.Uuid = publicKey.Uuid
+	spublicKey.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
+	return spublicKey, nil
+}
+
+func (pubKey *PublicKey) Deserialize(data []byte) (*PublicKey, error) {
+	spublicKey := &SerializedPublicKey{}
+	err := json.Unmarshal(data, &spublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	x509pub, err := base64.StdEncoding.DecodeString(spublicKey.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	genericPublicKey, _ := x509.ParsePKIXPublicKey(x509pub)
+	publicKey := genericPublicKey.(*ecdsa.PublicKey)
+
+	npubKey := &PublicKey{}
+	npubKey.CreationTime = pubKey.CreationTime
+	npubKey.Uuid = pubKey.Uuid
+	npubKey.PublicKey = publicKey
+
+	return npubKey, nil
+}
+
 func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
 	serialized, err := keypair.Serialize()
 	if err != nil {

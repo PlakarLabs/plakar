@@ -178,27 +178,6 @@ func cmd_key(ctx Plakar, args []string) int {
 			keyUuid = subargs[0]
 		}
 
-		keypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
-		if err != nil {
-			// not supposed to happen at this point
-			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
-			return 1
-		}
-		fmt.Println(base64.StdEncoding.EncodeToString([]byte(keypair)))
-
-	case "public":
-		keyUuid := ""
-		if len(subargs) == 0 {
-			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
-				return 1
-			}
-			keyUuid = tmp
-		} else {
-			keyUuid = subargs[0]
-		}
-
 		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
 		if err != nil {
 			// not supposed to happen at this point

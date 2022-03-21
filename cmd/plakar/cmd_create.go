@@ -47,7 +47,7 @@ func cmd_create(ctx Plakar, args []string) int {
 		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, "")
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "key not found, run `plakar keygen`\n")
+				fmt.Fprintf(os.Stderr, "key not found, run `plakar key gen`\n")
 				os.Exit(1)
 			} else {
 				fmt.Fprintf(os.Stderr, "%s\n", err)

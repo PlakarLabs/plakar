@@ -97,7 +97,7 @@ it should be noted on the command line with `on`:
 ```
 $ plakar on ~/plakars/one push /bin
 $ plakar on ~/plakars/one ls
-2021-10-06T20:15:17Z f1ab2ffc-eedc-47bd-ae8c-8283e6e4cd79 10 MB (files: 36, dirs: 1)
+2022-03-21T22:02:17Z  22cd673e-58a1-47f5-af77-019099d076a7    3.1 MB /private/etc
 $ 
 ```
 

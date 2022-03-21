@@ -38,8 +38,8 @@ type Store struct {
 	Hostname    string
 	CommandLine string
 
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
+	Cache *cache.Cache
+	Key   *encryption.MasterKey
 }
 
 type Transaction struct {
@@ -87,8 +87,8 @@ func (store *Store) GetCache() *cache.Cache {
 	return store.Cache
 }
 
-func (store *Store) GetKeypair() *encryption.Keypair {
-	return store.Keypair
+func (store *Store) GetKey() *encryption.MasterKey {
+	return store.Key
 }
 
 func (store *Store) GetUsername() string {
@@ -108,8 +108,8 @@ func (store *Store) SetCache(localCache *cache.Cache) error {
 	return nil
 }
 
-func (store *Store) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
+func (store *Store) SetKey(localKey *encryption.MasterKey) error {
+	store.Key = localKey
 	return nil
 }
 

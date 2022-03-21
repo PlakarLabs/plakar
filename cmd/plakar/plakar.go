@@ -30,9 +30,11 @@ type Plakar struct {
 	Workdir     string
 	Repository  string
 	CommandLine string
+	KeyID       string
 
-	EncryptedKeypair []byte
-	keypair          *encryption.Keypair
+	//EncryptedKeypair []byte
+	//	keypair          *encryption.Keypair
+	key *encryption.MasterKey
 
 	store *storage.Store
 
@@ -50,10 +52,6 @@ func (plakar *Plakar) Store() *storage.Store {
 
 func (plakar *Plakar) Cache() *cache.Cache {
 	return plakar.localCache
-}
-
-func (plakar *Plakar) Keypair() *encryption.Keypair {
-	return plakar.keypair
 }
 
 func main() {
@@ -121,6 +119,7 @@ func main() {
 	ctx.Hostname = currentHostname
 	ctx.Workdir = fmt.Sprintf("%s/.plakar", currentUser.HomeDir)
 	ctx.Repository = fmt.Sprintf("%s/store", ctx.Workdir)
+	ctx.KeyID = key
 
 	// start logger and defer done return function to end of execution
 
@@ -208,7 +207,6 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		ctx.EncryptedKeypair = encryptedKeypair
 
 		var keypair *encryption.Keypair
 		for {
@@ -218,16 +216,28 @@ func main() {
 				continue
 			}
 
-			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 			break
 		}
-		ctx.keypair = keypair
 
-		if store.Configuration().Encryption != ctx.keypair.MasterKeyUuid {
+		encryptedMasterKey, err := local.GetEncryptedMasterKey(ctx.Workdir, store.Configuration().Encryption)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not get master key %s for repository\n", store.Configuration().Encryption)
+			os.Exit(1)
+		}
+		masterKey, err := encryption.KeyLoad(keypair.MasterKey, encryptedMasterKey)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not decrypt master %s key for repository\n", store.Configuration().Encryption)
+			os.Exit(1)
+		}
+		//	fmt.Println(encryptedMasterKey)
+		ctx.key = masterKey
+
+		if store.Configuration().Encryption != masterKey.Uuid {
 			fmt.Fprintf(os.Stderr, "invalid key %s for this repository\n",
 				keypair.Uuid)
 			os.Exit(1)
@@ -235,7 +245,7 @@ func main() {
 	}
 
 	ctx.store = store
-	ctx.store.SetKeypair(ctx.keypair)
+	ctx.store.SetKey(ctx.key)
 	ctx.store.SetCache(ctx.localCache)
 	ctx.store.SetUsername(ctx.Username)
 	ctx.store.SetHostname(ctx.Hostname)

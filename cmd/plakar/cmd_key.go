@@ -32,7 +32,7 @@ func init() {
 }
 
 func keypairGenerate() (string, []byte, error) {
-	keypair, err := encryption.Keygen()
+	keypair, err := encryption.KeypairGenerate()
 	if err != nil {
 		return "", nil, err
 	}
@@ -56,7 +56,7 @@ func keypairGenerate() (string, []byte, error) {
 }
 
 func keypairDerive(keypair *encryption.Keypair) (string, []byte, error) {
-	nkeypair, err := encryption.KeygenDerive(keypair)
+	nkeypair, err := encryption.KeypairDerive(keypair)
 	if err != nil {
 		return "", nil, err
 	}
@@ -144,7 +144,7 @@ func cmd_key(ctx Plakar, args []string) int {
 				continue
 			}
 
-			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
@@ -212,7 +212,7 @@ func cmd_key(ctx Plakar, args []string) int {
 				continue
 			}
 
-			keypair, err = encryption.Keyload(passphrase, encryptedKeypair)
+			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
@@ -226,7 +226,6 @@ func cmd_key(ctx Plakar, args []string) int {
 		}
 
 		fmt.Println("Uuid:", skeypair.Uuid)
-		fmt.Println("MasterKeyUuid:", skeypair.MasterKeyUuid)
 		fmt.Println("CreationTime:", skeypair.CreationTime)
 		fmt.Println("Master:", skeypair.MasterKey)
 		fmt.Println("Private:", skeypair.PrivateKey)

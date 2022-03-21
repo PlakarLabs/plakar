@@ -42,9 +42,19 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.BoolVar(&no_compression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
 
+	storeConfig := storage.StoreConfig{}
+	storeConfig.Version = storage.VERSION
+	storeConfig.Uuid = uuid.NewString()
+
+	if no_compression {
+		storeConfig.Compression = ""
+	} else {
+		storeConfig.Compression = "gzip"
+	}
+
 	/* load keypair from plakar */
 	if !no_encryption {
-		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, "")
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, ctx.KeyID)
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Fprintf(os.Stderr, "key not found, run `plakar key gen`\n")
@@ -54,34 +64,35 @@ func cmd_create(ctx Plakar, args []string) int {
 				os.Exit(1)
 			}
 		}
-		ctx.EncryptedKeypair = encryptedKeypair
-	}
 
-	storeConfig := storage.StoreConfig{}
-	storeConfig.Version = storage.VERSION
-	storeConfig.Uuid = uuid.NewString()
-	if no_compression {
-		storeConfig.Compression = ""
-	} else {
-		storeConfig.Compression = "gzip"
-	}
-	if !no_encryption {
+		var keypair *encryption.Keypair
 		for {
-			var keypair *encryption.Keypair
 			fmt.Fprintf(os.Stderr, "passphrase: ")
 			passphrase, _ := term.ReadPassword(syscall.Stdin)
-			keypair, err := encryption.Keyload(passphrase, ctx.EncryptedKeypair)
+			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\n")
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "\n")
-			ctx.keypair = keypair
 			break
 		}
-		storeConfig.Encryption = ctx.keypair.MasterKeyUuid
+
+		masterKey, err := encryption.KeyGenerate()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not generate key for repository\n")
+			os.Exit(1)
+		}
+		encrypted, err := masterKey.Encrypt(keypair.MasterKey)
+		err = local.SetEncryptedMasterKey(ctx.Workdir, masterKey.Uuid, encrypted)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not save master key for repository\n")
+			os.Exit(1)
+		}
+		storeConfig.Encryption = masterKey.Uuid
 	}
+
 	if len(flags.Args()) == 0 {
 		err := ctx.store.Create(ctx.Repository, storeConfig)
 		if err != nil {

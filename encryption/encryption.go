@@ -33,7 +33,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func Keygen() (*Keypair, error) {
+func KeypairGenerate() (*Keypair, error) {
 	//see http://golang.org/pkg/crypto/elliptic/#P256
 	pubkeyCurve := elliptic.P384()
 
@@ -44,7 +44,6 @@ func Keygen() (*Keypair, error) {
 
 	keypair := &Keypair{}
 	keypair.CreationTime = time.Now()
-	keypair.MasterKeyUuid = uuid.NewString()
 	keypair.Uuid = uuid.NewString()
 	keypair.PrivateKey = privateKey
 	keypair.PublicKey = &privateKey.PublicKey
@@ -54,7 +53,7 @@ func Keygen() (*Keypair, error) {
 	return keypair, nil
 }
 
-func KeygenDerive(keypair *Keypair) (*Keypair, error) {
+func KeypairDerive(keypair *Keypair) (*Keypair, error) {
 	//see http://golang.org/pkg/crypto/elliptic/#P256
 	pubkeyCurve := elliptic.P384()
 
@@ -65,7 +64,6 @@ func KeygenDerive(keypair *Keypair) (*Keypair, error) {
 
 	nkeypair := &Keypair{}
 	nkeypair.CreationTime = time.Now()
-	nkeypair.MasterKeyUuid = keypair.MasterKeyUuid
 	nkeypair.Uuid = uuid.NewString()
 	nkeypair.PrivateKey = privateKey
 	nkeypair.PublicKey = &privateKey.PublicKey
@@ -74,14 +72,32 @@ func KeygenDerive(keypair *Keypair) (*Keypair, error) {
 	return nkeypair, nil
 }
 
-func Keyload(passphrase []byte, data []byte) (*Keypair, error) {
+func KeypairLoad(passphrase []byte, data []byte) (*Keypair, error) {
 	keypair := &Keypair{}
 	data, err := keypair.Decrypt(passphrase, data)
 	if err != nil {
 		return nil, err
 	}
-
 	return keypair.Deserialize(data)
+}
+
+func KeyGenerate() (*MasterKey, error) {
+	master := &MasterKey{}
+	master.CreationTime = time.Now()
+	master.Uuid = uuid.NewString()
+	master.Key = make([]byte, 32)
+	rand.Read(master.Key)
+	return master, nil
+}
+
+func KeyLoad(key []byte, data []byte) (*MasterKey, error) {
+	master := &MasterKey{}
+	data, err := master.Decrypt(key, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return master.Deserialize(data)
 }
 
 func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
@@ -98,7 +114,6 @@ func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
 	skeypair := &SerializedKeypair{}
 	skeypair.CreationTime = keypair.CreationTime
 	skeypair.Uuid = keypair.Uuid
-	skeypair.MasterKeyUuid = keypair.MasterKeyUuid
 	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(x509priv)
 	skeypair.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
 	skeypair.MasterKey = base64.StdEncoding.EncodeToString(keypair.MasterKey)
@@ -137,7 +152,6 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 	nkeypair := &Keypair{}
 	nkeypair.CreationTime = skeypair.CreationTime
 	nkeypair.Uuid = skeypair.Uuid
-	nkeypair.MasterKeyUuid = skeypair.MasterKeyUuid
 	nkeypair.PrivateKey = privateKey
 	nkeypair.PublicKey = publicKey
 	nkeypair.MasterKey = masterKey
@@ -171,6 +185,73 @@ func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
 func (keypair *Keypair) Decrypt(passphrase []byte, data []byte) ([]byte, error) {
 	salt, ciphertext := data[:16], data[16:]
 	dk := pbkdf2.Key(passphrase, salt, 4096, 32, sha256.New)
+
+	block, err := aes.NewCipher(dk)
+	aesGCM, err := cipher.NewGCM(block)
+	nonce, ciphertext := ciphertext[:aesGCM.NonceSize()], ciphertext[aesGCM.NonceSize():]
+
+	cleartext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return compression.Inflate(cleartext)
+}
+
+func (master *MasterKey) Serialize() (*SerializedMasterKey, error) {
+	smaster := &SerializedMasterKey{}
+	smaster.CreationTime = master.CreationTime
+	smaster.Uuid = master.Uuid
+	smaster.Key = base64.StdEncoding.EncodeToString(master.Key)
+	return smaster, nil
+}
+
+func (master *MasterKey) Deserialize(data []byte) (*MasterKey, error) {
+	smaster := &SerializedMasterKey{}
+	err := json.Unmarshal(data, &smaster)
+	if err != nil {
+		return nil, err
+	}
+
+	masterKey, err := base64.StdEncoding.DecodeString(smaster.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	nmaster := &MasterKey{}
+	nmaster.CreationTime = smaster.CreationTime
+	nmaster.Uuid = smaster.Uuid
+	nmaster.Key = masterKey
+
+	return nmaster, nil
+}
+
+func (master *MasterKey) Encrypt(key []byte) ([]byte, error) {
+	serialized, err := master.Serialize()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := json.Marshal(serialized)
+	if err != nil {
+		return nil, err
+	}
+	data = compression.Deflate(data)
+
+	salt := make([]byte, 16)
+	rand.Read(salt)
+	dk := pbkdf2.Key(key, salt, 4096, 32, sha256.New)
+
+	block, _ := aes.NewCipher(dk)
+	aesGCM, err := cipher.NewGCM(block)
+	nonce := make([]byte, aesGCM.NonceSize())
+	rand.Read(nonce)
+	return append(salt[:], aesGCM.Seal(nonce, nonce, data, nil)[:]...), nil
+}
+
+func (master *MasterKey) Decrypt(key []byte, data []byte) ([]byte, error) {
+	salt, ciphertext := data[:16], data[16:]
+	dk := pbkdf2.Key(key, salt, 4096, 32, sha256.New)
 
 	block, err := aes.NewCipher(dk)
 	aesGCM, err := cipher.NewGCM(block)

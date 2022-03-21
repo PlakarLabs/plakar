@@ -12,7 +12,7 @@ import (
 )
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	keypair := snapshot.store.GetKeypair()
+	master := snapshot.store.GetKey()
 	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
@@ -27,7 +27,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
 
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		tmp, err := encryption.Decrypt(master.Key, data)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 }
 
 func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
-	keypair := snapshot.store.GetKeypair()
+	master := snapshot.store.GetKey()
 	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
@@ -75,7 +75,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 
 	jobject = compression.Deflate(jobject)
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+		tmp, err := encryption.Encrypt(master.Key, jobject)
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,3 @@
-//go:build !go1.15
-// +build !go1.15
-
 /*
  * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
  *

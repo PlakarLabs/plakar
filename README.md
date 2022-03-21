@@ -40,10 +40,9 @@ $ go get github.com/poolpOrg/plakar/cmd/plakar
 First thing to do is to generate the key-pair:
 
 ```
-$ plakar key gen
+$ plakar keypair gen
 passphrase: 
 passphrase (confirm): 
-keypair saved to local store
 $ 
 ```
 

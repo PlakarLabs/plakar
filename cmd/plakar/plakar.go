@@ -223,12 +223,12 @@ func main() {
 			break
 		}
 
-		encryptedMasterKey, err := local.GetEncryptedSecret(ctx.Workdir, store.Configuration().Encryption)
+		encryptedSecret, err := local.GetEncryptedSecret(ctx.Workdir, store.Configuration().Encryption)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not get master key %s for repository\n", store.Configuration().Encryption)
 			os.Exit(1)
 		}
-		secret, err := encryption.SecretLoad(keypair.Key, encryptedMasterKey)
+		secret, err := encryption.SecretLoad(keypair.Key, encryptedSecret)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not decrypt master %s key for repository\n", store.Configuration().Encryption)
 			os.Exit(1)

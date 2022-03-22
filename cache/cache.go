@@ -140,7 +140,6 @@ func (cache *Cache) Commit() error {
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
 	//
-
 	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
 	if err != nil {
 		log.Fatal(err)

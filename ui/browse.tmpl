@@ -15,6 +15,9 @@
     {{$Others:=.Others}}
 
     <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
+    <b>{{$Snapshot.Username }}@{{$Snapshot.Hostname }}</b>,
+    <i>{{$Snapshot.CreationTime }}</i>
+
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         {{range $atom := $Navigation }}

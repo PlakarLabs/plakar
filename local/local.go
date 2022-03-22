@@ -57,10 +57,10 @@ func GetDefaultKeypairID(localdir string) (string, error) {
 	return atoms[len(atoms)-1], nil
 }
 
-func SetEncryptedMasterKey(localdir string, uuid string, buf []byte) error {
+func SetEncryptedSecret(localdir string, uuid string, buf []byte) error {
 	return ioutil.WriteFile(fmt.Sprintf("%s/keys/%s", localdir, uuid), buf, 0600)
 }
 
-func GetEncryptedMasterKey(localdir string, uuid string) ([]byte, error) {
+func GetEncryptedSecret(localdir string, uuid string) ([]byte, error) {
 	return ioutil.ReadFile(fmt.Sprintf("%s/keys/%s", localdir, uuid))
 }

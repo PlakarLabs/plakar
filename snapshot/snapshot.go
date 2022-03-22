@@ -44,7 +44,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 
 func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	cache := store.GetCache()
-	master := store.GetKey()
+	secret := store.GetSecret()
 
 	var buffer []byte
 	cacheMiss := false
@@ -70,8 +70,8 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	}
 
 	data := buffer
-	if master != nil {
-		tmp, err := encryption.Decrypt(master.Key, data)
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret.Key, data)
 		if err != nil {
 			return nil, err
 		}
@@ -111,15 +111,15 @@ func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
 }
 
 func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	buffer := data
 	if snapshot.store.Configuration().Compression != "" {
 		buffer = compression.Deflate(buffer)
 	}
 
-	if master != nil {
-		tmp, err := encryption.Encrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
 		if err != nil {
 			return err
 		}
@@ -131,15 +131,15 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 }
 
 func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	buffer := data
 	if snapshot.store.Configuration().Compression != "" {
 		buffer = compression.Deflate(buffer)
 	}
 
-	if master != nil {
-		tmp, err := encryption.Encrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
 		if err != nil {
 			return err
 		}
@@ -151,15 +151,15 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 }
 
 func (snapshot *Snapshot) PutIndex(data []byte) error {
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	buffer := data
 	if snapshot.store.Configuration().Compression != "" {
 		buffer = compression.Deflate(buffer)
 	}
 
-	if master != nil {
-		tmp, err := encryption.Encrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
 		if err != nil {
 			return err
 		}
@@ -182,15 +182,15 @@ func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	cache := snapshot.store.GetCache()
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	buffer := data
 	if snapshot.store.Configuration().Compression != "" {
 		buffer = compression.Deflate(buffer)
 	}
 
-	if master != nil {
-		tmp, err := encryption.Encrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
 		if err != nil {
 			return err
 		}
@@ -202,7 +202,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	logger.Trace("%s: GetChunk(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetChunk(checksum)
@@ -210,8 +210,8 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 		return nil, err
 	}
 
-	if master != nil {
-		tmp, err := encryption.Decrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret.Key, buffer)
 		if err != nil {
 			return nil, err
 		}
@@ -234,7 +234,7 @@ func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
 }
 
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
-	master := snapshot.store.GetKey()
+	secret := snapshot.store.GetSecret()
 
 	logger.Trace("%s: GetObject(%s)", snapshot.Uuid, checksum)
 	buffer, err := snapshot.store.GetObject(checksum)
@@ -242,8 +242,8 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 		return nil, err
 	}
 
-	if master != nil {
-		tmp, err := encryption.Decrypt(master.Key, buffer)
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret.Key, buffer)
 		if err != nil {
 			return nil, err
 		}

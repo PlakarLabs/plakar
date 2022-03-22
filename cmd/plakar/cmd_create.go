@@ -79,18 +79,18 @@ func cmd_create(ctx Plakar, args []string) int {
 			break
 		}
 
-		masterKey, err := encryption.KeyGenerate()
+		secret, err := encryption.SecretGenerate()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not generate key for repository\n")
 			os.Exit(1)
 		}
-		encrypted, err := masterKey.Encrypt(keypair.MasterKey)
-		err = local.SetEncryptedMasterKey(ctx.Workdir, masterKey.Uuid, encrypted)
+		encrypted, err := secret.Encrypt(keypair.Key)
+		err = local.SetEncryptedSecret(ctx.Workdir, secret.Uuid, encrypted)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not save master key for repository\n")
 			os.Exit(1)
 		}
-		storeConfig.Encryption = masterKey.Uuid
+		storeConfig.Encryption = secret.Uuid
 	}
 
 	if len(flags.Args()) == 0 {

@@ -26,7 +26,7 @@ type Keypair struct {
 	Uuid         string
 	PrivateKey   *ecdsa.PrivateKey
 	PublicKey    *ecdsa.PublicKey
-	MasterKey    []byte
+	Key          []byte
 }
 
 type SerializedKeypair struct {
@@ -34,7 +34,7 @@ type SerializedKeypair struct {
 	Uuid         string
 	PrivateKey   string
 	PublicKey    string
-	MasterKey    string
+	Key          string
 }
 
 type PublicKey struct {
@@ -49,13 +49,13 @@ type SerializedPublicKey struct {
 	PublicKey    string
 }
 
-type MasterKey struct {
+type Secret struct {
 	CreationTime time.Time
 	Uuid         string
 	Key          []byte
 }
 
-type SerializedMasterKey struct {
+type SerializedSecret struct {
 	CreationTime time.Time
 	Uuid         string
 	Key          string

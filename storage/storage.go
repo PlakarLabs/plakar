@@ -39,7 +39,7 @@ type Store struct {
 	CommandLine string
 
 	Cache *cache.Cache
-	Key   *encryption.MasterKey
+	Key   *encryption.Secret
 }
 
 type Transaction struct {
@@ -87,7 +87,7 @@ func (store *Store) GetCache() *cache.Cache {
 	return store.Cache
 }
 
-func (store *Store) GetKey() *encryption.MasterKey {
+func (store *Store) GetSecret() *encryption.Secret {
 	return store.Key
 }
 
@@ -108,7 +108,7 @@ func (store *Store) SetCache(localCache *cache.Cache) error {
 	return nil
 }
 
-func (store *Store) SetKey(localKey *encryption.MasterKey) error {
+func (store *Store) SetSecret(localKey *encryption.Secret) error {
 	store.Key = localKey
 	return nil
 }

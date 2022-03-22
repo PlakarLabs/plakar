@@ -33,7 +33,7 @@ type Plakar struct {
 	KeyID       string
 
 	//	keypair          *encryption.Keypair
-	key *encryption.MasterKey
+	secret *encryption.Secret
 
 	store *storage.Store
 
@@ -223,20 +223,19 @@ func main() {
 			break
 		}
 
-		encryptedMasterKey, err := local.GetEncryptedMasterKey(ctx.Workdir, store.Configuration().Encryption)
+		encryptedMasterKey, err := local.GetEncryptedSecret(ctx.Workdir, store.Configuration().Encryption)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not get master key %s for repository\n", store.Configuration().Encryption)
 			os.Exit(1)
 		}
-		masterKey, err := encryption.KeyLoad(keypair.MasterKey, encryptedMasterKey)
+		secret, err := encryption.SecretLoad(keypair.Key, encryptedMasterKey)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not decrypt master %s key for repository\n", store.Configuration().Encryption)
 			os.Exit(1)
 		}
-		//	fmt.Println(encryptedMasterKey)
-		ctx.key = masterKey
+		ctx.secret = secret
 
-		if store.Configuration().Encryption != masterKey.Uuid {
+		if store.Configuration().Encryption != secret.Uuid {
 			fmt.Fprintf(os.Stderr, "invalid key %s for this repository\n",
 				keypair.Uuid)
 			os.Exit(1)
@@ -244,7 +243,7 @@ func main() {
 	}
 
 	ctx.store = store
-	ctx.store.SetKey(ctx.key)
+	ctx.store.SetSecret(ctx.secret)
 	ctx.store.SetCache(ctx.localCache)
 	ctx.store.SetUsername(ctx.Username)
 	ctx.store.SetHostname(ctx.Hostname)

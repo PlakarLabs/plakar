@@ -129,7 +129,7 @@ func cmd_keypair(ctx Plakar, args []string) int {
 
 		fmt.Println("Uuid:", skeypair.Uuid)
 		fmt.Println("CreationTime:", skeypair.CreationTime)
-		fmt.Println("Master:", skeypair.MasterKey)
+		fmt.Println("Key:", skeypair.Key)
 		fmt.Println("Private:", skeypair.PrivateKey)
 		fmt.Println("Public:", skeypair.PublicKey)
 

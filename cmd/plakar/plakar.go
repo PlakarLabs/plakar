@@ -209,7 +209,7 @@ func main() {
 
 		var keypair *encryption.Keypair
 		for {
-			passphrase, err := helpers.GetPassphrase()
+			passphrase, err := helpers.GetPassphrase("keypair")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue

@@ -38,7 +38,7 @@ func keypairGenerate() (string, []byte, error) {
 
 	var passphrase []byte
 	for {
-		passphrase, err = helpers.GetPassphraseConfirm()
+		passphrase, err = helpers.GetPassphraseConfirm("keypair")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			continue
@@ -108,7 +108,7 @@ func cmd_keypair(ctx Plakar, args []string) int {
 
 		var keypair *encryption.Keypair
 		for {
-			passphrase, err := helpers.GetPassphrase()
+			passphrase, err := helpers.GetPassphrase("keypair")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
@@ -132,6 +132,63 @@ func cmd_keypair(ctx Plakar, args []string) int {
 		fmt.Println("Key:", skeypair.Key)
 		fmt.Println("Private:", skeypair.PrivateKey)
 		fmt.Println("Public:", skeypair.PublicKey)
+
+	case "passphrase":
+		keyUuid := ""
+		if len(subargs) == 0 {
+			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
+				return 1
+			}
+			keyUuid = tmp
+		} else {
+			keyUuid = subargs[0]
+		}
+
+		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
+			return 1
+		}
+
+		var keypair *encryption.Keypair
+		for {
+			passphrase, err := helpers.GetPassphrase("current keypair")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+
+			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			break
+		}
+
+		var passphrase []byte
+		for {
+			passphrase, err = helpers.GetPassphraseConfirm("new keypair")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			break
+		}
+
+		pem, err := keypair.Encrypt(passphrase)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return 1
+		}
+
+		err = local.SetEncryptedKeypair(ctx.Workdir, keyUuid, pem)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
+			return 1
+		}
 
 	default:
 		fmt.Fprintf(os.Stderr, "%s: unknown subcommand: %s\n", flag.CommandLine.Name(), cmd)

@@ -25,8 +25,8 @@ import (
 	"golang.org/x/term"
 )
 
-func GetPassphrase() ([]byte, error) {
-	fmt.Fprintf(os.Stderr, "passphrase: ")
+func GetPassphrase(prefix string) ([]byte, error) {
+	fmt.Fprintf(os.Stderr, "%s passphrase: ", prefix)
 	passphrase, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {
@@ -35,15 +35,15 @@ func GetPassphrase() ([]byte, error) {
 	return passphrase, nil
 }
 
-func GetPassphraseConfirm() ([]byte, error) {
-	fmt.Fprintf(os.Stderr, "passphrase: ")
+func GetPassphraseConfirm(prefix string) ([]byte, error) {
+	fmt.Fprintf(os.Stderr, "%s passphrase: ", prefix)
 	passphrase1, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Fprintf(os.Stderr, "passphrase (confirm): ")
+	fmt.Fprintf(os.Stderr, "%s passphrase (confirm): ", prefix)
 	passphrase2, err := term.ReadPassword(syscall.Stdin)
 	fmt.Fprintf(os.Stderr, "\n")
 	if err != nil {

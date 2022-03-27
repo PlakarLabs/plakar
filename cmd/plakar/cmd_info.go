@@ -181,9 +181,19 @@ func info_plakar(store *storage.Store) int {
 		dedupedObjectsPercentage = float64(dedupedObjectsSize-objectsSize) / float64(dedupedObjectsSize) * 100
 	}
 
+	if store.Configuration().Encryption != "" {
+		fmt.Println("Encryption:", store.Configuration().Encryption)
+	} else {
+		fmt.Println("Encryption:", "no")
+	}
+	if store.Configuration().Compression != "" {
+		fmt.Println("Compression:", store.Configuration().Compression)
+	} else {
+		fmt.Println("Compression:", "no")
+	}
 	fmt.Println("Snapshots:", len(indexes))
-	fmt.Printf("Chunks: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
-	fmt.Printf("Objects: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
+	fmt.Printf("Chunks: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
+	fmt.Printf("Objects: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
 
 	return 0
 }

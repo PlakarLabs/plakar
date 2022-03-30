@@ -313,7 +313,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func highlight(w http.ResponseWriter, r *http.Request) {
+func viewer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
 	path := vars["path"]
@@ -331,6 +331,17 @@ func highlight(w http.ResponseWriter, r *http.Request) {
 	}
 
 	object := snap.Objects[checksum]
+
+	if !strings.HasPrefix(object.ContentType, "text/") {
+		w.Header().Add("Content-Type", object.ContentType)
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snap.GetChunk(chunkChecksum)
+			if err != nil {
+			}
+			w.Write(data)
+		}
+		return
+	}
 
 	content := []byte("")
 	for _, chunkChecksum := range object.Chunks {
@@ -484,7 +495,7 @@ func Ui(store *storage.Store) {
 	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
-	r.HandleFunc("/highlight/{snapshot}:{path:.+}", highlight)
+	r.HandleFunc("/viewer/{snapshot}:{path:.+}", viewer)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)
 
 	r.HandleFunc("/search", search_snapshots)

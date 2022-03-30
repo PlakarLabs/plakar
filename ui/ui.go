@@ -34,6 +34,10 @@ import (
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 )
 
 var lstore *storage.Store
@@ -309,6 +313,58 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func highlight(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["snapshot"]
+	path := vars["path"]
+
+	snap, err := snapshot.Load(lstore, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	checksum, ok := snap.Pathnames[path]
+	if !ok {
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+
+	object := snap.Objects[checksum]
+
+	content := []byte("")
+	for _, chunkChecksum := range object.Chunks {
+		data, err := snap.GetChunk(chunkChecksum)
+		if err != nil {
+		}
+		content = append(content, data...)
+	}
+
+	lexer := lexers.Analyse(string(content))
+	if lexer == nil {
+		w.Header().Add("Content-Type", object.ContentType)
+		w.Write(content)
+		return
+	}
+
+	w.Header().Add("Content-Type", "text/html")
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+	formatter := formatters.Get("html")
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+	iterator, err := lexer.Tokenise(nil, string(content))
+	err = formatter.Format(w, style, iterator)
+	if err != nil {
+		w.Header().Add("Content-Type", object.ContentType)
+		w.Write(content)
+	}
+	return
+}
+
 func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
 	q := urlParams["q"][0]
@@ -425,10 +481,10 @@ func Ui(store *storage.Store) {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)
-	//	r.HandleFunc("/snapshot/{snapshot}", _snapshot)
 	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
+	r.HandleFunc("/highlight/{snapshot}:{path:.+}", highlight)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)
 
 	r.HandleFunc("/search", search_snapshots)

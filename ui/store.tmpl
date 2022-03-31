@@ -83,7 +83,7 @@
             <tbody>
                 {{range $name, $count := $MajorTypes}}
                 <tr>
-                    <th scope="row"><a href="#">{{$name}}</a></th>
+                    <th scope="row"><a href="/search?q=&kind={{$name}}">{{$name}}</a></th>
                     <td>{{$count}}</td>
                     <td>{{index $MajorTypesPct $name}}%</td>
                 </tr>
@@ -107,7 +107,7 @@
             <tbody>
                 {{range $name, $count := $MimeTypes}}
                 <tr>
-                    <th scope="row"><a href="#">{{$name}}</a></th>
+                    <th scope="row"><a href="/search?q=&mime={{$name}}">{{$name}}</a></th>
                     <td>{{$count}}</td>
                     <td>{{index $MimeTypesPct $name}}%</td>
                 </tr>
@@ -132,7 +132,7 @@
             <tbody>
                 {{range $name, $count := $Extensions}}
                 <tr>
-                    <th scope="row"><a href="#">{{$name}}</a></th>
+                    <th scope="row"><a href="/search?q=&ext={{$name}}">{{$name}}</a></th>
                     <td>{{$count}}</td>
                     <td>{{index $ExtensionsPct $name}}%</td>
                 </tr>

@@ -422,6 +422,28 @@ func raw(w http.ResponseWriter, r *http.Request) {
 func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
 	q := urlParams["q"][0]
+	queryKind := urlParams["kind"]
+	queryMime := urlParams["mime"]
+	queryExt := urlParams["ext"]
+
+	kind := ""
+	if queryKind != nil {
+		kind = queryKind[0]
+	} else {
+		kind = ""
+	}
+	mime := ""
+	if queryMime != nil {
+		mime = queryMime[0]
+	} else {
+		mime = ""
+	}
+	ext := ""
+	if queryExt != nil {
+		ext = queryExt[0]
+	} else {
+		ext = ""
+	}
 
 	snapshots, err := snapshot.List(lstore)
 	if err != nil {
@@ -452,17 +474,30 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
-		for _, directory := range snap.Filesystem.ListDirectories() {
-			if strings.Contains(directory, q) {
-				directories = append(directories, struct {
-					Snapshot string
-					Date     string
-					Path     string
-				}{snap.Uuid, snap.CreationTime.String(), directory})
+		if kind == "" && mime == "" && ext == "" {
+			for _, directory := range snap.Filesystem.ListDirectories() {
+				if strings.Contains(directory, q) {
+					directories = append(directories, struct {
+						Snapshot string
+						Date     string
+						Path     string
+					}{snap.Uuid, snap.CreationTime.String(), directory})
+				}
 			}
 		}
-		for file := range snap.Pathnames {
+		for file, checksum := range snap.Pathnames {
 			if strings.Contains(file, q) {
+				object := snap.Objects[checksum]
+				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
+					continue
+				}
+				if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
+					continue
+				}
+				if ext != "" && filepath.Ext(file) != ext {
+					continue
+				}
+
 				files = append(files, struct {
 					Snapshot string
 					Date     string

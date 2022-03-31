@@ -380,10 +380,12 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 
 	directories := make([]struct {
 		Snapshot string
+		Date     string
 		Path     string
 	}, 0)
 	files := make([]struct {
 		Snapshot string
+		Date     string
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
@@ -391,16 +393,18 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(directory, q) {
 				directories = append(directories, struct {
 					Snapshot string
+					Date     string
 					Path     string
-				}{snap.Uuid, directory})
+				}{snap.Uuid, snap.CreationTime.String(), directory})
 			}
 		}
 		for file := range snap.Pathnames {
 			if strings.Contains(file, q) {
 				files = append(files, struct {
 					Snapshot string
+					Date     string
 					Path     string
-				}{snap.Uuid, file})
+				}{snap.Uuid, snap.CreationTime.String(), file})
 			}
 		}
 	}
@@ -415,10 +419,12 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		SearchTerms string
 		Directories []struct {
 			Snapshot string
+			Date     string
 			Path     string
 		}
 		Files []struct {
 			Snapshot string
+			Date     string
 			Path     string
 		}
 	}{q, directories, files}

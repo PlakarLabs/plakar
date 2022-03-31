@@ -11,7 +11,7 @@
     {{$Navigation:=.Navigation}}
     {{$NavigationLinks:=.NavigationLinks}}
 
-    <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
+    <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{slice $Snapshot.Uuid  0 8}}</a></h1>
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         {{range $atom := $Navigation }}
@@ -120,9 +120,10 @@
 
     <hr />
     <div>
-                        <a href="/raw/{{$Snapshot.Uuid}}:{{$Path}}?download=true">
-                        <button type="button" class="btn btn-primary btn-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+    
+    <a href="/raw/{{$Snapshot.Uuid}}:{{$Path}}?download=true">
+        <button type="button" class="btn btn-primary btn-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                             </svg>
@@ -132,10 +133,33 @@
 
     {{if .EnableViewer}}
         <p>
-            <div style="height: auto;" width="100%">
-                <div class="ratio ratio-16x9">
-                    <iframe style="background-color: #ffffff;" src="/viewer/{{$Snapshot.Uuid}}:{{$Path}}"></iframe>
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Raw</button>
+                </li>
+                {{$sub := slice $Object.ContentType 0 5}}
+                {{if eq $sub "text/" }}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">highlight</button>
+                </li>
+                {{end}}
+            </ul>
+            <div class="tab-content" id="myTabContent">
+                <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+                    <div style="height: auto;" width="100%">
+                        <div class="ratio ratio-16x9">
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Uuid}}:{{$Path}}"></iframe>
+                        </div>
+                    </div>
                 </div>
+                <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                    <div style="height: auto;" width="100%">
+                        <div class="ratio ratio-16x9">
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Uuid}}:{{$Path}}?highlight=true"></iframe>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
         </p>
     {{end}}

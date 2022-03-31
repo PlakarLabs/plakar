@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"math/rand"
+	"mime"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -285,6 +286,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 	download := r.URL.Query().Get("download")
+	highlight := r.URL.Query().Get("highlight")
 
 	snap, err := snapshot.Load(lstore, id)
 	if err != nil {
@@ -299,41 +301,16 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	object := snap.Objects[checksum]
-
-	w.Header().Add("Content-Type", object.ContentType)
-	if download != "" {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
+	contentType := mime.TypeByExtension(filepath.Ext(path))
+	if contentType == "" {
+		contentType = object.ContentType
 	}
-	for _, chunkChecksum := range object.Chunks {
-		data, err := snap.GetChunk(chunkChecksum)
-		if err != nil {
+
+	if !strings.HasPrefix(object.ContentType, "text/") || highlight == "" {
+		w.Header().Add("Content-Type", contentType)
+		if download != "" {
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 		}
-		w.Write(data)
-	}
-	return
-}
-
-func viewer(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["snapshot"]
-	path := vars["path"]
-
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	checksum, ok := snap.Pathnames[path]
-	if !ok {
-		http.Error(w, "", http.StatusNotFound)
-		return
-	}
-
-	object := snap.Objects[checksum]
-
-	if !strings.HasPrefix(object.ContentType, "text/") {
-		w.Header().Add("Content-Type", object.ContentType)
 		for _, chunkChecksum := range object.Chunks {
 			data, err := snap.GetChunk(chunkChecksum)
 			if err != nil {
@@ -351,9 +328,12 @@ func viewer(w http.ResponseWriter, r *http.Request) {
 		content = append(content, data...)
 	}
 
-	lexer := lexers.Analyse(string(content))
+	lexer := lexers.Match(path)
 	if lexer == nil {
-		w.Header().Add("Content-Type", object.ContentType)
+		lexer = lexers.Analyse(string(content))
+	}
+	if lexer == nil {
+		w.Header().Add("Content-Type", contentType)
 		w.Write(content)
 		return
 	}
@@ -370,7 +350,7 @@ func viewer(w http.ResponseWriter, r *http.Request) {
 	iterator, err := lexer.Tokenise(nil, string(content))
 	err = formatter.Format(w, style, iterator)
 	if err != nil {
-		w.Header().Add("Content-Type", object.ContentType)
+		w.Header().Add("Content-Type", contentType)
 		w.Write(content)
 	}
 	return
@@ -484,7 +464,7 @@ func Ui(store *storage.Store) {
 	case "windows":
 		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	case "darwin":
-		err = exec.Command("open", url).Start()
+		//err = exec.Command("open", url).Start()
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
@@ -495,7 +475,6 @@ func Ui(store *storage.Store) {
 	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)
-	r.HandleFunc("/viewer/{snapshot}:{path:.+}", viewer)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}", object)
 
 	r.HandleFunc("/search", search_snapshots)

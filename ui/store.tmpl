@@ -22,7 +22,7 @@
         <tbody>
             {{range $snapshot := $Snapshots}}
             <tr>
-                <th scope="row"><a href="/snapshot/{{$snapshot.Uuid}}:/">{{$snapshot.Uuid}}</a></th>
+                <th scope="row"><a href="/snapshot/{{$snapshot.Uuid}}:/">{{slice $snapshot.Uuid  0 8}}</a></th>
                 <td>{{$snapshot.Username }}</td>
                 <td>{{$snapshot.Hostname }}</td>
                 <td>{{$snapshot.CreationTime }}</td>

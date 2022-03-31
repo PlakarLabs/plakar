@@ -131,14 +131,13 @@
                     </a>
 
     {{if .EnableViewer}}
-    <p>
-        <div style="height: auto;" width="100%">
-            <div class="ratio ratio-16x9">
-                <iframe src="/viewer/{{$Snapshot.Uuid}}:{{$Path}}"></iframe>
+        <p>
+            <div style="height: auto;" width="100%">
+                <div class="ratio ratio-16x9">
+                    <iframe style="background-color: #ffffff;" src="/viewer/{{$Snapshot.Uuid}}:{{$Path}}"></iframe>
+                </div>
             </div>
-        </div>
-    </p>
-
+        </p>
     {{end}}
     </div>
 {{end}}

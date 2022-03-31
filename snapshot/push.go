@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"os"
 	"path/filepath"
 	"sync"
@@ -221,7 +222,10 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if firstChunk {
-			object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+			object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
+			if object.ContentType == "" {
+				object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+			}
 			firstChunk = false
 		}
 

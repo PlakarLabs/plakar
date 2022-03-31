@@ -20,6 +20,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -119,17 +120,79 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
 	})
 
+	mimeTypes := make(map[string]uint64)
+	majorTypes := make(map[string]uint64)
+	extensions := make(map[string]uint64)
+	totalFiles := uint64(0)
+
 	res := make([]*SnapshotSummary, 0)
 	for _, snap := range snapshotsList {
 		res = append(res, SnapshotToSummary(snap))
+
+		for key, value := range snap.ContentTypeToObjects {
+			contentType := strings.Split(key, ";")[0]
+			contentMajorType := strings.Split(key, "/")[0]
+			if contentType == "" {
+				contentType = "unknown"
+				contentMajorType = "unknown"
+			}
+			for _, _ = range value {
+				if _, exists := mimeTypes[contentType]; !exists {
+					mimeTypes[contentType] = 0
+				}
+				if _, exists := majorTypes[contentMajorType]; !exists {
+					majorTypes[contentMajorType] = 0
+				}
+				mimeTypes[contentType]++
+				majorTypes[contentMajorType]++
+			}
+		}
+
+		for key := range snap.Pathnames {
+			ext := strings.ToLower(filepath.Ext(key))
+			if ext == "" {
+				ext = "none"
+			}
+			if _, exists := extensions[ext]; !exists {
+				extensions[ext] = 0
+			}
+			extensions[ext]++
+			totalFiles++
+		}
+	}
+
+	mimeTypesPct := make(map[string]float64)
+	majorTypesPct := make(map[string]float64)
+	extensionsPct := make(map[string]float64)
+
+	for key, value := range mimeTypes {
+		mimeTypesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
+	for key, value := range majorTypes {
+		majorTypesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
+	for key, value := range extensions {
+		extensionsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
 	}
 
 	ctx := &struct {
-		Store     storage.StoreConfig
-		Snapshots []*SnapshotSummary
+		Store         storage.StoreConfig
+		Snapshots     []*SnapshotSummary
+		MajorTypes    map[string]uint64
+		MimeTypes     map[string]uint64
+		Extensions    map[string]uint64
+		MajorTypesPct map[string]float64
+		MimeTypesPct  map[string]float64
+		ExtensionsPct map[string]float64
 	}{
 		lstore.Configuration(),
 		res,
+		majorTypes,
+		mimeTypes,
+		extensions,
+		majorTypesPct,
+		mimeTypesPct,
+		extensionsPct,
 	}
 
 	templates["store"].Execute(w, ctx)
@@ -409,10 +472,10 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sort.Slice(directories, func(i, j int) bool {
-		return strings.Compare(directories[i].Path, directories[j].Path) < 0
+		return directories[i].Date < directories[j].Date && strings.Compare(directories[i].Path, directories[j].Path) < 0
 	})
 	sort.Slice(files, func(i, j int) bool {
-		return strings.Compare(files[i].Path, files[j].Path) < 0
+		return files[i].Date < files[j].Date && strings.Compare(files[i].Path, files[j].Path) < 0
 	})
 
 	ctx := &struct {

@@ -22,6 +22,8 @@ import (
 	_ "github.com/poolpOrg/plakar/storage/client"
 	_ "github.com/poolpOrg/plakar/storage/database"
 	_ "github.com/poolpOrg/plakar/storage/fs"
+
+	"github.com/denisbrodbeck/machineid"
 )
 
 type Plakar struct {
@@ -31,6 +33,7 @@ type Plakar struct {
 	Repository  string
 	CommandLine string
 	KeyID       string
+	MachineID   string
 
 	//	keypair          *encryption.Keypair
 	secret *encryption.Secret
@@ -114,11 +117,14 @@ func main() {
 		runtime.GOMAXPROCS(cpuCount)
 	}
 
+	machineId, _ := machineid.ID()
+
 	ctx.Username = currentUser.Username
 	ctx.Hostname = currentHostname
 	ctx.Workdir = fmt.Sprintf("%s/.plakar", currentUser.HomeDir)
 	ctx.Repository = fmt.Sprintf("%s/store", ctx.Workdir)
 	ctx.KeyID = key
+	ctx.MachineID = strings.ToLower(machineId)
 
 	// start logger and defer done return function to end of execution
 
@@ -248,6 +254,7 @@ func main() {
 	ctx.store.SetUsername(ctx.Username)
 	ctx.store.SetHostname(ctx.Hostname)
 	ctx.store.SetCommandLine(ctx.CommandLine)
+	ctx.store.SetMachineID(ctx.MachineID)
 
 	t0 := time.Now()
 	exitCode, err := executeCommand(ctx, command, args)

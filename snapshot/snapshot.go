@@ -26,6 +26,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Hostname:     store.GetHostname(),
 		Username:     store.GetUsername(),
 		CommandLine:  store.GetCommandLine(),
+		MachineID:    store.GetMachineID(),
 
 		Filesystem: filesystem.NewFilesystem(),
 

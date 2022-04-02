@@ -37,6 +37,7 @@ type Store struct {
 	Username    string
 	Hostname    string
 	CommandLine string
+	MachineID   string
 
 	Cache *cache.Cache
 	Key   *encryption.Secret
@@ -103,6 +104,10 @@ func (store *Store) GetCommandLine() string {
 	return store.CommandLine
 }
 
+func (store *Store) GetMachineID() string {
+	return store.MachineID
+}
+
 func (store *Store) SetCache(localCache *cache.Cache) error {
 	store.Cache = localCache
 	return nil
@@ -125,6 +130,11 @@ func (store *Store) SetHostname(hostname string) error {
 
 func (store *Store) SetCommandLine(commandLine string) error {
 	store.CommandLine = commandLine
+	return nil
+}
+
+func (store *Store) SetMachineID(machineID string) error {
+	store.MachineID = machineID
 	return nil
 }
 

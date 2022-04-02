@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be
+	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gabriel-vasile/mimetype v1.4.0
 	github.com/google/uuid v1.3.0

@@ -27,10 +27,13 @@ func init() {
 }
 
 func cmd_ui(ctx Plakar, args []string) int {
+	var spawn bool
+
 	flags := flag.NewFlagSet("ui", flag.ExitOnError)
+	flags.BoolVar(&spawn, "spawn", false, "spawn browser")
 	flags.Parse(args)
 
-	ui.Ui(ctx.Store())
+	ui.Ui(ctx.Store(), spawn)
 
 	return 0
 }

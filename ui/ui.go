@@ -326,7 +326,8 @@ func object(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(object.ContentType, "image/") ||
 		strings.HasPrefix(object.ContentType, "audio/") ||
 		strings.HasPrefix(object.ContentType, "video/") ||
-		object.ContentType == "application/pdf" {
+		object.ContentType == "application/pdf" ||
+		object.ContentType == "application/x-tex" {
 		enableViewer = true
 	}
 
@@ -367,6 +368,10 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
 		contentType = object.ContentType
+	}
+
+	if contentType == "application/x-tex" {
+		contentType = "text/plain"
 	}
 
 	if !strings.HasPrefix(object.ContentType, "text/") || highlight == "" {
@@ -529,7 +534,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *storage.Store) {
+func Ui(store *storage.Store, spawn bool) {
 	lstore = store
 
 	templates = make(map[string]*template.Template)
@@ -559,20 +564,22 @@ func Ui(store *storage.Store) {
 	templates[t.Name()] = t
 
 	port := rand.Uint32() % 0xffff
-	fmt.Println("Launched UI on port", port)
-
 	url := fmt.Sprintf("http://localhost:%d", port)
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
+
+	fmt.Println("lauching UI at", url)
+	if spawn {
+		switch runtime.GOOS {
+		case "linux":
+			err = exec.Command("xdg-open", url).Start()
+		case "windows":
+			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		case "darwin":
+			err = exec.Command("open", url).Start()
+		default:
+			err = fmt.Errorf("unsupported platform")
+		}
+		_ = err
 	}
-	_ = err
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)

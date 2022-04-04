@@ -29,6 +29,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -80,6 +81,38 @@ type SnapshotSummary struct {
 	Size uint64
 }
 
+func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Snapshot, 0)
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	for _, snapshotUuid := range snapshotsList {
+		wg.Add(1)
+		go func(snapshotUuid string) {
+			defer wg.Done()
+			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			result = append(result, snapshotInstance)
+			mu.Unlock()
+		}(snapshotUuid)
+	}
+	wg.Wait()
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreationTime.Before(result[j].CreationTime)
+	})
+
+	return result, nil
+}
+
 func (summary *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(summary.Size)
 }
@@ -104,21 +137,8 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 }
 
 func viewStore(w http.ResponseWriter, r *http.Request) {
-	snapshots, _ := snapshot.List(lstore)
 
-	snapshotsList := make([]*snapshot.Snapshot, 0)
-	for _, id := range snapshots {
-		snap, err := snapshot.Load(lstore, id)
-		if err != nil {
-			/* failed to lookup snapshot */
-			continue
-		}
-		snapshotsList = append(snapshotsList, snap)
-	}
-
-	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
-	})
+	snapshotsList, _ := getSnapshots(lstore)
 
 	mimeTypes := make(map[string]uint64)
 	majorTypes := make(map[string]uint64)

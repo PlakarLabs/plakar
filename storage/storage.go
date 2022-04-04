@@ -39,8 +39,9 @@ type Store struct {
 	CommandLine string
 	MachineID   string
 
-	Cache *cache.Cache
-	Key   *encryption.Secret
+	Cache   *cache.Cache
+	Keypair *encryption.Keypair
+	Key     *encryption.Secret
 }
 
 type Transaction struct {
@@ -88,6 +89,10 @@ func (store *Store) GetCache() *cache.Cache {
 	return store.Cache
 }
 
+func (store *Store) GetKeypair() *encryption.Keypair {
+	return store.Keypair
+}
+
 func (store *Store) GetSecret() *encryption.Secret {
 	return store.Key
 }
@@ -110,6 +115,11 @@ func (store *Store) GetMachineID() string {
 
 func (store *Store) SetCache(localCache *cache.Cache) error {
 	store.Cache = localCache
+	return nil
+}
+
+func (store *Store) SetKeypair(keypair *encryption.Keypair) error {
+	store.Keypair = keypair
 	return nil
 }
 

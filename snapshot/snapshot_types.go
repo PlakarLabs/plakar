@@ -41,6 +41,7 @@ type Snapshot struct {
 	Username     string
 	CommandLine  string
 	MachineID    string
+	PublicKey    string
 
 	Size uint64
 
@@ -79,6 +80,7 @@ type SnapshotStorage struct {
 	Username     string
 	CommandLine  string
 	MachineID    string
+	PublicKey    string
 
 	Size uint64
 

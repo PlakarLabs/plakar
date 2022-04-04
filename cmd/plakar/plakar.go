@@ -35,8 +35,8 @@ type Plakar struct {
 	KeyID       string
 	MachineID   string
 
-	//	keypair          *encryption.Keypair
-	secret *encryption.Secret
+	keypair *encryption.Keypair
+	secret  *encryption.Secret
 
 	store *storage.Store
 
@@ -44,6 +44,8 @@ type Plakar struct {
 	StderrChannel  chan string
 	VerboseChannel chan string
 	TraceChannel   chan string
+
+	skipVerify bool
 
 	localCache *cache.Cache
 }
@@ -64,6 +66,7 @@ func main() {
 	var disableCache bool
 	var cpuCount int
 	var key string
+	var skipVerify bool
 
 	ctx := Plakar{}
 	currentHostname, err := os.Hostname()
@@ -86,6 +89,7 @@ func main() {
 	flag.BoolVar(&enableInfoOutput, "info", false, "enable info output")
 	flag.BoolVar(&enableTracing, "trace", false, "enable tracing")
 	flag.BoolVar(&enableProfiling, "profile", false, "enable profiling")
+	flag.BoolVar(&skipVerify, "no-verify", false, "skip signature verification")
 	flag.IntVar(&cpuCount, "cpu", cpuDefault, "limit the number of usable cores")
 	flag.StringVar(&key, "key", "", "key ID for encrypted plakar")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
@@ -125,6 +129,7 @@ func main() {
 	ctx.Repository = fmt.Sprintf("%s/store", ctx.Workdir)
 	ctx.KeyID = key
 	ctx.MachineID = strings.ToLower(machineId)
+	ctx.skipVerify = skipVerify
 
 	// start logger and defer done return function to end of execution
 
@@ -228,6 +233,7 @@ func main() {
 			}
 			break
 		}
+		ctx.keypair = keypair
 
 		encryptedSecret, err := local.GetEncryptedSecret(ctx.Workdir, store.Configuration().Encryption)
 		if err != nil {
@@ -250,6 +256,7 @@ func main() {
 
 	ctx.store = store
 	ctx.store.SetSecret(ctx.secret)
+	ctx.store.SetKeypair(ctx.keypair)
 	ctx.store.SetCache(ctx.localCache)
 	ctx.store.SetUsername(ctx.Username)
 	ctx.store.SetHostname(ctx.Hostname)

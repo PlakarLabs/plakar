@@ -1,7 +1,10 @@
 package snapshot
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/poolpOrg/plakar/compression"
@@ -16,6 +19,13 @@ func New(store *storage.Store) (*Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	keypair := store.GetKeypair()
+	pubkey := []byte("")
+	if keypair != nil {
+		pubkey = keypair.PublicKey
+	}
+
 	snapshot := &Snapshot{
 		store:       store,
 		transaction: tx,
@@ -27,6 +37,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		Username:     store.GetUsername(),
 		CommandLine:  store.GetCommandLine(),
 		MachineID:    store.GetMachineID(),
+		PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
 
 		Filesystem: filesystem.NewFilesystem(),
 
@@ -46,6 +57,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	cache := store.GetCache()
 	secret := store.GetSecret()
+	keypair := store.GetKeypair()
 
 	var buffer []byte
 	cacheMiss := false
@@ -87,10 +99,29 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		data = tmp
 	}
 
+	signature := []byte("")
+	if keypair != nil {
+		tmp, buf := data[0:len(data)-64], data[len(data)-64:]
+		data = tmp
+		signature = append(signature, buf...)
+	}
+
 	snapshot, err := snapshotFromBytes(data)
 	if err != nil {
 		return nil, err
 	}
+
+	if keypair != nil {
+		publicKey, err := base64.StdEncoding.DecodeString(snapshot.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ed25519.Verify(ed25519.PublicKey(publicKey), data, signature) {
+			return nil, fmt.Errorf("failed to verify signature for snapshot %s", snapshot.Uuid)
+		}
+	}
+
 	snapshot.store = store
 
 	if cache != nil && cacheMiss {
@@ -155,6 +186,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	secret := snapshot.store.GetSecret()
 
 	buffer := data
+
 	if snapshot.store.Configuration().Compression != "" {
 		buffer = compression.Deflate(buffer)
 	}
@@ -272,10 +304,19 @@ func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
 
 func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.store.GetCache()
+	keypair := snapshot.store.GetKeypair()
 
 	serialized, err := snapshotToBytes(snapshot)
 	if err != nil {
 		return err
+	}
+
+	if keypair != nil {
+		tmp, err := keypair.Sign(serialized)
+		if err != nil {
+			return err
+		}
+		serialized = append(serialized, tmp...)
 	}
 
 	err = snapshot.PutIndex(serialized)

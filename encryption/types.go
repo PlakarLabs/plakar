@@ -17,15 +17,15 @@
 package encryption
 
 import (
-	"crypto/ecdsa"
+	"crypto/ed25519"
 	"time"
 )
 
 type Keypair struct {
 	CreationTime time.Time
 	Uuid         string
-	PrivateKey   *ecdsa.PrivateKey
-	PublicKey    *ecdsa.PublicKey
+	PrivateKey   ed25519.PrivateKey
+	PublicKey    ed25519.PublicKey
 	Key          []byte
 }
 
@@ -40,7 +40,7 @@ type SerializedKeypair struct {
 type PublicKey struct {
 	CreationTime time.Time
 	Uuid         string
-	PublicKey    *ecdsa.PublicKey
+	PublicKey    ed25519.PublicKey
 }
 
 type SerializedPublicKey struct {

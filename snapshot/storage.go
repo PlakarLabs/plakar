@@ -18,6 +18,7 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 	snapshot.Username = snapshotStorage.Username
 	snapshot.CommandLine = snapshotStorage.CommandLine
 	snapshot.MachineID = snapshotStorage.MachineID
+	snapshot.PublicKey = snapshotStorage.PublicKey
 
 	snapshot.Filesystem = snapshotStorage.Filesystem
 
@@ -44,6 +45,7 @@ func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 	snapshotStorage.Username = snapshot.Username
 	snapshotStorage.CommandLine = snapshot.CommandLine
 	snapshotStorage.MachineID = snapshot.MachineID
+	snapshotStorage.PublicKey = snapshot.PublicKey
 
 	snapshotStorage.Filesystem = snapshot.Filesystem
 

@@ -17,10 +17,11 @@
 package encryption
 
 import (
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
-	"crypto/elliptic"
+
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
@@ -34,10 +35,7 @@ import (
 )
 
 func KeypairGenerate() (*Keypair, error) {
-	//see http://golang.org/pkg/crypto/elliptic/#P256
-	pubkeyCurve := elliptic.P384()
-
-	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +44,7 @@ func KeypairGenerate() (*Keypair, error) {
 	keypair.CreationTime = time.Now()
 	keypair.Uuid = uuid.NewString()
 	keypair.PrivateKey = privateKey
-	keypair.PublicKey = &privateKey.PublicKey
+	keypair.PublicKey = publicKey
 	keypair.Key = make([]byte, 32)
 	rand.Read(keypair.Key)
 
@@ -63,21 +61,11 @@ func KeypairLoad(passphrase []byte, data []byte) (*Keypair, error) {
 }
 
 func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
-	x509priv, err := x509.MarshalECPrivateKey(keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	x509pub, err := x509.MarshalPKIXPublicKey(keypair.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
 	skeypair := &SerializedKeypair{}
 	skeypair.CreationTime = keypair.CreationTime
 	skeypair.Uuid = keypair.Uuid
-	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(x509priv)
-	skeypair.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
+	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(keypair.PrivateKey)
+	skeypair.PublicKey = base64.StdEncoding.EncodeToString(keypair.PublicKey)
 	skeypair.Key = base64.StdEncoding.EncodeToString(keypair.Key)
 
 	return skeypair, nil
@@ -90,11 +78,11 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 		return nil, err
 	}
 
-	x509priv, err := base64.StdEncoding.DecodeString(skeypair.PrivateKey)
+	privateKey, err := base64.StdEncoding.DecodeString(skeypair.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	x509pub, err := base64.StdEncoding.DecodeString(skeypair.PublicKey)
+	publicKey, err := base64.StdEncoding.DecodeString(skeypair.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -102,14 +90,6 @@ func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	privateKey, err := x509.ParseECPrivateKey(x509priv)
-	if err != nil {
-		return nil, err
-	}
-
-	genericPublicKey, _ := x509.ParsePKIXPublicKey(x509pub)
-	publicKey := genericPublicKey.(*ecdsa.PublicKey)
 
 	nkeypair := &Keypair{}
 	nkeypair.CreationTime = skeypair.CreationTime
@@ -150,13 +130,10 @@ func (pubKey *PublicKey) Deserialize(data []byte) (*PublicKey, error) {
 		return nil, err
 	}
 
-	x509pub, err := base64.StdEncoding.DecodeString(spublicKey.PublicKey)
+	publicKey, err := base64.StdEncoding.DecodeString(spublicKey.PublicKey)
 	if err != nil {
 		return nil, err
 	}
-
-	genericPublicKey, _ := x509.ParsePKIXPublicKey(x509pub)
-	publicKey := genericPublicKey.(*ecdsa.PublicKey)
 
 	npubKey := &PublicKey{}
 	npubKey.CreationTime = pubKey.CreationTime
@@ -203,4 +180,12 @@ func (keypair *Keypair) Decrypt(passphrase []byte, data []byte) ([]byte, error) 
 	}
 
 	return compression.Inflate(cleartext)
+}
+
+func (keypair *Keypair) Sign(data []byte) ([]byte, error) {
+	return keypair.PrivateKey.Sign(nil, data, crypto.Hash(0))
+}
+
+func (keypair *Keypair) Verify(data []byte, sig []byte) bool {
+	return ed25519.Verify(keypair.PublicKey, data, sig)
 }

@@ -54,12 +54,12 @@ func cmd_info(ctx Plakar, args []string) int {
 		fmt.Printf("CommandLine: %s\n", snapshot.Metadata.CommandLine)
 		fmt.Printf("MachineID: %s\n", snapshot.Metadata.MachineID)
 		fmt.Printf("PublicKey: %s\n", snapshot.Metadata.PublicKey)
-		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
-		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
-		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Pathnames))
-		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
-		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
+		fmt.Printf("Directories: %d\n", len(snapshot.Index.Filesystem.Directories))
+		fmt.Printf("Files: %d\n", len(snapshot.Index.Filesystem.Files))
+		fmt.Printf("NonRegular: %d\n", len(snapshot.Index.Filesystem.NonRegular))
+		fmt.Printf("Sums: %d\n", len(snapshot.Index.Pathnames))
+		fmt.Printf("Objects: %d\n", len(snapshot.Index.Objects))
+		fmt.Printf("Chunks: %d\n", len(snapshot.Index.Chunks))
 		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Metadata.Size), snapshot.Metadata.Size)
 	}
 
@@ -93,7 +93,7 @@ func info_plakar(store *storage.Store) int {
 			continue
 		}
 
-		for chunkChecksum := range snap.Chunks {
+		for chunkChecksum := range snap.Index.Chunks {
 			muChunks.Lock()
 			if _, exists := chunks[chunkChecksum]; !exists {
 				chunks[chunkChecksum] = 0
@@ -102,7 +102,7 @@ func info_plakar(store *storage.Store) int {
 			muChunks.Unlock()
 		}
 
-		for objectChecksum := range snap.Objects {
+		for objectChecksum := range snap.Index.Objects {
 			muObjects.Lock()
 			if _, exists := objects[objectChecksum]; !exists {
 				objects[objectChecksum] = 0

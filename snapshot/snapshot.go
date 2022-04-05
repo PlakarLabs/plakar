@@ -41,15 +41,17 @@ func New(store *storage.Store) (*Snapshot, error) {
 			PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
 		},
 
-		Filesystem: filesystem.NewFilesystem(),
+		Index: Index{
+			Filesystem: filesystem.NewFilesystem(),
 
-		Pathnames: make(map[string]string),
-		Objects:   make(map[string]*Object),
-		Chunks:    make(map[string]*Chunk),
+			Pathnames: make(map[string]string),
+			Objects:   make(map[string]*Object),
+			Chunks:    make(map[string]*Chunk),
 
-		ChunkToObjects:       make(map[string][]string),
-		ObjectToPathnames:    make(map[string][]string),
-		ContentTypeToObjects: make(map[string][]string),
+			ChunkToObjects:       make(map[string][]string),
+			ObjectToPathnames:    make(map[string][]string),
+			ContentTypeToObjects: make(map[string][]string),
+		},
 	}
 
 	logger.Trace("%s: New()", snapshot.Metadata.Uuid)
@@ -138,9 +140,9 @@ func List(store *storage.Store) ([]string, error) {
 }
 
 func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
-	snapshot.muChunks.Lock()
-	chunk, exists := snapshot.Chunks[checksum]
-	snapshot.muChunks.Unlock()
+	snapshot.Index.muChunks.Lock()
+	chunk, exists := snapshot.Index.Chunks[checksum]
+	snapshot.Index.muChunks.Unlock()
 	return chunk, exists
 }
 
@@ -335,49 +337,49 @@ func (snapshot *Snapshot) Commit() error {
 }
 
 func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {
-	snapshot.muChunkToObjects.Lock()
-	defer snapshot.muChunkToObjects.Unlock()
+	snapshot.Index.muChunkToObjects.Lock()
+	defer snapshot.Index.muChunkToObjects.Unlock()
 
-	if _, exists := snapshot.ChunkToObjects[chunkChecksum]; !exists {
-		snapshot.ChunkToObjects[chunkChecksum] = make([]string, 0)
+	if _, exists := snapshot.Index.ChunkToObjects[chunkChecksum]; !exists {
+		snapshot.Index.ChunkToObjects[chunkChecksum] = make([]string, 0)
 	}
 
-	for _, value := range snapshot.ChunkToObjects[chunkChecksum] {
+	for _, value := range snapshot.Index.ChunkToObjects[chunkChecksum] {
 		if value == objectChecksum {
 			return
 		}
 	}
-	snapshot.ChunkToObjects[chunkChecksum] = append(snapshot.ChunkToObjects[chunkChecksum], objectChecksum)
+	snapshot.Index.ChunkToObjects[chunkChecksum] = append(snapshot.Index.ChunkToObjects[chunkChecksum], objectChecksum)
 }
 
 func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathname string) {
-	snapshot.muObjectToPathnames.Lock()
-	defer snapshot.muObjectToPathnames.Unlock()
+	snapshot.Index.muObjectToPathnames.Lock()
+	defer snapshot.Index.muObjectToPathnames.Unlock()
 
-	if _, exists := snapshot.ObjectToPathnames[objectChecksum]; !exists {
-		snapshot.ObjectToPathnames[objectChecksum] = make([]string, 0)
+	if _, exists := snapshot.Index.ObjectToPathnames[objectChecksum]; !exists {
+		snapshot.Index.ObjectToPathnames[objectChecksum] = make([]string, 0)
 	}
 
-	for _, value := range snapshot.ObjectToPathnames[objectChecksum] {
+	for _, value := range snapshot.Index.ObjectToPathnames[objectChecksum] {
 		if value == pathname {
 			return
 		}
 	}
-	snapshot.ObjectToPathnames[objectChecksum] = append(snapshot.ObjectToPathnames[objectChecksum], pathname)
+	snapshot.Index.ObjectToPathnames[objectChecksum] = append(snapshot.Index.ObjectToPathnames[objectChecksum], pathname)
 }
 
 func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum string) {
-	snapshot.muContentTypeToObjects.Lock()
-	defer snapshot.muContentTypeToObjects.Unlock()
+	snapshot.Index.muContentTypeToObjects.Lock()
+	defer snapshot.Index.muContentTypeToObjects.Unlock()
 
-	if _, exists := snapshot.ContentTypeToObjects[contentType]; !exists {
-		snapshot.ContentTypeToObjects[contentType] = make([]string, 0)
+	if _, exists := snapshot.Index.ContentTypeToObjects[contentType]; !exists {
+		snapshot.Index.ContentTypeToObjects[contentType] = make([]string, 0)
 	}
 
-	for _, value := range snapshot.ContentTypeToObjects[contentType] {
+	for _, value := range snapshot.Index.ContentTypeToObjects[contentType] {
 		if value == objectChecksum {
 			return
 		}
 	}
-	snapshot.ContentTypeToObjects[contentType] = append(snapshot.ContentTypeToObjects[contentType], objectChecksum)
+	snapshot.Index.ContentTypeToObjects[contentType] = append(snapshot.Index.ContentTypeToObjects[contentType], objectChecksum)
 }

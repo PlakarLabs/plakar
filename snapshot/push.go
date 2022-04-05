@@ -185,9 +185,9 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object.ContentType = cachedObject.ContentType
 
 	for offset, chunkChecksum := range object.Chunks {
-		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
-		snapshot.muChunks.Unlock()
+		snapshot.Index.muChunks.Lock()
+		snapshot.Index.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
+		snapshot.Index.muChunks.Unlock()
 	}
 
 	return &object, nil
@@ -251,21 +251,21 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if !res[0] {
-			snapshot.muChunks.Lock()
-			if _, ok := snapshot.Chunks[chunk.Checksum]; !ok {
+			snapshot.Index.muChunks.Lock()
+			if _, ok := snapshot.Index.Chunks[chunk.Checksum]; !ok {
 				err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
 				if err == nil {
-					snapshot.Chunks[chunk.Checksum] = &chunk
+					snapshot.Index.Chunks[chunk.Checksum] = &chunk
 				}
 			}
-			snapshot.muChunks.Unlock()
+			snapshot.Index.muChunks.Unlock()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			snapshot.muChunks.Lock()
-			snapshot.Chunks[chunk.Checksum] = &chunk
-			snapshot.muChunks.Unlock()
+			snapshot.Index.muChunks.Lock()
+			snapshot.Index.Chunks[chunk.Checksum] = &chunk
+			snapshot.Index.muChunks.Unlock()
 		}
 	}
 	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
@@ -280,7 +280,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		if err != nil {
 			return err
 		}
-		err = snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		err = snapshot.Index.Filesystem.Scan(scanDir, snapshot.SkipDirs)
 		if err != nil {
 			//errchan<-err
 		}
@@ -305,8 +305,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
-	for _, pathname := range snapshot.Filesystem.ListFiles() {
-		fileinfo, _ := snapshot.Filesystem.LookupInodeForFile(pathname)
+	for _, pathname := range snapshot.Index.Filesystem.ListFiles() {
+		fileinfo, _ := snapshot.Index.Filesystem.LookupInodeForFile(pathname)
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(pathname string, fileinfo *filesystem.Fileinfo) {
@@ -337,21 +337,21 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				}
 			}
 
-			snapshot.muPathnames.Lock()
-			snapshot.Pathnames[pathname] = object.Checksum
-			snapshot.muPathnames.Unlock()
+			snapshot.Index.muPathnames.Lock()
+			snapshot.Index.Pathnames[pathname] = object.Checksum
+			snapshot.Index.muPathnames.Unlock()
 
-			snapshot.muObjects.Lock()
-			snapshot.Objects[object.Checksum] = object
-			snapshot.muObjects.Unlock()
+			snapshot.Index.muObjects.Lock()
+			snapshot.Index.Objects[object.Checksum] = object
+			snapshot.Index.muObjects.Unlock()
 
-			snapshot.muObjectToPathnames.Lock()
-			snapshot.ObjectToPathnames[object.Checksum] = append(snapshot.ObjectToPathnames[object.Checksum], pathname)
-			snapshot.muObjectToPathnames.Unlock()
+			snapshot.Index.muObjectToPathnames.Lock()
+			snapshot.Index.ObjectToPathnames[object.Checksum] = append(snapshot.Index.ObjectToPathnames[object.Checksum], pathname)
+			snapshot.Index.muObjectToPathnames.Unlock()
 
-			snapshot.muContentTypeToObjects.Lock()
-			snapshot.ContentTypeToObjects[object.ContentType] = append(snapshot.ContentTypeToObjects[object.ContentType], object.Checksum)
-			snapshot.muContentTypeToObjects.Unlock()
+			snapshot.Index.muContentTypeToObjects.Lock()
+			snapshot.Index.ContentTypeToObjects[object.ContentType] = append(snapshot.Index.ContentTypeToObjects[object.ContentType], object.Checksum)
+			snapshot.Index.muContentTypeToObjects.Unlock()
 
 			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
 
@@ -359,7 +359,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	}
 	wg.Wait()
 
-	chanObjectsProcessor <- snapshot.Objects
+	chanObjectsProcessor <- snapshot.Index.Objects
 	chanObjectsProcessorDone()
 
 	return snapshot.Commit()

@@ -40,14 +40,7 @@ type Metadata struct {
 	Size         uint64
 }
 
-type Snapshot struct {
-	store       *storage.Store
-	transaction *storage.Transaction
-
-	SkipDirs []string
-
-	Metadata Metadata
-
+type Index struct {
 	Filesystem *filesystem.Filesystem
 
 	// Pathnames -> Object checksum
@@ -75,26 +68,17 @@ type Snapshot struct {
 	ContentTypeToObjects   map[string][]string
 }
 
+type Snapshot struct {
+	store       *storage.Store
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
+	Metadata Metadata
+	Index    Index
+}
+
 type SnapshotStorage struct {
 	Metadata Metadata
-
-	Filesystem *filesystem.Filesystem
-
-	// Pathname -> Object checksum
-	Pathnames map[string]string
-
-	// Object checksum -> Object
-	Objects map[string]*Object
-
-	// Chunk checksum -> Chunk
-	Chunks map[string]*Chunk
-
-	// Chunk checksum -> Object checksums
-	ChunkToObjects map[string][]string
-
-	// Object checksum -> Filenames
-	ObjectToPathnames map[string][]string
-
-	// Content Type -> Object checksums
-	ContentTypeToObjects map[string][]string
+	Index    Index
 }

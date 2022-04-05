@@ -12,17 +12,8 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 
 	snapshot := &Snapshot{}
 	snapshot.Metadata = snapshotStorage.Metadata
-
-	snapshot.Filesystem = snapshotStorage.Filesystem
-
-	snapshot.Pathnames = snapshotStorage.Pathnames
-	snapshot.Objects = snapshotStorage.Objects
-	snapshot.Chunks = snapshotStorage.Chunks
-	snapshot.ChunkToObjects = snapshotStorage.ChunkToObjects
-	snapshot.ContentTypeToObjects = snapshotStorage.ContentTypeToObjects
-	snapshot.ObjectToPathnames = snapshotStorage.ObjectToPathnames
-
-	snapshot.Filesystem.Reindex()
+	snapshot.Index = snapshotStorage.Index
+	snapshot.Index.Filesystem.Reindex()
 
 	return snapshot, nil
 }
@@ -30,15 +21,7 @@ func snapshotFromBytes(data []byte) (*Snapshot, error) {
 func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
 	snapshotStorage := SnapshotStorage{}
 	snapshotStorage.Metadata = snapshot.Metadata
-
-	snapshotStorage.Filesystem = snapshot.Filesystem
-
-	snapshotStorage.Pathnames = snapshot.Pathnames
-	snapshotStorage.Objects = snapshot.Objects
-	snapshotStorage.Chunks = snapshot.Chunks
-	snapshotStorage.ChunkToObjects = snapshot.ChunkToObjects
-	snapshotStorage.ObjectToPathnames = snapshot.ObjectToPathnames
-	snapshotStorage.ContentTypeToObjects = snapshot.ContentTypeToObjects
+	snapshotStorage.Index = snapshot.Index
 
 	serialized, err := json.Marshal(snapshotStorage)
 	if err != nil {

@@ -29,7 +29,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := snapshot.Filesystem.LookupInodeForFile(fpattern); ok {
+	if _, ok := snapshot.Index.Filesystem.LookupInodeForFile(fpattern); ok {
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
@@ -37,7 +37,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for _, directory := range snapshot.Filesystem.ListDirectories() {
+	for _, directory := range snapshot.Index.Filesystem.ListDirectories() {
 		if directory != dpattern &&
 			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
 			continue
@@ -61,7 +61,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, file := range snapshot.Filesystem.ListFiles() {
+	for _, file := range snapshot.Index.Filesystem.ListFiles() {
 		if file != fpattern &&
 			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
 			continue
@@ -80,7 +80,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			checksum := snapshot.Pathnames[file]
+			checksum := snapshot.Index.Pathnames[file]
 
 			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 

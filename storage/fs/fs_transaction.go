@@ -158,6 +158,21 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 	return nil
 }
 
+func (transaction *FSTransaction) PutMetadata(data []byte) error {
+	f, err := os.Create(fmt.Sprintf("%s/METADATA", transaction.Path()))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (transaction *FSTransaction) PutIndex(data []byte) error {
 	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
 	if err != nil {

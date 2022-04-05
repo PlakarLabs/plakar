@@ -54,6 +54,8 @@ type Metadata struct {
 	PublicKey    string
 	Size         uint64
 
+	ScannedDirectories []string
+
 	Statistics Statistics
 }
 

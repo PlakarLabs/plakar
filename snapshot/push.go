@@ -411,5 +411,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
 	}
 
+	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
+
 	return snapshot.Commit()
 }

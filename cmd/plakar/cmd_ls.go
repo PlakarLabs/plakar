@@ -58,17 +58,17 @@ func cmd_ls(ctx Plakar, args []string) int {
 }
 
 func list_snapshots(store *storage.Store) {
-	snapshots, err := getSnapshots(store, nil)
+	metadatas, err := getMetadatas(store, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
-	for _, snapshot := range snapshots {
+	for _, metadata := range metadatas {
 		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
-			snapshot.Metadata.CreationTime.UTC().Format(time.RFC3339),
-			snapshot.Metadata.Uuid,
-			humanize.Bytes(snapshot.Metadata.Size),
-			strings.Join(snapshot.Index.Filesystem.ScannedDirectories, ", "))
+			metadata.CreationTime.UTC().Format(time.RFC3339),
+			metadata.Uuid,
+			humanize.Bytes(metadata.Size),
+			strings.Join(metadata.ScannedDirectories, ", "))
 	}
 }
 

@@ -33,6 +33,8 @@ type StoreBackend interface {
 	Transaction() (TransactionBackend, error)
 
 	GetIndexes() ([]string, error)
+	GetMetadata(id string) ([]byte, error)
+	PutMetadata(id string, data []byte) error
 	GetIndex(id string) ([]byte, error)
 	PutIndex(id string, data []byte) error
 	GetIndexObject(id string, checksum string) ([]byte, error)
@@ -70,6 +72,7 @@ type TransactionBackend interface {
 	ReferenceChunks(keys []string) ([]bool, error)
 	PutChunk(checksum string, data []byte) error
 
+	PutMetadata(data []byte) error
 	PutIndex(data []byte) error
 	Commit() error
 }

@@ -30,14 +30,16 @@ func New(store *storage.Store) (*Snapshot, error) {
 		store:       store,
 		transaction: tx,
 
-		Uuid:         tx.GetUuid(),
-		CreationTime: time.Now(),
-		Version:      storage.VERSION,
-		Hostname:     store.GetHostname(),
-		Username:     store.GetUsername(),
-		CommandLine:  store.GetCommandLine(),
-		MachineID:    store.GetMachineID(),
-		PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
+		Metadata: Metadata{
+			Uuid:         tx.GetUuid(),
+			CreationTime: time.Now(),
+			Version:      storage.VERSION,
+			Hostname:     store.GetHostname(),
+			Username:     store.GetUsername(),
+			CommandLine:  store.GetCommandLine(),
+			MachineID:    store.GetMachineID(),
+			PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
+		},
 
 		Filesystem: filesystem.NewFilesystem(),
 
@@ -50,7 +52,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		ContentTypeToObjects: make(map[string][]string),
 	}
 
-	logger.Trace("%s: New()", snapshot.Uuid)
+	logger.Trace("%s: New()", snapshot.Metadata.Uuid)
 	return snapshot, nil
 }
 
@@ -112,13 +114,13 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	}
 
 	if keypair != nil {
-		publicKey, err := base64.StdEncoding.DecodeString(snapshot.PublicKey)
+		publicKey, err := base64.StdEncoding.DecodeString(snapshot.Metadata.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 
 		if !ed25519.Verify(ed25519.PublicKey(publicKey), data, signature) {
-			return nil, fmt.Errorf("failed to verify signature for snapshot %s", snapshot.Uuid)
+			return nil, fmt.Errorf("failed to verify signature for snapshot %s", snapshot.Metadata.Uuid)
 		}
 	}
 
@@ -158,7 +160,7 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutChunk(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: PutChunk(%s)", snapshot.Metadata.Uuid, checksum)
 	return snapshot.transaction.PutChunk(checksum, buffer)
 }
 
@@ -178,7 +180,7 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutObject(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: PutObject(%s)", snapshot.Metadata.Uuid, checksum)
 	return snapshot.transaction.PutObject(checksum, buffer)
 }
 
@@ -199,17 +201,17 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutIndex()", snapshot.Uuid)
+	logger.Trace("%s: PutIndex()", snapshot.Metadata.Uuid)
 	return snapshot.transaction.PutIndex(buffer)
 }
 
 func (snapshot *Snapshot) ReferenceChunks(keys []string) ([]bool, error) {
-	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Uuid, len(keys))
+	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceChunks(keys)
 }
 
 func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
-	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Uuid, len(keys))
+	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceObjects(keys)
 }
 
@@ -230,14 +232,14 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Uuid)
-	return cache.PutSnapshot(snapshot.Uuid, buffer)
+	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
+	return cache.PutSnapshot(snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	secret := snapshot.store.GetSecret()
 
-	logger.Trace("%s: GetChunk(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: GetChunk(%s)", snapshot.Metadata.Uuid, checksum)
 	buffer, err := snapshot.store.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -258,7 +260,7 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
-	logger.Trace("%s: CheckChunk(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: CheckChunk(%s)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.store.CheckChunk(checksum)
 	if err != nil {
 		return false, err
@@ -269,7 +271,7 @@ func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
 func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	secret := snapshot.store.GetSecret()
 
-	logger.Trace("%s: GetObject(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: GetObject(%s)", snapshot.Metadata.Uuid, checksum)
 	buffer, err := snapshot.store.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -294,7 +296,7 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 }
 
 func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
-	logger.Trace("%s: CheckObject(%s)", snapshot.Uuid, checksum)
+	logger.Trace("%s: CheckObject(%s)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.store.CheckObject(checksum)
 	if err != nil {
 		return false, err
@@ -328,7 +330,7 @@ func (snapshot *Snapshot) Commit() error {
 		snapshot.PutIndexCache(serialized)
 	}
 
-	logger.Trace("%s: Commit()", snapshot.Uuid)
+	logger.Trace("%s: Commit()", snapshot.Metadata.Uuid)
 	return snapshot.transaction.Commit()
 }
 

@@ -45,7 +45,7 @@ func cmd_push(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snap.CommandLine = ctx.CommandLine
+	snap.Metadata.CommandLine = ctx.CommandLine
 
 	if flags.NArg() == 0 {
 		err = snap.Push([]string{dir})
@@ -58,6 +58,6 @@ func cmd_push(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Uuid)
+	logger.Info("created snapshot %s", snap.Metadata.Uuid)
 	return 0
 }

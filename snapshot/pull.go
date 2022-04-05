@@ -50,7 +50,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			fi, _ := snapshot.LookupInodeForPathname(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
-			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 			os.MkdirAll(dest, 0700)
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
@@ -82,7 +82,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 			checksum := snapshot.Pathnames[file]
 
-			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 
 			f, err := os.Create(dest)
 			if err != nil {

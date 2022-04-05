@@ -65,9 +65,9 @@ func list_snapshots(store *storage.Store) {
 
 	for _, snapshot := range snapshots {
 		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
-			snapshot.CreationTime.UTC().Format(time.RFC3339),
-			snapshot.Uuid,
-			humanize.Bytes(snapshot.Size),
+			snapshot.Metadata.CreationTime.UTC().Format(time.RFC3339),
+			snapshot.Metadata.Uuid,
+			humanize.Bytes(snapshot.Metadata.Size),
 			strings.Join(snapshot.Filesystem.ScannedDirectories, ", "))
 	}
 }

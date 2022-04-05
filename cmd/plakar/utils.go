@@ -116,7 +116,7 @@ func getSnapshots(store *storage.Store, prefixes []string) ([]*snapshot.Snapshot
 
 func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
+		return snapshots[i].Metadata.CreationTime.Before(snapshots[j].Metadata.CreationTime)
 	})
 	return snapshots
 }

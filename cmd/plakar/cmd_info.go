@@ -46,21 +46,21 @@ func cmd_info(ctx Plakar, args []string) int {
 	}
 
 	for _, snapshot := range snapshots {
-		fmt.Printf("Uuid: %s\n", snapshot.Uuid)
-		fmt.Printf("CreationTime: %s\n", snapshot.CreationTime)
-		fmt.Printf("Version: %s\n", snapshot.Version)
-		fmt.Printf("Hostname: %s\n", snapshot.Hostname)
-		fmt.Printf("Username: %s\n", snapshot.Username)
-		fmt.Printf("CommandLine: %s\n", snapshot.CommandLine)
-		fmt.Printf("MachineID: %s\n", snapshot.MachineID)
-		fmt.Printf("PublicKey: %s\n", snapshot.PublicKey)
+		fmt.Printf("Uuid: %s\n", snapshot.Metadata.Uuid)
+		fmt.Printf("CreationTime: %s\n", snapshot.Metadata.CreationTime)
+		fmt.Printf("Version: %s\n", snapshot.Metadata.Version)
+		fmt.Printf("Hostname: %s\n", snapshot.Metadata.Hostname)
+		fmt.Printf("Username: %s\n", snapshot.Metadata.Username)
+		fmt.Printf("CommandLine: %s\n", snapshot.Metadata.CommandLine)
+		fmt.Printf("MachineID: %s\n", snapshot.Metadata.MachineID)
+		fmt.Printf("PublicKey: %s\n", snapshot.Metadata.PublicKey)
 		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
 		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
 		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))
 		fmt.Printf("Sums: %d\n", len(snapshot.Pathnames))
 		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
 		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Size), snapshot.Size)
+		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Metadata.Size), snapshot.Metadata.Size)
 	}
 
 	return 0

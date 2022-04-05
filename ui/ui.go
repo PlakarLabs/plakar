@@ -30,7 +30,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
@@ -63,12 +62,7 @@ var searchTemplate string
 var templates map[string]*template.Template
 
 type SnapshotSummary struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
+	Metadata snapshot.Metadata
 
 	Roots       uint64
 	Directories uint64
@@ -107,7 +101,7 @@ func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
 	wg.Wait()
 
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreationTime.Before(result[j].CreationTime)
+		return result[i].Metadata.CreationTime.Before(result[j].Metadata.CreationTime)
 	})
 
 	return result, nil
@@ -119,12 +113,8 @@ func (summary *SnapshotSummary) HumanSize() string {
 
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
-	ss.Uuid = snapshot.Uuid
-	ss.CreationTime = snapshot.CreationTime
-	ss.Version = snapshot.Version
-	ss.Hostname = snapshot.Hostname
-	ss.Username = snapshot.Username
-	ss.CommandLine = snapshot.CommandLine
+	ss.Metadata = snapshot.Metadata
+	fmt.Println(ss.Metadata)
 	ss.Roots = uint64(len(snapshot.Filesystem.ScannedDirectories))
 	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
 	ss.Files = uint64(len(snapshot.Filesystem.Files))
@@ -132,7 +122,6 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Pathnames = uint64(len(snapshot.Pathnames))
 	ss.Objects = uint64(len(snapshot.Objects))
 	ss.Chunks = uint64(len(snapshot.Chunks))
-	ss.Size = snapshot.Size
 	return ss
 }
 
@@ -180,6 +169,8 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 			totalFiles++
 		}
 	}
+
+	fmt.Println(res[0])
 
 	mimeTypesPct := make(map[string]float64)
 	majorTypesPct := make(map[string]float64)
@@ -485,7 +476,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		snapshotsList = append(snapshotsList, snapshot)
 	}
 	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
+		return snapshotsList[i].Metadata.CreationTime.Before(snapshotsList[j].Metadata.CreationTime)
 	})
 
 	directories := make([]struct {
@@ -506,7 +497,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Snapshot string
 						Date     string
 						Path     string
-					}{snap.Uuid, snap.CreationTime.String(), directory})
+					}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), directory})
 				}
 			}
 		}
@@ -527,7 +518,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 					Snapshot string
 					Date     string
 					Path     string
-				}{snap.Uuid, snap.CreationTime.String(), file})
+				}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), file})
 			}
 		}
 	}

@@ -28,12 +28,7 @@ type CachedObject struct {
 	Info        filesystem.Fileinfo
 }
 
-type Snapshot struct {
-	store       *storage.Store
-	transaction *storage.Transaction
-
-	SkipDirs []string
-
+type Metadata struct {
 	Uuid         string
 	CreationTime time.Time
 	Version      string
@@ -42,8 +37,16 @@ type Snapshot struct {
 	CommandLine  string
 	MachineID    string
 	PublicKey    string
+	Size         uint64
+}
 
-	Size uint64
+type Snapshot struct {
+	store       *storage.Store
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
+	Metadata Metadata
 
 	Filesystem *filesystem.Filesystem
 
@@ -73,16 +76,7 @@ type Snapshot struct {
 }
 
 type SnapshotStorage struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
-	MachineID    string
-	PublicKey    string
-
-	Size uint64
+	Metadata Metadata
 
 	Filesystem *filesystem.Filesystem
 

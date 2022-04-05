@@ -15,7 +15,6 @@ import (
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
-	//	"github.com/restic/chunker"
 )
 
 type objectMsg struct {
@@ -354,7 +353,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			snapshot.ContentTypeToObjects[object.ContentType] = append(snapshot.ContentTypeToObjects[object.ContentType], object.Checksum)
 			snapshot.muContentTypeToObjects.Unlock()
 
-			atomic.AddUint64(&snapshot.Size, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
 
 		}(pathname, fileinfo)
 	}

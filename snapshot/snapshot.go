@@ -1,8 +1,11 @@
 package snapshot
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/poolpOrg/plakar/compression"
@@ -79,9 +82,13 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		return nil, err
 	}
 
-	index, _, err := GetIndex(store, Uuid)
+	index, checksum, err := GetIndex(store, Uuid)
 	if err != nil {
 		return nil, err
+	}
+
+	if !bytes.Equal(checksum, metadata.Checksum) {
+		return nil, fmt.Errorf("index mismatches metadata checksum")
 	}
 
 	snapshot := &Snapshot{}
@@ -158,7 +165,6 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
 func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	cache := store.GetCache()
 	secret := store.GetSecret()
-	keypair := store.GetKeypair()
 
 	var buffer []byte
 	if cache != nil {
@@ -197,19 +203,14 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 		buffer = tmp
 	}
 
-	signature := []byte("")
-	if keypair != nil {
-		tmp, sigbuf := buffer[0:len(buffer)-64], buffer[len(buffer)-64:]
-		buffer = tmp
-		signature = append(signature, sigbuf...)
-	}
-
 	index, err := indexFromBytes(buffer)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return index, signature, nil
+	checksum := sha256.Sum256(buffer)
+
+	return index, checksum[:], nil
 }
 
 func List(store *storage.Store) ([]string, error) {
@@ -429,6 +430,13 @@ func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()
 
+	serializedIndex, err := indexToBytes(&snapshot.Index)
+	if err != nil {
+		return err
+	}
+	indexChecksum := sha256.Sum256(serializedIndex)
+	snapshot.Metadata.Checksum = indexChecksum[:]
+
 	serializedMetadata, err := metadataToBytes(&snapshot.Metadata)
 	if err != nil {
 		return err
@@ -440,22 +448,10 @@ func (snapshot *Snapshot) Commit() error {
 		}
 		serializedMetadata = append(serializedMetadata, tmp...)
 	}
+
 	err = snapshot.PutMetadata(serializedMetadata)
 	if err != nil {
 		return err
-	}
-
-	serializedIndex, err := indexToBytes(&snapshot.Index)
-	if err != nil {
-		return err
-	}
-
-	if keypair != nil {
-		tmp, err := keypair.Sign(serializedIndex)
-		if err != nil {
-			return err
-		}
-		serializedIndex = append(serializedIndex, tmp...)
 	}
 
 	err = snapshot.PutIndex(serializedIndex)

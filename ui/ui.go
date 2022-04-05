@@ -20,6 +20,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -194,28 +195,18 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 			}
 			extensions[key] += value
 		}
+	}
 
-		for key, value := range metadata.Statistics.PercentKind {
-			if _, exists := kindsPct[key]; !exists {
-				kindsPct[key] = 0
-			}
-			kindsPct[key] += value
-		}
+	for key, value := range kinds {
+		kindsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
 
-		for key, value := range metadata.Statistics.PercentType {
-			if _, exists := typesPct[key]; !exists {
-				typesPct[key] = 0
-			}
-			typesPct[key] += value
-		}
+	for key, value := range types {
+		typesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
 
-		for key, value := range metadata.Statistics.PercentExtension {
-			if _, exists := extensionsPct[key]; !exists {
-				extensionsPct[key] = 0
-			}
-			extensionsPct[key] += value
-		}
-
+	for key, value := range extensions {
+		extensionsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
 	}
 
 	ctx := &struct {

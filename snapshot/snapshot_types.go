@@ -28,6 +28,21 @@ type CachedObject struct {
 	Info        filesystem.Fileinfo
 }
 
+type Statistics struct {
+	Chunks      uint64
+	Objects     uint64
+	Files       uint64
+	Directories uint64
+
+	Kind      map[string]uint64
+	Type      map[string]uint64
+	Extension map[string]uint64
+
+	PercentKind      map[string]float64
+	PercentType      map[string]float64
+	PercentExtension map[string]float64
+}
+
 type Metadata struct {
 	Uuid         string
 	CreationTime time.Time
@@ -38,6 +53,8 @@ type Metadata struct {
 	MachineID    string
 	PublicKey    string
 	Size         uint64
+
+	Statistics Statistics
 }
 
 type Index struct {

@@ -20,7 +20,6 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
-	"math"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -128,59 +127,63 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 
 	snapshotsList, _ := getSnapshots(lstore)
 
-	mimeTypes := make(map[string]uint64)
-	majorTypes := make(map[string]uint64)
-	extensions := make(map[string]uint64)
 	totalFiles := uint64(0)
+
+	kinds := make(map[string]uint64)
+	types := make(map[string]uint64)
+	extensions := make(map[string]uint64)
+
+	kindsPct := make(map[string]float64)
+	typesPct := make(map[string]float64)
+	extensionsPct := make(map[string]float64)
 
 	res := make([]*SnapshotSummary, 0)
 	for _, snap := range snapshotsList {
 		res = append(res, SnapshotToSummary(snap))
+		totalFiles += snap.Metadata.Statistics.Files
 
-		for key, value := range snap.Index.ContentTypeToObjects {
-			contentType := strings.Split(key, ";")[0]
-			contentMajorType := strings.Split(key, "/")[0]
-			if contentType == "" {
-				contentType = "unknown"
-				contentMajorType = "unknown"
+		for key, value := range snap.Metadata.Statistics.Kind {
+			if _, exists := kinds[key]; !exists {
+				kinds[key] = 0
 			}
-			for _, _ = range value {
-				if _, exists := mimeTypes[contentType]; !exists {
-					mimeTypes[contentType] = 0
-				}
-				if _, exists := majorTypes[contentMajorType]; !exists {
-					majorTypes[contentMajorType] = 0
-				}
-				mimeTypes[contentType]++
-				majorTypes[contentMajorType]++
-			}
+			kinds[key] += value
 		}
 
-		for key := range snap.Index.Pathnames {
-			ext := strings.ToLower(filepath.Ext(key))
-			if ext == "" {
-				ext = "none"
+		for key, value := range snap.Metadata.Statistics.Type {
+			if _, exists := types[key]; !exists {
+				types[key] = 0
 			}
-			if _, exists := extensions[ext]; !exists {
-				extensions[ext] = 0
-			}
-			extensions[ext]++
-			totalFiles++
+			types[key] += value
 		}
-	}
 
-	mimeTypesPct := make(map[string]float64)
-	majorTypesPct := make(map[string]float64)
-	extensionsPct := make(map[string]float64)
+		for key, value := range snap.Metadata.Statistics.Extension {
+			if _, exists := extensions[key]; !exists {
+				extensions[key] = 0
+			}
+			extensions[key] += value
+		}
 
-	for key, value := range mimeTypes {
-		mimeTypesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
-	}
-	for key, value := range majorTypes {
-		majorTypesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
-	}
-	for key, value := range extensions {
-		extensionsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+		for key, value := range snap.Metadata.Statistics.PercentKind {
+			if _, exists := kindsPct[key]; !exists {
+				kindsPct[key] = 0
+			}
+			kindsPct[key] += value
+		}
+
+		for key, value := range snap.Metadata.Statistics.PercentType {
+			if _, exists := typesPct[key]; !exists {
+				typesPct[key] = 0
+			}
+			typesPct[key] += value
+		}
+
+		for key, value := range snap.Metadata.Statistics.PercentExtension {
+			if _, exists := extensionsPct[key]; !exists {
+				extensionsPct[key] = 0
+			}
+			extensionsPct[key] += value
+		}
+
 	}
 
 	ctx := &struct {
@@ -195,11 +198,11 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 	}{
 		lstore.Configuration(),
 		res,
-		majorTypes,
-		mimeTypes,
+		kinds,
+		types,
 		extensions,
-		majorTypesPct,
-		mimeTypesPct,
+		kindsPct,
+		typesPct,
 		extensionsPct,
 	}
 

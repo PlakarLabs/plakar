@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -361,6 +363,53 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chanObjectsProcessor <- snapshot.Index.Objects
 	chanObjectsProcessorDone()
+
+	// compute some more metadata
+	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.Chunks))
+	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.Objects))
+	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Index.Filesystem.Files))
+	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
+
+	for key, value := range snapshot.Index.ContentTypeToObjects {
+		objectType := strings.Split(key, ";")[0]
+		objectKind := strings.Split(key, "/")[0]
+		if objectType == "" {
+			objectType = "unknown"
+			objectKind = "unknown"
+		}
+		for _, _ = range value {
+			if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
+				snapshot.Metadata.Statistics.Kind[objectKind] = 0
+			}
+			snapshot.Metadata.Statistics.Kind[objectKind]++
+
+			if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
+				snapshot.Metadata.Statistics.Type[objectType] = 0
+			}
+			snapshot.Metadata.Statistics.Type[objectType]++
+		}
+	}
+
+	for key := range snapshot.Index.Pathnames {
+		extension := strings.ToLower(filepath.Ext(key))
+		if extension == "" {
+			extension = "none"
+		}
+		if _, exists := snapshot.Metadata.Statistics.Extension[extension]; !exists {
+			snapshot.Metadata.Statistics.Extension[extension] = 0
+		}
+		snapshot.Metadata.Statistics.Extension[extension]++
+	}
+
+	for key, value := range snapshot.Metadata.Statistics.Type {
+		snapshot.Metadata.Statistics.PercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
+	for key, value := range snapshot.Metadata.Statistics.Kind {
+		snapshot.Metadata.Statistics.PercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
+	for key, value := range snapshot.Metadata.Statistics.Extension {
+		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
 
 	return snapshot.Commit()
 }

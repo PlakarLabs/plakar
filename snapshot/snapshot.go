@@ -39,6 +39,21 @@ func New(store *storage.Store) (*Snapshot, error) {
 			CommandLine:  store.GetCommandLine(),
 			MachineID:    store.GetMachineID(),
 			PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
+
+			Statistics: Statistics{
+				Chunks:      0,
+				Objects:     0,
+				Files:       0,
+				Directories: 0,
+
+				Kind:      make(map[string]uint64),
+				Type:      make(map[string]uint64),
+				Extension: make(map[string]uint64),
+
+				PercentKind:      make(map[string]float64),
+				PercentType:      make(map[string]float64),
+				PercentExtension: make(map[string]float64),
+			},
 		},
 
 		Index: Index{

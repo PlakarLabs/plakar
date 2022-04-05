@@ -161,6 +161,8 @@ func main() {
 	/* keygen command needs to be handled very early */
 	if command == "keypair" && len(args) != 0 && args[0] == "gen" {
 		os.Exit(cmd_keypair(ctx, args))
+	} else if command == "keygen" {
+		os.Exit(cmd_keygen(ctx, args))
 	}
 
 	var store *storage.Store

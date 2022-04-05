@@ -47,7 +47,7 @@ func cmd_rm(ctx Plakar, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := ctx.Store().Purge(snap.Uuid)
+			err := ctx.Store().Purge(snap.Metadata.Uuid)
 			if err != nil {
 				logger.Error("%s", err)
 				errors++

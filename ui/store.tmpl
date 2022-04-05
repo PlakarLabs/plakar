@@ -55,10 +55,10 @@
             <tbody>
                 {{range $snapshot := $Snapshots}}
                 <tr>
-                    <th scope="row"><a href="/snapshot/{{$snapshot.Uuid}}:/">{{slice $snapshot.Uuid  0 8}}</a></th>
-                    <td>{{$snapshot.Username }}</td>
-                    <td>{{$snapshot.Hostname }}</td>
-                    <td>{{$snapshot.CreationTime }}</td>
+                    <th scope="row"><a href="/snapshot/{{$snapshot.Metadata.Uuid}}:/">{{slice $snapshot.Metadata.Uuid  0 8}}</a></th>
+                    <td>{{$snapshot.Metadata.Username }}</td>
+                    <td>{{$snapshot.Metadata.Hostname }}</td>
+                    <td>{{$snapshot.Metadata.CreationTime }}</td>
                     <td>{{$snapshot.Directories}}</td>
                     <td>{{$snapshot.Files}}</td>
                     <td>{{$snapshot.HumanSize }}</td>

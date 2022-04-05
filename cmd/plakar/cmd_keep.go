@@ -60,7 +60,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			ctx.Store().Purge(snap.Uuid)
+			ctx.Store().Purge(snap.Metadata.Uuid)
 			wg.Done()
 		}(snap)
 	}

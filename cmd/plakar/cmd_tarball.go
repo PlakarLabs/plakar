@@ -76,7 +76,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file, checksum := range snapshot.Pathnames {
+		for file, checksum := range snapshot.Index.Pathnames {
 			if prefix != "" {
 				if !helpers.PathIsWithin(file, prefix) {
 					continue

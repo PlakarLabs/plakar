@@ -47,7 +47,7 @@ func cmd_checksum(ctx Plakar, args []string) int {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Uuid)
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.Uuid)
 			errors++
 			continue
 		}

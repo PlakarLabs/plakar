@@ -21,10 +21,10 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 
 	data, err := cache.GetPath(hashedPath)
 	if err != nil {
-		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Uuid, pathname)
+		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Metadata.Uuid, pathname)
 		return nil, err
 	}
-	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
+	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Metadata.Uuid, pathname)
 
 	if snapshot.store.Configuration().Encryption != "" {
 		tmp, err := encryption.Decrypt(secret.Key, data)
@@ -82,7 +82,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 		jobject = tmp
 	}
 
-	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, pathname)
+	logger.Trace("%s: cache.PutPath(%s)", snapshot.Metadata.Uuid, pathname)
 	cache.PutPath(hashedPath, jobject)
 	return nil
 }

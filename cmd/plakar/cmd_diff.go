@@ -71,7 +71,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for _, dir1 := range snapshot1.Filesystem.ListDirectories() {
+			for _, dir1 := range snapshot1.Index.Filesystem.ListDirectories() {
 				fi1, _ := snapshot1.LookupInodeForDirectory(dir1)
 				fi2, ok := snapshot2.LookupInodeForDirectory(dir1)
 				if !ok {
@@ -84,7 +84,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for _, dir2 := range snapshot2.Filesystem.ListDirectories() {
+			for _, dir2 := range snapshot2.Index.Filesystem.ListDirectories() {
 				fi2, _ := snapshot2.LookupInodeForDirectory(dir2)
 				_, ok := snapshot1.LookupInodeForDirectory(dir2)
 				if !ok {
@@ -92,7 +92,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for _, file1 := range snapshot1.Filesystem.ListFiles() {
+			for _, file1 := range snapshot1.Index.Filesystem.ListFiles() {
 				fi1, _ := snapshot1.LookupInodeForPathname(file1)
 				fi2, ok := snapshot2.LookupInodeForPathname(file1)
 				if !ok {
@@ -105,7 +105,7 @@ func cmd_diff(ctx Plakar, args []string) int {
 				}
 			}
 
-			for _, file2 := range snapshot2.Filesystem.ListFiles() {
+			for _, file2 := range snapshot2.Index.Filesystem.ListFiles() {
 				fi2, _ := snapshot2.LookupInodeForPathname(file2)
 				_, ok := snapshot1.LookupInodeForFilename(file2)
 				if !ok {
@@ -147,8 +147,8 @@ func cmd_diff(ctx Plakar, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Pathnames[args[i]]
-			_, ok2 := snapshot2.Pathnames[args[i]]
+			_, ok1 := snapshot1.Index.Pathnames[args[i]]
+			_, ok2 := snapshot2.Index.Pathnames[args[i]]
 			if !ok1 && !ok2 {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -181,8 +181,8 @@ func fiToDiff(fi filesystem.Fileinfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Pathnames[filename1]
-	sum2, ok2 := snapshot2.Pathnames[filename2]
+	sum1, ok1 := snapshot1.Index.Pathnames[filename1]
+	sum2, ok2 := snapshot2.Index.Pathnames[filename2]
 
 	// file does not exist in either snapshot
 	if !ok1 && !ok2 {
@@ -191,7 +191,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 
 	if sum1 == sum2 {
 		fmt.Printf("%s:%s and %s:%s are identical\n",
-			snapshot1.Uuid, filename1, snapshot2.Uuid, filename2)
+			snapshot1.Metadata.Uuid, filename1, snapshot2.Metadata.Uuid, filename2)
 		return
 	}
 
@@ -226,8 +226,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(string(buf1)),
 		B:        difflib.SplitLines(string(buf2)),
-		FromFile: snapshot1.Uuid + ":" + filename1,
-		ToFile:   snapshot2.Uuid + ":" + filename2,
+		FromFile: snapshot1.Metadata.Uuid + ":" + filename1,
+		ToFile:   snapshot2.Metadata.Uuid + ":" + filename2,
 		Context:  3,
 	}
 	text, _ := difflib.GetUnifiedDiffString(diff)

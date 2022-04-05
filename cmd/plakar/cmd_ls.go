@@ -65,10 +65,10 @@ func list_snapshots(store *storage.Store) {
 
 	for _, snapshot := range snapshots {
 		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
-			snapshot.CreationTime.UTC().Format(time.RFC3339),
-			snapshot.Uuid,
-			humanize.Bytes(snapshot.Size),
-			strings.Join(snapshot.Filesystem.ScannedDirectories, ", "))
+			snapshot.Metadata.CreationTime.UTC().Format(time.RFC3339),
+			snapshot.Metadata.Uuid,
+			humanize.Bytes(snapshot.Metadata.Size),
+			strings.Join(snapshot.Index.Filesystem.ScannedDirectories, ", "))
 	}
 }
 
@@ -146,7 +146,7 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 		}
 
 		directories := make([]string, 0)
-		for _, name := range snapshot.Filesystem.ListDirectories() {
+		for _, name := range snapshot.Index.Filesystem.ListDirectories() {
 			directories = append(directories, name)
 		}
 		sort.Slice(directories, func(i, j int) bool {
@@ -161,7 +161,7 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		for _, name := range snapshot.Filesystem.ListFiles() {
+		for _, name := range snapshot.Index.Filesystem.ListFiles() {
 			filenames = append(filenames, name)
 		}
 		sort.Slice(filenames, func(i, j int) bool {
@@ -199,7 +199,7 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 
 func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory string) {
 	directories := make([]string, 0)
-	for _, name := range snapshot.Filesystem.ListDirectories() {
+	for _, name := range snapshot.Index.Filesystem.ListDirectories() {
 		directories = append(directories, name)
 	}
 	sort.Slice(directories, func(i, j int) bool {
@@ -238,7 +238,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	}
 
 	filenames := make([]string, 0)
-	for _, name := range snapshot.Filesystem.ListFiles() {
+	for _, name := range snapshot.Index.Filesystem.ListFiles() {
 		filenames = append(filenames, name)
 	}
 	sort.Slice(filenames, func(i, j int) bool {

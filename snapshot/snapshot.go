@@ -81,7 +81,7 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		return nil, err
 	}
 
-	if !verified {
+	if store.Keypair != nil && !verified {
 		return nil, fmt.Errorf("signature mismatches for metadata")
 	}
 
@@ -116,7 +116,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 		tmp, err := cache.GetMetadata(Uuid)
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: GetMetadata(%s)", Uuid)
+			logger.Trace("snapshot: store.GetMetadata(%s)", Uuid)
 			tmp, err = store.GetMetadata(Uuid)
 			if err != nil {
 				return nil, false, err
@@ -167,9 +167,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 			return nil, false, err
 		}
 
-		if !ed25519.Verify(ed25519.PublicKey(publicKey), buffer, signature) {
-			return nil, false, fmt.Errorf("failed to verify signature for snapshot %s", metadata.Uuid)
-		}
+		verified = ed25519.Verify(ed25519.PublicKey(publicKey), buffer, signature)
 	}
 
 	if cache != nil && cacheMiss {
@@ -191,7 +189,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 		tmp, err := cache.GetIndex(Uuid)
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: GetIndex(%s)", Uuid)
+			logger.Trace("snapshot: store.GetIndex(%s)", Uuid)
 			tmp, err = store.GetIndex(Uuid)
 			if err != nil {
 				return nil, nil, err
@@ -231,7 +229,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	checksum := sha256.Sum256(buffer)
 
 	if cache != nil && cacheMiss {
-		putMetadataCache(store, Uuid, buffer)
+		putIndexCache(store, Uuid, buffer)
 	}
 
 	return index, checksum[:], nil
@@ -378,7 +376,7 @@ func putIndexCache(store *storage.Store, Uuid string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("cache.PutIndex(%s)", Uuid)
+	logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
 	return cache.PutIndex(Uuid, buffer)
 }
 
@@ -399,7 +397,7 @@ func putMetadataCache(store *storage.Store, Uuid string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("cache.PutMetadata(%s)", Uuid)
+	logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
 	return cache.PutMetadata(Uuid, buffer)
 }
 

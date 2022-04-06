@@ -75,7 +75,7 @@ func list_snapshots(store *storage.Store) {
 func list_snapshot(store *storage.Store, args []string) {
 	snapshots, err := getSnapshots(store, args)
 	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}
 
 	for offset, snap := range snapshots {
@@ -130,7 +130,7 @@ func list_snapshot(store *storage.Store, args []string) {
 func list_snapshot_recursive(store *storage.Store, args []string) {
 	snapshots, err := getSnapshots(store, args)
 	if err != nil {
-		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
+		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}
 
 	for offset, snapshot := range snapshots {

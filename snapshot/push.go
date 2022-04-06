@@ -178,7 +178,6 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	}
 
 	object := Object{}
-	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = make([]string, 0)
 	for _, chunk := range cachedObject.Chunks {
@@ -410,6 +409,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	for key, value := range snapshot.Metadata.Statistics.Extension {
 		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
 	}
+
+	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
 
 	return snapshot.Commit()
 }

@@ -191,12 +191,28 @@ func (store *Store) GetIndexes() ([]string, error) {
 	return store.backend.GetIndexes()
 }
 
+func (store *Store) GetMetadata(id string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetMetadata(%s): %s", id, time.Since(t0))
+	}()
+	return store.backend.GetMetadata(id)
+}
+
 func (store *Store) GetIndex(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndex(%s): %s", id, time.Since(t0))
 	}()
 	return store.backend.GetIndex(id)
+}
+
+func (store *Store) PutMetadata(id string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: PutMetadata(%s): %s", id, time.Since(t0))
+	}()
+	return store.backend.PutMetadata(id, data)
 }
 
 func (store *Store) PutIndex(id string, data []byte) error {
@@ -401,6 +417,14 @@ func (transaction *Transaction) PutChunk(checksum string, data []byte) error {
 		logger.Profile("storage: %s.PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutChunk(checksum, data)
+}
+
+func (transaction *Transaction) PutMetadata(data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: %s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+	}()
+	return transaction.backend.PutMetadata(data)
 }
 
 func (transaction *Transaction) PutIndex(data []byte) error {

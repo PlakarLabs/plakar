@@ -53,6 +53,9 @@ type Metadata struct {
 	MachineID    string
 	PublicKey    string
 	Size         uint64
+	Checksum     []byte
+
+	ScannedDirectories []string
 
 	Statistics Statistics
 }

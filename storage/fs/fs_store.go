@@ -164,6 +164,20 @@ func (store *FSStore) GetIndexes() ([]string, error) {
 	return ret, nil
 }
 
+func (store *FSStore) GetMetadata(Uuid string) ([]byte, error) {
+	parsedUuid, err := uuid.Parse(Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/METADATA", store.PathIndex(parsedUuid.String())))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	parsedUuid, err := uuid.Parse(Uuid)
 	if err != nil {
@@ -176,6 +190,25 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (store *FSStore) PutMetadata(id string, data []byte) error {
+	os.Mkdir(store.PathIndexBucket(id), 0700)
+	os.Mkdir(store.PathIndex(id), 0700)
+	os.Mkdir(store.PathIndexObjects(id), 0700)
+	os.Mkdir(store.PathIndexChunks(id), 0700)
+
+	f, err := os.Create(fmt.Sprintf("%s/METADATA", store.PathIndex(id)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (store *FSStore) PutIndex(id string, data []byte) error {

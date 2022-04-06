@@ -4,7 +4,7 @@
 
 {{define "main"}}
     {{$Store := .Store}}
-    {{$Snapshots := .Snapshots}}
+    {{$Metadatas := .Metadatas}}
     {{$MajorTypes := .MajorTypes}}
     {{$MimeTypes := .MimeTypes}}
     {{$Extensions := .Extensions}}
@@ -21,7 +21,7 @@
         </form>
     </div>
 
-    {{if len $Snapshots }}
+    {{if len $Metadatas }}
             <ul class="nav nav-tabs" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#snapshots" type="button" role="tab" aria-controls="home" aria-selected="true">Snapshots</button>
@@ -53,15 +53,15 @@
                 </tr>
             </thead>
             <tbody>
-                {{range $snapshot := $Snapshots}}
+                {{range $metadata := $Metadatas}}
                 <tr>
-                    <th scope="row"><a href="/snapshot/{{$snapshot.Metadata.Uuid}}:/">{{slice $snapshot.Metadata.Uuid  0 8}}</a></th>
-                    <td>{{$snapshot.Metadata.Username }}</td>
-                    <td>{{$snapshot.Metadata.Hostname }}</td>
-                    <td>{{$snapshot.Metadata.CreationTime }}</td>
-                    <td>{{$snapshot.Directories}}</td>
-                    <td>{{$snapshot.Files}}</td>
-                    <td>{{$snapshot.HumanSize }}</td>
+                    <th scope="row"><a href="/snapshot/{{$metadata.Uuid}}:/">{{slice $metadata.Uuid  0 8}}</a></th>
+                    <td>{{$metadata.Username }}</td>
+                    <td>{{$metadata.Hostname }}</td>
+                    <td>{{$metadata.CreationTime }}</td>
+                    <td>{{$metadata.Statistics.Directories}}</td>
+                    <td>{{$metadata.Statistics.Files}}</td>
+                    <td>{{humanizeBytes $metadata.Size}}</td>
                 </tr>
                 {{end}}
             </tbody>

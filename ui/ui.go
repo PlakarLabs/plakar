@@ -20,6 +20,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -42,6 +43,7 @@ import (
 )
 
 var lstore *storage.Store
+var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -72,6 +74,18 @@ type SnapshotSummary struct {
 	Chunks      uint64
 
 	Size uint64
+}
+
+type TemplateFunctions struct {
+	HumanizeBytes func(uint64) string
+}
+
+func templateFunctions() TemplateFunctions {
+	return TemplateFunctions{
+		HumanizeBytes: func(nbytes uint64) string {
+			return humanize.Bytes(nbytes)
+		},
+	}
 }
 
 func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
@@ -106,6 +120,37 @@ func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
 	return result, nil
 }
 
+func getMetadatas(store *storage.Store) ([]*snapshot.Metadata, error) {
+	snapshotsList, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Metadata, 0)
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	for _, snapshotUuid := range snapshotsList {
+		wg.Add(1)
+		go func(snapshotUuid string) {
+			defer wg.Done()
+			metadata, _, err := snapshot.GetMetadata(store, snapshotUuid)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			result = append(result, metadata)
+			mu.Unlock()
+		}(snapshotUuid)
+	}
+	wg.Wait()
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreationTime.Before(result[j].CreationTime)
+	})
+	return result, nil
+
+}
+
 func (summary *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(summary.Size)
 }
@@ -125,7 +170,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 
 func viewStore(w http.ResponseWriter, r *http.Request) {
 
-	snapshotsList, _ := getSnapshots(lstore)
+	metadatas, _ := getMetadatas(lstore)
 
 	totalFiles := uint64(0)
 
@@ -137,58 +182,48 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 	typesPct := make(map[string]float64)
 	extensionsPct := make(map[string]float64)
 
-	res := make([]*SnapshotSummary, 0)
-	for _, snap := range snapshotsList {
-		res = append(res, SnapshotToSummary(snap))
-		totalFiles += snap.Metadata.Statistics.Files
+	res := make([]*snapshot.Metadata, 0)
+	for _, metadata := range metadatas {
+		res = append(res, metadata)
+		totalFiles += metadata.Statistics.Files
 
-		for key, value := range snap.Metadata.Statistics.Kind {
+		for key, value := range metadata.Statistics.Kind {
 			if _, exists := kinds[key]; !exists {
 				kinds[key] = 0
 			}
 			kinds[key] += value
 		}
 
-		for key, value := range snap.Metadata.Statistics.Type {
+		for key, value := range metadata.Statistics.Type {
 			if _, exists := types[key]; !exists {
 				types[key] = 0
 			}
 			types[key] += value
 		}
 
-		for key, value := range snap.Metadata.Statistics.Extension {
+		for key, value := range metadata.Statistics.Extension {
 			if _, exists := extensions[key]; !exists {
 				extensions[key] = 0
 			}
 			extensions[key] += value
 		}
+	}
 
-		for key, value := range snap.Metadata.Statistics.PercentKind {
-			if _, exists := kindsPct[key]; !exists {
-				kindsPct[key] = 0
-			}
-			kindsPct[key] += value
-		}
+	for key, value := range kinds {
+		kindsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
 
-		for key, value := range snap.Metadata.Statistics.PercentType {
-			if _, exists := typesPct[key]; !exists {
-				typesPct[key] = 0
-			}
-			typesPct[key] += value
-		}
+	for key, value := range types {
+		typesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
 
-		for key, value := range snap.Metadata.Statistics.PercentExtension {
-			if _, exists := extensionsPct[key]; !exists {
-				extensionsPct[key] = 0
-			}
-			extensionsPct[key] += value
-		}
-
+	for key, value := range extensions {
+		extensionsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
 	}
 
 	ctx := &struct {
 		Store         storage.StoreConfig
-		Snapshots     []*SnapshotSummary
+		Metadatas     []*snapshot.Metadata
 		MajorTypes    map[string]uint64
 		MimeTypes     map[string]uint64
 		Extensions    map[string]uint64
@@ -214,10 +249,17 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	if path == "" {
@@ -228,7 +270,6 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		http.Error(w, "", http.StatusNotFound)
 		return
-
 	}
 
 	directories := make([]*filesystem.Fileinfo, 0)
@@ -296,10 +337,17 @@ func object(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	checksum, ok := snap.Index.Pathnames[path]
@@ -363,10 +411,17 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	download := r.URL.Query().Get("download")
 	highlight := r.URL.Query().Get("highlight")
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	checksum, ok := snap.Index.Pathnames[path]
@@ -547,10 +602,13 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 
 func Ui(store *storage.Store, spawn bool) {
 	lstore = store
+	lcache = nil
 
 	templates = make(map[string]*template.Template)
 
-	t, err := template.New("store").Parse(baseTemplate + storeTemplate)
+	t, err := template.New("store").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+	}).Parse(baseTemplate + storeTemplate)
 	if err != nil {
 		panic(err)
 	}

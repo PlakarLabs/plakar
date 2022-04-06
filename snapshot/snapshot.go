@@ -1,7 +1,9 @@
 package snapshot
 
 import (
+	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -74,21 +76,123 @@ func New(store *storage.Store) (*Snapshot, error) {
 }
 
 func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
+	metadata, verified, err := GetMetadata(store, Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if store.Keypair != nil && !verified {
+		return nil, fmt.Errorf("signature mismatches for metadata")
+	}
+
+	index, checksum, err := GetIndex(store, Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(checksum, metadata.Checksum) {
+		return nil, fmt.Errorf("index mismatches metadata checksum")
+	}
+
+	snapshot := &Snapshot{}
+	snapshot.store = store
+
+	snapshot.Metadata = *metadata
+	snapshot.Index = *index
+
+	return snapshot, nil
+}
+
+func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 	cache := store.GetCache()
 	secret := store.GetSecret()
 	keypair := store.GetKeypair()
 
 	var buffer []byte
+
+	cacheMiss := false
+	if cache != nil {
+		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
+		tmp, err := cache.GetMetadata(Uuid)
+		if err != nil {
+			cacheMiss = true
+			logger.Trace("snapshot: store.GetMetadata(%s)", Uuid)
+			tmp, err = store.GetMetadata(Uuid)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		buffer = tmp
+	} else {
+		logger.Trace("snapshot: GetMetadata(%s)", Uuid)
+		tmp, err := store.GetMetadata(Uuid)
+		if err != nil {
+			return nil, false, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret.Key, buffer)
+		if err != nil {
+			return nil, false, err
+		}
+		buffer = tmp
+	}
+
+	if store.Configuration().Compression != "" {
+		tmp, err := compression.Inflate(buffer)
+		if err != nil {
+			return nil, false, err
+		}
+		buffer = tmp
+	}
+
+	signature := []byte("")
+	if keypair != nil {
+		tmp, sigbuf := buffer[0:len(buffer)-64], buffer[len(buffer)-64:]
+		buffer = tmp
+		signature = append(signature, sigbuf...)
+	}
+
+	metadata, err := metadataFromBytes(buffer)
+	if err != nil {
+		return nil, false, err
+	}
+
+	verified := false
+	if keypair != nil {
+		publicKey, err := base64.StdEncoding.DecodeString(metadata.PublicKey)
+		if err != nil {
+			return nil, false, err
+		}
+
+		verified = ed25519.Verify(ed25519.PublicKey(publicKey), buffer, signature)
+	}
+
+	if cache != nil && cacheMiss {
+		putMetadataCache(store, metadata.Uuid, buffer)
+	}
+
+	return metadata, verified, nil
+}
+
+func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
+	cache := store.GetCache()
+	secret := store.GetSecret()
+
+	var buffer []byte
+
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
-		tmp, err := cache.GetSnapshot(Uuid)
+		tmp, err := cache.GetIndex(Uuid)
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: GetIndex(%s)", Uuid)
+			logger.Trace("snapshot: store.GetIndex(%s)", Uuid)
 			tmp, err = store.GetIndex(Uuid)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		buffer = tmp
@@ -96,58 +200,39 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 		logger.Trace("snapshot: GetIndex(%s)", Uuid)
 		tmp, err := store.GetIndex(Uuid)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		buffer = tmp
 	}
 
-	data := buffer
 	if secret != nil {
-		tmp, err := encryption.Decrypt(secret.Key, data)
+		tmp, err := encryption.Decrypt(secret.Key, buffer)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		data = tmp
+		buffer = tmp
 	}
 
 	if store.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(data)
+		tmp, err := compression.Inflate(buffer)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		data = tmp
+		buffer = tmp
 	}
 
-	signature := []byte("")
-	if keypair != nil {
-		tmp, buf := data[0:len(data)-64], data[len(data)-64:]
-		data = tmp
-		signature = append(signature, buf...)
-	}
-
-	snapshot, err := snapshotFromBytes(data)
+	index, err := indexFromBytes(buffer)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if keypair != nil {
-		publicKey, err := base64.StdEncoding.DecodeString(snapshot.Metadata.PublicKey)
-		if err != nil {
-			return nil, err
-		}
-
-		if !ed25519.Verify(ed25519.PublicKey(publicKey), data, signature) {
-			return nil, fmt.Errorf("failed to verify signature for snapshot %s", snapshot.Metadata.Uuid)
-		}
-	}
-
-	snapshot.store = store
+	checksum := sha256.Sum256(buffer)
 
 	if cache != nil && cacheMiss {
-		snapshot.PutIndexCache(data)
+		putIndexCache(store, Uuid, buffer)
 	}
 
-	return snapshot, nil
+	return index, checksum[:], nil
 }
 
 func List(store *storage.Store) ([]string, error) {
@@ -201,6 +286,27 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 	return snapshot.transaction.PutObject(checksum, buffer)
 }
 
+func (snapshot *Snapshot) PutMetadata(data []byte) error {
+	secret := snapshot.store.GetSecret()
+
+	buffer := data
+
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("%s: PutMetadata()", snapshot.Metadata.Uuid)
+	return snapshot.transaction.PutMetadata(buffer)
+}
+
 func (snapshot *Snapshot) PutIndex(data []byte) error {
 	secret := snapshot.store.GetSecret()
 
@@ -232,6 +338,69 @@ func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
 	return snapshot.transaction.ReferenceObjects(keys)
 }
 
+func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
+	cache := snapshot.store.GetCache()
+	secret := snapshot.store.GetSecret()
+
+	buffer := data
+	if snapshot.store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
+	return cache.PutMetadata(snapshot.Metadata.Uuid, buffer)
+}
+
+func putIndexCache(store *storage.Store, Uuid string, data []byte) error {
+	cache := store.GetCache()
+	secret := store.GetSecret()
+
+	buffer := data
+	if store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
+	return cache.PutIndex(Uuid, buffer)
+}
+
+func putMetadataCache(store *storage.Store, Uuid string, data []byte) error {
+	cache := store.GetCache()
+	secret := store.GetSecret()
+
+	buffer := data
+	if store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
+	return cache.PutMetadata(Uuid, buffer)
+}
+
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	cache := snapshot.store.GetCache()
 	secret := snapshot.store.GetSecret()
@@ -250,7 +419,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutSnapshot(snapshot.Metadata.Uuid, buffer)
+	return cache.PutIndex(snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
@@ -325,26 +494,38 @@ func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()
 
-	serialized, err := snapshotToBytes(snapshot)
+	serializedIndex, err := indexToBytes(&snapshot.Index)
+	if err != nil {
+		return err
+	}
+	indexChecksum := sha256.Sum256(serializedIndex)
+	snapshot.Metadata.Checksum = indexChecksum[:]
+
+	serializedMetadata, err := metadataToBytes(&snapshot.Metadata)
+	if err != nil {
+		return err
+	}
+	if keypair != nil {
+		tmp, err := keypair.Sign(serializedMetadata)
+		if err != nil {
+			return err
+		}
+		serializedMetadata = append(serializedMetadata, tmp...)
+	}
+
+	err = snapshot.PutMetadata(serializedMetadata)
 	if err != nil {
 		return err
 	}
 
-	if keypair != nil {
-		tmp, err := keypair.Sign(serialized)
-		if err != nil {
-			return err
-		}
-		serialized = append(serialized, tmp...)
-	}
-
-	err = snapshot.PutIndex(serialized)
+	err = snapshot.PutIndex(serializedIndex)
 	if err != nil {
 		return err
 	}
 
 	if cache != nil {
-		snapshot.PutIndexCache(serialized)
+		snapshot.PutMetadataCache(serializedMetadata)
+		snapshot.PutIndexCache(serializedIndex)
 	}
 
 	logger.Trace("%s: Commit()", snapshot.Metadata.Uuid)

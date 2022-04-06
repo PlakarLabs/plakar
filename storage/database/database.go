@@ -279,7 +279,7 @@ func (store *DatabaseStore) GetObjects() ([]string, error) {
 
 func (store *DatabaseStore) GetMetadata(Uuid string) ([]byte, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE indexUuid=?`, Uuid).Scan(&data)
+	err := store.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}

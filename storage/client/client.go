@@ -188,6 +188,17 @@ func (store *ClientStore) GetObjects() ([]string, error) {
 	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
 }
 
+func (store *ClientStore) GetMetadata(Uuid string) ([]byte, error) {
+	result, err := store.sendRequest("ReqGetMetadata", network.ReqGetMetadata{
+		Uuid: Uuid,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Payload.(network.ResGetMetadata).Data, result.Payload.(network.ResGetMetadata).Err
+}
+
 func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
 	result, err := store.sendRequest("ReqGetIndex", network.ReqGetIndex{
 		Uuid: Uuid,

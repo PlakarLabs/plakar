@@ -17,6 +17,15 @@
         font-family: ui-monospace;
       }
     </style>
+    <script>
+      function humanizeBytes(bytes) {
+        if (bytes == 0)
+          return '0 Bytes';
+        sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+        i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      }
+    </script>
 
   </head>
   <body>

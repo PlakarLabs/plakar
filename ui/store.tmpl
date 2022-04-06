@@ -61,7 +61,7 @@
                     <td>{{$metadata.CreationTime }}</td>
                     <td>{{$metadata.Statistics.Directories}}</td>
                     <td>{{$metadata.Statistics.Files}}</td>
-                    <td>{{$metadata.Size}}</td>
+                    <td>{{humanizeBytes $metadata.Size}}</td>
                 </tr>
                 {{end}}
             </tbody>

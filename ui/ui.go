@@ -43,7 +43,7 @@ import (
 )
 
 var lstore *storage.Store
-var lcache map[string]*snapshot.Snapshot
+var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -74,6 +74,18 @@ type SnapshotSummary struct {
 	Chunks      uint64
 
 	Size uint64
+}
+
+type TemplateFunctions struct {
+	HumanizeBytes func(uint64) string
+}
+
+func templateFunctions() TemplateFunctions {
+	return TemplateFunctions{
+		HumanizeBytes: func(nbytes uint64) string {
+			return humanize.Bytes(nbytes)
+		},
+	}
 }
 
 func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
@@ -237,22 +249,24 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, exists := lcache[id]
-	if !exists {
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
 		tmp, err := snapshot.Load(lstore, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		snap = tmp
-		lcache[id] = snap
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	if path == "" {
 		path = "/"
 	}
 
-	_, exists = snap.LookupInodeForPathname(path)
+	_, exists := snap.LookupInodeForPathname(path)
 	if !exists {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -323,15 +337,17 @@ func object(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, exists := lcache[id]
-	if !exists {
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
 		tmp, err := snapshot.Load(lstore, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		snap = tmp
-		lcache[id] = snap
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	checksum, ok := snap.Index.Pathnames[path]
@@ -395,15 +411,17 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	download := r.URL.Query().Get("download")
 	highlight := r.URL.Query().Get("highlight")
 
-	snap, exists := lcache[id]
-	if !exists {
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
 		tmp, err := snapshot.Load(lstore, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		snap = tmp
-		lcache[id] = snap
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	checksum, ok := snap.Index.Pathnames[path]
@@ -584,11 +602,13 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 
 func Ui(store *storage.Store, spawn bool) {
 	lstore = store
-	lcache = make(map[string]*snapshot.Snapshot)
+	lcache = nil
 
 	templates = make(map[string]*template.Template)
 
-	t, err := template.New("store").Parse(baseTemplate + storeTemplate)
+	t, err := template.New("store").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+	}).Parse(baseTemplate + storeTemplate)
 	if err != nil {
 		panic(err)
 	}

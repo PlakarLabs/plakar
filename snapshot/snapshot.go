@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -75,11 +76,13 @@ func New(store *storage.Store) (*Snapshot, error) {
 }
 
 func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
-	//cache := store.GetCache()
-
-	metadata, _, err := GetMetadata(store, Uuid)
+	metadata, verified, err := GetMetadata(store, Uuid)
 	if err != nil {
 		return nil, err
+	}
+
+	if !verified {
+		return nil, fmt.Errorf("signature mismatches for metadata")
 	}
 
 	index, checksum, err := GetIndex(store, Uuid)
@@ -97,28 +100,26 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 	snapshot.Metadata = *metadata
 	snapshot.Index = *index
 
-	//if cache != nil && cacheMiss {
-	//		snapshot.PutMetadataCache(metadata)
-	//		snapshot.PutIndexCache(index)
-	//}
-
 	return snapshot, nil
 }
 
-func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
+func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 	cache := store.GetCache()
 	secret := store.GetSecret()
 	keypair := store.GetKeypair()
 
 	var buffer []byte
+
+	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
 		tmp, err := cache.GetMetadata(Uuid)
 		if err != nil {
+			cacheMiss = true
 			logger.Trace("snapshot: GetMetadata(%s)", Uuid)
 			tmp, err = store.GetMetadata(Uuid)
 			if err != nil {
-				return nil, nil, err
+				return nil, false, err
 			}
 		}
 		buffer = tmp
@@ -126,7 +127,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
 		logger.Trace("snapshot: GetMetadata(%s)", Uuid)
 		tmp, err := store.GetMetadata(Uuid)
 		if err != nil {
-			return nil, nil, err
+			return nil, false, err
 		}
 		buffer = tmp
 	}
@@ -134,7 +135,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
 	if secret != nil {
 		tmp, err := encryption.Decrypt(secret.Key, buffer)
 		if err != nil {
-			return nil, nil, err
+			return nil, false, err
 		}
 		buffer = tmp
 	}
@@ -142,7 +143,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
 	if store.Configuration().Compression != "" {
 		tmp, err := compression.Inflate(buffer)
 		if err != nil {
-			return nil, nil, err
+			return nil, false, err
 		}
 		buffer = tmp
 	}
@@ -156,10 +157,26 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, []byte, error) {
 
 	metadata, err := metadataFromBytes(buffer)
 	if err != nil {
-		return nil, nil, err
+		return nil, false, err
 	}
 
-	return metadata, signature, nil
+	verified := false
+	if keypair != nil {
+		publicKey, err := base64.StdEncoding.DecodeString(metadata.PublicKey)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if !ed25519.Verify(ed25519.PublicKey(publicKey), buffer, signature) {
+			return nil, false, fmt.Errorf("failed to verify signature for snapshot %s", metadata.Uuid)
+		}
+	}
+
+	if cache != nil && cacheMiss {
+		putMetadataCache(store, metadata.Uuid, buffer)
+	}
+
+	return metadata, verified, nil
 }
 
 func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
@@ -167,10 +184,13 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	secret := store.GetSecret()
 
 	var buffer []byte
+
+	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
 		tmp, err := cache.GetIndex(Uuid)
 		if err != nil {
+			cacheMiss = true
 			logger.Trace("snapshot: GetIndex(%s)", Uuid)
 			tmp, err = store.GetIndex(Uuid)
 			if err != nil {
@@ -209,6 +229,10 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	}
 
 	checksum := sha256.Sum256(buffer)
+
+	if cache != nil && cacheMiss {
+		putMetadataCache(store, Uuid, buffer)
+	}
 
 	return index, checksum[:], nil
 }
@@ -335,6 +359,48 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 
 	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
 	return cache.PutMetadata(snapshot.Metadata.Uuid, buffer)
+}
+
+func putIndexCache(store *storage.Store, Uuid string, data []byte) error {
+	cache := store.GetCache()
+	secret := store.GetSecret()
+
+	buffer := data
+	if store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("cache.PutIndex(%s)", Uuid)
+	return cache.PutIndex(Uuid, buffer)
+}
+
+func putMetadataCache(store *storage.Store, Uuid string, data []byte) error {
+	cache := store.GetCache()
+	secret := store.GetSecret()
+
+	buffer := data
+	if store.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret.Key, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	logger.Trace("cache.PutMetadata(%s)", Uuid)
+	return cache.PutMetadata(Uuid, buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {

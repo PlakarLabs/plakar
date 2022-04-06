@@ -178,7 +178,6 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	}
 
 	object := Object{}
-	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = make([]string, 0)
 	for _, chunk := range cachedObject.Chunks {

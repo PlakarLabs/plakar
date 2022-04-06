@@ -108,6 +108,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 	secret := store.GetSecret()
 	keypair := store.GetKeypair()
 
+	var orig_buffer []byte
 	var buffer []byte
 
 	cacheMiss := false
@@ -131,6 +132,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 		}
 		buffer = tmp
 	}
+	orig_buffer = buffer
 
 	if secret != nil {
 		tmp, err := encryption.Decrypt(secret.Key, buffer)
@@ -171,7 +173,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 	}
 
 	if cache != nil && cacheMiss {
-		putMetadataCache(store, metadata.Uuid, buffer)
+		putMetadataCache(store, metadata.Uuid, orig_buffer)
 	}
 
 	return metadata, verified, nil
@@ -181,6 +183,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	cache := store.GetCache()
 	secret := store.GetSecret()
 
+	var orig_buffer []byte
 	var buffer []byte
 
 	cacheMiss := false
@@ -204,6 +207,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 		}
 		buffer = tmp
 	}
+	orig_buffer = buffer
 
 	if secret != nil {
 		tmp, err := encryption.Decrypt(secret.Key, buffer)
@@ -229,7 +233,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	checksum := sha256.Sum256(buffer)
 
 	if cache != nil && cacheMiss {
-		putIndexCache(store, Uuid, buffer)
+		putIndexCache(store, Uuid, orig_buffer)
 	}
 
 	return index, checksum[:], nil

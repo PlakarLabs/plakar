@@ -53,7 +53,7 @@
         <tbody>
             {{range $file := $Files}}
             <tr>
-                <td><a href="/snapshot/{{$file.Snapshot}}">{{slice $file.Snapshot  0 8}}</a></td>
+                <td><a href="/snapshot/{{$file.Snapshot}}:/">{{slice $file.Snapshot  0 8}}</a></td>
                 <td>{{$file.Date}}</td>
                 <td><a href="/snapshot/{{$file.Snapshot}}:{{$file.Path}}">{{$file.Path}}</a></td>
             </tr>

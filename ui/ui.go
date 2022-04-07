@@ -20,23 +20,30 @@ import (
 	_ "embed"
 	"fmt"
 	"html/template"
+	"math"
 	"math/rand"
+	"mime"
 	"net/http"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 )
 
 var lstore *storage.Store
+var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
 var baseTemplate string
@@ -56,12 +63,7 @@ var searchTemplate string
 var templates map[string]*template.Template
 
 type SnapshotSummary struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
+	Metadata *snapshot.Metadata
 
 	Roots       uint64
 	Directories uint64
@@ -74,57 +76,169 @@ type SnapshotSummary struct {
 	Size uint64
 }
 
+type TemplateFunctions struct {
+	HumanizeBytes func(uint64) string
+}
+
+func templateFunctions() TemplateFunctions {
+	return TemplateFunctions{
+		HumanizeBytes: func(nbytes uint64) string {
+			return humanize.Bytes(nbytes)
+		},
+	}
+}
+
+func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Snapshot, 0)
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	for _, snapshotUuid := range snapshotsList {
+		wg.Add(1)
+		go func(snapshotUuid string) {
+			defer wg.Done()
+			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			result = append(result, snapshotInstance)
+			mu.Unlock()
+		}(snapshotUuid)
+	}
+	wg.Wait()
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Metadata.CreationTime.Before(result[j].Metadata.CreationTime)
+	})
+
+	return result, nil
+}
+
+func getMetadatas(store *storage.Store) ([]*snapshot.Metadata, error) {
+	snapshotsList, err := snapshot.List(store)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Metadata, 0)
+
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+	for _, snapshotUuid := range snapshotsList {
+		wg.Add(1)
+		go func(snapshotUuid string) {
+			defer wg.Done()
+			metadata, _, err := snapshot.GetMetadata(store, snapshotUuid)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			result = append(result, metadata)
+			mu.Unlock()
+		}(snapshotUuid)
+	}
+	wg.Wait()
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreationTime.Before(result[j].CreationTime)
+	})
+	return result, nil
+
+}
+
 func (summary *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(summary.Size)
 }
 
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
-	ss.Uuid = snapshot.Uuid
-	ss.CreationTime = snapshot.CreationTime
-	ss.Version = snapshot.Version
-	ss.Hostname = snapshot.Hostname
-	ss.Username = snapshot.Username
-	ss.CommandLine = snapshot.CommandLine
-	ss.Roots = uint64(len(snapshot.Filesystem.ScannedDirectories))
-	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
-	ss.Files = uint64(len(snapshot.Filesystem.Files))
-	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
-	ss.Pathnames = uint64(len(snapshot.Pathnames))
-	ss.Objects = uint64(len(snapshot.Objects))
-	ss.Chunks = uint64(len(snapshot.Chunks))
-	ss.Size = snapshot.Size
+	ss.Metadata = snapshot.Metadata
+	ss.Roots = uint64(len(snapshot.Index.Filesystem.ScannedDirectories))
+	ss.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
+	ss.Files = uint64(len(snapshot.Index.Filesystem.Files))
+	ss.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
+	ss.Pathnames = uint64(len(snapshot.Index.Pathnames))
+	ss.Objects = uint64(len(snapshot.Index.Objects))
+	ss.Chunks = uint64(len(snapshot.Index.Chunks))
 	return ss
 }
 
 func viewStore(w http.ResponseWriter, r *http.Request) {
-	snapshots, _ := snapshot.List(lstore)
 
-	snapshotsList := make([]*snapshot.Snapshot, 0)
-	for _, id := range snapshots {
-		snap, err := snapshot.Load(lstore, id)
-		if err != nil {
-			/* failed to lookup snapshot */
-			continue
+	metadatas, _ := getMetadatas(lstore)
+
+	totalFiles := uint64(0)
+
+	kinds := make(map[string]uint64)
+	types := make(map[string]uint64)
+	extensions := make(map[string]uint64)
+
+	kindsPct := make(map[string]float64)
+	typesPct := make(map[string]float64)
+	extensionsPct := make(map[string]float64)
+
+	res := make([]*snapshot.Metadata, 0)
+	for _, metadata := range metadatas {
+		res = append(res, metadata)
+		totalFiles += metadata.Statistics.Files
+
+		for key, value := range metadata.Statistics.Kind {
+			if _, exists := kinds[key]; !exists {
+				kinds[key] = 0
+			}
+			kinds[key] += value
 		}
-		snapshotsList = append(snapshotsList, snap)
+
+		for key, value := range metadata.Statistics.Type {
+			if _, exists := types[key]; !exists {
+				types[key] = 0
+			}
+			types[key] += value
+		}
+
+		for key, value := range metadata.Statistics.Extension {
+			if _, exists := extensions[key]; !exists {
+				extensions[key] = 0
+			}
+			extensions[key] += value
+		}
 	}
 
-	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
-	})
+	for key, value := range kinds {
+		kindsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
 
-	res := make([]*SnapshotSummary, 0)
-	for _, snap := range snapshotsList {
-		res = append(res, SnapshotToSummary(snap))
+	for key, value := range types {
+		typesPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
+	}
+
+	for key, value := range extensions {
+		extensionsPct[key] = math.Round((float64(value)/float64(totalFiles)*100)*100) / 100
 	}
 
 	ctx := &struct {
-		Store     storage.StoreConfig
-		Snapshots []*SnapshotSummary
+		Store         storage.StoreConfig
+		Metadatas     []*snapshot.Metadata
+		MajorTypes    map[string]uint64
+		MimeTypes     map[string]uint64
+		Extensions    map[string]uint64
+		MajorTypesPct map[string]float64
+		MimeTypesPct  map[string]float64
+		ExtensionsPct map[string]float64
 	}{
 		lstore.Configuration(),
 		res,
+		kinds,
+		types,
+		extensions,
+		kindsPct,
+		typesPct,
+		extensionsPct,
 	}
 
 	templates["store"].Execute(w, ctx)
@@ -135,10 +249,17 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
 	if path == "" {
@@ -149,7 +270,6 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		http.Error(w, "", http.StatusNotFound)
 		return
-
 	}
 
 	directories := make([]*filesystem.Fileinfo, 0)
@@ -166,9 +286,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 			files = append(files, fileinfo)
 		} else {
 			pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name)
-			if _, exists := snap.Filesystem.Symlinks[pathname]; exists {
+			if _, exists := snap.Index.Filesystem.Symlinks[pathname]; exists {
 				symlinks = append(symlinks, fileinfo)
-				symlinksResolve[fileinfo.Name] = snap.Filesystem.Symlinks[pathname]
+				symlinksResolve[fileinfo.Name] = snap.Index.Filesystem.Symlinks[pathname]
 			} else {
 				others = append(others, fileinfo)
 			}
@@ -207,7 +327,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Filesystem.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Index.Filesystem.ScannedDirectories, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -217,30 +337,37 @@ func object(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
-	checksum, ok := snap.Pathnames[path]
+	checksum, ok := snap.Index.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	object := snap.Objects[checksum]
+	object := snap.Index.Objects[checksum]
 	info, _ := snap.LookupInodeForPathname(path)
 
 	chunks := make([]*snapshot.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
-		chunks = append(chunks, snap.Chunks[chunkChecksum])
+		chunks = append(chunks, snap.Index.Chunks[chunkChecksum])
 	}
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Filesystem.LookupInodeForDirectory(root); ok {
+		if _, ok := snap.Index.Filesystem.LookupInodeForDirectory(root); ok {
 			break
 		}
 	}
@@ -258,7 +385,8 @@ func object(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(object.ContentType, "image/") ||
 		strings.HasPrefix(object.ContentType, "audio/") ||
 		strings.HasPrefix(object.ContentType, "video/") ||
-		object.ContentType == "application/pdf" {
+		object.ContentType == "application/pdf" ||
+		object.ContentType == "application/x-tex" {
 		enableViewer = true
 	}
 
@@ -281,30 +409,83 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 	download := r.URL.Query().Get("download")
+	highlight := r.URL.Query().Get("highlight")
 
-	snap, err := snapshot.Load(lstore, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var snap *snapshot.Snapshot
+	if lcache == nil || lcache.Metadata.Uuid != id {
+		tmp, err := snapshot.Load(lstore, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		snap = tmp
+		lcache = snap
+	} else {
+		snap = lcache
 	}
 
-	checksum, ok := snap.Pathnames[path]
+	checksum, ok := snap.Index.Pathnames[path]
 	if !ok {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	object := snap.Objects[checksum]
-
-	w.Header().Add("Content-Type", object.ContentType)
-	if download != "" {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
+	object := snap.Index.Objects[checksum]
+	contentType := mime.TypeByExtension(filepath.Ext(path))
+	if contentType == "" {
+		contentType = object.ContentType
 	}
+
+	if contentType == "application/x-tex" {
+		contentType = "text/plain"
+	}
+
+	if !strings.HasPrefix(object.ContentType, "text/") || highlight == "" {
+		w.Header().Add("Content-Type", contentType)
+		if download != "" {
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
+		}
+		for _, chunkChecksum := range object.Chunks {
+			data, err := snap.GetChunk(chunkChecksum)
+			if err != nil {
+			}
+			w.Write(data)
+		}
+		return
+	}
+
+	content := []byte("")
 	for _, chunkChecksum := range object.Chunks {
 		data, err := snap.GetChunk(chunkChecksum)
 		if err != nil {
 		}
-		w.Write(data)
+		content = append(content, data...)
+	}
+
+	lexer := lexers.Match(path)
+	if lexer == nil {
+		lexer = lexers.Analyse(string(content))
+	}
+	if lexer == nil {
+		w.Header().Add("Content-Type", contentType)
+		w.Write(content)
+		return
+	}
+
+	w.Header().Add("Content-Type", "text/html")
+	style := styles.Get("dracula")
+	if style == nil {
+		style = styles.Fallback
+	}
+	formatter := formatters.Get("html")
+	if formatter == nil {
+		formatter = formatters.Fallback
+	}
+	iterator, err := lexer.Tokenise(nil, string(content))
+	err = formatter.Format(w, style, iterator)
+	if err != nil {
+		w.Header().Add("Content-Type", contentType)
+		w.Write(content)
 	}
 	return
 }
@@ -312,6 +493,28 @@ func raw(w http.ResponseWriter, r *http.Request) {
 func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	urlParams := r.URL.Query()
 	q := urlParams["q"][0]
+	queryKind := urlParams["kind"]
+	queryMime := urlParams["mime"]
+	queryExt := urlParams["ext"]
+
+	kind := ""
+	if queryKind != nil {
+		kind = queryKind[0]
+	} else {
+		kind = ""
+	}
+	mime := ""
+	if queryMime != nil {
+		mime = queryMime[0]
+	} else {
+		mime = ""
+	}
+	ext := ""
+	if queryExt != nil {
+		ext = queryExt[0]
+	} else {
+		ext = ""
+	}
 
 	snapshots, err := snapshot.List(lstore)
 	if err != nil {
@@ -328,62 +531,84 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		snapshotsList = append(snapshotsList, snapshot)
 	}
 	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].CreationTime.Before(snapshotsList[j].CreationTime)
+		return snapshotsList[i].Metadata.CreationTime.Before(snapshotsList[j].Metadata.CreationTime)
 	})
 
 	directories := make([]struct {
 		Snapshot string
+		Date     string
 		Path     string
 	}, 0)
 	files := make([]struct {
 		Snapshot string
+		Date     string
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
-		for _, directory := range snap.Filesystem.ListDirectories() {
-			if strings.Contains(directory, q) {
-				directories = append(directories, struct {
-					Snapshot string
-					Path     string
-				}{snap.Uuid, directory})
+		if kind == "" && mime == "" && ext == "" {
+			for _, directory := range snap.Index.Filesystem.ListDirectories() {
+				if strings.Contains(directory, q) {
+					directories = append(directories, struct {
+						Snapshot string
+						Date     string
+						Path     string
+					}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), directory})
+				}
 			}
 		}
-		for file := range snap.Pathnames {
+		for file, checksum := range snap.Index.Pathnames {
 			if strings.Contains(file, q) {
+				object := snap.Index.Objects[checksum]
+				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
+					continue
+				}
+				if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
+					continue
+				}
+				if ext != "" && filepath.Ext(file) != ext {
+					continue
+				}
+
 				files = append(files, struct {
 					Snapshot string
+					Date     string
 					Path     string
-				}{snap.Uuid, file})
+				}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), file})
 			}
 		}
 	}
 	sort.Slice(directories, func(i, j int) bool {
-		return strings.Compare(directories[i].Path, directories[j].Path) < 0
+		return directories[i].Date < directories[j].Date && strings.Compare(directories[i].Path, directories[j].Path) < 0
 	})
 	sort.Slice(files, func(i, j int) bool {
-		return strings.Compare(files[i].Path, files[j].Path) < 0
+		return files[i].Date < files[j].Date && strings.Compare(files[i].Path, files[j].Path) < 0
 	})
 
 	ctx := &struct {
 		SearchTerms string
 		Directories []struct {
 			Snapshot string
+			Date     string
 			Path     string
 		}
 		Files []struct {
 			Snapshot string
+			Date     string
 			Path     string
 		}
 	}{q, directories, files}
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *storage.Store) {
+func Ui(store *storage.Store, spawn bool) {
 	lstore = store
+	lcache = nil
 
 	templates = make(map[string]*template.Template)
 
-	t, err := template.New("store").Parse(baseTemplate + storeTemplate)
+	t, err := template.New("store").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+	}).Parse(baseTemplate + storeTemplate)
 	if err != nil {
 		panic(err)
 	}
@@ -408,24 +633,25 @@ func Ui(store *storage.Store) {
 	templates[t.Name()] = t
 
 	port := rand.Uint32() % 0xffff
-	fmt.Println("Launched UI on port", port)
-
 	url := fmt.Sprintf("http://localhost:%d", port)
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
+
+	fmt.Println("lauching UI at", url)
+	if spawn {
+		switch runtime.GOOS {
+		case "linux":
+			err = exec.Command("xdg-open", url).Start()
+		case "windows":
+			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		case "darwin":
+			err = exec.Command("open", url).Start()
+		default:
+			err = fmt.Errorf("unsupported platform")
+		}
+		_ = err
 	}
-	_ = err
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", viewStore)
-	//	r.HandleFunc("/snapshot/{snapshot}", _snapshot)
 	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)

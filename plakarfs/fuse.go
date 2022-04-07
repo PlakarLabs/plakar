@@ -78,7 +78,7 @@ func NewPlakarFS(store *storage.Store) (fuse.Server, error) {
 		inodeToInfo[snapshotInodeID] = inodeInfo
 		inodeToSnapshot[snapshotInodeID] = snapshotUuid
 
-		for pathname, fileInfo := range snapshotInstance.Filesystem.Directories {
+		for pathname, fileInfo := range snapshotInstance.Index.Pathnames {
 			dirInodeID := allocateInodeID()
 			inodeInfo := InodeInfo{
 				Name:  fileInfo.Name,

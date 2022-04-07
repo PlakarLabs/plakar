@@ -19,11 +19,8 @@ package encryption
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"time"
@@ -33,97 +30,54 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-func Keygen() (*Keypair, error) {
-	//see http://golang.org/pkg/crypto/elliptic/#P256
-	pubkeyCurve := elliptic.P384()
-
-	privateKey, err := ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	keypair := &Keypair{}
-	keypair.CreationTime = time.Now()
-	keypair.Uuid = uuid.NewString()
-	keypair.PrivateKey = privateKey
-	keypair.PublicKey = &privateKey.PublicKey
-	keypair.MasterKey = make([]byte, 32)
-	rand.Read(keypair.MasterKey)
-
-	return keypair, nil
+func SecretGenerate() (*Secret, error) {
+	secret := &Secret{}
+	secret.CreationTime = time.Now()
+	secret.Uuid = uuid.NewString()
+	secret.Key = make([]byte, 32)
+	rand.Read(secret.Key)
+	return secret, nil
 }
 
-func Keyload(passphrase []byte, data []byte) (*Keypair, error) {
-	keypair := &Keypair{}
-	data, err := keypair.Decrypt(passphrase, data)
+func SecretLoad(key []byte, data []byte) (*Secret, error) {
+	secret := &Secret{}
+	data, err := secret.Decrypt(key, data)
 	if err != nil {
 		return nil, err
 	}
-
-	return keypair.Deserialize(data)
+	return secret.Deserialize(data)
 }
 
-func (keypair *Keypair) Serialize() (*SerializedKeypair, error) {
-	x509priv, err := x509.MarshalECPrivateKey(keypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	x509pub, err := x509.MarshalPKIXPublicKey(keypair.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	skeypair := &SerializedKeypair{}
-	skeypair.CreationTime = keypair.CreationTime
-	skeypair.Uuid = keypair.Uuid
-	skeypair.PrivateKey = base64.StdEncoding.EncodeToString(x509priv)
-	skeypair.PublicKey = base64.StdEncoding.EncodeToString(x509pub)
-	skeypair.MasterKey = base64.StdEncoding.EncodeToString(keypair.MasterKey)
-
-	return skeypair, nil
+func (secret *Secret) Serialize() (*SerializedSecret, error) {
+	ssecret := &SerializedSecret{}
+	ssecret.CreationTime = secret.CreationTime
+	ssecret.Uuid = secret.Uuid
+	ssecret.Key = base64.StdEncoding.EncodeToString(secret.Key)
+	return ssecret, nil
 }
 
-func (keypair *Keypair) Deserialize(data []byte) (*Keypair, error) {
-	skeypair := &SerializedKeypair{}
-	err := json.Unmarshal(data, &skeypair)
+func (secret *Secret) Deserialize(data []byte) (*Secret, error) {
+	ssecret := &SerializedSecret{}
+	err := json.Unmarshal(data, &ssecret)
 	if err != nil {
 		return nil, err
 	}
 
-	x509priv, err := base64.StdEncoding.DecodeString(skeypair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	x509pub, err := base64.StdEncoding.DecodeString(skeypair.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	masterKey, err := base64.StdEncoding.DecodeString(skeypair.MasterKey)
+	key, err := base64.StdEncoding.DecodeString(ssecret.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	privateKey, err := x509.ParseECPrivateKey(x509priv)
-	if err != nil {
-		return nil, err
-	}
+	nsecret := &Secret{}
+	nsecret.CreationTime = ssecret.CreationTime
+	nsecret.Uuid = ssecret.Uuid
+	nsecret.Key = key
 
-	genericPublicKey, _ := x509.ParsePKIXPublicKey(x509pub)
-	publicKey := genericPublicKey.(*ecdsa.PublicKey)
-
-	nkeypair := &Keypair{}
-	nkeypair.CreationTime = skeypair.CreationTime
-	nkeypair.Uuid = skeypair.Uuid
-	nkeypair.PrivateKey = privateKey
-	nkeypair.PublicKey = publicKey
-	nkeypair.MasterKey = masterKey
-
-	return nkeypair, nil
+	return nsecret, nil
 }
 
-func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
-	serialized, err := keypair.Serialize()
+func (secret *Secret) Encrypt(key []byte) ([]byte, error) {
+	serialized, err := secret.Serialize()
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +90,7 @@ func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
 
 	salt := make([]byte, 16)
 	rand.Read(salt)
-	dk := pbkdf2.Key(passphrase, salt, 4096, 32, sha256.New)
+	dk := pbkdf2.Key(key, salt, 4096, 32, sha256.New)
 
 	block, _ := aes.NewCipher(dk)
 	aesGCM, err := cipher.NewGCM(block)
@@ -145,9 +99,9 @@ func (keypair *Keypair) Encrypt(passphrase []byte) ([]byte, error) {
 	return append(salt[:], aesGCM.Seal(nonce, nonce, data, nil)[:]...), nil
 }
 
-func (keypair *Keypair) Decrypt(passphrase []byte, data []byte) ([]byte, error) {
+func (secret *Secret) Decrypt(key []byte, data []byte) ([]byte, error) {
 	salt, ciphertext := data[:16], data[16:]
-	dk := pbkdf2.Key(passphrase, salt, 4096, 32, sha256.New)
+	dk := pbkdf2.Key(key, salt, 4096, 32, sha256.New)
 
 	block, err := aes.NewCipher(dk)
 	aesGCM, err := cipher.NewGCM(block)

@@ -24,9 +24,14 @@ import (
 	"github.com/jacobsa/fuse"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/plakarfs"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_mount(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("mount", cmd_mount)
+}
+
+func cmd_mount(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("mount", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -38,7 +43,7 @@ func cmd_mount(ctx Plakar, args []string) int {
 	mountpoint := flags.Arg(0)
 
 	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(ctx.Store())
+	server, err := plakarfs.NewPlakarFS(store)
 	if err != nil {
 		log.Fatalf("makeFS: %v", err)
 	}

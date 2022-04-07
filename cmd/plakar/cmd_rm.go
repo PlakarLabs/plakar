@@ -23,9 +23,14 @@ import (
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_rm(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("rm", cmd_rm)
+}
+
+func cmd_rm(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -33,7 +38,7 @@ func cmd_rm(ctx Plakar, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,7 +48,7 @@ func cmd_rm(ctx Plakar, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := ctx.Store().Purge(snap.Uuid)
+			err := store.Purge(snap.Metadata.Uuid)
 			if err != nil {
 				logger.Error("%s", err)
 				errors++

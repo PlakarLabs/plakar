@@ -23,9 +23,14 @@ import (
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_push(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("push", cmd_push)
+}
+
+func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -35,13 +40,16 @@ func cmd_push(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snap, err := snapshot.New(ctx.Store())
+	snap, err := snapshot.New(store)
 	if err != nil {
 		logger.Error("%s", err)
 		return 1
 	}
 
-	snap.CommandLine = ctx.CommandLine
+	snap.Metadata.Hostname = ctx.Hostname
+	snap.Metadata.Username = ctx.Username
+	snap.Metadata.MachineID = ctx.MachineID
+	snap.Metadata.CommandLine = ctx.CommandLine
 
 	if flags.NArg() == 0 {
 		err = snap.Push([]string{dir})
@@ -54,6 +62,6 @@ func cmd_push(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Uuid)
+	logger.Info("created snapshot %s", snap.Metadata.Uuid)
 	return 0
 }

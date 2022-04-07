@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"mime"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -14,7 +17,6 @@ import (
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
-	//	"github.com/restic/chunker"
 )
 
 type objectMsg struct {
@@ -176,7 +178,6 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	}
 
 	object := Object{}
-	//object.path = pathname
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = make([]string, 0)
 	for _, chunk := range cachedObject.Chunks {
@@ -185,9 +186,9 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object.ContentType = cachedObject.ContentType
 
 	for offset, chunkChecksum := range object.Chunks {
-		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
-		snapshot.muChunks.Unlock()
+		snapshot.Index.muChunks.Lock()
+		snapshot.Index.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
+		snapshot.Index.muChunks.Unlock()
 	}
 
 	return &object, nil
@@ -221,7 +222,10 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if firstChunk {
-			object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+			object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
+			if object.ContentType == "" {
+				object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+			}
 			firstChunk = false
 		}
 
@@ -248,16 +252,22 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if !res[0] {
-			err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+			snapshot.Index.muChunks.Lock()
+			if _, ok := snapshot.Index.Chunks[chunk.Checksum]; !ok {
+				err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+				if err == nil {
+					snapshot.Index.Chunks[chunk.Checksum] = &chunk
+				}
+			}
+			snapshot.Index.muChunks.Unlock()
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			snapshot.Index.muChunks.Lock()
+			snapshot.Index.Chunks[chunk.Checksum] = &chunk
+			snapshot.Index.muChunks.Unlock()
 		}
-
-		snapshot.muChunks.Lock()
-		snapshot.Chunks[chunk.Checksum] = &chunk
-		snapshot.muChunks.Unlock()
-
 	}
 	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
 	return object, nil
@@ -271,7 +281,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		if err != nil {
 			return err
 		}
-		err = snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		err = snapshot.Index.Filesystem.Scan(scanDir, snapshot.SkipDirs)
 		if err != nil {
 			//errchan<-err
 		}
@@ -296,8 +306,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	maxConcurrency := make(chan bool, 1024)
 	wg := sync.WaitGroup{}
-	for _, pathname := range snapshot.Filesystem.ListFiles() {
-		fileinfo, _ := snapshot.Filesystem.LookupInodeForFile(pathname)
+	for _, pathname := range snapshot.Index.Filesystem.ListFiles() {
+		fileinfo, _ := snapshot.Index.Filesystem.LookupInodeForFile(pathname)
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(pathname string, fileinfo *filesystem.Fileinfo) {
@@ -328,30 +338,79 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				}
 			}
 
-			snapshot.muPathnames.Lock()
-			snapshot.Pathnames[pathname] = object.Checksum
-			snapshot.muPathnames.Unlock()
+			snapshot.Index.muPathnames.Lock()
+			snapshot.Index.Pathnames[pathname] = object.Checksum
+			snapshot.Index.muPathnames.Unlock()
 
-			snapshot.muObjects.Lock()
-			snapshot.Objects[object.Checksum] = object
-			snapshot.muObjects.Unlock()
+			snapshot.Index.muObjects.Lock()
+			snapshot.Index.Objects[object.Checksum] = object
+			snapshot.Index.muObjects.Unlock()
 
-			snapshot.muObjectToPathnames.Lock()
-			snapshot.ObjectToPathnames[object.Checksum] = append(snapshot.ObjectToPathnames[object.Checksum], pathname)
-			snapshot.muObjectToPathnames.Unlock()
+			snapshot.Index.muObjectToPathnames.Lock()
+			snapshot.Index.ObjectToPathnames[object.Checksum] = append(snapshot.Index.ObjectToPathnames[object.Checksum], pathname)
+			snapshot.Index.muObjectToPathnames.Unlock()
 
-			snapshot.muContentTypeToObjects.Lock()
-			snapshot.ContentTypeToObjects[object.ContentType] = append(snapshot.ContentTypeToObjects[object.ContentType], object.Checksum)
-			snapshot.muContentTypeToObjects.Unlock()
+			snapshot.Index.muContentTypeToObjects.Lock()
+			snapshot.Index.ContentTypeToObjects[object.ContentType] = append(snapshot.Index.ContentTypeToObjects[object.ContentType], object.Checksum)
+			snapshot.Index.muContentTypeToObjects.Unlock()
 
-			atomic.AddUint64(&snapshot.Size, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
 
 		}(pathname, fileinfo)
 	}
 	wg.Wait()
 
-	chanObjectsProcessor <- snapshot.Objects
+	chanObjectsProcessor <- snapshot.Index.Objects
 	chanObjectsProcessorDone()
+
+	// compute some more metadata
+	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.Chunks))
+	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.Objects))
+	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Index.Filesystem.Files))
+	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
+
+	for key, value := range snapshot.Index.ContentTypeToObjects {
+		objectType := strings.Split(key, ";")[0]
+		objectKind := strings.Split(key, "/")[0]
+		if objectType == "" {
+			objectType = "unknown"
+			objectKind = "unknown"
+		}
+		for _ = range value {
+			if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
+				snapshot.Metadata.Statistics.Kind[objectKind] = 0
+			}
+			snapshot.Metadata.Statistics.Kind[objectKind]++
+
+			if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
+				snapshot.Metadata.Statistics.Type[objectType] = 0
+			}
+			snapshot.Metadata.Statistics.Type[objectType]++
+		}
+	}
+
+	for key := range snapshot.Index.Pathnames {
+		extension := strings.ToLower(filepath.Ext(key))
+		if extension == "" {
+			extension = "none"
+		}
+		if _, exists := snapshot.Metadata.Statistics.Extension[extension]; !exists {
+			snapshot.Metadata.Statistics.Extension[extension] = 0
+		}
+		snapshot.Metadata.Statistics.Extension[extension]++
+	}
+
+	for key, value := range snapshot.Metadata.Statistics.Type {
+		snapshot.Metadata.Statistics.PercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
+	for key, value := range snapshot.Metadata.Statistics.Kind {
+		snapshot.Metadata.Statistics.PercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
+	for key, value := range snapshot.Metadata.Statistics.Extension {
+		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+	}
+
+	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
 
 	return snapshot.Commit()
 }

@@ -28,21 +28,39 @@ type CachedObject struct {
 	Info        filesystem.Fileinfo
 }
 
-type Snapshot struct {
-	store       *storage.Store
-	transaction *storage.Transaction
+type Statistics struct {
+	Chunks      uint64
+	Objects     uint64
+	Files       uint64
+	Directories uint64
 
-	SkipDirs []string
+	Kind      map[string]uint64
+	Type      map[string]uint64
+	Extension map[string]uint64
 
+	PercentKind      map[string]float64
+	PercentType      map[string]float64
+	PercentExtension map[string]float64
+}
+
+type Metadata struct {
 	Uuid         string
 	CreationTime time.Time
 	Version      string
 	Hostname     string
 	Username     string
 	CommandLine  string
+	MachineID    string
+	PublicKey    string
+	Size         uint64
+	Checksum     []byte
 
-	Size uint64
+	ScannedDirectories []string
 
+	Statistics Statistics
+}
+
+type Index struct {
 	Filesystem *filesystem.Filesystem
 
 	// Pathnames -> Object checksum
@@ -70,33 +88,17 @@ type Snapshot struct {
 	ContentTypeToObjects   map[string][]string
 }
 
+type Snapshot struct {
+	store       *storage.Store
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
+	Metadata *Metadata
+	Index    *Index
+}
+
 type SnapshotStorage struct {
-	Uuid         string
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
-
-	Size uint64
-
-	Filesystem *filesystem.Filesystem
-
-	// Pathname -> Object checksum
-	Pathnames map[string]string
-
-	// Object checksum -> Object
-	Objects map[string]*Object
-
-	// Chunk checksum -> Chunk
-	Chunks map[string]*Chunk
-
-	// Chunk checksum -> Object checksums
-	ChunkToObjects map[string][]string
-
-	// Object checksum -> Filenames
-	ObjectToPathnames map[string][]string
-
-	// Content Type -> Object checksums
-	ContentTypeToObjects map[string][]string
+	Metadata *Metadata
+	Index    *Index
 }

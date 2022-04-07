@@ -1,6 +1,6 @@
 {{template "base" .}}
 
-{{define "title"}}{{.Snapshot.Uuid}}{{end}}
+{{define "title"}}{{.Snapshot.Metadata.Uuid}}{{end}}
 
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
@@ -14,11 +14,14 @@
     {{$SymlinksResolve:=.SymlinksResolve}}
     {{$Others:=.Others}}
 
-    <h1><a href="/snapshot/{{$Snapshot.Uuid}}:/">{{$Snapshot.Uuid}}:/</a></h1>
+    <h1><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:/">{{slice $Snapshot.Metadata.Uuid  0 8}}</a></h1>
+    <b>{{$Snapshot.Metadata.Username }}@{{$Snapshot.Metadata.Hostname }}</b>,
+    <i>{{$Snapshot.Metadata.CreationTime }}</i>
+
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         {{range $atom := $Navigation }}
-            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Uuid}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
         {{end}}
     </ol>
     </nav>
@@ -33,7 +36,7 @@
         <tbody>
             {{range $directory := .Scanned}}
             <tr>
-                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$directory}}/">{{$directory}}</a></td>
+                <td><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:{{$directory}}/">{{$directory}}</a></td>
             </tr>
             {{end}}
         </tbody>
@@ -59,7 +62,7 @@
         <tbody>
             {{range $fi := .Directories}}        
             <tr>
-                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$Path}}/{{$fi.Name}}/">{{$fi.Name}}</a></td>
+                <td><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:{{$Path}}/{{$fi.Name}}/">{{$fi.Name}}</a></td>
                 <td>{{.Mode }}</td>
                 <td>{{.Uid }}</td>
                 <td>{{.Gid }}</td>
@@ -88,13 +91,13 @@
         <tbody>
             {{range $fi := .Files}}            
             <tr>
-                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$Path}}/{{$fi.Name}}">{{$fi.Name}}</a></td>
+                <td><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:{{$Path}}/{{$fi.Name}}">{{$fi.Name}}</a></td>
                 <td>{{.Mode }}</td>
                 <td>{{.Uid }}</td>
                 <td>{{.Gid }}</td>
                 <td>{{.ModTime }}</td>
                 <td>{{.HumanSize }}</td>
-                <td><a href="/raw/{{$Snapshot.Uuid}}:{{$Path}}/{{$fi.Name}}?download=true">
+                <td><a href="/raw/{{$Snapshot.Metadata.Uuid}}:{{$Path}}/{{$fi.Name}}?download=true">
                         <button type="button" class="btn btn-primary btn-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>

@@ -4,56 +4,35 @@ import (
 	"encoding/json"
 )
 
-func snapshotFromBytes(data []byte) (*Snapshot, error) {
-	var snapshotStorage SnapshotStorage
-	if err := json.Unmarshal(data, &snapshotStorage); err != nil {
+func indexFromBytes(data []byte) (*Index, error) {
+	var index Index
+	if err := json.Unmarshal(data, &index); err != nil {
+		return nil, err
+	}
+	index.Filesystem.Reindex()
+	return &index, nil
+}
+
+func indexToBytes(index *Index) ([]byte, error) {
+	serialized, err := json.Marshal(index)
+	if err != nil {
 		return nil, err
 	}
 
-	snapshot := &Snapshot{}
-	snapshot.Uuid = snapshotStorage.Uuid
-	snapshot.CreationTime = snapshotStorage.CreationTime
-	snapshot.Version = snapshotStorage.Version
-	snapshot.Hostname = snapshotStorage.Hostname
-	snapshot.Username = snapshotStorage.Username
-	snapshot.CommandLine = snapshotStorage.CommandLine
-
-	snapshot.Filesystem = snapshotStorage.Filesystem
-
-	snapshot.Pathnames = snapshotStorage.Pathnames
-	snapshot.Objects = snapshotStorage.Objects
-	snapshot.Chunks = snapshotStorage.Chunks
-	snapshot.ChunkToObjects = snapshotStorage.ChunkToObjects
-	snapshot.ContentTypeToObjects = snapshotStorage.ContentTypeToObjects
-	snapshot.ObjectToPathnames = snapshotStorage.ObjectToPathnames
-
-	snapshot.Size = snapshotStorage.Size
-
-	snapshot.Filesystem.Reindex()
-
-	return snapshot, nil
+	return serialized, nil
 }
 
-func snapshotToBytes(snapshot *Snapshot) ([]byte, error) {
-	snapshotStorage := SnapshotStorage{}
-	snapshotStorage.Uuid = snapshot.Uuid
-	snapshotStorage.CreationTime = snapshot.CreationTime
-	snapshotStorage.Version = snapshot.Version
-	snapshotStorage.Hostname = snapshot.Hostname
-	snapshotStorage.Username = snapshot.Username
-	snapshotStorage.CommandLine = snapshot.CommandLine
+func metadataFromBytes(data []byte) (*Metadata, error) {
+	var metadata Metadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, err
+	}
 
-	snapshotStorage.Filesystem = snapshot.Filesystem
+	return &metadata, nil
+}
 
-	snapshotStorage.Pathnames = snapshot.Pathnames
-	snapshotStorage.Objects = snapshot.Objects
-	snapshotStorage.Chunks = snapshot.Chunks
-	snapshotStorage.ChunkToObjects = snapshot.ChunkToObjects
-	snapshotStorage.ObjectToPathnames = snapshot.ObjectToPathnames
-	snapshotStorage.ContentTypeToObjects = snapshot.ContentTypeToObjects
-	snapshotStorage.Size = snapshot.Size
-
-	serialized, err := json.Marshal(snapshotStorage)
+func metadataToBytes(metadata *Metadata) ([]byte, error) {
+	serialized, err := json.Marshal(metadata)
 	if err != nil {
 		return nil, err
 	}

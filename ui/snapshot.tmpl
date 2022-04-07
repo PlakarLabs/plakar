@@ -1,6 +1,6 @@
 {{template "base" .}}
 
-{{define "title"}}{{.Snapshot.Uuid}}{{end}}
+{{define "title"}}{{.Snapshot.Metadata.Uuid}}{{end}}
 
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
@@ -11,7 +11,7 @@
         <tbody>
             {{range $root := $Roots}}     
             <tr>
-                <td><a href="/snapshot/{{$Snapshot.Uuid}}:{{$root}}/">{{$root}}</a></td>
+                <td><a href="/snapshot/{{$Snapshot.Metadata.Uuid}}:{{$root}}/">{{$root}}</a></td>
             </tr>
             {{end}}
         </tbody>

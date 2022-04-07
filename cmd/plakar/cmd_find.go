@@ -25,9 +25,14 @@ import (
 	"time"
 
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_find(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("find", cmd_find)
+}
+
+func cmd_find(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -36,12 +41,12 @@ func cmd_find(ctx Plakar, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(ctx.Store())
+	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(ctx.store, snapshotUuid)
+		snap, err := snapshot.Load(store, snapshotUuid)
 		if err != nil {
 			log.Fatal(err)
 			return 1
@@ -52,7 +57,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for _, pathname := range snap.Filesystem.Stat {
+				for _, pathname := range snap.Index.Filesystem.Stat {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true
@@ -62,7 +67,7 @@ func cmd_find(ctx Plakar, args []string) int {
 			}
 
 			// try finding a directory or file
-			for name, pathnames := range snap.Filesystem.Names {
+			for name, pathnames := range snap.Index.Filesystem.Names {
 				if name == arg {
 					for _, pathname := range pathnames {
 						if exists := result[snap][arg]; !exists {
@@ -80,7 +85,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		snapshots = append(snapshots, snap)
 	}
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].CreationTime.Before(snapshots[j].CreationTime)
+		return snapshots[i].Metadata.CreationTime.Before(snapshots[j].Metadata.CreationTime)
 	})
 
 	for _, snap := range snapshots {
@@ -94,7 +99,7 @@ func cmd_find(ctx Plakar, args []string) int {
 		})
 
 		for _, pathname := range files {
-			fmt.Printf("%s  %s %s\n", snap.CreationTime.UTC().Format(time.RFC3339), snap.Uuid, pathname)
+			fmt.Printf("%s  %s %s\n", snap.Metadata.CreationTime.UTC().Format(time.RFC3339), snap.Metadata.Uuid, pathname)
 		}
 	}
 

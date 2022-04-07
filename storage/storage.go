@@ -37,9 +37,11 @@ type Store struct {
 	Username    string
 	Hostname    string
 	CommandLine string
+	MachineID   string
 
 	Cache   *cache.Cache
 	Keypair *encryption.Keypair
+	Key     *encryption.Secret
 }
 
 type Transaction struct {
@@ -75,7 +77,7 @@ func New(name string) (*Store, error) {
 	defer muBackends.Unlock()
 
 	if backend, exists := backends[name]; !exists {
-		return nil, fmt.Errorf("backend '%s' registered twice", name)
+		return nil, fmt.Errorf("backend '%s' does not exist", name)
 	} else {
 		store := &Store{}
 		store.backend = backend()
@@ -91,6 +93,10 @@ func (store *Store) GetKeypair() *encryption.Keypair {
 	return store.Keypair
 }
 
+func (store *Store) GetSecret() *encryption.Secret {
+	return store.Key
+}
+
 func (store *Store) GetUsername() string {
 	return store.Username
 }
@@ -103,13 +109,22 @@ func (store *Store) GetCommandLine() string {
 	return store.CommandLine
 }
 
+func (store *Store) GetMachineID() string {
+	return store.MachineID
+}
+
 func (store *Store) SetCache(localCache *cache.Cache) error {
 	store.Cache = localCache
 	return nil
 }
 
-func (store *Store) SetKeypair(localKeypair *encryption.Keypair) error {
-	store.Keypair = localKeypair
+func (store *Store) SetKeypair(keypair *encryption.Keypair) error {
+	store.Keypair = keypair
+	return nil
+}
+
+func (store *Store) SetSecret(localKey *encryption.Secret) error {
+	store.Key = localKey
 	return nil
 }
 
@@ -125,6 +140,11 @@ func (store *Store) SetHostname(hostname string) error {
 
 func (store *Store) SetCommandLine(commandLine string) error {
 	store.CommandLine = commandLine
+	return nil
+}
+
+func (store *Store) SetMachineID(machineID string) error {
+	store.MachineID = machineID
 	return nil
 }
 
@@ -171,12 +191,28 @@ func (store *Store) GetIndexes() ([]string, error) {
 	return store.backend.GetIndexes()
 }
 
+func (store *Store) GetMetadata(id string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: GetMetadata(%s): %s", id, time.Since(t0))
+	}()
+	return store.backend.GetMetadata(id)
+}
+
 func (store *Store) GetIndex(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndex(%s): %s", id, time.Since(t0))
 	}()
 	return store.backend.GetIndex(id)
+}
+
+func (store *Store) PutMetadata(id string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: PutMetadata(%s): %s", id, time.Since(t0))
+	}()
+	return store.backend.PutMetadata(id, data)
 }
 
 func (store *Store) PutIndex(id string, data []byte) error {
@@ -381,6 +417,14 @@ func (transaction *Transaction) PutChunk(checksum string, data []byte) error {
 		logger.Profile("storage: %s.PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutChunk(checksum, data)
+}
+
+func (transaction *Transaction) PutMetadata(data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: %s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+	}()
+	return transaction.backend.PutMetadata(data)
 }
 
 func (transaction *Transaction) PutIndex(data []byte) error {

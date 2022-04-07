@@ -12,7 +12,7 @@ import (
 )
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	keypair := snapshot.store.GetKeypair()
+	secret := snapshot.store.GetSecret()
 	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
@@ -21,13 +21,13 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 
 	data, err := cache.GetPath(hashedPath)
 	if err != nil {
-		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Uuid, pathname)
+		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Metadata.Uuid, pathname)
 		return nil, err
 	}
-	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Uuid, pathname)
+	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Metadata.Uuid, pathname)
 
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Decrypt(keypair.MasterKey, data)
+		tmp, err := encryption.Decrypt(secret.Key, data)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 }
 
 func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
-	keypair := snapshot.store.GetKeypair()
+	secret := snapshot.store.GetSecret()
 	cache := snapshot.store.GetCache()
 
 	pathHash := sha256.New()
@@ -75,14 +75,14 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 
 	jobject = compression.Deflate(jobject)
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Encrypt(keypair.MasterKey, jobject)
+		tmp, err := encryption.Encrypt(secret.Key, jobject)
 		if err != nil {
 			return err
 		}
 		jobject = tmp
 	}
 
-	logger.Trace("%s: cache.PutPath(%s)", snapshot.Uuid, pathname)
+	logger.Trace("%s: cache.PutPath(%s)", snapshot.Metadata.Uuid, pathname)
 	cache.PutPath(hashedPath, jobject)
 	return nil
 }

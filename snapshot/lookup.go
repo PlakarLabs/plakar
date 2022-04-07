@@ -9,7 +9,7 @@ import (
 func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*filesystem.Fileinfo, bool) {
 	pathname = filepath.Clean(pathname)
 
-	parent, err := snapshot.Filesystem.Lookup(pathname)
+	parent, err := snapshot.Index.Filesystem.Lookup(pathname)
 	if err != nil {
 		return nil, false
 	}
@@ -22,22 +22,22 @@ func (snapshot *Snapshot) LookupPathChildren(pathname string) (map[string]*files
 }
 
 func (snapshot *Snapshot) LookupInodeForPathname(pathname string) (*filesystem.Fileinfo, bool) {
-	return snapshot.Filesystem.LookupInode(pathname)
+	return snapshot.Index.Filesystem.LookupInode(pathname)
 }
 
 func (snapshot *Snapshot) LookupInodeForFilename(pathname string) (*filesystem.Fileinfo, bool) {
-	return snapshot.Filesystem.LookupInodeForFile(pathname)
+	return snapshot.Index.Filesystem.LookupInodeForFile(pathname)
 }
 
 func (snapshot *Snapshot) LookupInodeForDirectory(pathname string) (*filesystem.Fileinfo, bool) {
-	return snapshot.Filesystem.LookupInodeForDirectory(pathname)
+	return snapshot.Index.Filesystem.LookupInodeForDirectory(pathname)
 }
 
 func (snapshot *Snapshot) LookupObjectForPathname(pathname string) *Object {
-	snapshot.muPathnames.Lock()
-	defer snapshot.muPathnames.Unlock()
+	snapshot.Index.muPathnames.Lock()
+	defer snapshot.Index.muPathnames.Unlock()
 
-	objectChecksum, exists := snapshot.Pathnames[filepath.Clean(pathname)]
+	objectChecksum, exists := snapshot.Index.Pathnames[filepath.Clean(pathname)]
 	if !exists {
 		return nil
 	}
@@ -46,10 +46,10 @@ func (snapshot *Snapshot) LookupObjectForPathname(pathname string) *Object {
 }
 
 func (snapshot *Snapshot) LookupObjectForChecksum(checksum string) *Object {
-	snapshot.muObjects.Lock()
-	defer snapshot.muObjects.Unlock()
+	snapshot.Index.muObjects.Lock()
+	defer snapshot.Index.muObjects.Unlock()
 
-	object, exists := snapshot.Objects[checksum]
+	object, exists := snapshot.Index.Objects[checksum]
 	if !exists {
 		return nil
 	}
@@ -58,8 +58,8 @@ func (snapshot *Snapshot) LookupObjectForChecksum(checksum string) *Object {
 }
 
 func (snapshot *Snapshot) LookupChunkForChecksum(checksum string) *Chunk {
-	snapshot.muChunks.Lock()
-	defer snapshot.muChunks.Unlock()
+	snapshot.Index.muChunks.Lock()
+	defer snapshot.Index.muChunks.Unlock()
 
 	chunk, exists := snapshot.GetChunkInfo(checksum)
 	if !exists {

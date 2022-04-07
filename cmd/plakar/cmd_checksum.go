@@ -18,54 +18,51 @@ package main
 
 import (
 	"flag"
-	"log"
-	"strconv"
-	"sync"
+	"fmt"
 
-	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
-	registerCommand("keep", cmd_keep)
+	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_keep(ctx Plakar, store *storage.Store, args []string) int {
-	flags := flag.NewFlagSet("keep", flag.ExitOnError)
+func cmd_checksum(ctx Plakar, store *storage.Store, args []string) int {
+	flags := flag.NewFlagSet("checksum", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		log.Fatalf("%s: need a number of snapshots to keep", flag.CommandLine.Name())
+		logger.Error("%s: at least one parameter is required", flags.Name())
+		return 1
 	}
 
-	count, err := strconv.Atoi(args[0])
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
-		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
+		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
+		return 1
 	}
 
-	snapshotsList, err := getSnapshotsList(store)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(snapshotsList) < count {
-		return 0
-	}
+	errors := 0
+	for offset, snapshot := range snapshots {
+		_, pathname := parseSnapshotID(flags.Args()[offset])
 
-	snapshots, err := getSnapshots(store, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+		if pathname == "" {
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.Uuid)
+			errors++
+			continue
+		}
 
-	wg := sync.WaitGroup{}
-	snapshots = sortSnapshotsByDate(snapshots)[:len(snapshots)-count]
-	for _, snap := range snapshots {
-		wg.Add(1)
-		go func(snap *snapshot.Snapshot) {
-			store.Purge(snap.Metadata.Uuid)
-			wg.Done()
-		}(snap)
+		object := snapshot.LookupObjectForPathname(pathname)
+		if object == nil {
+			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
+			errors++
+			continue
+		}
+
+		fmt.Println(object.Checksum, pathname)
+
 	}
-	wg.Wait()
 
 	return 0
 }

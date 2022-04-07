@@ -28,33 +28,39 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_info(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("info", cmd_info)
+}
+
+func cmd_info(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return info_plakar(ctx.Store())
+		return info_plakar(store)
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, snapshot := range snapshots {
-		fmt.Printf("Uuid: %s\n", snapshot.Uuid)
-		fmt.Printf("CreationTime: %s\n", snapshot.CreationTime)
-		fmt.Printf("Version: %s\n", snapshot.Version)
-		fmt.Printf("Hostname: %s\n", snapshot.Hostname)
-		fmt.Printf("Username: %s\n", snapshot.Username)
-		fmt.Printf("CommandLine: %s\n", snapshot.CommandLine)
-		fmt.Printf("Directories: %d\n", len(snapshot.Filesystem.Directories))
-		fmt.Printf("Files: %d\n", len(snapshot.Filesystem.Files))
-		fmt.Printf("NonRegular: %d\n", len(snapshot.Filesystem.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Pathnames))
-		fmt.Printf("Objects: %d\n", len(snapshot.Objects))
-		fmt.Printf("Chunks: %d\n", len(snapshot.Chunks))
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Size), snapshot.Size)
+		fmt.Printf("Uuid: %s\n", snapshot.Metadata.Uuid)
+		fmt.Printf("CreationTime: %s\n", snapshot.Metadata.CreationTime)
+		fmt.Printf("Version: %s\n", snapshot.Metadata.Version)
+		fmt.Printf("Hostname: %s\n", snapshot.Metadata.Hostname)
+		fmt.Printf("Username: %s\n", snapshot.Metadata.Username)
+		fmt.Printf("CommandLine: %s\n", snapshot.Metadata.CommandLine)
+		fmt.Printf("MachineID: %s\n", snapshot.Metadata.MachineID)
+		fmt.Printf("PublicKey: %s\n", snapshot.Metadata.PublicKey)
+		fmt.Printf("Directories: %d\n", len(snapshot.Index.Filesystem.Directories))
+		fmt.Printf("Files: %d\n", len(snapshot.Index.Filesystem.Files))
+		fmt.Printf("NonRegular: %d\n", len(snapshot.Index.Filesystem.NonRegular))
+		fmt.Printf("Sums: %d\n", len(snapshot.Index.Pathnames))
+		fmt.Printf("Objects: %d\n", len(snapshot.Index.Objects))
+		fmt.Printf("Chunks: %d\n", len(snapshot.Index.Chunks))
+		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Metadata.Size), snapshot.Metadata.Size)
 	}
 
 	return 0
@@ -87,7 +93,7 @@ func info_plakar(store *storage.Store) int {
 			continue
 		}
 
-		for chunkChecksum := range snap.Chunks {
+		for chunkChecksum := range snap.Index.Chunks {
 			muChunks.Lock()
 			if _, exists := chunks[chunkChecksum]; !exists {
 				chunks[chunkChecksum] = 0
@@ -96,7 +102,7 @@ func info_plakar(store *storage.Store) int {
 			muChunks.Unlock()
 		}
 
-		for objectChecksum := range snap.Objects {
+		for objectChecksum := range snap.Index.Objects {
 			muObjects.Lock()
 			if _, exists := objects[objectChecksum]; !exists {
 				objects[objectChecksum] = 0
@@ -177,9 +183,19 @@ func info_plakar(store *storage.Store) int {
 		dedupedObjectsPercentage = float64(dedupedObjectsSize-objectsSize) / float64(dedupedObjectsSize) * 100
 	}
 
+	if store.Configuration().Encryption != "" {
+		fmt.Println("Encryption:", store.Configuration().Encryption)
+	} else {
+		fmt.Println("Encryption:", "no")
+	}
+	if store.Configuration().Compression != "" {
+		fmt.Println("Compression:", store.Configuration().Compression)
+	} else {
+		fmt.Println("Compression:", "no")
+	}
 	fmt.Println("Snapshots:", len(indexes))
-	fmt.Printf("Chunks: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
-	fmt.Printf("Objects: %d (stored size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
+	fmt.Printf("Chunks: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
+	fmt.Printf("Objects: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
 
 	return 0
 }

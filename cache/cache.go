@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -12,14 +13,25 @@ import (
 type Cache struct {
 	conn *sql.DB
 
-	mu_snapshots sync.Mutex
-	snapshots    map[string][]byte
+	mu_metadatas sync.Mutex
+	metadatas    map[string][]byte
+
+	mu_indexes sync.Mutex
+	indexes    map[string][]byte
 
 	mu_pathnames sync.Mutex
 	pathnames    map[string][]byte
 
 	mu_objects sync.Mutex
 	objects    map[string][]byte
+}
+
+func Init(localdir string) error {
+	return os.MkdirAll(localdir, 0700)
+}
+
+func Create(localdir string) error {
+	return os.MkdirAll(localdir, 0700)
 }
 
 func New(cacheDir string) *Cache {
@@ -30,11 +42,22 @@ func New(cacheDir string) *Cache {
 
 	cache := &Cache{}
 	cache.conn = conn
-	cache.snapshots = make(map[string][]byte)
+	cache.metadatas = make(map[string][]byte)
+	cache.indexes = make(map[string][]byte)
 	cache.pathnames = make(map[string][]byte)
 	cache.objects = make(map[string][]byte)
 
-	statement, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS snapshots (
+	statement, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
+		"uuid"	UUID NOT NULL PRIMARY KEY,
+		"blob"	BLOB
+	);`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer statement.Close()
+	statement.Exec()
+
+	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
 		"uuid"	UUID NOT NULL PRIMARY KEY,
 		"blob"	BLOB
 	);`)
@@ -67,23 +90,46 @@ func New(cacheDir string) *Cache {
 	return cache
 }
 
-func (cache *Cache) PutSnapshot(checksum string, data []byte) error {
-	cache.mu_snapshots.Lock()
-	cache.snapshots[checksum] = data
-	cache.mu_snapshots.Unlock()
+func (cache *Cache) PutMetadata(checksum string, data []byte) error {
+	cache.mu_metadatas.Lock()
+	cache.metadatas[checksum] = data
+	cache.mu_metadatas.Unlock()
 	return nil
 }
 
-func (cache *Cache) GetSnapshot(Uuid string) ([]byte, error) {
-	cache.mu_snapshots.Lock()
-	ret, exists := cache.snapshots[Uuid]
-	cache.mu_snapshots.Unlock()
+func (cache *Cache) PutIndex(checksum string, data []byte) error {
+	cache.mu_indexes.Lock()
+	cache.indexes[checksum] = data
+	cache.mu_indexes.Unlock()
+	return nil
+}
+
+func (cache *Cache) GetMetadata(Uuid string) ([]byte, error) {
+	cache.mu_metadatas.Lock()
+	ret, exists := cache.metadatas[Uuid]
+	cache.mu_metadatas.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM snapshots WHERE uuid=?`, Uuid).Scan(&data)
+	err := cache.conn.QueryRow(`SELECT blob FROM metadatas WHERE uuid=?`, Uuid).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (cache *Cache) GetIndex(Uuid string) ([]byte, error) {
+	cache.mu_indexes.Lock()
+	ret, exists := cache.indexes[Uuid]
+	cache.mu_indexes.Unlock()
+	if exists {
+		return ret, nil
+	}
+
+	var data []byte
+	err := cache.conn.QueryRow(`SELECT blob FROM indexes WHERE uuid=?`, Uuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +186,6 @@ func (cache *Cache) Commit() error {
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
 	//
-
 	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
 	if err != nil {
 		log.Fatal(err)
@@ -150,11 +195,20 @@ func (cache *Cache) Commit() error {
 	}
 	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO snapshots("uuid", "blob") VALUES(?, ?)`)
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("uuid", "blob") VALUES(?, ?)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for checksum, data := range cache.snapshots {
+	for checksum, data := range cache.metadatas {
+		statement.Exec(checksum, data)
+	}
+	statement.Close()
+
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("uuid", "blob") VALUES(?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for checksum, data := range cache.indexes {
 		statement.Exec(checksum, data)
 	}
 	statement.Close()

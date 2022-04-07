@@ -26,7 +26,11 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func cmd_check(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("check", cmd_check)
+}
+
+func cmd_check(ctx Plakar, store *storage.Store, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
@@ -34,10 +38,10 @@ func cmd_check(ctx Plakar, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return check_plakar(ctx.Store())
+		return check_plakar(store)
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,7 +89,7 @@ func check_plakar(store *storage.Store) int {
 			continue
 		}
 
-		for chunkChecksum := range snap.Chunks {
+		for chunkChecksum := range snap.Index.Chunks {
 			muChunks.Lock()
 			if _, exists := chunks[chunkChecksum]; !exists {
 				chunks[chunkChecksum] = 0
@@ -94,7 +98,7 @@ func check_plakar(store *storage.Store) int {
 			muChunks.Unlock()
 		}
 
-		for objectChecksum := range snap.Objects {
+		for objectChecksum := range snap.Index.Objects {
 			muObjects.Lock()
 			if _, exists := objects[objectChecksum]; !exists {
 				objects[objectChecksum] = 0

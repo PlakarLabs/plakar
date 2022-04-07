@@ -82,6 +82,16 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
+	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
+		metadataUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
+		metadataBlob	BLOB
+	);`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	statement.Exec()
+
 	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
 		indexUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
 		indexBlob	BLOB
@@ -267,6 +277,15 @@ func (store *DatabaseStore) GetObjects() ([]string, error) {
 	return checksums, nil
 }
 
+func (store *DatabaseStore) GetMetadata(Uuid string) ([]byte, error) {
+	var data []byte
+	err := store.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
 	var data []byte
 	err := store.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
@@ -397,6 +416,21 @@ func (transaction *DatabaseTransaction) PutChunk(checksum string, data []byte) e
 	_, err = statement.Exec(checksum, data)
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *DatabaseTransaction) PutMetadata(data []byte) error {
+	statement, err := transaction.dbTx.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(transaction.GetUuid(), data)
+	if err != nil {
 		return err
 	}
 

@@ -290,8 +290,8 @@ func entryPoint() int {
 			os.Exit(1)
 		}
 	}
-	//
 
+	//
 	store.SetSecret(secret)
 	store.SetKeypair(keypair)
 	store.SetCache(ctx.Cache)
@@ -320,6 +320,11 @@ func entryPoint() int {
 	}
 
 	store.Close()
+
+	if !opt_nocache {
+		ctx.Cache.Commit()
+	}
+
 	loggerWait()
 
 	if opt_memProfile != "" {

@@ -29,13 +29,14 @@ import (
 
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, args []string) int {
+func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 
@@ -53,7 +54,7 @@ func cmd_tarball(ctx Plakar, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

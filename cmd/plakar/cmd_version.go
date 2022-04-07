@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	"github.com/poolpOrg/plakar/storage"
 )
 
 const VERSION = "0.0.1"
@@ -27,7 +29,7 @@ func init() {
 	registerCommand("version", cmd_version)
 }
 
-func cmd_version(ctx Plakar, args []string) int {
+func cmd_version(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

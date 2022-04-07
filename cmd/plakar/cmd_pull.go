@@ -20,13 +20,15 @@ import (
 	"flag"
 	"log"
 	"os"
+
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("pull", cmd_pull)
 }
 
-func cmd_pull(ctx Plakar, args []string) int {
+func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 	var pullPath string
 	var pullRebase bool
 
@@ -44,7 +46,7 @@ func cmd_pull(ctx Plakar, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

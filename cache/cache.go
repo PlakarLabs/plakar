@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -23,6 +24,14 @@ type Cache struct {
 
 	mu_objects sync.Mutex
 	objects    map[string][]byte
+}
+
+func Init(localdir string) error {
+	return os.MkdirAll(localdir, 0700)
+}
+
+func Create(localdir string) error {
+	return os.MkdirAll(localdir, 0700)
 }
 
 func New(cacheDir string) *Cache {

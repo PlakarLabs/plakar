@@ -32,15 +32,15 @@ func init() {
 	registerCommand("info", cmd_info)
 }
 
-func cmd_info(ctx Plakar, args []string) int {
+func cmd_info(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return info_plakar(ctx.Store())
+		return info_plakar(store)
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

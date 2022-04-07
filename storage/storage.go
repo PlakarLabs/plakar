@@ -77,7 +77,7 @@ func New(name string) (*Store, error) {
 	defer muBackends.Unlock()
 
 	if backend, exists := backends[name]; !exists {
-		return nil, fmt.Errorf("backend '%s' registered twice", name)
+		return nil, fmt.Errorf("backend '%s' does not exist", name)
 	} else {
 		store := &Store{}
 		store.backend = backend()

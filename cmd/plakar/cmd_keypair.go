@@ -23,38 +23,14 @@ import (
 
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/local"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("keypair", cmd_keypair)
 }
 
-func keypairGenerate() (string, []byte, error) {
-	keypair, err := encryption.KeypairGenerate()
-	if err != nil {
-		return "", nil, err
-	}
-
-	var passphrase []byte
-	for {
-		passphrase, err = helpers.GetPassphraseConfirm("keypair")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			continue
-		}
-		break
-	}
-
-	pem, err := keypair.Encrypt(passphrase)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return keypair.Uuid, pem, err
-}
-
-func cmd_keypair(ctx Plakar, args []string) int {
+func cmd_keypair(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("keypair", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -63,44 +39,10 @@ func cmd_keypair(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	cmd, subargs := flags.Arg(0), flags.Args()[1:]
+	cmd, _ := flags.Arg(0), flags.Args()[1:]
 	switch cmd {
-	case "gen":
-		defaultKey, err := local.GetDefaultKeypairID(ctx.Workdir)
-		if defaultKey != "" {
-			fmt.Fprintf(os.Stderr, "you already have a keypair: %s\n", defaultKey)
-			return 1
-		}
-
-		uuid, encryptedKeypair, err := keypairGenerate()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not generate keypair: %s\n", err)
-			return 1
-		}
-		err = local.SetEncryptedKeypair(ctx.Workdir, uuid, encryptedKeypair)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
-			return 1
-		}
-
-		if defaultKey == "" {
-			local.SetDefaultKeypairID(ctx.Workdir, uuid)
-		}
-
 	case "info":
-		keyUuid := ""
-		if len(subargs) == 0 {
-			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
-				return 1
-			}
-			keyUuid = tmp
-		} else {
-			keyUuid = subargs[0]
-		}
-
-		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
+		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
 			return 1
@@ -134,19 +76,7 @@ func cmd_keypair(ctx Plakar, args []string) int {
 		fmt.Println("Public:", skeypair.PublicKey)
 
 	case "passphrase":
-		keyUuid := ""
-		if len(subargs) == 0 {
-			tmp, err := local.GetDefaultKeypairID(ctx.Workdir)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get default keypair\n", flag.CommandLine.Name())
-				return 1
-			}
-			keyUuid = tmp
-		} else {
-			keyUuid = subargs[0]
-		}
-
-		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, keyUuid)
+		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not get keypair\n", flag.CommandLine.Name())
 			return 1
@@ -184,7 +114,7 @@ func cmd_keypair(ctx Plakar, args []string) int {
 			return 1
 		}
 
-		err = local.SetEncryptedKeypair(ctx.Workdir, keyUuid, pem)
+		err = ctx.Workdir.SaveEncryptedKeypair(pem)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not save keypair in local store: %s\n", err)
 			return 1

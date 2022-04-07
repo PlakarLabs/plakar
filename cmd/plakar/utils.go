@@ -202,19 +202,3 @@ func arrayContains(a []string, x string) bool {
 	}
 	return false
 }
-
-//var backends map[string]func() StoreBackend = make(map[string]func() StoreBackend)
-
-var commands map[string]func(Plakar, []string) int = make(map[string]func(Plakar, []string) int)
-
-func registerCommand(command string, fn func(Plakar, []string) int) {
-	commands[command] = fn
-}
-
-func executeCommand(ctx Plakar, command string, args []string) (int, error) {
-	fn, exists := commands[command]
-	if !exists {
-		return -1, nil
-	}
-	return fn(ctx, args), nil
-}

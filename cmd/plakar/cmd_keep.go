@@ -23,13 +23,14 @@ import (
 	"sync"
 
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("keep", cmd_keep)
 }
 
-func cmd_keep(ctx Plakar, args []string) int {
+func cmd_keep(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -42,7 +43,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
 	}
 
-	snapshotsList, err := getSnapshotsList(ctx.Store())
+	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,7 +51,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 		return 0
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), nil)
+	snapshots, err := getSnapshots(store, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,7 +61,7 @@ func cmd_keep(ctx Plakar, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			ctx.Store().Purge(snap.Metadata.Uuid)
+			store.Purge(snap.Metadata.Uuid)
 			wg.Done()
 		}(snap)
 	}

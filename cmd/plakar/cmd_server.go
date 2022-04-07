@@ -20,13 +20,14 @@ import (
 	"flag"
 
 	"github.com/poolpOrg/plakar/network"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, args []string) int {
+func cmd_server(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -35,6 +36,6 @@ func cmd_server(ctx Plakar, args []string) int {
 		addr = flags.Arg(0)
 	}
 
-	network.Server(ctx.Store(), addr)
+	network.Server(store, addr)
 	return 0
 }

@@ -21,13 +21,14 @@ import (
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("cat", cmd_cat)
 }
 
-func cmd_cat(ctx Plakar, args []string) int {
+func cmd_cat(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -36,7 +37,7 @@ func cmd_cat(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1

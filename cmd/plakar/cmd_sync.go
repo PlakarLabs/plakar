@@ -31,11 +31,11 @@ func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, args []string) int {
+func cmd_sync(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 
-	sourceStore := ctx.Store()
+	sourceStore := store
 	sourceChunkChecksums, err := sourceStore.GetChunks()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get chunks list from store: %s\n", ctx.Repository, err)

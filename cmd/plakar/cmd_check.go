@@ -30,7 +30,7 @@ func init() {
 	registerCommand("check", cmd_check)
 }
 
-func cmd_check(ctx Plakar, args []string) int {
+func cmd_check(ctx Plakar, store *storage.Store, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
@@ -38,10 +38,10 @@ func cmd_check(ctx Plakar, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return check_plakar(ctx.Store())
+		return check_plakar(store)
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), flags.Args())
+	snapshots, err := getSnapshots(store, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

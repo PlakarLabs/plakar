@@ -24,50 +24,46 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/local"
 	"github.com/poolpOrg/plakar/storage"
 	"golang.org/x/term"
 )
 
-func init() {
-	registerCommand("create", cmd_create)
+func createStore(repository string, storeConfig storage.StoreConfig) error {
+	store, err := FindStoreBackend(repository)
+	if err != nil {
+		return err
+	}
+	err = store.Create(repository, storeConfig)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func cmd_create(ctx Plakar, args []string) int {
-	var no_encryption bool
-	var no_compression bool
+	var opt_encrypt bool
 
-	flags := flag.NewFlagSet("create", flag.ExitOnError)
-	flags.BoolVar(&no_encryption, "no-encryption", false, "disable transparent encryption")
-	flags.BoolVar(&no_compression, "no-compression", false, "disable transparent compression")
+	flags := flag.NewFlagSet("init", flag.ExitOnError)
+	flags.BoolVar(&opt_encrypt, "encrypted", false, "enable transparent encryption")
 	flags.Parse(args)
 
 	storeConfig := storage.StoreConfig{}
 	storeConfig.Version = storage.VERSION
 	storeConfig.Uuid = uuid.NewString()
-
-	if no_compression {
-		storeConfig.Compression = ""
-	} else {
-		storeConfig.Compression = "gzip"
-	}
+	storeConfig.Compression = "gzip"
 
 	/* load keypair from plakar */
-	if !no_encryption {
-		encryptedKeypair, err := local.GetEncryptedKeypair(ctx.Workdir, ctx.KeyID)
+	var keypair *encryption.Keypair
+	var secret *encryption.Secret
+	if opt_encrypt {
+		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
 		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "key not found, run `plakar keygen`\n")
-				os.Exit(1)
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
-			}
+			fmt.Fprintf(os.Stderr, "%s: %s: could not load keypair: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+			return 1
 		}
 
-		var keypair *encryption.Keypair
 		for {
-			fmt.Fprintf(os.Stderr, "passphrase: ")
+			fmt.Fprintf(os.Stderr, "keypair passphrase: ")
 			passphrase, _ := term.ReadPassword(syscall.Stdin)
 			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
 			if err != nil {
@@ -79,35 +75,45 @@ func cmd_create(ctx Plakar, args []string) int {
 			break
 		}
 
-		secret, err := encryption.SecretGenerate()
+		secret, err = encryption.SecretGenerate()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not generate key for repository\n")
-			os.Exit(1)
-		}
-		encrypted, err := secret.Encrypt(keypair.Key)
-		err = local.SetEncryptedSecret(ctx.Workdir, secret.Uuid, encrypted)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not save master key for repository\n")
 			os.Exit(1)
 		}
 		storeConfig.Encryption = secret.Uuid
 	}
 
-	if len(flags.Args()) == 0 {
-		err := ctx.store.Create(ctx.Repository, storeConfig)
+	switch flags.NArg() {
+	case 0:
+		err := createStore(ctx.Repository, storeConfig)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
+			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
-	} else {
-		for _, storeLocation := range flags.Args() {
-			err := ctx.store.Create(storeLocation, storeConfig)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
-				continue
-			}
+	case 1:
+		err := createStore(flags.Arg(0), storeConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+			return 1
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "%s: too many paramters\n", ctx.Repository)
+		return 1
+	}
+
+	if opt_encrypt {
+		encrypted, err := secret.Encrypt(keypair.Key)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not encrypt key for repository\n")
+			os.Exit(1)
 		}
 
+		err = ctx.Workdir.SaveEncryptedSecret(secret.Uuid, encrypted)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not save master key for repository: %s\n", err)
+			os.Exit(1)
+		}
 	}
+
 	return 0
 }

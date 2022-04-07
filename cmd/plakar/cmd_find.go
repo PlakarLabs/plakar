@@ -25,13 +25,14 @@ import (
 	"time"
 
 	"github.com/poolpOrg/plakar/snapshot"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, args []string) int {
+func cmd_find(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,12 +41,12 @@ func cmd_find(ctx Plakar, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(ctx.Store())
+	snapshotsList, err := getSnapshotsList(store)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(ctx.store, snapshotUuid)
+		snap, err := snapshot.Load(store, snapshotUuid)
 		if err != nil {
 			log.Fatal(err)
 			return 1

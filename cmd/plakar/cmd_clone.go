@@ -31,11 +31,11 @@ func init() {
 	registerCommand("clone", cmd_clone)
 }
 
-func cmd_clone(ctx Plakar, args []string) int {
+func cmd_clone(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 
-	sourceStore := ctx.Store()
+	sourceStore := store
 	storeConfig := sourceStore.Configuration()
 
 	chunkChecksums, err := sourceStore.GetChunks()

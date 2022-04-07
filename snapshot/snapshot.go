@@ -36,10 +36,10 @@ func New(store *storage.Store) (*Snapshot, error) {
 			Uuid:         tx.GetUuid(),
 			CreationTime: time.Now(),
 			Version:      storage.VERSION,
-			Hostname:     store.GetHostname(),
-			Username:     store.GetUsername(),
-			CommandLine:  store.GetCommandLine(),
-			MachineID:    store.GetMachineID(),
+			Hostname:     "",
+			Username:     "",
+			CommandLine:  "",
+			MachineID:    "",
 			PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
 
 			Statistics: Statistics{

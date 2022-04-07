@@ -25,13 +25,14 @@ import (
 	"os/exec"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
 	registerCommand("exec", cmd_exec)
 }
 
-func cmd_exec(ctx Plakar, args []string) int {
+func cmd_exec(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,7 +41,7 @@ func cmd_exec(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(ctx.Store(), []string{flags.Args()[0]})
+	snapshots, err := getSnapshots(store, []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}

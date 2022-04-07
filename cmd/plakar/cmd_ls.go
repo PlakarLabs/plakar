@@ -37,7 +37,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, args []string) int {
+func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
 	var recursive bool
 
 	flags := flag.NewFlagSet("ls", flag.ExitOnError)
@@ -45,14 +45,14 @@ func cmd_ls(ctx Plakar, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(ctx.Store())
+		list_snapshots(store)
 		return 0
 	}
 
 	if recursive {
-		list_snapshot_recursive(ctx.Store(), flags.Args())
+		list_snapshot_recursive(store, flags.Args())
 	} else {
-		list_snapshot(ctx.Store(), flags.Args())
+		list_snapshot(store, flags.Args())
 	}
 	return 0
 }

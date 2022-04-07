@@ -41,21 +41,27 @@ func createStore(repository string, storeConfig storage.StoreConfig) error {
 }
 
 func cmd_create(ctx Plakar, args []string) int {
-	var opt_encrypt bool
+	var opt_noencryption bool
+	var opt_nocompression bool
 
 	flags := flag.NewFlagSet("init", flag.ExitOnError)
-	flags.BoolVar(&opt_encrypt, "encrypted", false, "enable transparent encryption")
+	flags.BoolVar(&opt_noencryption, "no-encryption", false, "disable transparent encryption")
+	flags.BoolVar(&opt_nocompression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
 
 	storeConfig := storage.StoreConfig{}
 	storeConfig.Version = storage.VERSION
 	storeConfig.Uuid = uuid.NewString()
-	storeConfig.Compression = "gzip"
+	if opt_nocompression {
+		storeConfig.Compression = ""
+	} else {
+		storeConfig.Compression = "gzip"
+	}
 
 	/* load keypair from plakar */
 	var keypair *encryption.Keypair
 	var secret *encryption.Secret
-	if opt_encrypt {
+	if !opt_noencryption {
 		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: could not load keypair: %s\n", flag.CommandLine.Name(), flags.Name(), err)
@@ -101,7 +107,7 @@ func cmd_create(ctx Plakar, args []string) int {
 		return 1
 	}
 
-	if opt_encrypt {
+	if !opt_noencryption {
 		encrypted, err := secret.Encrypt(keypair.Key)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not encrypt key for repository\n")

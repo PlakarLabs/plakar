@@ -35,22 +35,22 @@ it may work on older versions but hasn't been tested.
 $ go get github.com/poolpOrg/plakar/cmd/plakar
 ```
 
-### Generating the user key-pair
+### Initializing plakar work directory
 
-First thing to do is to generate the key-pair:
+First thing to do is to initialize the work directory and generate a keypair:
 
 ```
-$ plakar keypair gen
-passphrase: 
-passphrase (confirm): 
+$ plakar init
+keypair passphrase: 
+keypair passphrase (confirm):
 $ 
 ```
 
-This results in a passphrase protected key-pair being stored in `~/.plakar/keypairs/`.
-Note that if you lose this file,
-or forget the passphrase,
+This results in a work directory created in `~/.plakar`,
+containing a passphrase-protected keypair in `~/.plakar/keypair`.
+Note that **if you lose this file or forget the passphrase**,
 there is no way to recover your encrypted backups to the best of my knowledge.
-Make sure to save the file on separate devices.
+Make sure to back up the file on separate devices.
 
 
 ### Creating a plakar repository
@@ -59,7 +59,7 @@ The next thing to do is to create a plakar repository,
 
 ```
 $ plakar create
-passphrase: 
+keypair passphrase:
 $
 ```
 

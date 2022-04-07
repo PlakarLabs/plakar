@@ -67,11 +67,9 @@ func cmd_sync(ctx Plakar, store *storage.Store, args []string) int {
 					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
 				}
 			*/
-		} else {
-			syncStore, _ = storage.New("filesystem")
 		}
 
-		err = syncStore.Open(repository)
+		syncStore, err = storage.Open(repository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open store: %s\n", ctx.Repository, err)
 			return 1

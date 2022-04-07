@@ -56,20 +56,6 @@ func executeCommand(ctx Plakar, store *storage.Store, command string, args []str
 	return fn(ctx, store, args), nil
 }
 
-func FindStoreBackend(repository string) (*storage.Store, error) {
-	if !strings.HasPrefix(repository, "/") {
-		if strings.HasPrefix(repository, "plakar://") {
-			return storage.New("client")
-		} else if strings.HasPrefix(repository, "sqlite://") {
-			return storage.New("database")
-		} else {
-			return nil, fmt.Errorf("unsupported plakar protocol")
-		}
-	} else {
-		return storage.New("filesystem")
-	}
-}
-
 func main() {
 	os.Exit(entryPoint())
 }
@@ -231,12 +217,7 @@ func entryPoint() int {
 		return cmd_create(ctx, args)
 	}
 
-	store, err := FindStoreBackend(ctx.Repository)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
-		return 1
-	}
-	err = store.Open(ctx.Repository)
+	store, err := storage.Open(ctx.Repository)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1

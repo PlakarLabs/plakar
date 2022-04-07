@@ -28,18 +28,6 @@ import (
 	"golang.org/x/term"
 )
 
-func createStore(repository string, storeConfig storage.StoreConfig) error {
-	store, err := FindStoreBackend(repository)
-	if err != nil {
-		return err
-	}
-	err = store.Create(repository, storeConfig)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func cmd_create(ctx Plakar, args []string) int {
 	var opt_noencryption bool
 	var opt_nocompression bool
@@ -91,13 +79,13 @@ func cmd_create(ctx Plakar, args []string) int {
 
 	switch flags.NArg() {
 	case 0:
-		err := createStore(ctx.Repository, storeConfig)
+		_, err := storage.Create(ctx.Repository, storeConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 	case 1:
-		err := createStore(flags.Arg(0), storeConfig)
+		_, err := storage.Create(flags.Arg(0), storeConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1

@@ -69,19 +69,11 @@ func cmd_clone(ctx Plakar, store *storage.Store, args []string) int {
 					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
 				}
 			*/
-		} else {
-			cloneStore, _ = storage.New("filesystem")
 		}
 
-		err := cloneStore.Create(repository, storeConfig)
+		cloneStore, err := storage.Create(repository, storeConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not create store: %s\n", ctx.Repository, err)
-			return 1
-		}
-
-		err = cloneStore.Open(repository)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open store: %s\n", ctx.Repository, err)
 			return 1
 		}
 

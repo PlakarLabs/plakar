@@ -17,9 +17,12 @@
 package storage
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,17 +75,68 @@ func Backends() []string {
 	return ret
 }
 
-func New(name string) (*Store, error) {
+func New(repository string) (*Store, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
-	if backend, exists := backends[name]; !exists {
-		return nil, fmt.Errorf("backend '%s' does not exist", name)
+	var backendName string
+	if !strings.HasPrefix(repository, "/") {
+		if strings.HasPrefix(repository, "plakar://") {
+			backendName = "client"
+		} else if strings.HasPrefix(repository, "sqlite://") {
+			backendName = "database"
+		} else {
+			return nil, fmt.Errorf("unsupported plakar protocol")
+		}
+	} else {
+		backendName = "filesystem"
+	}
+
+	if backend, exists := backends[backendName]; !exists {
+		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
 		store := &Store{}
 		store.backend = backend()
 		return store, nil
 	}
+}
+
+func Open(repository string) (*Store, error) {
+	store, err := New(repository)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+		return nil, err
+	}
+
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: Open(%s): %s", repository, time.Since(t0))
+	}()
+
+	err = store.backend.Open(repository)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
+func Create(repository string, configuration StoreConfig) (*Store, error) {
+	store, err := New(repository)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+		return nil, err
+	}
+
+	t0 := time.Now()
+	defer func() {
+		logger.Profile("storage: Create(%s): %s", repository, time.Since(t0))
+	}()
+
+	err = store.backend.Create(repository, configuration)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func (store *Store) GetCache() *cache.Cache {
@@ -148,6 +202,7 @@ func (store *Store) SetMachineID(machineID string) error {
 	return nil
 }
 
+/*
 func (store *Store) Create(repository string, configuration StoreConfig) error {
 	t0 := time.Now()
 	defer func() {
@@ -163,7 +218,7 @@ func (store *Store) Open(repository string) error {
 	}()
 	return store.backend.Open(repository)
 }
-
+*/
 func (store *Store) Configuration() StoreConfig {
 	return store.backend.Configuration()
 }

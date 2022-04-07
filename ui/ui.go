@@ -63,7 +63,7 @@ var searchTemplate string
 var templates map[string]*template.Template
 
 type SnapshotSummary struct {
-	Metadata snapshot.Metadata
+	Metadata *snapshot.Metadata
 
 	Roots       uint64
 	Directories uint64

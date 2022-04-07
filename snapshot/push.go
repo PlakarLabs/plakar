@@ -376,7 +376,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			objectType = "unknown"
 			objectKind = "unknown"
 		}
-		for _, _ = range value {
+		for _ = range value {
 			if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
 				snapshot.Metadata.Statistics.Kind[objectKind] = 0
 			}

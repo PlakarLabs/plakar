@@ -32,7 +32,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 		store:       store,
 		transaction: tx,
 
-		Metadata: Metadata{
+		Metadata: &Metadata{
 			Uuid:         tx.GetUuid(),
 			CreationTime: time.Now(),
 			Version:      storage.VERSION,
@@ -58,7 +58,7 @@ func New(store *storage.Store) (*Snapshot, error) {
 			},
 		},
 
-		Index: Index{
+		Index: &Index{
 			Filesystem: filesystem.NewFilesystem(),
 
 			Pathnames: make(map[string]string),
@@ -96,9 +96,8 @@ func Load(store *storage.Store, Uuid string) (*Snapshot, error) {
 
 	snapshot := &Snapshot{}
 	snapshot.store = store
-
-	snapshot.Metadata = *metadata
-	snapshot.Index = *index
+	snapshot.Metadata = metadata
+	snapshot.Index = index
 
 	return snapshot, nil
 }
@@ -458,14 +457,14 @@ func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.store.GetCache()
 	keypair := snapshot.store.GetKeypair()
 
-	serializedIndex, err := indexToBytes(&snapshot.Index)
+	serializedIndex, err := indexToBytes(snapshot.Index)
 	if err != nil {
 		return err
 	}
 	indexChecksum := sha256.Sum256(serializedIndex)
 	snapshot.Metadata.Checksum = indexChecksum[:]
 
-	serializedMetadata, err := metadataToBytes(&snapshot.Metadata)
+	serializedMetadata, err := metadataToBytes(snapshot.Metadata)
 	if err != nil {
 		return err
 	}

@@ -94,11 +94,11 @@ type Snapshot struct {
 
 	SkipDirs []string
 
-	Metadata Metadata
-	Index    Index
+	Metadata *Metadata
+	Index    *Index
 }
 
 type SnapshotStorage struct {
-	Metadata Metadata
-	Index    Index
+	Metadata *Metadata
+	Index    *Index
 }

@@ -125,6 +125,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			if checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
 			}
 
+			f.Sync()
 			f.Close()
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))

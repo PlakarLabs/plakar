@@ -49,7 +49,12 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			defer func() { <-maxDirectoriesConcurrency }()
 			fi, _ := snapshot.LookupInodeForPathname(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
-			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
+			if rebase && strings.HasPrefix(directory, dpattern) {
+				dest = fmt.Sprintf("%s/%s", root, directory[len(dpattern):])
+			} else {
+				dest = fmt.Sprintf("%s/%s", root, directory)
+			}
+
 			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 			os.MkdirAll(dest, 0700)
 			os.Chmod(dest, fi.Mode)

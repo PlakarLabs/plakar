@@ -18,9 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -43,7 +46,27 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
+		metadatas, err := getMetadatas(store, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i := len(metadatas); i != 0; i-- {
+			metadata := metadatas[i-1]
+			for _, scannedDir := range metadata.ScannedDirectories {
+				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
+					fmt.Println(scannedDir, dir)
+					snap, err := snapshot.Load(store, metadata.Uuid)
+					if err != nil {
+						return 1
+					}
+					snap.Pull(dir, true, dir)
+					return 0
+				}
+			}
+		}
+		log.Fatalf("%s: could not find a snapshot to restore this path from", flag.CommandLine.Name())
+		return 1
 	}
 
 	snapshots, err := getSnapshots(store, flags.Args())
@@ -51,9 +74,9 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 		log.Fatal(err)
 	}
 
-	for offset, snapshot := range snapshots {
+	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snapshot.Pull(pullPath, pullRebase, pattern)
+		snap.Pull(pullPath, pullRebase, pattern)
 	}
 
 	return 0

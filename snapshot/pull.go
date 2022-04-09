@@ -14,8 +14,8 @@ import (
 
 func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, 1024)
-	maxFilesConcurrency := make(chan bool, 1024)
+	maxDirectoriesConcurrency := make(chan bool, 1)
+	maxFilesConcurrency := make(chan bool, 1)
 	//maxChunksConcurrency := make(chan bool, 1024)
 	var dest string
 
@@ -61,9 +61,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, file := range snapshot.Index.Filesystem.ListFiles() {
-		if file != fpattern &&
-			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
+	for _, filename := range snapshot.Index.Filesystem.ListFiles() {
+		if filename != fpattern &&
+			!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
 			continue
 		}
 		maxFilesConcurrency <- true
@@ -124,7 +124,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
 			filesCount++
-		}(file)
+		}(filename)
 	}
 	wg.Wait()
 }

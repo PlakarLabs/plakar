@@ -59,7 +59,7 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 					if err != nil {
 						return 1
 					}
-					snap.Pull(dir, true, dir)
+					snap.Pull(pullPath, true, dir)
 					return 0
 				}
 			}

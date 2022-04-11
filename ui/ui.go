@@ -645,7 +645,7 @@ func Ui(store *storage.Store, spawn bool) error {
 		case "darwin":
 			err = exec.Command("open", url).Start()
 		default:
-			err = fmt.Errorf("don't know how to spawn browser for platform", runtime.GOOS)
+			err = fmt.Errorf("don't know how to spawn browser for platform %s", runtime.GOOS)
 		}
 		if err != nil {
 			return err

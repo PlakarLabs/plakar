@@ -38,18 +38,20 @@ func init() {
 }
 
 func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
-	var recursive bool
+	var opt_recursive bool
+	var opt_uuid bool
 
 	flags := flag.NewFlagSet("ls", flag.ExitOnError)
-	flags.BoolVar(&recursive, "recursive", false, "recursive listing")
+	flags.BoolVar(&opt_uuid, "uuid", false, "display uuid instead of short ID")
+	flags.BoolVar(&opt_recursive, "recursive", false, "recursive listing")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(store)
+		list_snapshots(store, opt_uuid)
 		return 0
 	}
 
-	if recursive {
+	if opt_recursive {
 		list_snapshot_recursive(store, flags.Args())
 	} else {
 		list_snapshot(store, flags.Args())
@@ -57,18 +59,26 @@ func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
 	return 0
 }
 
-func list_snapshots(store *storage.Store) {
+func list_snapshots(store *storage.Store, useUuid bool) {
 	metadatas, err := getMetadatas(store, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for _, metadata := range metadatas {
-		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
-			metadata.CreationTime.UTC().Format(time.RFC3339),
-			metadata.Uuid,
-			humanize.Bytes(metadata.Size),
-			strings.Join(metadata.ScannedDirectories, ", "))
+		if !useUuid {
+			fmt.Fprintf(os.Stdout, "%s%10s%10s %s\n",
+				metadata.CreationTime.UTC().Format(time.RFC3339),
+				strings.Split(metadata.Uuid, "-")[0],
+				humanize.Bytes(metadata.Size),
+				strings.Join(metadata.ScannedDirectories, ", "))
+		} else {
+			fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
+				metadata.CreationTime.UTC().Format(time.RFC3339),
+				metadata.Uuid,
+				humanize.Bytes(metadata.Size),
+				strings.Join(metadata.ScannedDirectories, ", "))
+		}
 	}
 }
 

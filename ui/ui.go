@@ -600,7 +600,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *storage.Store, spawn bool) {
+func Ui(store *storage.Store, spawn bool) error {
 	lstore = store
 	lcache = nil
 
@@ -635,7 +635,7 @@ func Ui(store *storage.Store, spawn bool) {
 	port := rand.Uint32() % 0xffff
 	url := fmt.Sprintf("http://localhost:%d", port)
 
-	fmt.Println("lauching UI at", url)
+	fmt.Println("lauching browser API at", url)
 	if spawn {
 		switch runtime.GOOS {
 		case "linux":
@@ -645,9 +645,11 @@ func Ui(store *storage.Store, spawn bool) {
 		case "darwin":
 			err = exec.Command("open", url).Start()
 		default:
-			err = fmt.Errorf("unsupported platform")
+			err = fmt.Errorf("don't know how to spawn browser for platform", runtime.GOOS)
 		}
-		_ = err
+		if err != nil {
+			return err
+		}
 	}
 
 	r := mux.NewRouter()
@@ -659,5 +661,5 @@ func Ui(store *storage.Store, spawn bool) {
 
 	r.HandleFunc("/search", search_snapshots)
 
-	http.ListenAndServe(fmt.Sprintf(":%d", port), r)
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 }

@@ -26,8 +26,6 @@ import (
 )
 
 type Plakar struct {
-	cachePath string
-
 	NumCPU      int
 	Hostname    string
 	Username    string
@@ -132,7 +130,6 @@ func entryPoint() int {
 	}
 
 	ctx := Plakar{}
-	ctx.cachePath = opt_cachedir
 	ctx.NumCPU = opt_cpuCount
 	ctx.Username = opt_username
 	ctx.Hostname = opt_hostname

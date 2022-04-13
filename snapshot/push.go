@@ -364,17 +364,15 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			objectType = "unknown"
 			objectKind = "unknown"
 		}
-		for _ = range value {
-			if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
-				snapshot.Metadata.Statistics.Kind[objectKind] = 0
-			}
-			snapshot.Metadata.Statistics.Kind[objectKind]++
-
-			if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
-				snapshot.Metadata.Statistics.Type[objectType] = 0
-			}
-			snapshot.Metadata.Statistics.Type[objectType]++
+		if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
+			snapshot.Metadata.Statistics.Kind[objectKind] = 0
 		}
+		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(value))
+
+		if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
+			snapshot.Metadata.Statistics.Type[objectType] = 0
+		}
+		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(value))
 	}
 
 	for key := range snapshot.Index.Pathnames {

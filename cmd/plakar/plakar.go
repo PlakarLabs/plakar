@@ -47,7 +47,7 @@ func registerCommand(command string, fn func(Plakar, *storage.Store, []string) i
 func executeCommand(ctx Plakar, store *storage.Store, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
-		return -1, nil
+		return 1, fmt.Errorf("unknown command: %s", command)
 	}
 	return fn(ctx, store, args), nil
 }
@@ -225,8 +225,12 @@ func entryPoint() int {
 
 	// commands below all operate on an open store
 	t0 := time.Now()
-	executeCommand(ctx, store, command, args)
+	status, err := executeCommand(ctx, store, command, args)
 	t1 := time.Since(t0)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+	}
 
 	//	FindStoreBackend
 
@@ -263,5 +267,5 @@ func entryPoint() int {
 		}
 	}
 
-	return 0
+	return status
 }

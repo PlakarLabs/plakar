@@ -26,10 +26,6 @@ type Cache struct {
 	objects    map[string][]byte
 }
 
-func Init(localdir string) error {
-	return os.MkdirAll(localdir, 0700)
-}
-
 func Create(localdir string) error {
 	return os.MkdirAll(localdir, 0700)
 }

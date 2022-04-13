@@ -20,12 +20,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/storage"
-	"golang.org/x/term"
 )
 
 func cmd_create(ctx Plakar, args []string) int {
@@ -46,35 +45,18 @@ func cmd_create(ctx Plakar, args []string) int {
 		storeConfig.Compression = "gzip"
 	}
 
-	/* load keypair from plakar */
-	var keypair *encryption.Keypair
-	var secret *encryption.Secret
 	if !opt_noencryption {
-		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s: could not load keypair: %s\n", flag.CommandLine.Name(), flags.Name(), err)
-			return 1
-		}
-
+		var passphrase []byte
 		for {
-			fmt.Fprintf(os.Stderr, "keypair passphrase: ")
-			passphrase, _ := term.ReadPassword(syscall.Stdin)
-			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
+			tmp, err := helpers.GetPassphraseConfirm("repository")
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\n")
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "\n")
+			passphrase = tmp
 			break
 		}
-
-		secret, err = encryption.SecretGenerate()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not generate key for repository\n")
-			os.Exit(1)
-		}
-		storeConfig.Encryption = secret.Uuid
+		storeConfig.Encryption = encryption.BuildSecretFromPassphrase(passphrase)
 	}
 
 	switch flags.NArg() {
@@ -91,22 +73,8 @@ func cmd_create(ctx Plakar, args []string) int {
 			return 1
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "%s: too many paramters\n", ctx.Repository)
+		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", ctx.Repository)
 		return 1
-	}
-
-	if !opt_noencryption {
-		encrypted, err := secret.Encrypt(keypair.Key)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not encrypt key for repository\n")
-			os.Exit(1)
-		}
-
-		err = ctx.Workdir.SaveEncryptedSecret(secret.Uuid, encrypted)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not save master key for repository: %s\n", err)
-			os.Exit(1)
-		}
 	}
 
 	return 0

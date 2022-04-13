@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/workdir"
 
 	_ "github.com/poolpOrg/plakar/storage/client"
 	_ "github.com/poolpOrg/plakar/storage/database"
@@ -28,8 +26,7 @@ import (
 )
 
 type Plakar struct {
-	workdirPath string
-	cachePath   string
+	cachePath string
 
 	NumCPU      int
 	Hostname    string
@@ -38,8 +35,7 @@ type Plakar struct {
 	CommandLine string
 	MachineID   string
 
-	Cache   *cache.Cache
-	Workdir *workdir.Workdir
+	Cache *cache.Cache
 }
 
 var commands map[string]func(Plakar, *storage.Store, []string) int = make(map[string]func(Plakar, *storage.Store, []string) int)
@@ -85,13 +81,11 @@ func entryPoint() int {
 	opt_machineIdDefault = strings.ToLower(opt_machineIdDefault)
 
 	opt_usernameDefault := opt_userDefault.Username
-	opt_workdirDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
-	opt_repositoryDefault := path.Join(opt_workdirDefault, "repository")
-	opt_cacheDefault := path.Join(opt_workdirDefault, "cache")
+	opt_repositoryDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
+	opt_cacheDefault := path.Join(opt_userDefault.HomeDir, ".plakar-cache")
 
 	// command line overrides
 	var opt_cpuCount int
-	var opt_workdir string
 	var opt_cachedir string
 	var opt_username string
 	var opt_hostname string
@@ -103,7 +97,6 @@ func entryPoint() int {
 	var opt_verbose bool
 	var opt_profiling bool
 
-	flag.StringVar(&opt_workdir, "workdir", opt_workdirDefault, "default work directory")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
 	flag.StringVar(&opt_username, "username", opt_usernameDefault, "default username")
@@ -124,13 +117,6 @@ func entryPoint() int {
 	}
 	runtime.GOMAXPROCS(opt_cpuCount)
 
-	if opt_workdir != opt_workdirDefault {
-		if opt_cachedir == opt_cacheDefault {
-			atoms := strings.Split(opt_cachedir, "/")
-			opt_cachedir = filepath.Join(opt_workdir, atoms[len(atoms)-1])
-		}
-	}
-
 	if opt_cpuProfile != "" {
 		f, err := os.Create(opt_cpuProfile)
 		if err != nil {
@@ -146,7 +132,6 @@ func entryPoint() int {
 	}
 
 	ctx := Plakar{}
-	ctx.workdirPath = opt_workdir
 	ctx.cachePath = opt_cachedir
 	ctx.NumCPU = opt_cpuCount
 	ctx.Username = opt_username
@@ -185,16 +170,16 @@ func entryPoint() int {
 	}
 
 	// cmd_init must be ran before workdir.New()
-	if command == "init" {
-		return cmd_init(ctx, args)
-	}
+	//if command == "init" {
+	//	return cmd_init(ctx, args)
+	//}
 
 	// workdir.New() is supposed to work at this point,
-	ctx.Workdir, err = workdir.New(opt_workdir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: run `plakar init` first\n", flag.CommandLine.Name())
-		return 1
-	}
+	//ctx.Workdir, err = workdir.New(opt_workdir)
+	//if err != nil {
+	//	fmt.Fprintf(os.Stderr, "%s: run `plakar init` first\n", flag.CommandLine.Name())
+	//	return 1
+	//}
 	if !opt_nocache {
 		cache.Create(opt_cachedir)
 		ctx.Cache = cache.New(opt_cachedir)
@@ -211,58 +196,27 @@ func entryPoint() int {
 		return 1
 	}
 
-	//
-	var keypair *encryption.Keypair
-	var secret *encryption.Secret
+	var secret []byte
 	if store.Configuration().Encryption != "" {
-		/* load keypair from plakar */
-		encryptedKeypair, err := ctx.Workdir.GetEncryptedKeypair()
-		if err != nil {
-			if os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "key %s not found, uh oh, emergency !...\n", store.Configuration().Encryption)
-				os.Exit(1)
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
-			}
-		}
-
 		for {
-			passphrase, err := helpers.GetPassphrase("keypair")
+			passphrase, err := helpers.GetPassphrase("repository")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 
-			keypair, err = encryption.KeypairLoad(passphrase, encryptedKeypair)
+			secret, err = encryption.DeriveSecret(passphrase, store.Configuration().Encryption)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
+
 			break
-		}
-
-		encryptedSecret, err := ctx.Workdir.GetEncryptedSecret(store.Configuration().Encryption)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not get master key %s for repository\n", store.Configuration().Encryption)
-			os.Exit(1)
-		}
-		secret, err = encryption.SecretLoad(keypair.Key, encryptedSecret)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not decrypt master %s key for repository\n", store.Configuration().Encryption)
-			os.Exit(1)
-		}
-
-		if store.Configuration().Encryption != secret.Uuid {
-			fmt.Fprintf(os.Stderr, "invalid key %s for this repository\n",
-				keypair.Uuid)
-			os.Exit(1)
 		}
 	}
 
 	//
 	store.SetSecret(secret)
-	store.SetKeypair(keypair)
 	store.SetCache(ctx.Cache)
 	store.SetUsername(ctx.Username)
 	store.SetHostname(ctx.Hostname)

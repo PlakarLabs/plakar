@@ -27,7 +27,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Metadata.Uuid, pathname)
 
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Decrypt(secret.Key, data)
+		tmp, err := encryption.Decrypt(secret, data)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +75,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 
 	jobject = compression.Deflate(jobject)
 	if snapshot.store.Configuration().Encryption != "" {
-		tmp, err := encryption.Encrypt(secret.Key, jobject)
+		tmp, err := encryption.Encrypt(secret, jobject)
 		if err != nil {
 			return err
 		}

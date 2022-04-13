@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -74,6 +75,7 @@ func getMetadatas(store *storage.Store, prefixes []string) ([]*snapshot.Metadata
 				defer wg.Done()
 				metadata, _, err := snapshot.GetMetadata(store, snapshotUuid)
 				if err != nil {
+					fmt.Println(err)
 					return
 				}
 				mu.Lock()

@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 )
 
@@ -42,9 +41,9 @@ type Store struct {
 	CommandLine string
 	MachineID   string
 
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
-	Key     *encryption.Secret
+	Cache *cache.Cache
+	//Keypair *encryption.Keypair
+	Key []byte
 }
 
 type Transaction struct {
@@ -143,11 +142,10 @@ func (store *Store) GetCache() *cache.Cache {
 	return store.Cache
 }
 
-func (store *Store) GetKeypair() *encryption.Keypair {
-	return store.Keypair
-}
-
-func (store *Store) GetSecret() *encryption.Secret {
+func (store *Store) GetSecret() []byte {
+	if len(store.Key) == 0 {
+		return nil
+	}
 	return store.Key
 }
 
@@ -172,13 +170,8 @@ func (store *Store) SetCache(localCache *cache.Cache) error {
 	return nil
 }
 
-func (store *Store) SetKeypair(keypair *encryption.Keypair) error {
-	store.Keypair = keypair
-	return nil
-}
-
-func (store *Store) SetSecret(localKey *encryption.Secret) error {
-	store.Key = localKey
+func (store *Store) SetSecret(secret []byte) error {
+	store.Key = secret
 	return nil
 }
 
@@ -202,23 +195,6 @@ func (store *Store) SetMachineID(machineID string) error {
 	return nil
 }
 
-/*
-func (store *Store) Create(repository string, configuration StoreConfig) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("storage: Create(%s): %s", repository, time.Since(t0))
-	}()
-	return store.backend.Create(repository, configuration)
-}
-
-func (store *Store) Open(repository string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("storage: Open(%s): %s", repository, time.Since(t0))
-	}()
-	return store.backend.Open(repository)
-}
-*/
 func (store *Store) Configuration() StoreConfig {
 	return store.backend.Configuration()
 }

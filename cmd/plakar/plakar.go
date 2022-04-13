@@ -232,16 +232,6 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 	}
 
-	//	FindStoreBackend
-
-	//if command == "init" {
-	//	return cmd_init(ctx, args)
-	//}
-
-	// init workdir
-	//workdir.Init(opt_workdir)
-
-	// init cachedir
 	if opt_time {
 		logger.Printf("time: %s", t1)
 	}

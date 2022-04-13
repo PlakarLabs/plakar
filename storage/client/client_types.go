@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -36,8 +35,7 @@ type inflight struct {
 type ClientStore struct {
 	config storage.StoreConfig
 
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
+	Cache *cache.Cache
 
 	conn    net.Conn
 	encoder *gob.Encoder

@@ -20,15 +20,13 @@ import (
 	"sync"
 
 	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type FSStore struct {
 	config storage.StoreConfig
 
-	Cache   *cache.Cache
-	Keypair *encryption.Keypair
+	Cache *cache.Cache
 
 	Repository string
 	root       string

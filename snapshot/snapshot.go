@@ -112,7 +112,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
-		tmp, err := cache.GetMetadata(Uuid)
+		tmp, err := cache.GetMetadata(store.Configuration().Uuid, Uuid)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot: store.GetMetadata(%s)", Uuid)
@@ -172,7 +172,7 @@ func GetMetadata(store *storage.Store, Uuid string) (*Metadata, bool, error) {
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
-		cache.PutMetadata(metadata.Uuid, orig_buffer)
+		cache.PutMetadata(store.Configuration().Uuid, metadata.Uuid, orig_buffer)
 	}
 
 	return metadata, false, nil
@@ -188,7 +188,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
-		tmp, err := cache.GetIndex(Uuid)
+		tmp, err := cache.GetIndex(store.Configuration().Uuid, Uuid)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot: store.GetIndex(%s)", Uuid)
@@ -233,7 +233,7 @@ func GetIndex(store *storage.Store, Uuid string) (*Index, []byte, error) {
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
-		cache.PutIndex(Uuid, orig_buffer)
+		cache.PutIndex(store.Configuration().Uuid, Uuid, orig_buffer)
 	}
 
 	return index, checksum[:], nil
@@ -360,7 +360,7 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
-	return cache.PutMetadata(snapshot.Metadata.Uuid, buffer)
+	return cache.PutMetadata(snapshot.store.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
@@ -381,7 +381,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutIndex(snapshot.Metadata.Uuid, buffer)
+	return cache.PutIndex(snapshot.store.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {

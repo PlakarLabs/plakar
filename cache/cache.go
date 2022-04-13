@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -44,6 +45,7 @@ func New(cacheDir string) *Cache {
 	cache.objects = make(map[string][]byte)
 
 	statement, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
+		"repository"	UUID,
 		"uuid"	UUID NOT NULL PRIMARY KEY,
 		"blob"	BLOB
 	);`)
@@ -54,6 +56,7 @@ func New(cacheDir string) *Cache {
 	statement.Exec()
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+		"repository"	UUID,
 		"uuid"	UUID NOT NULL PRIMARY KEY,
 		"blob"	BLOB
 	);`)
@@ -64,6 +67,7 @@ func New(cacheDir string) *Cache {
 	statement.Exec()
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
+		"repository"	UUID,
 		"checksum"	VARCHAR NOT NULL PRIMARY KEY,
 		"blob"		BLOB
 	);`)
@@ -74,6 +78,7 @@ func New(cacheDir string) *Cache {
 	statement.Exec()
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS pathnames (
+		"repository"	UUID,
 		"checksum"	VARCHAR NOT NULL PRIMARY KEY,
 		"blob"		BLOB
 	);`)
@@ -86,92 +91,92 @@ func New(cacheDir string) *Cache {
 	return cache
 }
 
-func (cache *Cache) PutMetadata(checksum string, data []byte) error {
+func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
 	cache.mu_metadatas.Lock()
-	cache.metadatas[checksum] = data
+	cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
 	cache.mu_metadatas.Unlock()
 	return nil
 }
 
-func (cache *Cache) PutIndex(checksum string, data []byte) error {
+func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) error {
 	cache.mu_indexes.Lock()
-	cache.indexes[checksum] = data
+	cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
 	cache.mu_indexes.Unlock()
 	return nil
 }
 
-func (cache *Cache) GetMetadata(Uuid string) ([]byte, error) {
+func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
 	cache.mu_metadatas.Lock()
-	ret, exists := cache.metadatas[Uuid]
+	ret, exists := cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
 	cache.mu_metadatas.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM metadatas WHERE uuid=?`, Uuid).Scan(&data)
+	err := cache.conn.QueryRow(`SELECT blob FROM metadatas WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (cache *Cache) GetIndex(Uuid string) ([]byte, error) {
+func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error) {
 	cache.mu_indexes.Lock()
-	ret, exists := cache.indexes[Uuid]
+	ret, exists := cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
 	cache.mu_indexes.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM indexes WHERE uuid=?`, Uuid).Scan(&data)
+	err := cache.conn.QueryRow(`SELECT blob FROM indexes WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (cache *Cache) PutPath(checksum string, data []byte) error {
+func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte) error {
 	cache.mu_pathnames.Lock()
-	cache.pathnames[checksum] = data
+	cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
 	cache.mu_pathnames.Unlock()
 	return nil
 }
 
-func (cache *Cache) GetPath(checksum string) ([]byte, error) {
+func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, error) {
 	cache.mu_pathnames.Lock()
-	ret, exists := cache.pathnames[checksum]
+	ret, exists := cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
 	cache.mu_pathnames.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM pathnames WHERE checksum=?`, checksum).Scan(&data)
+	err := cache.conn.QueryRow(`SELECT blob FROM pathnames WHERE checksum=? AND repository=?`, checksum, RepositoryUuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (cache *Cache) PutObject(checksum string, data []byte) error {
+func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byte) error {
 	cache.mu_objects.Lock()
-	cache.objects[checksum] = data
+	cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
 	cache.mu_objects.Unlock()
 	return nil
 }
 
-func (cache *Cache) GetObject(checksum string) ([]byte, error) {
+func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, error) {
 	cache.mu_objects.Lock()
-	ret, exists := cache.objects[checksum]
+	ret, exists := cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
 	cache.mu_objects.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM objects WHERE checksum=?`, checksum).Scan(&data)
+	err := cache.conn.QueryRow(`SELECT blob FROM objects WHERE checksum=? AND repository=?`, checksum, RepositoryUuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -182,30 +187,36 @@ func (cache *Cache) Commit() error {
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
 	//
-	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("checksum", "blob") VALUES(?, ?)`)
+	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("repository", "checksum", "blob") VALUES(?, ?, ?)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for checksum, data := range cache.pathnames {
-		statement.Exec(checksum, data)
+	for key, data := range cache.pathnames {
+		atoms := strings.Split(key, ":")
+		repository, checksum := atoms[0], atoms[1]
+		statement.Exec(repository, checksum, data)
 	}
 	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("uuid", "blob") VALUES(?, ?)`)
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("repository", "uuid", "blob") VALUES(?, ?, ?)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for checksum, data := range cache.metadatas {
-		statement.Exec(checksum, data)
+	for key, data := range cache.metadatas {
+		atoms := strings.Split(key, ":")
+		repository, id := atoms[0], atoms[1]
+		statement.Exec(repository, id, data)
 	}
 	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("uuid", "blob") VALUES(?, ?)`)
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("repository", "uuid", "blob") VALUES(?, ?, ?)`)
 	if err != nil {
 		log.Fatal(err)
 	}
-	for checksum, data := range cache.indexes {
-		statement.Exec(checksum, data)
+	for key, data := range cache.indexes {
+		atoms := strings.Split(key, ":")
+		repository, id := atoms[0], atoms[1]
+		statement.Exec(repository, id, data)
 	}
 	statement.Close()
 

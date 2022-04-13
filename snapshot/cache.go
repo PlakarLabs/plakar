@@ -19,7 +19,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	pathHash.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
 
-	data, err := cache.GetPath(hashedPath)
+	data, err := cache.GetPath(snapshot.store.Configuration().Uuid, hashedPath)
 	if err != nil {
 		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Metadata.Uuid, pathname)
 		return nil, err
@@ -83,6 +83,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 	}
 
 	logger.Trace("%s: cache.PutPath(%s)", snapshot.Metadata.Uuid, pathname)
-	cache.PutPath(hashedPath, jobject)
+	cache.PutPath(snapshot.store.Configuration().Uuid, hashedPath, jobject)
 	return nil
 }

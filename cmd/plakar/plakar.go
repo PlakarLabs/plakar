@@ -169,17 +169,6 @@ func entryPoint() int {
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
-	// cmd_init must be ran before workdir.New()
-	//if command == "init" {
-	//	return cmd_init(ctx, args)
-	//}
-
-	// workdir.New() is supposed to work at this point,
-	//ctx.Workdir, err = workdir.New(opt_workdir)
-	//if err != nil {
-	//	fmt.Fprintf(os.Stderr, "%s: run `plakar init` first\n", flag.CommandLine.Name())
-	//	return 1
-	//}
 	if !opt_nocache {
 		cache.Create(opt_cachedir)
 		ctx.Cache = cache.New(opt_cachedir)

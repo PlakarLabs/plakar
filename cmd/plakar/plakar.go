@@ -145,18 +145,6 @@ func entryPoint() int {
 		defer pprof.StopCPUProfile()
 	}
 
-	/*
-		fmt.Println("cpu", opt_cpuCount)
-		fmt.Println("workdir", opt_workdir)
-		fmt.Println("repository", opt_repository)
-		fmt.Println("cachedir", opt_cachedir)
-		fmt.Println("username", opt_username)
-		fmt.Println("hostname", opt_hostname)
-		fmt.Println("machineID", opt_machineIdDefault)
-		fmt.Println("commandLine", strings.Join(os.Args, " "))
-		fmt.Println("no-cache", opt_nocache)
-	*/
-
 	ctx := Plakar{}
 	ctx.workdirPath = opt_workdir
 	ctx.cachePath = opt_cachedir

@@ -9,6 +9,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,7 +26,7 @@ type objectMsg struct {
 }
 
 func pushObjectWriterChannelHandler(snapshot *Snapshot) (chan objectMsg, func()) {
-	maxGoroutines := make(chan bool, 1024)
+	maxGoroutines := make(chan bool, runtime.NumCPU()*2+1)
 
 	c := make(chan objectMsg)
 	done := make(chan bool)
@@ -291,20 +292,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
-	//bufPool := &sync.Pool{
-	//	New: func() interface{} {
-	//		b := make([]byte, chunkerOptions.MaxSize)
-	//		return &b
-	//	},
-	//}
-	//chunkerOptions.BufferAllocate = func() *[]byte {
-	//	return bufPool.Get().(*[]byte)
-	//}
-	//chunkerOptions.BufferRelease = func(buffer *[]byte) {
-	//	bufPool.Put(buffer)
-	//}
-
-	maxConcurrency := make(chan bool, 1024)
+	maxConcurrency := make(chan bool, runtime.NumCPU()*2+1)
 	wg := sync.WaitGroup{}
 	for _, pathname := range snapshot.Index.Filesystem.ListFiles() {
 		fileinfo, _ := snapshot.Index.Filesystem.LookupInodeForFile(pathname)

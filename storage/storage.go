@@ -30,6 +30,67 @@ import (
 	"github.com/poolpOrg/plakar/logger"
 )
 
+const VERSION string = "0.1.0"
+
+type RepositoryConfig struct {
+	Uuid        string
+	Version     string
+	Encryption  string
+	Compression string
+}
+
+type RepositoryBackend interface {
+	Create(repository string, configuration RepositoryConfig) error
+	Open(repository string) error
+	Configuration() RepositoryConfig
+
+	Transaction() (TransactionBackend, error)
+
+	GetIndexes() ([]string, error)
+	GetMetadata(id string) ([]byte, error)
+	PutMetadata(id string, data []byte) error
+	GetIndex(id string) ([]byte, error)
+	PutIndex(id string, data []byte) error
+	GetIndexObject(id string, checksum string) ([]byte, error)
+	CheckIndexObject(id string, checksum string) (bool, error)
+	GetIndexChunk(id string, checksum string) ([]byte, error)
+	CheckIndexChunk(id string, checksum string) (bool, error)
+	ReferenceIndexObject(id string, checksum string) error
+	ReferenceIndexChunk(id string, checksum string) error
+
+	GetObjects() ([]string, error)
+	GetObject(checksum string) ([]byte, error)
+	CheckObject(checksum string) (bool, error)
+	PutObject(checksum string, data []byte) error
+	GetObjectRefCount(checksum string) (uint64, error)
+	GetObjectSize(checksum string) (uint64, error)
+
+	GetChunks() ([]string, error)
+	GetChunk(checksum string) ([]byte, error)
+	CheckChunk(checksum string) (bool, error)
+	PutChunk(checksum string, data []byte) error
+	GetChunkRefCount(checksum string) (uint64, error)
+	GetChunkSize(checksum string) (uint64, error)
+
+	Purge(id string) error
+
+	Close() error
+}
+
+type TransactionBackend interface {
+	GetUuid() string
+
+	ReferenceObjects(keys []string) ([]bool, error)
+	PutObject(checksum string, data []byte) error
+
+	ReferenceChunks(keys []string) ([]bool, error)
+	PutChunk(checksum string, data []byte) error
+
+	PutMetadata(data []byte) error
+	PutIndex(data []byte) error
+	Commit() error
+}
+
 var muBackends sync.Mutex
 var backends map[string]func() RepositoryBackend = make(map[string]func() RepositoryBackend)
 

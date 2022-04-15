@@ -150,7 +150,18 @@ func cmd_sync(ctx Plakar, store *storage.Store, args []string) int {
 		}
 
 		for _, index := range syncIndexes {
-			data, err := sourceStore.GetIndex(index)
+			data, err := sourceStore.GetMetadata(index)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get index from store: %s\n", ctx.Repository, err)
+				return 1
+			}
+			err = syncStore.PutMetadata(index, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not write object to store: %s\n", repository, err)
+				return 1
+			}
+
+			data, err = sourceStore.GetIndex(index)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from store: %s\n", ctx.Repository, err)
 				return 1

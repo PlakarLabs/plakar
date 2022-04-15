@@ -85,7 +85,11 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			checksum := snapshot.Index.Pathnames[file]
+			checksum, exists := snapshot.Index.Pathnames[file]
+			if !exists {
+				logger.Warn("skipping %s", rel)
+				return
+			}
 
 			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
 

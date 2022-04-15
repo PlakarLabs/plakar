@@ -53,8 +53,8 @@ type ClientRepository struct {
 }
 
 type ClientTransaction struct {
-	Uuid  string
-	store *ClientRepository
+	Uuid       string
+	repository *ClientRepository
 
 	storage.TransactionBackend
 }

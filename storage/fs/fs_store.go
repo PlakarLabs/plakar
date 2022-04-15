@@ -129,7 +129,7 @@ func (repository *FSStore) Transaction() (storage.TransactionBackend, error) {
 
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
-	tx.store = *repository
+	tx.repository = *repository
 	tx.prepared = false
 
 	tx.chunks = make(map[string]bool)

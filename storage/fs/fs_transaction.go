@@ -56,8 +56,8 @@ func (transaction *FSTransaction) GetUuid() string {
 }
 
 func (transaction *FSTransaction) prepare() {
-	os.MkdirAll(transaction.store.root, 0700)
-	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.store.PathTransactions(),
+	os.MkdirAll(transaction.repository.root, 0700)
+	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.repository.PathTransactions(),
 		transaction.Uuid[0:2]), 0700)
 	os.MkdirAll(transaction.Path(), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/chunks", transaction.Path()), 0700)
@@ -71,7 +71,7 @@ func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error)
 		if err != nil {
 			return nil, err
 		}
-		err = os.Link(transaction.store.PathChunk(key), transaction.PathChunk(key))
+		err = os.Link(transaction.repository.PathChunk(key), transaction.PathChunk(key))
 		if err != nil {
 			if os.IsNotExist(err) {
 				ret = append(ret, false)
@@ -99,7 +99,7 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 		if err != nil {
 			return nil, err
 		}
-		err = os.Link(transaction.store.PathObject(key), transaction.PathObject(key))
+		err = os.Link(transaction.repository.PathObject(key), transaction.PathObject(key))
 		if err != nil {
 			if os.IsNotExist(err) {
 				ret = append(ret, false)
@@ -121,14 +121,14 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 }
 
 func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
-	store := transaction.store
+	repository := transaction.repository
 
 	err := transaction.CreateObjectBucket(checksum)
 	if err != nil {
 		return err
 	}
 
-	err = store.PutObjectSafe(checksum, data, transaction.PathObject(checksum))
+	err = repository.PutObjectSafe(checksum, data, transaction.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -140,14 +140,14 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 }
 
 func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
-	store := transaction.store
+	repository := transaction.repository
 
 	err := transaction.CreateChunkBucket(checksum)
 	if err != nil {
 		return err
 	}
 
-	err = store.PutChunkSafe(checksum, data, transaction.PathChunk(checksum))
+	err = repository.PutChunkSafe(checksum, data, transaction.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -189,5 +189,5 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *FSTransaction) Commit() error {
-	return os.Rename(transaction.Path(), transaction.store.PathIndex(transaction.Uuid))
+	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
 }

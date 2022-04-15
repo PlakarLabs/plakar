@@ -42,14 +42,14 @@ import (
 	"github.com/alecthomas/chroma/styles"
 )
 
-var lstore *storage.Repository
+var lrepository *storage.Repository
 var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
 var baseTemplate string
 
-//go:embed store.tmpl
-var storeTemplate string
+//go:embed repository.tmpl
+var repositoryTemplate string
 
 //go:embed browse.tmpl
 var browseTemplate string
@@ -88,8 +88,8 @@ func templateFunctions() TemplateFunctions {
 	}
 }
 
-func getSnapshots(store *storage.Repository) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := snapshot.List(store)
+func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func getSnapshots(store *storage.Repository) ([]*snapshot.Snapshot, error) {
 		wg.Add(1)
 		go func(snapshotUuid string) {
 			defer wg.Done()
-			snapshotInstance, err := snapshot.Load(store, snapshotUuid)
+			snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
 			if err != nil {
 				return
 			}
@@ -120,8 +120,8 @@ func getSnapshots(store *storage.Repository) ([]*snapshot.Snapshot, error) {
 	return result, nil
 }
 
-func getMetadatas(store *storage.Repository) ([]*snapshot.Metadata, error) {
-	snapshotsList, err := snapshot.List(store)
+func getMetadatas(repository *storage.Repository) ([]*snapshot.Metadata, error) {
+	snapshotsList, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func getMetadatas(store *storage.Repository) ([]*snapshot.Metadata, error) {
 		wg.Add(1)
 		go func(snapshotUuid string) {
 			defer wg.Done()
-			metadata, _, err := snapshot.GetMetadata(store, snapshotUuid)
+			metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
 			if err != nil {
 				return
 			}
@@ -168,9 +168,9 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	return ss
 }
 
-func viewStore(w http.ResponseWriter, r *http.Request) {
+func viewRepository(w http.ResponseWriter, r *http.Request) {
 
-	metadatas, _ := getMetadatas(lstore)
+	metadatas, _ := getMetadatas(lrepository)
 
 	totalFiles := uint64(0)
 
@@ -231,7 +231,7 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 		MimeTypesPct  map[string]float64
 		ExtensionsPct map[string]float64
 	}{
-		lstore.Configuration(),
+		lrepository.Configuration(),
 		res,
 		kinds,
 		types,
@@ -241,7 +241,7 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 		extensionsPct,
 	}
 
-	templates["store"].Execute(w, ctx)
+	templates["repository"].Execute(w, ctx)
 }
 
 func browse(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +251,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid != id {
-		tmp, err := snapshot.Load(lstore, id)
+		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -339,7 +339,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid != id {
-		tmp, err := snapshot.Load(lstore, id)
+		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -413,7 +413,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid != id {
-		tmp, err := snapshot.Load(lstore, id)
+		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -516,14 +516,14 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		ext = ""
 	}
 
-	snapshots, err := snapshot.List(lstore)
+	snapshots, err := snapshot.List(lrepository)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, id := range snapshots {
-		snapshot, err := snapshot.Load(lstore, id)
+		snapshot, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue
@@ -600,15 +600,15 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *storage.Repository, spawn bool) error {
-	lstore = store
+func Ui(repository *storage.Repository, spawn bool) error {
+	lrepository = repository
 	lcache = nil
 
 	templates = make(map[string]*template.Template)
 
-	t, err := template.New("store").Funcs(template.FuncMap{
+	t, err := template.New("repository").Funcs(template.FuncMap{
 		"humanizeBytes": humanize.Bytes,
-	}).Parse(baseTemplate + storeTemplate)
+	}).Parse(baseTemplate + repositoryTemplate)
 	if err != nil {
 		panic(err)
 	}
@@ -653,7 +653,7 @@ func Ui(store *storage.Repository, spawn bool) error {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", viewStore)
+	r.HandleFunc("/", viewRepository)
 	r.HandleFunc("/snapshot/{snapshot}:/", browse)
 	r.HandleFunc("/snapshot/{snapshot}:{path:.+}/", browse)
 	r.HandleFunc("/raw/{snapshot}:{path:.+}", raw)

@@ -37,9 +37,9 @@ type FSStore struct {
 }
 
 type FSTransaction struct {
-	Uuid     string
-	store    FSStore
-	prepared bool
+	Uuid       string
+	repository FSStore
+	prepared   bool
 
 	//SkipDirs []string
 

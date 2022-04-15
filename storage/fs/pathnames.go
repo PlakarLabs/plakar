@@ -26,71 +26,71 @@ func pathnameExists(pathname string) bool {
 	return !os.IsNotExist(err)
 }
 
-func (repository *FSStore) PathPurge() string {
+func (repository *FSRepository) PathPurge() string {
 	return fmt.Sprintf("%s/purge", repository.root)
 }
 
-func (repository *FSStore) PathChunks() string {
+func (repository *FSRepository) PathChunks() string {
 	return fmt.Sprintf("%s/chunks", repository.root)
 }
 
-func (repository *FSStore) PathObjects() string {
+func (repository *FSRepository) PathObjects() string {
 	return fmt.Sprintf("%s/objects", repository.root)
 }
 
-func (repository *FSStore) PathTransactions() string {
+func (repository *FSRepository) PathTransactions() string {
 	return fmt.Sprintf("%s/transactions", repository.root)
 }
 
-func (repository *FSStore) PathIndexes() string {
+func (repository *FSRepository) PathIndexes() string {
 	return fmt.Sprintf("%s/snapshots", repository.root)
 }
 
-func (repository *FSStore) PathChunkBucket(checksum string) string {
+func (repository *FSRepository) PathChunkBucket(checksum string) string {
 	return fmt.Sprintf("%s/chunks/%s", repository.root, checksum[0:2])
 }
 
-func (repository *FSStore) PathObjectBucket(checksum string) string {
+func (repository *FSRepository) PathObjectBucket(checksum string) string {
 	return fmt.Sprintf("%s/objects/%s", repository.root, checksum[0:2])
 }
 
-func (repository *FSStore) PathIndexBucket(checksum string) string {
+func (repository *FSRepository) PathIndexBucket(checksum string) string {
 	return fmt.Sprintf("%s/snapshots/%s", repository.root, checksum[0:2])
 }
 
-func (repository *FSStore) PathChunk(checksum string) string {
+func (repository *FSRepository) PathChunk(checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathChunkBucket(checksum), checksum)
 }
 
-func (repository *FSStore) PathObject(checksum string) string {
+func (repository *FSRepository) PathObject(checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathObjectBucket(checksum), checksum)
 }
 
-func (repository *FSStore) PathIndex(checksum string) string {
+func (repository *FSRepository) PathIndex(checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexBucket(checksum), checksum)
 }
 
-func (repository *FSStore) PathIndexChunks(id string) string {
+func (repository *FSRepository) PathIndexChunks(id string) string {
 	return fmt.Sprintf("%s/chunks", repository.PathIndex(id))
 }
 
-func (repository *FSStore) PathIndexChunkBucket(id string, checksum string) string {
+func (repository *FSRepository) PathIndexChunkBucket(id string, checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexChunks(id), checksum[0:2])
 }
 
-func (repository *FSStore) PathIndexChunk(id string, checksum string) string {
+func (repository *FSRepository) PathIndexChunk(id string, checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexChunkBucket(id, checksum), checksum)
 }
 
-func (repository *FSStore) PathIndexObjects(id string) string {
+func (repository *FSRepository) PathIndexObjects(id string) string {
 	return fmt.Sprintf("%s/objects", repository.PathIndex(id))
 }
 
-func (repository *FSStore) PathIndexObjectBucket(id string, checksum string) string {
+func (repository *FSRepository) PathIndexObjectBucket(id string, checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexObjects(id), checksum[0:2])
 }
 
-func (repository *FSStore) PathIndexObject(id string, checksum string) string {
+func (repository *FSRepository) PathIndexObject(id string, checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexObjectBucket(id, checksum), checksum)
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-type FSStore struct {
+type FSRepository struct {
 	config storage.RepositoryConfig
 
 	Cache *cache.Cache
@@ -38,7 +38,7 @@ type FSStore struct {
 
 type FSTransaction struct {
 	Uuid       string
-	repository FSStore
+	repository FSRepository
 	prepared   bool
 
 	//SkipDirs []string

@@ -222,7 +222,7 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Store         storage.RepositoryConfig
+		Repository    storage.RepositoryConfig
 		Metadatas     []*snapshot.Metadata
 		MajorTypes    map[string]uint64
 		MimeTypes     map[string]uint64

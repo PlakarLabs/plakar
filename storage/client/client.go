@@ -310,6 +310,19 @@ func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) err
 	return result.Payload.(network.ResPutChunk).Err
 }
 
+func (transaction *ClientTransaction) PutMetadata(data []byte) error {
+	store := transaction.store
+	result, err := store.sendRequest("ReqPutMetadata", network.ReqPutMetadata{
+		Transaction: transaction.GetUuid(),
+		Data:        data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResPutMetadata).Err
+}
+
 func (transaction *ClientTransaction) PutIndex(data []byte) error {
 	store := transaction.store
 	result, err := store.sendRequest("ReqPutIndex", network.ReqPutIndex{

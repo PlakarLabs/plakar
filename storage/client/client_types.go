@@ -26,12 +26,6 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-type inflight struct {
-	Add  bool
-	Uuid string
-	Chan chan network.Request
-}
-
 type ClientRepository struct {
 	config storage.RepositoryConfig
 
@@ -44,10 +38,10 @@ type ClientRepository struct {
 
 	Repository string
 
-	inflightRequests     map[string]chan network.Request
-	registerInflight     chan inflight
-	notifications        chan network.Request
-	maxConcurrentRequest chan bool
+	inflightRequests map[string]chan network.Request
+	//registerInflight     chan inflight
+	notifications chan network.Request
+	//maxConcurrentRequest chan bool
 
 	storage.RepositoryBackend
 }

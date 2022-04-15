@@ -18,17 +18,17 @@ package storage
 
 const VERSION string = "0.1.0"
 
-type StoreConfig struct {
+type RepositoryConfig struct {
 	Uuid        string
 	Version     string
 	Encryption  string
 	Compression string
 }
 
-type StoreBackend interface {
-	Create(repository string, configuration StoreConfig) error
+type RepositoryBackend interface {
+	Create(repository string, configuration RepositoryConfig) error
 	Open(repository string) error
-	Configuration() StoreConfig
+	Configuration() RepositoryConfig
 
 	Transaction() (TransactionBackend, error)
 

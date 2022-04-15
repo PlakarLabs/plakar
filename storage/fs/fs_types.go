@@ -24,7 +24,7 @@ import (
 )
 
 type FSStore struct {
-	config storage.StoreConfig
+	config storage.RepositoryConfig
 
 	Cache *cache.Cache
 
@@ -33,7 +33,7 @@ type FSStore struct {
 
 	//SkipDirs []string
 
-	storage.StoreBackend
+	storage.RepositoryBackend
 }
 
 type FSTransaction struct {

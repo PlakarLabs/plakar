@@ -29,14 +29,14 @@ import (
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("client", NewClientStore)
+	storage.Register("client", NewClientRepository)
 }
 
-func NewClientStore() storage.StoreBackend {
-	return &ClientStore{}
+func NewClientRepository() storage.RepositoryBackend {
+	return &ClientRepository{}
 }
 
-func (store *ClientStore) connect(addr string) error {
+func (store *ClientRepository) connect(addr string) error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
@@ -80,7 +80,7 @@ func (store *ClientStore) connect(addr string) error {
 	return err
 }
 
-func (store *ClientStore) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
+func (store *ClientRepository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
 	//store.maxConcurrentRequest <- true
 	//defer func() { <-store.maxConcurrentRequest }()
 
@@ -115,11 +115,11 @@ func (store *ClientStore) sendRequest(Type string, Payload interface{}) (*networ
 	return &result, nil
 }
 
-func (store *ClientStore) Create(repository string, config storage.StoreConfig) error {
+func (store *ClientRepository) Create(repository string, config storage.RepositoryConfig) error {
 	return nil
 }
 
-func (store *ClientStore) Open(repository string) error {
+func (store *ClientRepository) Open(repository string) error {
 	addr := repository[9:]
 	if !strings.Contains(addr, ":") {
 		addr = addr + ":9876"
@@ -135,17 +135,17 @@ func (store *ClientStore) Open(repository string) error {
 		return err
 	}
 
-	store.config = result.Payload.(network.ResOpen).StoreConfig
+	store.config = result.Payload.(network.ResOpen).RepositoryConfig
 
 	return nil
 
 }
 
-func (store *ClientStore) Configuration() storage.StoreConfig {
+func (store *ClientRepository) Configuration() storage.RepositoryConfig {
 	return store.config
 }
 
-func (store *ClientStore) Transaction() (storage.TransactionBackend, error) {
+func (store *ClientRepository) Transaction() (storage.TransactionBackend, error) {
 	result, err := store.sendRequest("ReqTransaction", nil)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (store *ClientStore) Transaction() (storage.TransactionBackend, error) {
 	return tx, nil
 }
 
-func (store *ClientStore) GetIndexes() ([]string, error) {
+func (store *ClientRepository) GetIndexes() ([]string, error) {
 	result, err := store.sendRequest("ReqGetIndexes", nil)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (store *ClientStore) GetIndexes() ([]string, error) {
 	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
 }
 
-func (store *ClientStore) GetChunks() ([]string, error) {
+func (store *ClientRepository) GetChunks() ([]string, error) {
 	result, err := store.sendRequest("ReqGetChunks", nil)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (store *ClientStore) GetChunks() ([]string, error) {
 	return result.Payload.(network.ResGetChunks).Chunks, result.Payload.(network.ResGetChunks).Err
 }
 
-func (store *ClientStore) GetObjects() ([]string, error) {
+func (store *ClientRepository) GetObjects() ([]string, error) {
 	result, err := store.sendRequest("ReqGetObjects", nil)
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func (store *ClientStore) GetObjects() ([]string, error) {
 	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
 }
 
-func (store *ClientStore) GetMetadata(Uuid string) ([]byte, error) {
+func (store *ClientRepository) GetMetadata(Uuid string) ([]byte, error) {
 	result, err := store.sendRequest("ReqGetMetadata", network.ReqGetMetadata{
 		Uuid: Uuid,
 	})
@@ -199,7 +199,7 @@ func (store *ClientStore) GetMetadata(Uuid string) ([]byte, error) {
 	return result.Payload.(network.ResGetMetadata).Data, result.Payload.(network.ResGetMetadata).Err
 }
 
-func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
+func (store *ClientRepository) GetIndex(Uuid string) ([]byte, error) {
 	result, err := store.sendRequest("ReqGetIndex", network.ReqGetIndex{
 		Uuid: Uuid,
 	})
@@ -210,7 +210,7 @@ func (store *ClientStore) GetIndex(Uuid string) ([]byte, error) {
 	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
 }
 
-func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
+func (store *ClientRepository) GetObject(checksum string) ([]byte, error) {
 	result, err := store.sendRequest("ReqGetObject", network.ReqGetObject{
 		Checksum: checksum,
 	})
@@ -221,7 +221,7 @@ func (store *ClientStore) GetObject(checksum string) ([]byte, error) {
 	return result.Payload.(network.ResGetObject).Data, result.Payload.(network.ResGetObject).Err
 }
 
-func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
+func (store *ClientRepository) GetChunk(checksum string) ([]byte, error) {
 	result, err := store.sendRequest("ReqGetChunk", network.ReqGetChunk{
 		Checksum: checksum,
 	})
@@ -232,7 +232,7 @@ func (store *ClientStore) GetChunk(checksum string) ([]byte, error) {
 	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
 }
 
-func (store *ClientStore) Purge(id string) error {
+func (store *ClientRepository) Purge(id string) error {
 	result, err := store.sendRequest("ReqPurge", network.ReqPurge{
 		Uuid: id,
 	})
@@ -243,7 +243,7 @@ func (store *ClientStore) Purge(id string) error {
 	return result.Payload.(network.ResPurge).Err
 }
 
-func (store *ClientStore) Close() error {
+func (store *ClientRepository) Close() error {
 	result, err := store.sendRequest("ReqClose", nil)
 	if err != nil {
 		return err

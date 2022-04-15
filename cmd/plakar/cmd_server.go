@@ -27,7 +27,7 @@ func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -36,6 +36,6 @@ func cmd_server(ctx Plakar, store *storage.Store, args []string) int {
 		addr = flags.Arg(0)
 	}
 
-	network.Server(store, addr)
+	network.Server(repository, addr)
 	return 0
 }

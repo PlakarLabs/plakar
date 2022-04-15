@@ -29,14 +29,14 @@ func init() {
 	registerCommand("browser", cmd_browser)
 }
 
-func cmd_browser(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_browser(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_nospawn bool
 
 	flags := flag.NewFlagSet("browser", flag.ExitOnError)
 	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.Parse(args)
 
-	err := ui.Ui(store, !opt_nospawn)
+	err := ui.Ui(repository, !opt_nospawn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

@@ -31,7 +31,7 @@ func init() {
 	registerCommand("pull", cmd_pull)
 }
 
-func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
 
@@ -46,7 +46,7 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		metadatas, err := getMetadatas(store, nil)
+		metadatas, err := getMetadatas(repository, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -55,7 +55,7 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 			metadata := metadatas[i-1]
 			for _, scannedDir := range metadata.ScannedDirectories {
 				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(store, metadata.Uuid)
+					snap, err := snapshot.Load(repository, metadata.Uuid)
 					if err != nil {
 						return 1
 					}
@@ -68,7 +68,7 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

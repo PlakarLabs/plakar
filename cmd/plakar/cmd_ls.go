@@ -37,7 +37,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_recursive bool
 	var opt_uuid bool
 
@@ -47,20 +47,20 @@ func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(store, opt_uuid)
+		list_snapshots(repository, opt_uuid)
 		return 0
 	}
 
 	if opt_recursive {
-		list_snapshot_recursive(store, flags.Args())
+		list_snapshot_recursive(repository, flags.Args())
 	} else {
-		list_snapshot(store, flags.Args())
+		list_snapshot(repository, flags.Args())
 	}
 	return 0
 }
 
-func list_snapshots(store *storage.Store, useUuid bool) {
-	metadatas, err := getMetadatas(store, nil)
+func list_snapshots(repository *storage.Repository, useUuid bool) {
+	metadatas, err := getMetadatas(repository, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -82,8 +82,8 @@ func list_snapshots(store *storage.Store, useUuid bool) {
 	}
 }
 
-func list_snapshot(store *storage.Store, args []string) {
-	snapshots, err := getSnapshots(store, args)
+func list_snapshot(repository *storage.Repository, args []string) {
+	snapshots, err := getSnapshots(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}
@@ -137,8 +137,8 @@ func list_snapshot(store *storage.Store, args []string) {
 	}
 }
 
-func list_snapshot_recursive(store *storage.Store, args []string) {
-	snapshots, err := getSnapshots(store, args)
+func list_snapshot_recursive(repository *storage.Repository, args []string) {
+	snapshots, err := getSnapshots(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}

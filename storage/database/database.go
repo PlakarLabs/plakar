@@ -29,30 +29,30 @@ import (
 )
 
 func init() {
-	storage.Register("database", NewDatabaseStore)
+	storage.Register("database", NewDatabaseRepository)
 }
 
-func NewDatabaseStore() storage.StoreBackend {
-	return &DatabaseStore{}
+func NewDatabaseRepository() storage.RepositoryBackend {
+	return &DatabaseRepository{}
 }
 
-func (store *DatabaseStore) connect(addr string) error {
+func (repository *DatabaseRepository) connect(addr string) error {
 	var connectionString string
 	if strings.HasPrefix(addr, "sqlite://") {
-		store.backend = "sqlite3"
+		repository.backend = "sqlite3"
 		connectionString = addr[9:]
 	} else {
 		return fmt.Errorf("unsupported database backend: %s", addr)
 	}
 
-	conn, err := sql.Open(store.backend, connectionString)
+	conn, err := sql.Open(repository.backend, connectionString)
 	if err != nil {
 		return err
 	}
-	store.conn = conn
+	repository.conn = conn
 
-	if store.backend == "sqlite3" {
-		_, err = store.conn.Exec("PRAGMA foreign_keys = ON")
+	if repository.backend == "sqlite3" {
+		_, err = repository.conn.Exec("PRAGMA foreign_keys = ON")
 		if err != nil {
 			return nil
 		}
@@ -61,18 +61,18 @@ func (store *DatabaseStore) connect(addr string) error {
 	return nil
 }
 
-func (store *DatabaseStore) Create(repository string, config storage.StoreConfig) error {
+func (repository *DatabaseRepository) Create(location string, config storage.RepositoryConfig) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("Create(%s): %s", repository, time.Since(t0))
 	}()
 
-	err := store.connect(repository)
+	err := repository.connect(location)
 	if err != nil {
 		return err
 	}
 
-	statement, err := store.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
+	statement, err := repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
 		configKey	VARCHAR(32) NOT NULL PRIMARY KEY,
 		configValue	VARCHAR(64)
 	);`)
@@ -82,7 +82,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
 		metadataUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
 		metadataBlob	BLOB
 	);`)
@@ -92,7 +92,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
 		indexUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
 		indexBlob	BLOB
 	);`)
@@ -102,7 +102,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
 		objectChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		objectBlob		BLOB
 	);`)
@@ -112,7 +112,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunks (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunks (
 		chunkChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		chunkBlob		BLOB
 	);`)
@@ -122,7 +122,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunksReferences (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunksReferences (
 		indexUuid		VARCHAR(36) NOT NULL,
 		chunkChecksum	VARCHAR(64) NOT NULL,
 
@@ -135,7 +135,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS objectsReferences (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objectsReferences (
 		indexUuid		VARCHAR(36) NOT NULL,
 		objectChecksum	VARCHAR(64) NOT NULL,
 
@@ -149,7 +149,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
+	statement, err = repository.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
 	defer statement.Close()
 	if err != nil {
 		return err
@@ -172,42 +172,42 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	return nil
 }
 
-func (store *DatabaseStore) Open(repository string) error {
-	err := store.connect(repository)
+func (repository *DatabaseRepository) Open(location string) error {
+	err := repository.connect(location)
 	if err != nil {
 		return err
 	}
 
-	storeConfig := storage.StoreConfig{}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Uuid'`).Scan(&storeConfig.Uuid)
+	repositoryConfig := storage.RepositoryConfig{}
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Uuid'`).Scan(&repositoryConfig.Uuid)
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&storeConfig.Compression)
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&repositoryConfig.Compression)
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&storeConfig.Encryption)
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&repositoryConfig.Encryption)
 	if err != nil {
 		return err
 	}
-	store.config = storeConfig
+	repository.config = repositoryConfig
 
 	return nil
 
 }
 
-func (store *DatabaseStore) Configuration() storage.StoreConfig {
-	return store.config
+func (repository *DatabaseRepository) Configuration() storage.RepositoryConfig {
+	return repository.config
 }
 
-func (store *DatabaseStore) Transaction() (storage.TransactionBackend, error) {
+func (repository *DatabaseRepository) Transaction() (storage.TransactionBackend, error) {
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
 	}
 
-	dbTx, err := store.conn.BeginTx(context.TODO(), nil)
+	dbTx, err := repository.conn.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +215,13 @@ func (store *DatabaseStore) Transaction() (storage.TransactionBackend, error) {
 	tx := &DatabaseTransaction{}
 	tx.dbTx = dbTx
 	tx.Uuid = Uuid.String()
-	tx.store = store
+	tx.repository = repository
 
 	return tx, nil
 }
 
-func (store *DatabaseStore) GetIndexes() ([]string, error) {
-	rows, err := store.conn.Query("SELECT indexUuid FROM indexes")
+func (repository *DatabaseRepository) GetIndexes() ([]string, error) {
+	rows, err := repository.conn.Query("SELECT indexUuid FROM indexes")
 	if err != nil {
 		return nil, err
 	}
@@ -239,8 +239,8 @@ func (store *DatabaseStore) GetIndexes() ([]string, error) {
 	return indexes, nil
 }
 
-func (store *DatabaseStore) GetChunks() ([]string, error) {
-	rows, err := store.conn.Query("SELECT chunkChecksum FROM chunks")
+func (repository *DatabaseRepository) GetChunks() ([]string, error) {
+	rows, err := repository.conn.Query("SELECT chunkChecksum FROM chunks")
 	if err != nil {
 		return nil, err
 	}
@@ -258,8 +258,8 @@ func (store *DatabaseStore) GetChunks() ([]string, error) {
 	return checksums, nil
 }
 
-func (store *DatabaseStore) GetObjects() ([]string, error) {
-	rows, err := store.conn.Query("SELECT objectChecksum FROM objects")
+func (repository *DatabaseRepository) GetObjects() ([]string, error) {
+	rows, err := repository.conn.Query("SELECT objectChecksum FROM objects")
 	if err != nil {
 		return nil, err
 	}
@@ -277,65 +277,65 @@ func (store *DatabaseStore) GetObjects() ([]string, error) {
 	return checksums, nil
 }
 
-func (store *DatabaseStore) GetMetadata(Uuid string) ([]byte, error) {
+func (repository *DatabaseRepository) GetMetadata(Uuid string) ([]byte, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
+func (repository *DatabaseRepository) GetIndex(Uuid string) ([]byte, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (store *DatabaseStore) GetObject(checksum string) ([]byte, error) {
+func (repository *DatabaseRepository) GetObject(checksum string) ([]byte, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (store *DatabaseStore) GetChunk(checksum string) ([]byte, error) {
+func (repository *DatabaseRepository) GetChunk(checksum string) ([]byte, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (store *DatabaseStore) CheckObject(checksum string) (bool, error) {
+func (repository *DatabaseRepository) CheckObject(checksum string) (bool, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (store *DatabaseStore) CheckChunk(checksum string) (bool, error) {
+func (repository *DatabaseRepository) CheckChunk(checksum string) (bool, error) {
 	var data []byte
-	err := store.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
 	return true, nil
 }
 
-func (store *DatabaseStore) Purge(id string) error {
+func (repository *DatabaseRepository) Purge(id string) error {
 	return nil
 }
 
-func (store *DatabaseStore) Close() error {
+func (repository *DatabaseRepository) Close() error {
 	return nil
 }
 

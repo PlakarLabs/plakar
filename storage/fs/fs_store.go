@@ -38,44 +38,44 @@ func init() {
 	storage.Register("filesystem", NewFSStore)
 }
 
-func NewFSStore() storage.StoreBackend {
+func NewFSStore() storage.RepositoryBackend {
 	return &FSStore{}
 }
 
-func (store *FSStore) objectExists(checksum string) bool {
-	return pathnameExists(store.PathObject(checksum))
+func (repository *FSStore) objectExists(checksum string) bool {
+	return pathnameExists(repository.PathObject(checksum))
 }
 
-func (store *FSStore) chunkExists(checksum string) bool {
-	return pathnameExists(store.PathChunk(checksum))
+func (repository *FSStore) chunkExists(checksum string) bool {
+	return pathnameExists(repository.PathChunk(checksum))
 }
 
-func (store *FSStore) Create(repository string, config storage.StoreConfig) error {
+func (repository *FSStore) Create(location string, config storage.RepositoryConfig) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("Create(%s): %s", repository, time.Since(t0))
+		logger.Profile("Create(%s): %s", location, time.Since(t0))
 	}()
 
-	store.root = repository
+	repository.root = location
 
-	err := os.Mkdir(store.root, 0700)
+	err := os.Mkdir(repository.root, 0700)
 	if err != nil {
 		return err
 	}
-	os.MkdirAll(fmt.Sprintf("%s/chunks", store.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/objects", store.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/transactions", store.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/snapshots", store.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/purge", store.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/chunks", repository.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/objects", repository.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/transactions", repository.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/snapshots", repository.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/purge", repository.root), 0700)
 
 	for i := 0; i < 256; i++ {
-		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", store.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", store.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", store.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", store.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", repository.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", repository.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", repository.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", repository.root, i), 0700)
 	}
 
-	f, err := os.Create(fmt.Sprintf("%s/CONFIG", store.root))
+	f, err := os.Create(fmt.Sprintf("%s/CONFIG", repository.root))
 	if err != nil {
 		return err
 	}
@@ -91,15 +91,15 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 		return err
 	}
 
-	store.config = config
+	repository.config = config
 
 	return nil
 }
 
-func (store *FSStore) Open(repository string) error {
-	store.root = repository
+func (repository *FSStore) Open(location string) error {
+	repository.root = location
 
-	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", store.root))
+	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", repository.root))
 	if err != nil {
 		return err
 	}
@@ -109,27 +109,27 @@ func (store *FSStore) Open(repository string) error {
 		return err
 	}
 
-	config := storage.StoreConfig{}
+	config := storage.RepositoryConfig{}
 	err = json.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
 	}
 
-	store.config = config
+	repository.config = config
 
 	return nil
 }
 
-func (store *FSStore) Configuration() storage.StoreConfig {
-	return store.config
+func (repository *FSStore) Configuration() storage.RepositoryConfig {
+	return repository.config
 }
 
-func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
+func (repository *FSStore) Transaction() (storage.TransactionBackend, error) {
 	// XXX - keep a map of current transactions
 
 	tx := &FSTransaction{}
 	tx.Uuid = uuid.New().String()
-	tx.store = *store
+	tx.store = *repository
 	tx.prepared = false
 
 	tx.chunks = make(map[string]bool)
@@ -142,16 +142,16 @@ func (store *FSStore) Transaction() (storage.TransactionBackend, error) {
 	return tx, nil
 }
 
-func (store *FSStore) GetIndexes() ([]string, error) {
+func (repository *FSStore) GetIndexes() ([]string, error) {
 	ret := make([]string, 0)
 
-	buckets, err := ioutil.ReadDir(store.PathIndexes())
+	buckets, err := ioutil.ReadDir(repository.PathIndexes())
 	if err != nil {
 		return ret, nil
 	}
 
 	for _, bucket := range buckets {
-		indexes, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathIndexes(), bucket.Name()))
+		indexes, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathIndexes(), bucket.Name()))
 		if err != nil {
 			return ret, err
 		}
@@ -166,13 +166,13 @@ func (store *FSStore) GetIndexes() ([]string, error) {
 	return ret, nil
 }
 
-func (store *FSStore) GetMetadata(Uuid string) ([]byte, error) {
+func (repository *FSStore) GetMetadata(Uuid string) ([]byte, error) {
 	parsedUuid, err := uuid.Parse(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/METADATA", store.PathIndex(parsedUuid.String())))
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/METADATA", repository.PathIndex(parsedUuid.String())))
 	if err != nil {
 		return nil, err
 	}
@@ -180,13 +180,13 @@ func (store *FSStore) GetMetadata(Uuid string) ([]byte, error) {
 	return data, nil
 }
 
-func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
+func (repository *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	parsedUuid, err := uuid.Parse(Uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", store.PathIndex(parsedUuid.String())))
+	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", repository.PathIndex(parsedUuid.String())))
 	if err != nil {
 		return nil, err
 	}
@@ -194,13 +194,13 @@ func (store *FSStore) GetIndex(Uuid string) ([]byte, error) {
 	return data, nil
 }
 
-func (store *FSStore) PutMetadata(id string, data []byte) error {
-	os.Mkdir(store.PathIndexBucket(id), 0700)
-	os.Mkdir(store.PathIndex(id), 0700)
-	os.Mkdir(store.PathIndexObjects(id), 0700)
-	os.Mkdir(store.PathIndexChunks(id), 0700)
+func (repository *FSStore) PutMetadata(id string, data []byte) error {
+	os.Mkdir(repository.PathIndexBucket(id), 0700)
+	os.Mkdir(repository.PathIndex(id), 0700)
+	os.Mkdir(repository.PathIndexObjects(id), 0700)
+	os.Mkdir(repository.PathIndexChunks(id), 0700)
 
-	f, err := os.Create(fmt.Sprintf("%s/METADATA", store.PathIndex(id)))
+	f, err := os.Create(fmt.Sprintf("%s/METADATA", repository.PathIndex(id)))
 	if err != nil {
 		return err
 	}
@@ -213,13 +213,13 @@ func (store *FSStore) PutMetadata(id string, data []byte) error {
 	return nil
 }
 
-func (store *FSStore) PutIndex(id string, data []byte) error {
-	os.Mkdir(store.PathIndexBucket(id), 0700)
-	os.Mkdir(store.PathIndex(id), 0700)
-	os.Mkdir(store.PathIndexObjects(id), 0700)
-	os.Mkdir(store.PathIndexChunks(id), 0700)
+func (repository *FSStore) PutIndex(id string, data []byte) error {
+	os.Mkdir(repository.PathIndexBucket(id), 0700)
+	os.Mkdir(repository.PathIndex(id), 0700)
+	os.Mkdir(repository.PathIndexObjects(id), 0700)
+	os.Mkdir(repository.PathIndexChunks(id), 0700)
 
-	f, err := os.Create(fmt.Sprintf("%s/INDEX", store.PathIndex(id)))
+	f, err := os.Create(fmt.Sprintf("%s/INDEX", repository.PathIndex(id)))
 	if err != nil {
 		return err
 	}
@@ -232,28 +232,28 @@ func (store *FSStore) PutIndex(id string, data []byte) error {
 	return nil
 }
 
-func (store *FSStore) ReferenceIndexChunk(id string, checksum string) error {
-	os.Mkdir(store.PathIndexChunkBucket(id, checksum), 0700)
-	os.Link(store.PathChunk(checksum), store.PathIndexChunk(id, checksum))
+func (repository *FSStore) ReferenceIndexChunk(id string, checksum string) error {
+	os.Mkdir(repository.PathIndexChunkBucket(id, checksum), 0700)
+	os.Link(repository.PathChunk(checksum), repository.PathIndexChunk(id, checksum))
 	return nil
 }
 
-func (store *FSStore) ReferenceIndexObject(id string, checksum string) error {
-	os.Mkdir(store.PathIndexObjectBucket(id, checksum), 0700)
-	os.Link(store.PathObject(checksum), store.PathIndexObject(id, checksum))
+func (repository *FSStore) ReferenceIndexObject(id string, checksum string) error {
+	os.Mkdir(repository.PathIndexObjectBucket(id, checksum), 0700)
+	os.Link(repository.PathObject(checksum), repository.PathIndexObject(id, checksum))
 	return nil
 }
 
-func (store *FSStore) GetObjects() ([]string, error) {
+func (repository *FSStore) GetObjects() ([]string, error) {
 	ret := make([]string, 0)
 
-	buckets, err := ioutil.ReadDir(store.PathObjects())
+	buckets, err := ioutil.ReadDir(repository.PathObjects())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, bucket := range buckets {
-		objects, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathObjects(), bucket.Name()))
+		objects, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathObjects(), bucket.Name()))
 		if err != nil {
 			return ret, err
 		}
@@ -269,8 +269,8 @@ func (store *FSStore) GetObjects() ([]string, error) {
 	return ret, nil
 }
 
-func (store *FSStore) GetIndexObject(id string, checksum string) ([]byte, error) {
-	data, err := ioutil.ReadFile(store.PathIndexObject(id, checksum))
+func (repository *FSStore) GetIndexObject(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(repository.PathIndexObject(id, checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +278,8 @@ func (store *FSStore) GetIndexObject(id string, checksum string) ([]byte, error)
 	return data, nil
 }
 
-func (store *FSStore) GetIndexChunk(id string, checksum string) ([]byte, error) {
-	data, err := ioutil.ReadFile(store.PathIndexChunk(id, checksum))
+func (repository *FSStore) GetIndexChunk(id string, checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(repository.PathIndexChunk(id, checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -287,8 +287,8 @@ func (store *FSStore) GetIndexChunk(id string, checksum string) ([]byte, error) 
 	return data, nil
 }
 
-func (store *FSStore) GetObject(checksum string) ([]byte, error) {
-	data, err := ioutil.ReadFile(store.PathObject(checksum))
+func (repository *FSStore) GetObject(checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(repository.PathObject(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -296,40 +296,40 @@ func (store *FSStore) GetObject(checksum string) ([]byte, error) {
 	return data, nil
 }
 
-func (store *FSStore) GetObjectRefCount(checksum string) (uint64, error) {
-	st, err := os.Stat(store.PathObject(checksum))
+func (repository *FSStore) GetObjectRefCount(checksum string) (uint64, error) {
+	st, err := os.Stat(repository.PathObject(checksum))
 	if err != nil {
 		return 0, err
 	}
 	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
 }
 
-func (store *FSStore) GetChunkRefCount(checksum string) (uint64, error) {
-	st, err := os.Stat(store.PathChunk(checksum))
+func (repository *FSStore) GetChunkRefCount(checksum string) (uint64, error) {
+	st, err := os.Stat(repository.PathChunk(checksum))
 	if err != nil {
 		return 0, err
 	}
 	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
 }
 
-func (store *FSStore) GetObjectSize(checksum string) (uint64, error) {
-	st, err := os.Stat(store.PathObject(checksum))
+func (repository *FSStore) GetObjectSize(checksum string) (uint64, error) {
+	st, err := os.Stat(repository.PathObject(checksum))
 	if err != nil {
 		return 0, err
 	}
 	return uint64(st.Size()), nil
 }
 
-func (store *FSStore) GetChunkSize(checksum string) (uint64, error) {
-	st, err := os.Stat(store.PathChunk(checksum))
+func (repository *FSStore) GetChunkSize(checksum string) (uint64, error) {
+	st, err := os.Stat(repository.PathChunk(checksum))
 	if err != nil {
 		return 0, err
 	}
 	return uint64(st.Size()), nil
 }
 
-func (store *FSStore) PutObject(checksum string, data []byte) error {
-	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+func (repository *FSStore) PutObject(checksum string, data []byte) error {
+	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func (store *FSStore) PutObject(checksum string, data []byte) error {
 		return err
 	}
 
-	err = os.Rename(f.Name(), store.PathObject(checksum))
+	err = os.Rename(f.Name(), repository.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -348,8 +348,8 @@ func (store *FSStore) PutObject(checksum string, data []byte) error {
 	return nil
 }
 
-func (store *FSStore) PutObjectSafe(checksum string, data []byte, link string) error {
-	f, err := ioutil.TempFile(store.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+func (repository *FSStore) PutObjectSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (store *FSStore) PutObjectSafe(checksum string, data []byte, link string) e
 		return err
 	}
 
-	err = os.Rename(f.Name(), store.PathObject(checksum))
+	err = os.Rename(f.Name(), repository.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -373,16 +373,16 @@ func (store *FSStore) PutObjectSafe(checksum string, data []byte, link string) e
 	return nil
 }
 
-func (store *FSStore) GetChunks() ([]string, error) {
+func (repository *FSStore) GetChunks() ([]string, error) {
 	ret := make([]string, 0)
 
-	buckets, err := ioutil.ReadDir(store.PathChunks())
+	buckets, err := ioutil.ReadDir(repository.PathChunks())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, bucket := range buckets {
-		chunks, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", store.PathChunks(), bucket.Name()))
+		chunks, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathChunks(), bucket.Name()))
 		if err != nil {
 			return ret, err
 		}
@@ -398,8 +398,8 @@ func (store *FSStore) GetChunks() ([]string, error) {
 	return ret, nil
 }
 
-func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
-	data, err := ioutil.ReadFile(store.PathChunk(checksum))
+func (repository *FSStore) GetChunk(checksum string) ([]byte, error) {
+	data, err := ioutil.ReadFile(repository.PathChunk(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -407,8 +407,8 @@ func (store *FSStore) GetChunk(checksum string) ([]byte, error) {
 	return data, nil
 }
 
-func (store *FSStore) PutChunk(checksum string, data []byte) error {
-	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
+func (repository *FSStore) PutChunk(checksum string, data []byte) error {
+	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -419,7 +419,7 @@ func (store *FSStore) PutChunk(checksum string, data []byte) error {
 		return err
 	}
 
-	err = os.Rename(f.Name(), store.PathChunk(checksum))
+	err = os.Rename(f.Name(), repository.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -427,8 +427,8 @@ func (store *FSStore) PutChunk(checksum string, data []byte) error {
 	return nil
 }
 
-func (store *FSStore) PutChunkSafe(checksum string, data []byte, link string) error {
-	f, err := ioutil.TempFile(store.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
+func (repository *FSStore) PutChunkSafe(checksum string, data []byte, link string) error {
+	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -444,7 +444,7 @@ func (store *FSStore) PutChunkSafe(checksum string, data []byte, link string) er
 		return err
 	}
 
-	err = os.Rename(f.Name(), store.PathChunk(checksum))
+	err = os.Rename(f.Name(), repository.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -452,33 +452,16 @@ func (store *FSStore) PutChunkSafe(checksum string, data []byte, link string) er
 	return nil
 }
 
-func (store *FSStore) CheckIndexObject(id string, checksum string) (bool, error) {
-	fileinfo, err := os.Stat(store.PathIndexObject(id, checksum))
+func (repository *FSStore) CheckIndexObject(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(repository.PathIndexObject(id, checksum))
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return fileinfo.Mode().IsRegular(), nil
 }
 
-func (store *FSStore) CheckIndexChunk(id string, checksum string) (bool, error) {
-	fileinfo, err := os.Stat(store.PathIndexChunk(id, checksum))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return fileinfo.Mode().IsRegular(), nil
-
-}
-
-func (store *FSStore) CheckObject(checksum string) (bool, error) {
-	fileinfo, err := os.Stat(store.PathObject(checksum))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return fileinfo.Mode().IsRegular(), nil
-}
-
-func (store *FSStore) CheckChunk(checksum string) (bool, error) {
-	fileinfo, err := os.Stat(store.PathChunk(checksum))
+func (repository *FSStore) CheckIndexChunk(id string, checksum string) (bool, error) {
+	fileinfo, err := os.Stat(repository.PathIndexChunk(id, checksum))
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -486,9 +469,26 @@ func (store *FSStore) CheckChunk(checksum string) (bool, error) {
 
 }
 
-func (store *FSStore) Purge(id string) error {
-	dest := fmt.Sprintf("%s/%s", store.PathPurge(), id)
-	err := os.Rename(store.PathIndex(id), dest)
+func (repository *FSStore) CheckObject(checksum string) (bool, error) {
+	fileinfo, err := os.Stat(repository.PathObject(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+}
+
+func (repository *FSStore) CheckChunk(checksum string) (bool, error) {
+	fileinfo, err := os.Stat(repository.PathChunk(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return fileinfo.Mode().IsRegular(), nil
+
+}
+
+func (repository *FSStore) Purge(id string) error {
+	dest := fmt.Sprintf("%s/%s", repository.PathPurge(), id)
+	err := os.Rename(repository.PathIndex(id), dest)
 	if err != nil {
 		return err
 	}
@@ -501,19 +501,19 @@ func (store *FSStore) Purge(id string) error {
 	return nil
 }
 
-func (store *FSStore) Close() error {
+func (repository *FSStore) Close() error {
 	// XXX - rollback all pending transactions so they don't linger
-	store.Tidy()
+	repository.Tidy()
 	return nil
 }
 
-func (store *FSStore) Tidy() {
-	cwalk.Walk(store.PathObjects(), func(path string, f os.FileInfo, err error) error {
+func (repository *FSStore) Tidy() {
+	cwalk.Walk(repository.PathObjects(), func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		object := fmt.Sprintf("%s/%s", store.PathObjects(), path)
-		if filepath.Clean(object) == filepath.Clean(store.PathObjects()) {
+		object := fmt.Sprintf("%s/%s", repository.PathObjects(), path)
+		if filepath.Clean(object) == filepath.Clean(repository.PathObjects()) {
 			return nil
 		}
 		if !f.IsDir() {
@@ -524,12 +524,12 @@ func (store *FSStore) Tidy() {
 		return nil
 	})
 
-	cwalk.Walk(store.PathChunks(), func(path string, f os.FileInfo, err error) error {
+	cwalk.Walk(repository.PathChunks(), func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		chunk := fmt.Sprintf("%s/%s", store.PathChunks(), path)
-		if filepath.Clean(chunk) == filepath.Clean(store.PathChunks()) {
+		chunk := fmt.Sprintf("%s/%s", repository.PathChunks(), path)
+		if filepath.Clean(chunk) == filepath.Clean(repository.PathChunks()) {
 			return nil
 		}
 

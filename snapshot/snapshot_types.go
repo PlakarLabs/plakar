@@ -89,7 +89,7 @@ type Index struct {
 }
 
 type Snapshot struct {
-	store       *storage.Store
+	repository  *storage.Repository
 	transaction *storage.Transaction
 
 	SkipDirs []string

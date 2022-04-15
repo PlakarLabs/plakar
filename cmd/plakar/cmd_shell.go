@@ -31,7 +31,7 @@ func init() {
 	registerCommand("shell", cmd_shell)
 }
 
-func cmd_shell(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_shell(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("shell", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -53,7 +53,7 @@ func cmd_shell(ctx Plakar, store *storage.Store, args []string) int {
 			break
 		}
 
-		exitCode, _ := executeCommand(ctx, store, argv[0], argv[1:])
+		exitCode, _ := executeCommand(ctx, repository, argv[0], argv[1:])
 		if exitCode == -1 {
 			fmt.Fprintf(os.Stderr, "%s: unsupported command: %s", flag.CommandLine.Name(), argv[0])
 		}

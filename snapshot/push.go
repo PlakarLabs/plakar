@@ -145,7 +145,7 @@ func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Ob
 }
 
 func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string) (*Object, error) {
-	cache := snapshot.store.GetCache()
+	cache := snapshot.repository.GetCache()
 
 	if cache == nil {
 		return nil, nil
@@ -275,7 +275,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 }
 
 func (snapshot *Snapshot) Push(scanDirs []string) error {
-	cache := snapshot.store.Cache
+	cache := snapshot.repository.Cache
 
 	for _, scanDir := range scanDirs {
 		scanDir, err := filepath.Abs(scanDir)

@@ -28,7 +28,7 @@ func init() {
 	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_checksum(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -37,7 +37,7 @@ func cmd_checksum(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1

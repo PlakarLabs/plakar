@@ -42,7 +42,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 )
 
-var lstore *storage.Store
+var lstore *storage.Repository
 var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
@@ -88,7 +88,7 @@ func templateFunctions() TemplateFunctions {
 	}
 }
 
-func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
+func getSnapshots(store *storage.Repository) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := snapshot.List(store)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func getSnapshots(store *storage.Store) ([]*snapshot.Snapshot, error) {
 	return result, nil
 }
 
-func getMetadatas(store *storage.Store) ([]*snapshot.Metadata, error) {
+func getMetadatas(store *storage.Repository) ([]*snapshot.Metadata, error) {
 	snapshotsList, err := snapshot.List(store)
 	if err != nil {
 		return nil, err
@@ -222,7 +222,7 @@ func viewStore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Store         storage.StoreConfig
+		Store         storage.RepositoryConfig
 		Metadatas     []*snapshot.Metadata
 		MajorTypes    map[string]uint64
 		MimeTypes     map[string]uint64
@@ -600,7 +600,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(store *storage.Store, spawn bool) error {
+func Ui(store *storage.Repository, spawn bool) error {
 	lstore = store
 	lcache = nil
 

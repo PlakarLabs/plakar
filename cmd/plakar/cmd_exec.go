@@ -32,7 +32,7 @@ func init() {
 	registerCommand("exec", cmd_exec)
 }
 
-func cmd_exec(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -41,7 +41,7 @@ func cmd_exec(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(store, []string{flags.Args()[0]})
+	snapshots, err := getSnapshots(repository, []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}

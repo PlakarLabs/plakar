@@ -32,8 +32,8 @@ type inflight struct {
 	Chan chan network.Request
 }
 
-type ClientStore struct {
-	config storage.StoreConfig
+type ClientRepository struct {
+	config storage.RepositoryConfig
 
 	Cache *cache.Cache
 
@@ -49,12 +49,12 @@ type ClientStore struct {
 	notifications        chan network.Request
 	maxConcurrentRequest chan bool
 
-	storage.StoreBackend
+	storage.RepositoryBackend
 }
 
 type ClientTransaction struct {
 	Uuid  string
-	store *ClientStore
+	store *ClientRepository
 
 	storage.TransactionBackend
 }

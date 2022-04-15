@@ -36,18 +36,18 @@ type Plakar struct {
 	Cache *cache.Cache
 }
 
-var commands map[string]func(Plakar, *storage.Store, []string) int = make(map[string]func(Plakar, *storage.Store, []string) int)
+var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
 
-func registerCommand(command string, fn func(Plakar, *storage.Store, []string) int) {
+func registerCommand(command string, fn func(Plakar, *storage.Repository, []string) int) {
 	commands[command] = fn
 }
 
-func executeCommand(ctx Plakar, store *storage.Store, command string, args []string) (int, error) {
+func executeCommand(ctx Plakar, repository *storage.Repository, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
-	return fn(ctx, store, args), nil
+	return fn(ctx, repository, args), nil
 }
 
 func main() {
@@ -176,14 +176,14 @@ func entryPoint() int {
 		return cmd_create(ctx, args)
 	}
 
-	store, err := storage.Open(ctx.Repository)
+	repository, err := storage.Open(ctx.Repository)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
 	}
 
 	var secret []byte
-	if store.Configuration().Encryption != "" {
+	if repository.Configuration().Encryption != "" {
 		for {
 			passphrase, err := helpers.GetPassphrase("repository")
 			if err != nil {
@@ -191,7 +191,7 @@ func entryPoint() int {
 				continue
 			}
 
-			secret, err = encryption.DeriveSecret(passphrase, store.Configuration().Encryption)
+			secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().Encryption)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
@@ -202,16 +202,16 @@ func entryPoint() int {
 	}
 
 	//
-	store.SetSecret(secret)
-	store.SetCache(ctx.Cache)
-	store.SetUsername(ctx.Username)
-	store.SetHostname(ctx.Hostname)
-	store.SetCommandLine(ctx.CommandLine)
-	store.SetMachineID(ctx.MachineID)
+	repository.SetSecret(secret)
+	repository.SetCache(ctx.Cache)
+	repository.SetUsername(ctx.Username)
+	repository.SetHostname(ctx.Hostname)
+	repository.SetCommandLine(ctx.CommandLine)
+	repository.SetMachineID(ctx.MachineID)
 
-	// commands below all operate on an open store
+	// commands below all operate on an open repository
 	t0 := time.Now()
-	status, err := executeCommand(ctx, store, command, args)
+	status, err := executeCommand(ctx, repository, command, args)
 	t1 := time.Since(t0)
 
 	if err != nil {
@@ -222,7 +222,7 @@ func entryPoint() int {
 		logger.Printf("time: %s", t1)
 	}
 
-	store.Close()
+	repository.Close()
 
 	if !opt_nocache {
 		ctx.Cache.Commit()

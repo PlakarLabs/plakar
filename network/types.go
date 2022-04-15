@@ -16,7 +16,7 @@ type ReqOpen struct {
 }
 
 type ResOpen struct {
-	StoreConfig storage.StoreConfig
+	RepositoryConfig storage.RepositoryConfig
 }
 
 type ReqGetChunks struct {

@@ -12,21 +12,21 @@ import (
 )
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
-	secret := snapshot.store.GetSecret()
-	cache := snapshot.store.GetCache()
+	secret := snapshot.repository.GetSecret()
+	cache := snapshot.repository.GetCache()
 
 	pathHash := sha256.New()
 	pathHash.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
 
-	data, err := cache.GetPath(snapshot.store.Configuration().Uuid, hashedPath)
+	data, err := cache.GetPath(snapshot.repository.Configuration().Uuid, hashedPath)
 	if err != nil {
 		logger.Trace("%s: cache.GetPath(%s): KO", snapshot.Metadata.Uuid, pathname)
 		return nil, err
 	}
 	logger.Trace("%s: cache.GetPath(%s): OK", snapshot.Metadata.Uuid, pathname)
 
-	if snapshot.store.Configuration().Encryption != "" {
+	if snapshot.repository.Configuration().Encryption != "" {
 		tmp, err := encryption.Decrypt(secret, data)
 		if err != nil {
 			return nil, err
@@ -49,8 +49,8 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 }
 
 func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
-	secret := snapshot.store.GetSecret()
-	cache := snapshot.store.GetCache()
+	secret := snapshot.repository.GetSecret()
+	cache := snapshot.repository.GetCache()
 
 	pathHash := sha256.New()
 	pathHash.Write([]byte(pathname))
@@ -74,7 +74,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 	}
 
 	jobject = compression.Deflate(jobject)
-	if snapshot.store.Configuration().Encryption != "" {
+	if snapshot.repository.Configuration().Encryption != "" {
 		tmp, err := encryption.Encrypt(secret, jobject)
 		if err != nil {
 			return err
@@ -83,6 +83,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 	}
 
 	logger.Trace("%s: cache.PutPath(%s)", snapshot.Metadata.Uuid, pathname)
-	cache.PutPath(snapshot.store.Configuration().Uuid, hashedPath, jobject)
+	cache.PutPath(snapshot.repository.Configuration().Uuid, hashedPath, jobject)
 	return nil
 }

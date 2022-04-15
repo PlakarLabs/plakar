@@ -32,15 +32,15 @@ func init() {
 	registerCommand("info", cmd_info)
 }
 
-func cmd_info(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return info_plakar(store)
+		return info_plakar(repository)
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,8 +66,8 @@ func cmd_info(ctx Plakar, store *storage.Store, args []string) int {
 	return 0
 }
 
-func info_plakar(store *storage.Store) int {
-	indexes, err := store.GetIndexes()
+func info_plakar(repository *storage.Repository) int {
+	indexes, err := repository.GetIndexes()
 	if err != nil {
 		logger.Warn("%s", err)
 		return 1
@@ -86,7 +86,7 @@ func info_plakar(store *storage.Store) int {
 	objectsSize := uint64(0)
 	dedupedObjectsSize := uint64(0)
 	for _, index := range indexes {
-		snap, err := snapshot.Load(store, index)
+		snap, err := snapshot.Load(repository, index)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -112,14 +112,14 @@ func info_plakar(store *storage.Store) int {
 		}
 	}
 
-	chunksChecksums, err := store.GetChunks()
+	chunksChecksums, err := repository.GetChunks()
 	if err != nil {
 		logger.Warn("%s", err)
 		errors++
 		return 1
 	}
 
-	objectsChecksums, err := store.GetObjects()
+	objectsChecksums, err := repository.GetObjects()
 	if err != nil {
 		logger.Warn("%s", err)
 		errors++
@@ -139,14 +139,14 @@ func info_plakar(store *storage.Store) int {
 	}
 
 	for chunkChecksum, count := range chunks {
-		refCount, err := store.GetChunkRefCount(chunkChecksum)
+		refCount, err := repository.GetChunkRefCount(chunkChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
 		} else if refCount != uint64(count) {
 			errors++
 		}
-		size, err := store.GetChunkSize(chunkChecksum)
+		size, err := repository.GetChunkSize(chunkChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -157,14 +157,14 @@ func info_plakar(store *storage.Store) int {
 	}
 
 	for objectChecksum, count := range objects {
-		refCount, err := store.GetObjectRefCount(objectChecksum)
+		refCount, err := repository.GetObjectRefCount(objectChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
 		} else if refCount != uint64(count) {
 			errors++
 		}
-		size, err := store.GetObjectSize(objectChecksum)
+		size, err := repository.GetObjectSize(objectChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -183,19 +183,19 @@ func info_plakar(store *storage.Store) int {
 		dedupedObjectsPercentage = float64(dedupedObjectsSize-objectsSize) / float64(dedupedObjectsSize) * 100
 	}
 
-	if store.Configuration().Encryption != "" {
-		fmt.Println("Encryption:", store.Configuration().Encryption)
+	if repository.Configuration().Encryption != "" {
+		fmt.Println("Encryption:", repository.Configuration().Encryption)
 	} else {
 		fmt.Println("Encryption:", "no")
 	}
-	if store.Configuration().Compression != "" {
-		fmt.Println("Compression:", store.Configuration().Compression)
+	if repository.Configuration().Compression != "" {
+		fmt.Println("Compression:", repository.Configuration().Compression)
 	} else {
 		fmt.Println("Compression:", "no")
 	}
 	fmt.Println("Snapshots:", len(indexes))
-	fmt.Printf("Chunks: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
-	fmt.Printf("Objects: %d (store size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
+	fmt.Printf("Chunks: %d (repository size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
+	fmt.Printf("Objects: %d (repository size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
 
 	return 0
 }

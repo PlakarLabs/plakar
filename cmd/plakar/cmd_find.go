@@ -32,7 +32,7 @@ func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -41,12 +41,12 @@ func cmd_find(ctx Plakar, store *storage.Store, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(store)
+	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(store, snapshotUuid)
+		snap, err := snapshot.Load(repository, snapshotUuid)
 		if err != nil {
 			log.Fatal(err)
 			return 1

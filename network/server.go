@@ -11,7 +11,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func Server(store *storage.Store, addr string) {
+func Server(repository *storage.Repository, addr string) {
 
 	ProtocolRegister()
 
@@ -26,11 +26,11 @@ func Server(store *storage.Store, addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(store, c)
+		go handleConnection(repository, c)
 	}
 }
 
-func handleConnection(store *storage.Store, conn net.Conn) {
+func handleConnection(repository *storage.Repository, conn net.Conn) {
 	decoder := gob.NewDecoder(conn)
 	encoder := gob.NewEncoder(conn)
 
@@ -56,7 +56,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				result := Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
-					Payload: ResOpen{StoreConfig: store.Configuration()},
+					Payload: ResOpen{RepositoryConfig: repository.Configuration()},
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -69,7 +69,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetIndexes", clientUuid)
-				indexes, err := store.GetIndexes()
+				indexes, err := repository.GetIndexes()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndexes",
@@ -89,7 +89,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetChunks", clientUuid)
-				chunks, err := store.GetChunks()
+				chunks, err := repository.GetChunks()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetChunks",
@@ -109,7 +109,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetObjects", clientUuid)
-				objects, err := store.GetObjects()
+				objects, err := repository.GetObjects()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetObjects",
@@ -129,7 +129,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetMetadata).Uuid)
-				data, err := store.GetMetadata(request.Payload.(ReqGetMetadata).Uuid)
+				data, err := repository.GetMetadata(request.Payload.(ReqGetMetadata).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetMetadata",
@@ -149,7 +149,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetIndex(%s)", clientUuid, request.Payload.(ReqGetIndex).Uuid)
-				data, err := store.GetIndex(request.Payload.(ReqGetIndex).Uuid)
+				data, err := repository.GetIndex(request.Payload.(ReqGetIndex).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndex",
@@ -169,7 +169,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetObject(%s)", clientUuid, request.Payload.(ReqGetObject).Checksum)
-				data, err := store.GetObject(request.Payload.(ReqGetObject).Checksum)
+				data, err := repository.GetObject(request.Payload.(ReqGetObject).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetObject",
@@ -190,7 +190,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: GetChunk(%s)", clientUuid, request.Payload.(ReqGetChunk).Checksum)
-				data, err := store.GetChunk(request.Payload.(ReqGetChunk).Checksum)
+				data, err := repository.GetChunk(request.Payload.(ReqGetChunk).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetChunk",
@@ -211,7 +211,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
-				exists, err := store.CheckObject(request.Payload.(ReqCheckObject).Checksum)
+				exists, err := repository.CheckObject(request.Payload.(ReqCheckObject).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResCheckObject",
@@ -232,7 +232,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
-				exists, err := store.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
+				exists, err := repository.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResCheckChunk",
@@ -253,7 +253,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
-				err := store.Purge(request.Payload.(ReqPurge).Uuid)
+				err := repository.Purge(request.Payload.(ReqPurge).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPurge",
@@ -273,7 +273,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: Transaction", clientUuid)
-				tx, err := store.Transaction()
+				tx, err := repository.Transaction()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResTransaction",
@@ -449,7 +449,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: Close()", clientUuid)
-				err := store.Close()
+				err := repository.Close()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResClose",

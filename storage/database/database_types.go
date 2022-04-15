@@ -33,8 +33,8 @@ type inflight struct {
 	Chan chan network.Request
 }
 
-type DatabaseStore struct {
-	config storage.StoreConfig
+type DatabaseRepository struct {
+	config storage.RepositoryConfig
 
 	Cache *cache.Cache
 
@@ -45,12 +45,12 @@ type DatabaseStore struct {
 
 	Repository string
 
-	storage.StoreBackend
+	storage.RepositoryBackend
 }
 
 type DatabaseTransaction struct {
-	Uuid  string
-	store *DatabaseStore
+	Uuid       string
+	repository *DatabaseRepository
 
 	dbTx *sql.Tx
 	storage.TransactionBackend

@@ -30,7 +30,7 @@ func init() {
 	registerCommand("push", cmd_push)
 }
 
-func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,7 +40,7 @@ func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snap, err := snapshot.New(store)
+	snap, err := snapshot.New(repository)
 	if err != nil {
 		logger.Error("%s", err)
 		return 1

@@ -31,10 +31,10 @@ import (
 )
 
 var muBackends sync.Mutex
-var backends map[string]func() StoreBackend = make(map[string]func() StoreBackend)
+var backends map[string]func() RepositoryBackend = make(map[string]func() RepositoryBackend)
 
-type Store struct {
-	backend StoreBackend
+type Repository struct {
+	backend RepositoryBackend
 
 	Username    string
 	Hostname    string
@@ -50,7 +50,7 @@ type Transaction struct {
 	backend TransactionBackend
 }
 
-func Register(name string, backend func() StoreBackend) {
+func Register(name string, backend func() RepositoryBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -74,15 +74,15 @@ func Backends() []string {
 	return ret
 }
 
-func New(repository string) (*Store, error) {
+func New(location string) (*Repository, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
 	var backendName string
-	if !strings.HasPrefix(repository, "/") {
-		if strings.HasPrefix(repository, "plakar://") {
+	if !strings.HasPrefix(location, "/") {
+		if strings.HasPrefix(location, "plakar://") {
 			backendName = "client"
-		} else if strings.HasPrefix(repository, "sqlite://") {
+		} else if strings.HasPrefix(location, "sqlite://") {
 			backendName = "database"
 		} else {
 			return nil, fmt.Errorf("unsupported plakar protocol")
@@ -94,14 +94,14 @@ func New(repository string) (*Store, error) {
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
-		store := &Store{}
-		store.backend = backend()
-		return store, nil
+		repository := &Repository{}
+		repository.backend = backend()
+		return repository, nil
 	}
 }
 
-func Open(repository string) (*Store, error) {
-	store, err := New(repository)
+func Open(location string) (*Repository, error) {
+	repository, err := New(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return nil, err
@@ -109,18 +109,18 @@ func Open(repository string) (*Store, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Open(%s): %s", repository, time.Since(t0))
+		logger.Profile("storage: Open(%s): %s", location, time.Since(t0))
 	}()
 
-	err = store.backend.Open(repository)
+	err = repository.backend.Open(location)
 	if err != nil {
 		return nil, err
 	}
-	return store, nil
+	return repository, nil
 }
 
-func Create(repository string, configuration StoreConfig) (*Store, error) {
-	store, err := New(repository)
+func Create(location string, configuration RepositoryConfig) (*Repository, error) {
+	repository, err := New(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return nil, err
@@ -128,83 +128,83 @@ func Create(repository string, configuration StoreConfig) (*Store, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Create(%s): %s", repository, time.Since(t0))
+		logger.Profile("storage: Create(%s): %s", location, time.Since(t0))
 	}()
 
-	err = store.backend.Create(repository, configuration)
+	err = repository.backend.Create(location, configuration)
 	if err != nil {
 		return nil, err
 	}
-	return store, nil
+	return repository, nil
 }
 
-func (store *Store) GetCache() *cache.Cache {
-	return store.Cache
+func (repository *Repository) GetCache() *cache.Cache {
+	return repository.Cache
 }
 
-func (store *Store) GetSecret() []byte {
-	if len(store.Key) == 0 {
+func (repository *Repository) GetSecret() []byte {
+	if len(repository.Key) == 0 {
 		return nil
 	}
-	return store.Key
+	return repository.Key
 }
 
-func (store *Store) GetUsername() string {
-	return store.Username
+func (repository *Repository) GetUsername() string {
+	return repository.Username
 }
 
-func (store *Store) GetHostname() string {
-	return store.Hostname
+func (repository *Repository) GetHostname() string {
+	return repository.Hostname
 }
 
-func (store *Store) GetCommandLine() string {
-	return store.CommandLine
+func (repository *Repository) GetCommandLine() string {
+	return repository.CommandLine
 }
 
-func (store *Store) GetMachineID() string {
-	return store.MachineID
+func (repository *Repository) GetMachineID() string {
+	return repository.MachineID
 }
 
-func (store *Store) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
+func (repository *Repository) SetCache(localCache *cache.Cache) error {
+	repository.Cache = localCache
 	return nil
 }
 
-func (store *Store) SetSecret(secret []byte) error {
-	store.Key = secret
+func (repository *Repository) SetSecret(secret []byte) error {
+	repository.Key = secret
 	return nil
 }
 
-func (store *Store) SetUsername(username string) error {
-	store.Username = username
+func (repository *Repository) SetUsername(username string) error {
+	repository.Username = username
 	return nil
 }
 
-func (store *Store) SetHostname(hostname string) error {
-	store.Hostname = hostname
+func (repository *Repository) SetHostname(hostname string) error {
+	repository.Hostname = hostname
 	return nil
 }
 
-func (store *Store) SetCommandLine(commandLine string) error {
-	store.CommandLine = commandLine
+func (repository *Repository) SetCommandLine(commandLine string) error {
+	repository.CommandLine = commandLine
 	return nil
 }
 
-func (store *Store) SetMachineID(machineID string) error {
-	store.MachineID = machineID
+func (repository *Repository) SetMachineID(machineID string) error {
+	repository.MachineID = machineID
 	return nil
 }
 
-func (store *Store) Configuration() StoreConfig {
-	return store.backend.Configuration()
+func (repository *Repository) Configuration() RepositoryConfig {
+	return repository.backend.Configuration()
 }
 
-func (store *Store) Transaction() (*Transaction, error) {
+func (repository *Repository) Transaction() (*Transaction, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Transaction(): %s", time.Since(t0))
 	}()
-	tx, err := store.backend.Transaction()
+	tx, err := repository.backend.Transaction()
 	if err != nil {
 		return nil, err
 	}
@@ -214,204 +214,204 @@ func (store *Store) Transaction() (*Transaction, error) {
 	return wrapperTx, nil
 }
 
-func (store *Store) GetIndexes() ([]string, error) {
+func (repository *Repository) GetIndexes() ([]string, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexes(): %s", time.Since(t0))
 	}()
-	return store.backend.GetIndexes()
+	return repository.backend.GetIndexes()
 }
 
-func (store *Store) GetMetadata(id string) ([]byte, error) {
+func (repository *Repository) GetMetadata(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetMetadata(%s): %s", id, time.Since(t0))
 	}()
-	return store.backend.GetMetadata(id)
+	return repository.backend.GetMetadata(id)
 }
 
-func (store *Store) GetIndex(id string) ([]byte, error) {
+func (repository *Repository) GetIndex(id string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndex(%s): %s", id, time.Since(t0))
 	}()
-	return store.backend.GetIndex(id)
+	return repository.backend.GetIndex(id)
 }
 
-func (store *Store) PutMetadata(id string, data []byte) error {
+func (repository *Repository) PutMetadata(id string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutMetadata(%s): %s", id, time.Since(t0))
 	}()
-	return store.backend.PutMetadata(id, data)
+	return repository.backend.PutMetadata(id, data)
 }
 
-func (store *Store) PutIndex(id string, data []byte) error {
+func (repository *Repository) PutIndex(id string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutIndex(%s): %s", id, time.Since(t0))
 	}()
-	return store.backend.PutIndex(id, data)
+	return repository.backend.PutIndex(id, data)
 }
 
-func (store *Store) GetIndexObject(id string, checksum string) ([]byte, error) {
+func (repository *Repository) GetIndexObject(id string, checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.GetIndexObject(id, checksum)
+	return repository.backend.GetIndexObject(id, checksum)
 }
 
-func (store *Store) GetIndexChunk(id string, checksum string) ([]byte, error) {
+func (repository *Repository) GetIndexChunk(id string, checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexObject(%s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.GetIndexChunk(id, checksum)
+	return repository.backend.GetIndexChunk(id, checksum)
 }
 
-func (store *Store) ReferenceIndexChunk(id string, checksum string) error {
+func (repository *Repository) ReferenceIndexChunk(id string, checksum string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexChunk(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.ReferenceIndexChunk(id, checksum)
+	return repository.backend.ReferenceIndexChunk(id, checksum)
 }
 
-func (store *Store) ReferenceIndexObject(id string, checksum string) error {
+func (repository *Repository) ReferenceIndexObject(id string, checksum string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.ReferenceIndexObject(id, checksum)
+	return repository.backend.ReferenceIndexObject(id, checksum)
 }
 
-func (store *Store) GetObjects() ([]string, error) {
+func (repository *Repository) GetObjects() ([]string, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjects(): %s", time.Since(t0))
 	}()
-	return store.backend.GetObjects()
+	return repository.backend.GetObjects()
 }
 
-func (store *Store) GetObject(checksum string) ([]byte, error) {
+func (repository *Repository) GetObject(checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObject(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetObject(checksum)
+	return repository.backend.GetObject(checksum)
 }
 
-func (store *Store) PutObject(checksum string, data []byte) error {
+func (repository *Repository) PutObject(checksum string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutObject(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.PutObject(checksum, data)
+	return repository.backend.PutObject(checksum, data)
 }
 
-func (store *Store) GetObjectRefCount(checksum string) (uint64, error) {
+func (repository *Repository) GetObjectRefCount(checksum string) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjectRefCount(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetObjectRefCount(checksum)
+	return repository.backend.GetObjectRefCount(checksum)
 }
 
-func (store *Store) GetObjectSize(checksum string) (uint64, error) {
+func (repository *Repository) GetObjectSize(checksum string) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjectSize(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetObjectSize(checksum)
+	return repository.backend.GetObjectSize(checksum)
 }
 
-func (store *Store) GetChunks() ([]string, error) {
+func (repository *Repository) GetChunks() ([]string, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunks(): %s", time.Since(t0))
 	}()
-	return store.backend.GetChunks()
+	return repository.backend.GetChunks()
 }
 
-func (store *Store) GetChunk(checksum string) ([]byte, error) {
+func (repository *Repository) GetChunk(checksum string) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunk(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetChunk(checksum)
+	return repository.backend.GetChunk(checksum)
 }
 
-func (store *Store) PutChunk(checksum string, data []byte) error {
+func (repository *Repository) PutChunk(checksum string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutChunk(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.PutChunk(checksum, data)
+	return repository.backend.PutChunk(checksum, data)
 }
 
-func (store *Store) GetChunkRefCount(checksum string) (uint64, error) {
+func (repository *Repository) GetChunkRefCount(checksum string) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunkRefCount(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetChunkRefCount(checksum)
+	return repository.backend.GetChunkRefCount(checksum)
 }
 
-func (store *Store) GetChunkSize(checksum string) (uint64, error) {
+func (repository *Repository) GetChunkSize(checksum string) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunkSize(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.GetChunkSize(checksum)
+	return repository.backend.GetChunkSize(checksum)
 }
 
-func (store *Store) CheckIndexObject(id string, checksum string) (bool, error) {
+func (repository *Repository) CheckIndexObject(id string, checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckIndexObject(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.CheckIndexObject(id, checksum)
+	return repository.backend.CheckIndexObject(id, checksum)
 }
 
-func (store *Store) CheckIndexChunk(id string, checksum string) (bool, error) {
+func (repository *Repository) CheckIndexChunk(id string, checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckIndexChunk(%s, %s): %s", id, checksum, time.Since(t0))
 	}()
-	return store.backend.CheckIndexChunk(id, checksum)
+	return repository.backend.CheckIndexChunk(id, checksum)
 }
 
-func (store *Store) CheckObject(checksum string) (bool, error) {
+func (repository *Repository) CheckObject(checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckObject(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.CheckObject(checksum)
+	return repository.backend.CheckObject(checksum)
 }
 
-func (store *Store) CheckChunk(checksum string) (bool, error) {
+func (repository *Repository) CheckChunk(checksum string) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckChunk(%s): %s", checksum, time.Since(t0))
 	}()
-	return store.backend.CheckChunk(checksum)
+	return repository.backend.CheckChunk(checksum)
 }
 
-func (store *Store) Purge(id string) error {
+func (repository *Repository) Purge(id string) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Purge(%s): %s", id, time.Since(t0))
 	}()
-	return store.backend.Purge(id)
+	return repository.backend.Purge(id)
 }
 
-func (store *Store) Close() error {
+func (repository *Repository) Close() error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: Close(): %s", time.Since(t0))
 	}()
-	return store.backend.Close()
+	return repository.backend.Close()
 }
 
 func (transaction *Transaction) GetUuid() string {

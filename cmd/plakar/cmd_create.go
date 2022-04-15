@@ -36,13 +36,13 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.BoolVar(&opt_nocompression, "no-compression", false, "disable transparent compression")
 	flags.Parse(args)
 
-	storeConfig := storage.StoreConfig{}
-	storeConfig.Version = storage.VERSION
-	storeConfig.Uuid = uuid.NewString()
+	repositoryConfig := storage.RepositoryConfig{}
+	repositoryConfig.Version = storage.VERSION
+	repositoryConfig.Uuid = uuid.NewString()
 	if opt_nocompression {
-		storeConfig.Compression = ""
+		repositoryConfig.Compression = ""
 	} else {
-		storeConfig.Compression = "gzip"
+		repositoryConfig.Compression = "gzip"
 	}
 
 	if !opt_noencryption {
@@ -56,18 +56,18 @@ func cmd_create(ctx Plakar, args []string) int {
 			passphrase = tmp
 			break
 		}
-		storeConfig.Encryption = encryption.BuildSecretFromPassphrase(passphrase)
+		repositoryConfig.Encryption = encryption.BuildSecretFromPassphrase(passphrase)
 	}
 
 	switch flags.NArg() {
 	case 0:
-		_, err := storage.Create(ctx.Repository, storeConfig)
+		_, err := storage.Create(ctx.Repository, repositoryConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 	case 1:
-		_, err := storage.Create(flags.Arg(0), storeConfig)
+		_, err := storage.Create(flags.Arg(0), repositoryConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1

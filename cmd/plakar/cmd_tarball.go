@@ -36,7 +36,7 @@ func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 
@@ -54,7 +54,7 @@ func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

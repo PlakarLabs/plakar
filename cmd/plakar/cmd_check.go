@@ -30,7 +30,7 @@ func init() {
 	registerCommand("check", cmd_check)
 }
 
-func cmd_check(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
@@ -38,10 +38,10 @@ func cmd_check(ctx Plakar, store *storage.Store, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		return check_plakar(store)
+		return check_plakar(repository)
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,8 +66,8 @@ func cmd_check(ctx Plakar, store *storage.Store, args []string) int {
 	return 0
 }
 
-func check_plakar(store *storage.Store) int {
-	indexes, err := store.GetIndexes()
+func check_plakar(repository *storage.Repository) int {
+	indexes, err := repository.GetIndexes()
 	if err != nil {
 		logger.Warn("%s", err)
 		return 1
@@ -82,7 +82,7 @@ func check_plakar(store *storage.Store) int {
 	errors := 0
 
 	for _, index := range indexes {
-		snap, err := snapshot.Load(store, index)
+		snap, err := snapshot.Load(repository, index)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -108,14 +108,14 @@ func check_plakar(store *storage.Store) int {
 		}
 	}
 
-	chunksChecksums, err := store.GetChunks()
+	chunksChecksums, err := repository.GetChunks()
 	if err != nil {
 		logger.Warn("%s", err)
 		errors++
 		return 1
 	}
 
-	objectsChecksums, err := store.GetObjects()
+	objectsChecksums, err := repository.GetObjects()
 	if err != nil {
 		logger.Warn("%s", err)
 		errors++
@@ -137,7 +137,7 @@ func check_plakar(store *storage.Store) int {
 	}
 
 	for chunkChecksum, count := range chunks {
-		refCount, err := store.GetChunkRefCount(chunkChecksum)
+		refCount, err := repository.GetChunkRefCount(chunkChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++
@@ -148,7 +148,7 @@ func check_plakar(store *storage.Store) int {
 	}
 
 	for objectChecksum, count := range objects {
-		refCount, err := store.GetObjectRefCount(objectChecksum)
+		refCount, err := repository.GetObjectRefCount(objectChecksum)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++

@@ -103,26 +103,37 @@ func cmd_clone(ctx Plakar, store *storage.Store, args []string) int {
 			}
 		}
 
-		for _, index := range indexes {
-			data, err := sourceStore.GetIndex(index)
+		for _, indexID := range indexes {
+			data, err := sourceStore.GetMetadata(indexID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get metadata from store: %s\n", ctx.Repository, err)
+				return 1
+			}
+			err = cloneStore.PutMetadata(indexID, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not write metadata to store: %s\n", repository, err)
+				return 1
+			}
+
+			data, err = sourceStore.GetIndex(indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from store: %s\n", ctx.Repository, err)
 				return 1
 			}
-			err = cloneStore.PutIndex(index, data)
+			err = cloneStore.PutIndex(indexID, data)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not write object to store: %s\n", repository, err)
+				fmt.Fprintf(os.Stderr, "%s: could not write index to store: %s\n", repository, err)
 				return 1
 			}
 
-			snap, err := snapshot.Load(cloneStore, index)
+			snap, err := snapshot.Load(cloneStore, indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not load index from store: %s\n", repository, err)
 				return 1
 			}
 
 			for _, chunk := range snap.Index.Chunks {
-				err = cloneStore.ReferenceIndexChunk(index, chunk.Checksum)
+				err = cloneStore.ReferenceIndexChunk(indexID, chunk.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in store: %s\n", repository, err)
 					return 1
@@ -130,7 +141,7 @@ func cmd_clone(ctx Plakar, store *storage.Store, args []string) int {
 			}
 
 			for _, object := range snap.Index.Objects {
-				err = cloneStore.ReferenceIndexObject(index, object.Checksum)
+				err = cloneStore.ReferenceIndexObject(indexID, object.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference object in store: %s\n", repository, err)
 					return 1

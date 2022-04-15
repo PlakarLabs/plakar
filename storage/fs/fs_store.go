@@ -91,6 +91,8 @@ func (store *FSStore) Create(repository string, config storage.StoreConfig) erro
 		return err
 	}
 
+	store.config = config
+
 	return nil
 }
 

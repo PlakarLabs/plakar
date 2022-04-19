@@ -397,6 +397,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	}
 
 	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
+	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
+	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.Pathnames))
 
 	return snapshot.Commit()
 }

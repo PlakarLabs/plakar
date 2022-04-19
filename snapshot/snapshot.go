@@ -463,6 +463,7 @@ func (snapshot *Snapshot) Commit() error {
 	indexChecksum := sha256.Sum256(serializedIndex)
 	snapshot.Metadata.Checksum = indexChecksum[:]
 
+	snapshot.Metadata.IndexSize = uint64(len(serializedIndex))
 	serializedMetadata, err := metadataToBytes(snapshot.Metadata)
 	if err != nil {
 		return err

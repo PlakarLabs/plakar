@@ -33,6 +33,8 @@ type Statistics struct {
 	Objects     uint64
 	Files       uint64
 	Directories uint64
+	NonRegular  uint64
+	Pathnames   uint64
 
 	Kind      map[string]uint64
 	Type      map[string]uint64
@@ -56,6 +58,8 @@ type Metadata struct {
 	Checksum     []byte
 
 	ScannedDirectories []string
+
+	IndexSize uint64
 
 	Statistics Statistics
 }

@@ -40,27 +40,29 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		return info_plakar(repository)
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	metadatas, err := getMetadatas(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, snapshot := range snapshots {
-		fmt.Printf("Uuid: %s\n", snapshot.Metadata.Uuid)
-		fmt.Printf("CreationTime: %s\n", snapshot.Metadata.CreationTime)
-		fmt.Printf("Version: %s\n", snapshot.Metadata.Version)
-		fmt.Printf("Hostname: %s\n", snapshot.Metadata.Hostname)
-		fmt.Printf("Username: %s\n", snapshot.Metadata.Username)
-		fmt.Printf("CommandLine: %s\n", snapshot.Metadata.CommandLine)
-		fmt.Printf("MachineID: %s\n", snapshot.Metadata.MachineID)
-		fmt.Printf("PublicKey: %s\n", snapshot.Metadata.PublicKey)
-		fmt.Printf("Directories: %d\n", len(snapshot.Index.Filesystem.Directories))
-		fmt.Printf("Files: %d\n", len(snapshot.Index.Filesystem.Files))
-		fmt.Printf("NonRegular: %d\n", len(snapshot.Index.Filesystem.NonRegular))
-		fmt.Printf("Sums: %d\n", len(snapshot.Index.Pathnames))
-		fmt.Printf("Objects: %d\n", len(snapshot.Index.Objects))
-		fmt.Printf("Chunks: %d\n", len(snapshot.Index.Chunks))
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(snapshot.Metadata.Size), snapshot.Metadata.Size)
+	for _, metadata := range metadatas {
+		fmt.Printf("Uuid: %s\n", metadata.Uuid)
+		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
+		fmt.Printf("Version: %s\n", metadata.Version)
+		fmt.Printf("Hostname: %s\n", metadata.Hostname)
+		fmt.Printf("Username: %s\n", metadata.Username)
+		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
+		fmt.Printf("MachineID: %s\n", metadata.MachineID)
+		fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
+		fmt.Printf("Directories: %d\n", metadata.Statistics.Directories)
+		fmt.Printf("Files: %d\n", metadata.Statistics.Files)
+		fmt.Printf("NonRegular: %d\n", metadata.Statistics.NonRegular)
+		fmt.Printf("Pathnames: %d\n", metadata.Statistics.Pathnames)
+		fmt.Printf("Objects: %d\n", metadata.Statistics.Objects)
+		fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
+		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
+		fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
+
 	}
 
 	return 0

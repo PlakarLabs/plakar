@@ -156,9 +156,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		directories := make([]string, 0)
-		for _, name := range snapshot.Index.Filesystem.ListDirectories() {
-			directories = append(directories, name)
-		}
+		directories = append(directories, snapshot.Index.Filesystem.ListDirectories()...)
 		sort.Slice(directories, func(i, j int) bool {
 			return strings.Compare(directories[i], directories[j]) < 0
 		})
@@ -171,9 +169,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		for _, name := range snapshot.Index.Filesystem.ListFiles() {
-			filenames = append(filenames, name)
-		}
+		filenames = append(filenames, snapshot.Index.Filesystem.ListFiles()...)
 		sort.Slice(filenames, func(i, j int) bool {
 			return strings.Compare(filenames[i], filenames[j]) < 0
 		})
@@ -209,9 +205,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 
 func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory string) {
 	directories := make([]string, 0)
-	for _, name := range snapshot.Index.Filesystem.ListDirectories() {
-		directories = append(directories, name)
-	}
+	directories = append(directories, snapshot.Index.Filesystem.ListDirectories()...)
 	sort.Slice(directories, func(i, j int) bool {
 		return strings.Compare(directories[i], directories[j]) < 0
 	})
@@ -248,9 +242,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	}
 
 	filenames := make([]string, 0)
-	for _, name := range snapshot.Index.Filesystem.ListFiles() {
-		filenames = append(filenames, name)
-	}
+	filenames = append(filenames, snapshot.Index.Filesystem.ListFiles()...)
 	sort.Slice(filenames, func(i, j int) bool {
 		return strings.Compare(filenames[i], filenames[j]) < 0
 	})

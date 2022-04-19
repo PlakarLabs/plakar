@@ -123,7 +123,7 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: GetMetadata(%s)", Uuid)
+		logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
 		tmp, err := repository.GetMetadata(Uuid)
 		if err != nil {
 			return nil, false, err
@@ -199,7 +199,7 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: GetIndex(%s)", Uuid)
+		logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
 		tmp, err := repository.GetIndex(Uuid)
 		if err != nil {
 			return nil, nil, err

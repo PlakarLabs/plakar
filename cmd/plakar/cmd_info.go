@@ -62,7 +62,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
 		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
 		fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
-
 	}
 
 	return 0

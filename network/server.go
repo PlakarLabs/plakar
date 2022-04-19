@@ -247,6 +247,86 @@ func handleConnection(repository *storage.Repository, conn net.Conn) {
 				}
 			}()
 
+		case "ReqGetChunkRefCount":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetChunkRefCount(%s)", clientUuid, request.Payload.(ReqGetChunkRefCount).Checksum)
+				refCount, err := repository.GetChunkRefCount(request.Payload.(ReqGetChunkRefCount).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetChunkRefCount",
+					Payload: ResGetChunkRefCount{
+						RefCount: refCount,
+						Err:      err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqGetObjectRefCount":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetObjectRefCount(%s)", clientUuid, request.Payload.(ReqGetObjectRefCount).Checksum)
+				refCount, err := repository.GetObjectRefCount(request.Payload.(ReqGetObjectRefCount).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetObjectRefCount",
+					Payload: ResGetObjectRefCount{
+						RefCount: refCount,
+						Err:      err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqGetChunkSize":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetChunkSize(%s)", clientUuid, request.Payload.(ReqGetChunkSize).Checksum)
+				size, err := repository.GetChunkSize(request.Payload.(ReqGetChunkSize).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetChunkSize",
+					Payload: ResGetChunkSize{
+						Size: size,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqGetObjectSize":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetObjectSize(%s)", clientUuid, request.Payload.(ReqGetObjectSize).Checksum)
+				size, err := repository.GetObjectSize(request.Payload.(ReqGetObjectSize).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetObjectSize",
+					Payload: ResGetObjectSize{
+						Size: size,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqPurge":
 			wg.Add(1)
 			go func() {

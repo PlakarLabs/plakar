@@ -187,6 +187,42 @@ type ResCommit struct {
 	Err error
 }
 
+type ReqGetChunkRefCount struct {
+	Checksum string
+}
+
+type ResGetChunkRefCount struct {
+	RefCount uint64
+	Err      error
+}
+
+type ReqGetObjectRefCount struct {
+	Checksum string
+}
+
+type ResGetObjectRefCount struct {
+	RefCount uint64
+	Err      error
+}
+
+type ReqGetObjectSize struct {
+	Checksum string
+}
+
+type ResGetObjectSize struct {
+	Size uint64
+	Err  error
+}
+
+type ReqGetChunkSize struct {
+	Checksum string
+}
+
+type ResGetChunkSize struct {
+	Size uint64
+	Err  error
+}
+
 func ProtocolRegister() {
 	gob.Register(Request{})
 
@@ -249,4 +285,16 @@ func ProtocolRegister() {
 
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})
+
+	gob.Register(ReqGetChunkRefCount{})
+	gob.Register(ResGetChunkRefCount{})
+
+	gob.Register(ReqGetObjectRefCount{})
+	gob.Register(ResGetObjectRefCount{})
+
+	gob.Register(ReqGetChunkSize{})
+	gob.Register(ResGetChunkSize{})
+
+	gob.Register(ReqGetObjectSize{})
+	gob.Register(ResGetObjectSize{})
 }

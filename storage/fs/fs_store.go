@@ -500,12 +500,16 @@ func (repository *FSRepository) Purge(id string) error {
 		return err
 	}
 
+	repository.dirty = true
+
 	return nil
 }
 
 func (repository *FSRepository) Close() error {
 	// XXX - rollback all pending transactions so they don't linger
-	repository.Tidy()
+	if repository.dirty {
+		repository.Tidy()
+	}
 	return nil
 }
 

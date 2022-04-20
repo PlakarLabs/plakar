@@ -30,8 +30,7 @@ type FSRepository struct {
 
 	Repository string
 	root       string
-
-	//SkipDirs []string
+	dirty      bool
 
 	storage.RepositoryBackend
 }

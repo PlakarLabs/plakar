@@ -135,6 +135,7 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 
 	transaction.objectsMutex.Lock()
 	transaction.objects[checksum] = true
+	transaction.repository.dirty = true
 	transaction.objectsMutex.Unlock()
 	return nil
 }
@@ -154,6 +155,7 @@ func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
 
 	transaction.chunksMutex.Lock()
 	transaction.chunks[checksum] = true
+	transaction.repository.dirty = true
 	transaction.chunksMutex.Unlock()
 	return nil
 }
@@ -189,5 +191,6 @@ func (transaction *FSTransaction) PutIndex(data []byte) error {
 }
 
 func (transaction *FSTransaction) Commit() error {
+	transaction.repository.dirty = false
 	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
 }

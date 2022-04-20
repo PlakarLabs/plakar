@@ -509,6 +509,7 @@ func (repository *FSRepository) Close() error {
 	// XXX - rollback all pending transactions so they don't linger
 	if repository.dirty {
 		repository.Tidy()
+		repository.dirty = false
 	}
 	return nil
 }

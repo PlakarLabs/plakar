@@ -5,10 +5,81 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/iafan/cwalk"
 	"github.com/poolpOrg/plakar/logger"
 )
+
+type Fileinfo struct {
+	Name    string
+	Size    int64
+	Mode    os.FileMode
+	ModTime time.Time
+	Dev     uint64
+	Ino     uint64
+	Uid     uint64
+	Gid     uint64
+}
+
+type FilesystemNode struct {
+	muNode   sync.Mutex
+	Inode    *Fileinfo
+	Children map[string]*FilesystemNode
+}
+
+type Filesystem struct {
+	Root *FilesystemNode
+
+	muScannedDirectories sync.Mutex
+	ScannedDirectories   []string
+
+	muNames sync.Mutex
+	Names   map[string][]string
+
+	muStat   sync.Mutex
+	Stat     []string
+	statInfo map[string]*Fileinfo
+
+	muLstat   sync.Mutex
+	Lstat     []string
+	lstatInfo map[string]*Fileinfo
+
+	muDirectories   sync.Mutex
+	Directories     []string
+	directoriesInfo map[string]*Fileinfo
+
+	muFiles   sync.Mutex
+	Files     []string
+	filesInfo map[string]*Fileinfo
+
+	muNonRegular   sync.Mutex
+	NonRegular     []string
+	nonRegularInfo map[string]*Fileinfo
+
+	muSymlinks sync.Mutex
+	Symlinks   map[string]string
+}
+
+func FileinfoFromStat(stat os.FileInfo) Fileinfo {
+	return Fileinfo{
+		Name:    stat.Name(),
+		Size:    stat.Size(),
+		Mode:    stat.Mode(),
+		ModTime: stat.ModTime(),
+		Dev:     uint64(stat.Sys().(*syscall.Stat_t).Dev),
+		Ino:     uint64(stat.Sys().(*syscall.Stat_t).Ino),
+		Uid:     uint64(stat.Sys().(*syscall.Stat_t).Uid),
+		Gid:     uint64(stat.Sys().(*syscall.Stat_t).Gid),
+	}
+}
+
+func (fileinfo *Fileinfo) HumanSize() string {
+	return humanize.Bytes(uint64(fileinfo.Size))
+}
 
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}

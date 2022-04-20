@@ -53,7 +53,7 @@ func cmd_shell(ctx Plakar, repository *storage.Repository, args []string) int {
 			break
 		}
 
-		exitCode, err := executeCommand(ctx, repository, argv[0], argv[1:])
+		exitCode, _ := executeCommand(ctx, repository, argv[0], argv[1:])
 		if exitCode == -1 {
 			fmt.Fprintf(os.Stderr, "%s: unsupported command: %s", flag.CommandLine.Name(), argv[0])
 		}

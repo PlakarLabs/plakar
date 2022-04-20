@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
@@ -35,6 +36,40 @@ import (
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
 )
+
+type FSRepository struct {
+	config storage.RepositoryConfig
+
+	Cache *cache.Cache
+
+	Repository string
+	root       string
+	dirty      bool
+
+	storage.RepositoryBackend
+}
+
+type FSTransaction struct {
+	Uuid       string
+	repository FSRepository
+	prepared   bool
+
+	//SkipDirs []string
+
+	chunksMutex  sync.Mutex
+	objectsMutex sync.Mutex
+
+	chunks  map[string]bool
+	objects map[string]bool
+
+	muChunkBucket sync.Mutex
+	chunkBucket   map[string]bool
+
+	muObjectBucket sync.Mutex
+	objectBucket   map[string]bool
+
+	storage.TransactionBackend
+}
 
 func init() {
 	storage.Register("filesystem", NewFSRepository)
@@ -563,4 +598,178 @@ func (repository *FSRepository) Tidy() {
 		return nil
 	})
 	wg.Wait()
+}
+
+func (transaction *FSTransaction) CreateChunkBucket(checksum string) error {
+	transaction.muChunkBucket.Lock()
+	defer transaction.muChunkBucket.Unlock()
+
+	bucket := checksum[0:2]
+	if _, exists := transaction.chunkBucket[bucket]; !exists {
+		err := os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
+		if err != nil {
+			return err
+		}
+		transaction.chunkBucket[bucket] = true
+	}
+	return nil
+}
+
+func (transaction *FSTransaction) CreateObjectBucket(checksum string) error {
+	transaction.muObjectBucket.Lock()
+	defer transaction.muObjectBucket.Unlock()
+
+	bucket := checksum[0:2]
+	if _, exists := transaction.objectBucket[bucket]; !exists {
+		err := os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
+		if err != nil {
+			return err
+		}
+		transaction.objectBucket[bucket] = true
+	}
+	return nil
+}
+
+func (transaction *FSTransaction) GetUuid() string {
+	return transaction.Uuid
+}
+
+func (transaction *FSTransaction) prepare() {
+	os.MkdirAll(transaction.repository.root, 0700)
+	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.repository.PathTransactions(),
+		transaction.Uuid[0:2]), 0700)
+	os.MkdirAll(transaction.Path(), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/chunks", transaction.Path()), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/objects", transaction.Path()), 0700)
+}
+
+func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+	ret := make([]bool, 0)
+	for _, key := range keys {
+		err := transaction.CreateChunkBucket(key)
+		if err != nil {
+			return nil, err
+		}
+		err = os.Link(transaction.repository.PathChunk(key), transaction.PathChunk(key))
+		if err != nil {
+			if os.IsNotExist(err) {
+				ret = append(ret, false)
+			} else {
+				ret = append(ret, true)
+				transaction.chunksMutex.Lock()
+				transaction.chunks[key] = true
+				transaction.chunksMutex.Unlock()
+			}
+		} else {
+			ret = append(ret, true)
+			transaction.chunksMutex.Lock()
+			transaction.chunks[key] = true
+			transaction.chunksMutex.Unlock()
+		}
+	}
+
+	return ret, nil
+}
+
+func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+	ret := make([]bool, 0)
+	for _, key := range keys {
+		err := transaction.CreateObjectBucket(key)
+		if err != nil {
+			return nil, err
+		}
+		err = os.Link(transaction.repository.PathObject(key), transaction.PathObject(key))
+		if err != nil {
+			if os.IsNotExist(err) {
+				ret = append(ret, false)
+			} else {
+				ret = append(ret, true)
+				transaction.objectsMutex.Lock()
+				transaction.objects[key] = true
+				transaction.objectsMutex.Unlock()
+			}
+		} else {
+			ret = append(ret, true)
+			transaction.objectsMutex.Lock()
+			transaction.objects[key] = true
+			transaction.objectsMutex.Unlock()
+		}
+	}
+
+	return ret, nil
+}
+
+func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
+	repository := transaction.repository
+
+	err := transaction.CreateObjectBucket(checksum)
+	if err != nil {
+		return err
+	}
+
+	err = repository.PutObjectSafe(checksum, data, transaction.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
+	transaction.objectsMutex.Lock()
+	transaction.objects[checksum] = true
+	transaction.repository.dirty = true
+	transaction.objectsMutex.Unlock()
+	return nil
+}
+
+func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
+	repository := transaction.repository
+
+	err := transaction.CreateChunkBucket(checksum)
+	if err != nil {
+		return err
+	}
+
+	err = repository.PutChunkSafe(checksum, data, transaction.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
+
+	transaction.chunksMutex.Lock()
+	transaction.chunks[checksum] = true
+	transaction.repository.dirty = true
+	transaction.chunksMutex.Unlock()
+	return nil
+}
+
+func (transaction *FSTransaction) PutMetadata(data []byte) error {
+	f, err := os.Create(fmt.Sprintf("%s/METADATA", transaction.Path()))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *FSTransaction) PutIndex(data []byte) error {
+	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *FSTransaction) Commit() error {
+	transaction.repository.dirty = false
+	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
 }

@@ -77,7 +77,7 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file, checksum := range snapshot.Index.Pathnames {
+		for file, _ := range snapshot.Index.Pathnames {
 			if prefix != "" {
 				if !helpers.PathIsWithin(file, prefix) {
 					continue
@@ -102,21 +102,16 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 				continue
 			}
 
-			obj := snapshot.LookupObjectForChecksum(checksum)
-			for _, chunkChecksum := range obj.Chunks {
-				data, err := snapshot.GetChunk(chunkChecksum)
-				if err != nil {
-					logger.Error("corrupted file %s", file)
-					continue
-				}
-
-				_, err = io.WriteString(tarWriter, string(data))
-				if err != nil {
-					logger.Error("could not write file %s", file)
-					continue
-				}
+			rd, err := snapshot.NewReader(file)
+			if err != nil {
+				logger.Error("could not find file %s", file)
+				continue
 			}
-
+			_, err = io.Copy(tarWriter, rd)
+			if err != nil {
+				logger.Error("could not write file %s: %s", file, err)
+				continue
+			}
 		}
 	}
 

@@ -21,8 +21,7 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	obufLen := len(reader.obuf.Bytes())
-	if obufLen < len(buf) {
+	for len(reader.obuf.Bytes()) < len(buf) {
 		data, err := reader.snapshot.GetChunk(reader.object.Chunks[reader.objectOffset])
 		if err != nil {
 			return -1, err
@@ -34,6 +33,9 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		reader.objectOffset++
+		if reader.objectOffset == len(reader.object.Chunks) {
+			break
+		}
 	}
 
 	return reader.obuf.Read(buf)

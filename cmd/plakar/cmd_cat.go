@@ -61,18 +61,11 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		buf := make([]byte, 16384)
-		for {
-			n, err := rd.Read(buf)
-			if err == io.EOF {
-				break
-			}
-			_, err = os.Stdout.Write(buf[:n])
-			if err != nil {
-				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-				errors++
-				continue
-			}
+		_, err = io.Copy(os.Stdout, rd)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
 		}
 	}
 

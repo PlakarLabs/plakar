@@ -25,7 +25,38 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
+
+	"sync"
+
+	"github.com/poolpOrg/plakar/cache"
 )
+
+type ClientRepository struct {
+	config storage.RepositoryConfig
+
+	Cache *cache.Cache
+
+	conn    net.Conn
+	encoder *gob.Encoder
+	decoder *gob.Decoder
+	mu      sync.Mutex
+
+	Repository string
+
+	inflightRequests map[string]chan network.Request
+	//registerInflight     chan inflight
+	notifications chan network.Request
+	//maxConcurrentRequest chan bool
+
+	storage.RepositoryBackend
+}
+
+type ClientTransaction struct {
+	Uuid       string
+	repository *ClientRepository
+
+	storage.TransactionBackend
+}
 
 func init() {
 	network.ProtocolRegister()

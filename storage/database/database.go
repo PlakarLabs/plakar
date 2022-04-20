@@ -21,12 +21,46 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
+
+	_ "github.com/mattn/go-sqlite3"
 )
+
+type inflight struct {
+	Add  bool
+	Uuid string
+	Chan chan network.Request
+}
+
+type DatabaseRepository struct {
+	config storage.RepositoryConfig
+
+	Cache *cache.Cache
+
+	backend string
+
+	conn *sql.DB
+	mu   sync.Mutex
+
+	Repository string
+
+	storage.RepositoryBackend
+}
+
+type DatabaseTransaction struct {
+	Uuid       string
+	repository *DatabaseRepository
+
+	dbTx *sql.Tx
+	storage.TransactionBackend
+}
 
 func init() {
 	storage.Register("database", NewDatabaseRepository)

@@ -23,6 +23,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -508,6 +510,8 @@ func (repository *FSRepository) Close() error {
 }
 
 func (repository *FSRepository) Tidy() {
+	wg := sync.WaitGroup{}
+	concurrency := make(chan bool, runtime.NumCPU()*2+1)
 	cwalk.Walk(repository.PathObjects(), func(path string, f os.FileInfo, err error) error {
 		if err != nil {
 			log.Fatal(err)
@@ -517,12 +521,19 @@ func (repository *FSRepository) Tidy() {
 			return nil
 		}
 		if !f.IsDir() {
-			if f.Sys().(*syscall.Stat_t).Nlink == 1 {
-				os.Remove(object)
-			}
+			concurrency <- true
+			wg.Add(1)
+			go func(object string) {
+				defer func() { <-concurrency }()
+				defer func() { wg.Done() }()
+				if f.Sys().(*syscall.Stat_t).Nlink == 1 {
+					os.Remove(object)
+				}
+			}(object)
 		}
 		return nil
 	})
+	wg.Wait()
 
 	cwalk.Walk(repository.PathChunks(), func(path string, f os.FileInfo, err error) error {
 		if err != nil {
@@ -534,10 +545,17 @@ func (repository *FSRepository) Tidy() {
 		}
 
 		if !f.IsDir() {
-			if f.Sys().(*syscall.Stat_t).Nlink == 1 {
-				os.Remove(chunk)
-			}
+			concurrency <- true
+			wg.Add(1)
+			go func(chunk string) {
+				defer func() { <-concurrency }()
+				defer func() { wg.Done() }()
+				if f.Sys().(*syscall.Stat_t).Nlink == 1 {
+					os.Remove(chunk)
+				}
+			}(chunk)
 		}
 		return nil
 	})
+	wg.Wait()
 }

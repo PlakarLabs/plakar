@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -196,41 +197,34 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		return
 	}
 
-	buf1 := ""
-	buf2 := ""
-
-	// file exists in snapshot1, grab a copy
-	if ok1 {
-		object, err := snapshot1.GetObject(sum1)
+	buf1 := make([]byte, 0)
+	rd1, err := snapshot1.NewReader(filename1)
+	if err == nil {
+		buf1, err = ioutil.ReadAll(rd1)
 		if err != nil {
-		}
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunkChecksum)
-			if err != nil {
-			}
-			buf1 = buf1 + string(data)
+			return
 		}
 	}
 
-	if ok2 {
-		object, err := snapshot2.GetObject(sum2)
+	buf2 := make([]byte, 0)
+	rd2, err := snapshot2.NewReader(filename2)
+	if err == nil {
+		buf2, err = ioutil.ReadAll(rd2)
 		if err != nil {
-		}
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snapshot2.GetChunk(chunkChecksum)
-			if err != nil {
-			}
-			buf2 = buf2 + string(data)
+			return
 		}
 	}
 
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(string(buf1)),
 		B:        difflib.SplitLines(string(buf2)),
-		FromFile: snapshot1.Metadata.Uuid + ":" + filename1,
-		ToFile:   snapshot2.Metadata.Uuid + ":" + filename2,
+		FromFile: snapshot1.Metadata.Uuid[0:8] + ":" + filename1,
+		ToFile:   snapshot2.Metadata.Uuid[0:8] + ":" + filename2,
 		Context:  3,
 	}
-	text, _ := difflib.GetUnifiedDiffString(diff)
+	text, err := difflib.GetUnifiedDiffString(diff)
+	if err != nil {
+		return
+	}
 	fmt.Printf("%s", text)
 }

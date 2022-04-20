@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
@@ -53,24 +54,24 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		object := snapshot.LookupObjectForPathname(pathname)
-		if object == nil {
-			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
+		rd, err := snapshot.NewReader(pathname)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
 
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snapshot.GetChunk(chunkChecksum)
+		buf := make([]byte, 16384)
+		for {
+			n, err := rd.Read(buf)
+			if err == io.EOF {
+				break
+			}
+			_, err = os.Stdout.Write(buf[:n])
 			if err != nil {
-				logger.Error("%s: %s: could not obtain chunk '%s': %s", flags.Name(), pathname, chunkChecksum, err)
+				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++
 				continue
-			}
-			_, err = os.Stdout.Write(data)
-			if err != nil {
-				logger.Error("%s: %s: could not write chunk '%s' to stdout: %s", flags.Name(), pathname, chunkChecksum, err)
-				break
 			}
 		}
 	}

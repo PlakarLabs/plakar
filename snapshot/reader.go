@@ -15,6 +15,9 @@ type Reader struct {
 
 func (reader *Reader) Read(buf []byte) (int, error) {
 	if reader.objectOffset == len(reader.object.Chunks) {
+		if len(reader.obuf.Bytes()) != 0 {
+			return reader.obuf.Read(buf)
+		}
 		return 0, io.EOF
 	}
 

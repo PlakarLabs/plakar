@@ -192,7 +192,6 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				//snapshot.Pathnames[name],
 				fi.ModTime.UTC().Format(time.RFC3339),
 				fi.Mode,
 				username,
@@ -231,7 +230,6 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			//snapshot.Pathnames[name],
 			fi.ModTime.UTC().Format(time.RFC3339),
 			fi.Mode,
 			username,
@@ -265,7 +263,6 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			//snapshot.Pathnames[name],
 			fi.ModTime.UTC().Format(time.RFC3339),
 			fi.Mode,
 			username,

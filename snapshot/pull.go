@@ -29,7 +29,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
+	//patternIsFile := false
 	if _, ok := snapshot.Index.Filesystem.LookupInodeForFile(fpattern); ok {
+		//patternIsFile = true
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
@@ -39,7 +41,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	directoriesCount := 0
 	for _, directory := range snapshot.Index.Filesystem.ListDirectories() {
 		if directory != dpattern &&
-			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
+			(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
+				len(directory) > len(dpattern)) {
+			fmt.Println("skipping", directory, dpattern)
 			continue
 		}
 		maxDirectoriesConcurrency <- true

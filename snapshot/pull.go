@@ -43,7 +43,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		if directory != dpattern &&
 			(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
 				len(directory) > len(dpattern)) {
-			fmt.Println("skipping", directory, dpattern)
 			continue
 		}
 		maxDirectoriesConcurrency <- true

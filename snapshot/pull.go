@@ -40,10 +40,12 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	directoriesCount := 0
 	for _, directory := range snapshot.Index.Filesystem.ListDirectories() {
-		if directory != dpattern &&
-			(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
-				len(directory) > len(dpattern)) {
-			continue
+		if dpattern != "" {
+			if directory != dpattern &&
+				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
+					len(directory) > len(dpattern)) {
+				continue
+			}
 		}
 		maxDirectoriesConcurrency <- true
 		wg.Add(1)
@@ -70,9 +72,11 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	filesCount := 0
 	var filesSize uint64 = 0
 	for _, filename := range snapshot.Index.Filesystem.ListFiles() {
-		if filename != fpattern &&
-			!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
-			continue
+		if fpattern != "" {
+			if filename != fpattern &&
+				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
+				continue
+			}
 		}
 		maxFilesConcurrency <- true
 		wg.Add(1)

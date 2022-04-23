@@ -20,6 +20,7 @@ import (
 	"encoding/gob"
 	"log"
 	"net"
+	"os/exec"
 	"strings"
 
 	"github.com/google/uuid"
@@ -36,7 +37,6 @@ type ClientRepository struct {
 
 	Cache *cache.Cache
 
-	conn    net.Conn
 	encoder *gob.Encoder
 	decoder *gob.Decoder
 	mu      sync.Mutex
@@ -78,7 +78,6 @@ func (repository *ClientRepository) connect(addr string) error {
 		log.Fatal(err)
 	}
 
-	repository.conn = conn
 	repository.encoder = gob.NewEncoder(conn)
 	repository.decoder = gob.NewDecoder(conn)
 
@@ -101,7 +100,7 @@ func (repository *ClientRepository) connect(addr string) error {
 			result := network.Request{}
 			err = repository.decoder.Decode(&result)
 			if err != nil {
-				repository.conn.Close()
+				conn.Close()
 				return
 			}
 			repository.notifications <- result
@@ -111,10 +110,205 @@ func (repository *ClientRepository) connect(addr string) error {
 	return err
 }
 
-func (repository *ClientRepository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
-	//repository.maxConcurrentRequest <- true
-	//defer func() { <-repository.maxConcurrentRequest }()
+func (repository *ClientRepository) connectStdio(addr string) error {
+	subProcess := exec.Command("plakar", "stdio")
 
+	stdin, err := subProcess.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	stdout, err := subProcess.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	repository.encoder = gob.NewEncoder(stdin)
+	repository.decoder = gob.NewDecoder(stdout)
+
+	if err = subProcess.Start(); err != nil {
+		return err
+	}
+
+	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.notifications = make(chan network.Request)
+
+	go func() {
+		for m := range repository.notifications {
+			repository.mu.Lock()
+			notify := repository.inflightRequests[m.Uuid]
+			repository.mu.Unlock()
+			notify <- m
+		}
+	}()
+
+	go func() {
+		for {
+			result := network.Request{}
+			err = repository.decoder.Decode(&result)
+			if err != nil {
+				stdin.Close()
+				subProcess.Wait()
+				return
+			}
+			repository.notifications <- result
+		}
+	}()
+
+	return nil
+}
+
+func (repository *ClientRepository) connectSSH(addr string) error {
+	subProcess := exec.Command("ssh", addr, "plakar stdio")
+
+	stdin, err := subProcess.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	stdout, err := subProcess.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	repository.encoder = gob.NewEncoder(stdin)
+	repository.decoder = gob.NewDecoder(stdout)
+
+	if err = subProcess.Start(); err != nil {
+		return err
+	}
+
+	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.notifications = make(chan network.Request)
+
+	go func() {
+		for m := range repository.notifications {
+			repository.mu.Lock()
+			notify := repository.inflightRequests[m.Uuid]
+			repository.mu.Unlock()
+			notify <- m
+		}
+	}()
+
+	go func() {
+		for {
+			result := network.Request{}
+			err = repository.decoder.Decode(&result)
+			if err != nil {
+				stdin.Close()
+				subProcess.Wait()
+				return
+			}
+			repository.notifications <- result
+		}
+	}()
+
+	return nil
+}
+
+/*
+func prompt() (string, error) {
+	passphrase, err := helpers.GetPassphrase("ssh")
+	if err != nil {
+		return "", err
+	}
+	return string(passphrase), nil
+}
+
+func (repository *ClientRepository) connectSSH2(addr string) error {
+
+	parsed, err := url.Parse(addr)
+	if err != nil {
+		return err
+	}
+
+	username := parsed.User.Username()
+	if username == "" {
+		user, err := user.Current()
+		if err != nil {
+			return err
+		}
+		username = user.Username
+	}
+
+	config := &ssh.ClientConfig{
+		User: username,
+		// https://github.com/golang/go/issues/19767
+		// as clientConfig is non-permissive by default
+		// you can set ssh.InsercureIgnoreHostKey to allow any host
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		//Auth: []ssh.AuthMethod{
+		//	ssh.PublicKeys(key),
+		//},
+		//alternatively, you could use a password
+
+		Auth: []ssh.AuthMethod{
+			ssh.PasswordCallback(prompt),
+		},
+	}
+
+	client, err := ssh.Dial("tcp", parsed.Hostname()+":22", config)
+	if err != nil {
+		return err
+	}
+
+	// Create a session. It is one session per command.
+	session, err := client.NewSession()
+	if err != nil {
+		return err
+	}
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	session.Stderr = os.Stderr
+
+	err = session.Start("plakar stdio")
+	if err != nil {
+		return err
+	}
+
+	repository.encoder = gob.NewEncoder(stdin)
+	repository.decoder = gob.NewDecoder(stdout)
+
+	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.notifications = make(chan network.Request)
+
+	//repository.maxConcurrentRequest = make(chan bool, 1024)
+
+	go func() {
+		for m := range repository.notifications {
+			repository.mu.Lock()
+			notify := repository.inflightRequests[m.Uuid]
+			repository.mu.Unlock()
+			notify <- m
+		}
+	}()
+
+	go func() {
+		for {
+			result := network.Request{}
+			err = repository.decoder.Decode(&result)
+			if err != nil {
+				session.Close()
+				return
+			}
+			repository.notifications <- result
+		}
+	}()
+
+	return nil
+}
+*/
+
+func (repository *ClientRepository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -151,14 +345,26 @@ func (repository *ClientRepository) Create(location string, config storage.Repos
 }
 
 func (repository *ClientRepository) Open(location string) error {
-	addr := location[9:]
-	if !strings.Contains(addr, ":") {
-		addr = addr + ":9876"
-	}
+	if strings.HasPrefix(location, "plakar://") {
+		addr := location[9:]
+		if !strings.Contains(addr, ":") {
+			addr = addr + ":9876"
+		}
 
-	err := repository.connect(addr)
-	if err != nil {
-		return err
+		err := repository.connect(addr)
+		if err != nil {
+			return err
+		}
+	} else if strings.HasPrefix(location, "ssh://") {
+		err := repository.connectSSH(location)
+		if err != nil {
+			return err
+		}
+	} else if strings.HasPrefix(location, "stdio://") {
+		err := repository.connectStdio(location[8:])
+		if err != nil {
+			return err
+		}
 	}
 
 	result, err := repository.sendRequest("ReqOpen", nil)

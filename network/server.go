@@ -33,10 +33,8 @@ func Server(repository *storage.Repository, addr string) {
 }
 
 func Stdio(repository *storage.Repository) {
-
 	ProtocolRegister()
-
-	handleConnection(repository, os.Stdin, os.Stdout)
+	handleConnection(repository, os.Stdout, os.Stdin)
 }
 
 func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer) {

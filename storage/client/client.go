@@ -18,10 +18,11 @@ package client
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os/exec"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/network"
@@ -67,8 +68,38 @@ func NewClientRepository() storage.RepositoryBackend {
 	return &ClientRepository{}
 }
 
-func (repository *ClientRepository) connect(addr string) error {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+func (repository *ClientRepository) connect(location *url.URL) error {
+	scheme := location.Scheme
+	switch scheme {
+	case "plakar":
+		err := repository.connectTCP(location)
+		if err != nil {
+			return err
+		}
+	case "ssh":
+		err := repository.connectSSH(location)
+		if err != nil {
+			return err
+		}
+	case "stdio":
+		err := repository.connectStdio(location)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported protocol")
+	}
+
+	return nil
+}
+
+func (repository *ClientRepository) connectTCP(location *url.URL) error {
+	port := location.Port()
+	if port == "" {
+		port = "9876"
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", location.Hostname()+":"+port)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -110,7 +141,7 @@ func (repository *ClientRepository) connect(addr string) error {
 	return err
 }
 
-func (repository *ClientRepository) connectStdio(addr string) error {
+func (repository *ClientRepository) connectStdio(location *url.URL) error {
 	subProcess := exec.Command("plakar", "stdio")
 
 	stdin, err := subProcess.StdinPipe()
@@ -158,8 +189,17 @@ func (repository *ClientRepository) connectStdio(addr string) error {
 	return nil
 }
 
-func (repository *ClientRepository) connectSSH(addr string) error {
-	subProcess := exec.Command("ssh", addr, "plakar stdio")
+func (repository *ClientRepository) connectSSH(location *url.URL) error {
+	connectUrl := "ssh://"
+	if location.User != nil {
+		connectUrl += location.User.Username() + "@"
+	}
+	connectUrl += location.Hostname()
+	if location.Port() != "" {
+		connectUrl += ":" + location.Port()
+	}
+
+	subProcess := exec.Command("ssh", connectUrl, "plakar stdio")
 
 	stdin, err := subProcess.StdinPipe()
 	if err != nil {
@@ -206,108 +246,6 @@ func (repository *ClientRepository) connectSSH(addr string) error {
 	return nil
 }
 
-/*
-func prompt() (string, error) {
-	passphrase, err := helpers.GetPassphrase("ssh")
-	if err != nil {
-		return "", err
-	}
-	return string(passphrase), nil
-}
-
-func (repository *ClientRepository) connectSSH2(addr string) error {
-
-	parsed, err := url.Parse(addr)
-	if err != nil {
-		return err
-	}
-
-	username := parsed.User.Username()
-	if username == "" {
-		user, err := user.Current()
-		if err != nil {
-			return err
-		}
-		username = user.Username
-	}
-
-	config := &ssh.ClientConfig{
-		User: username,
-		// https://github.com/golang/go/issues/19767
-		// as clientConfig is non-permissive by default
-		// you can set ssh.InsercureIgnoreHostKey to allow any host
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		//Auth: []ssh.AuthMethod{
-		//	ssh.PublicKeys(key),
-		//},
-		//alternatively, you could use a password
-
-		Auth: []ssh.AuthMethod{
-			ssh.PasswordCallback(prompt),
-		},
-	}
-
-	client, err := ssh.Dial("tcp", parsed.Hostname()+":22", config)
-	if err != nil {
-		return err
-	}
-
-	// Create a session. It is one session per command.
-	session, err := client.NewSession()
-	if err != nil {
-		return err
-	}
-
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return err
-	}
-
-	stdout, err := session.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	session.Stderr = os.Stderr
-
-	err = session.Start("plakar stdio")
-	if err != nil {
-		return err
-	}
-
-	repository.encoder = gob.NewEncoder(stdin)
-	repository.decoder = gob.NewDecoder(stdout)
-
-	repository.inflightRequests = make(map[string]chan network.Request)
-	repository.notifications = make(chan network.Request)
-
-	//repository.maxConcurrentRequest = make(chan bool, 1024)
-
-	go func() {
-		for m := range repository.notifications {
-			repository.mu.Lock()
-			notify := repository.inflightRequests[m.Uuid]
-			repository.mu.Unlock()
-			notify <- m
-		}
-	}()
-
-	go func() {
-		for {
-			result := network.Request{}
-			err = repository.decoder.Decode(&result)
-			if err != nil {
-				session.Close()
-				return
-			}
-			repository.notifications <- result
-		}
-	}()
-
-	return nil
-}
-*/
-
 func (repository *ClientRepository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
@@ -341,41 +279,56 @@ func (repository *ClientRepository) sendRequest(Type string, Payload interface{}
 }
 
 func (repository *ClientRepository) Create(location string, config storage.RepositoryConfig) error {
-	return nil
-}
-
-func (repository *ClientRepository) Open(location string) error {
-	if strings.HasPrefix(location, "plakar://") {
-		addr := location[9:]
-		if !strings.Contains(addr, ":") {
-			addr = addr + ":9876"
-		}
-
-		err := repository.connect(addr)
-		if err != nil {
-			return err
-		}
-	} else if strings.HasPrefix(location, "ssh://") {
-		err := repository.connectSSH(location)
-		if err != nil {
-			return err
-		}
-	} else if strings.HasPrefix(location, "stdio://") {
-		err := repository.connectStdio(location[8:])
-		if err != nil {
-			return err
-		}
-	}
-
-	result, err := repository.sendRequest("ReqOpen", nil)
+	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
 	}
 
-	repository.config = result.Payload.(network.ResOpen).RepositoryConfig
+	err = repository.connect(parsed)
+	if err != nil {
+		return err
+	}
 
+	result, err := repository.sendRequest("ReqCreate", network.ReqCreate{
+		Repository:       parsed.RequestURI(),
+		RepositoryConfig: config,
+	})
+	if err != nil {
+		return err
+	}
+
+	if result.Payload.(network.ResCreate).Err != nil {
+		return result.Payload.(network.ResCreate).Err
+	}
+
+	repository.config = config
 	return nil
+}
 
+func (repository *ClientRepository) Open(location string) error {
+	parsed, err := url.Parse(location)
+	if err != nil {
+		return err
+	}
+
+	err = repository.connect(parsed)
+	if err != nil {
+		return err
+	}
+
+	result, err := repository.sendRequest("ReqOpen", network.ReqOpen{
+		Repository: parsed.RequestURI(),
+	})
+	if err != nil {
+		return err
+	}
+
+	if result.Payload.(network.ResOpen).Err != nil {
+		return result.Payload.(network.ResOpen).Err
+	}
+
+	repository.config = *result.Payload.(network.ResOpen).RepositoryConfig
+	return nil
 }
 
 func (repository *ClientRepository) Configuration() storage.RepositoryConfig {

@@ -176,6 +176,10 @@ func entryPoint() int {
 		return cmd_create(ctx, args)
 	}
 
+	if command == "stdio" {
+		return cmd_stdio(ctx, args)
+	}
+
 	repository, err := storage.Open(ctx.Repository)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)

@@ -61,17 +61,19 @@ func cmd_create(ctx Plakar, args []string) int {
 
 	switch flags.NArg() {
 	case 0:
-		_, err := storage.Create(ctx.Repository, repositoryConfig)
+		repository, err := storage.Create(ctx.Repository, repositoryConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
+		repository.Close()
 	case 1:
-		_, err := storage.Create(flags.Arg(0), repositoryConfig)
+		repository, err := storage.Create(flags.Arg(0), repositoryConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
+		repository.Close()
 	default:
 		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", ctx.Repository)
 		return 1

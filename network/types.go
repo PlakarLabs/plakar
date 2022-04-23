@@ -12,11 +12,22 @@ type Request struct {
 	Payload interface{}
 }
 
+type ReqCreate struct {
+	Repository       string
+	RepositoryConfig storage.RepositoryConfig
+}
+
+type ResCreate struct {
+	Err error
+}
+
 type ReqOpen struct {
+	Repository string
 }
 
 type ResOpen struct {
-	RepositoryConfig storage.RepositoryConfig
+	RepositoryConfig *storage.RepositoryConfig
+	Err              error
 }
 
 type ReqGetChunks struct {
@@ -225,6 +236,9 @@ type ResGetChunkSize struct {
 
 func ProtocolRegister() {
 	gob.Register(Request{})
+
+	gob.Register(ReqCreate{})
+	gob.Register(ResCreate{})
 
 	gob.Register(ReqOpen{})
 	gob.Register(ResOpen{})

@@ -28,21 +28,23 @@ func Server(repository *storage.Repository, addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(repository, c, c)
+		go handleConnection(c, c)
 	}
 }
 
-func Stdio(repository *storage.Repository) {
+func Stdio() error {
 	ProtocolRegister()
-	handleConnection(repository, os.Stdout, os.Stdin)
+	handleConnection(os.Stdout, os.Stdin)
+	return nil
 }
 
-func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer) {
+func handleConnection(rd io.Reader, wr io.Writer) {
 	decoder := gob.NewDecoder(rd)
 	encoder := gob.NewEncoder(wr)
 
 	transactions := make(map[string]*storage.Transaction)
 
+	var repository *storage.Repository
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()
 	clientUuid := Uuid.String()
@@ -55,15 +57,40 @@ func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer
 		}
 
 		switch request.Type {
+		case "ReqCreate":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: Create(%s, %s)", clientUuid, request.Payload.(ReqCreate).Repository, request.Payload.(ReqCreate).RepositoryConfig)
+				repository, err = storage.Create(request.Payload.(ReqCreate).Repository, request.Payload.(ReqCreate).RepositoryConfig)
+				result := Request{
+					Uuid:    request.Uuid,
+					Type:    "ResCreate",
+					Payload: ResCreate{Err: err},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqOpen":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: Open", clientUuid)
+				logger.Trace("%s: Open(%s)", clientUuid, request.Payload.(ReqOpen).Repository)
+				repository, err = storage.Open(request.Payload.(ReqOpen).Repository)
+				var payload ResOpen
+				if err != nil {
+					payload = ResOpen{RepositoryConfig: nil, Err: err}
+				} else {
+					config := repository.Configuration()
+					payload = ResOpen{RepositoryConfig: &config, Err: nil}
+				}
 				result := Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
-					Payload: ResOpen{RepositoryConfig: repository.Configuration()},
+					Payload: payload,
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -537,6 +564,7 @@ func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer
 
 				logger.Trace("%s: Close()", clientUuid)
 				err := repository.Close()
+				repository = nil
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResClose",
@@ -552,4 +580,8 @@ func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer
 		}
 	}
 	wg.Wait()
+
+	if repository != nil {
+		repository.Close()
+	}
 }

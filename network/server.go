@@ -2,8 +2,10 @@ package network
 
 import (
 	"encoding/gob"
+	"io"
 	"log"
 	"net"
+	"os"
 	"sync"
 
 	"github.com/google/uuid"
@@ -26,13 +28,20 @@ func Server(repository *storage.Repository, addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(repository, c)
+		go handleConnection(repository, c, c)
 	}
 }
 
-func handleConnection(repository *storage.Repository, conn net.Conn) {
-	decoder := gob.NewDecoder(conn)
-	encoder := gob.NewEncoder(conn)
+func Stdio(repository *storage.Repository) {
+
+	ProtocolRegister()
+
+	handleConnection(repository, os.Stdin, os.Stdout)
+}
+
+func handleConnection(repository *storage.Repository, rd io.Reader, wr io.Writer) {
+	decoder := gob.NewDecoder(rd)
+	encoder := gob.NewEncoder(wr)
 
 	transactions := make(map[string]*storage.Transaction)
 

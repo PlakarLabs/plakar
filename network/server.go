@@ -34,7 +34,7 @@ func Server(repository *storage.Repository, addr string) {
 
 func Stdio() error {
 	ProtocolRegister()
-	handleConnection(os.Stdout, os.Stdin)
+	handleConnection(os.Stdin, os.Stdout)
 	return nil
 }
 

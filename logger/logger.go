@@ -94,7 +94,7 @@ func Start() func() {
 	wg.Add(1)
 	go func() {
 		for msg := range traceChannel {
-			fmt.Println(msg)
+			fmt.Fprintln(os.Stderr, msg)
 		}
 		wg.Done()
 	}()

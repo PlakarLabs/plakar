@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -34,6 +35,8 @@ type Plakar struct {
 	MachineID   string
 
 	Cache *cache.Cache
+
+	KeyFromFile string
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
@@ -94,6 +97,7 @@ func entryPoint() int {
 	var opt_trace bool
 	var opt_verbose bool
 	var opt_profiling bool
+	var opt_keyfile string
 
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
@@ -106,6 +110,7 @@ func entryPoint() int {
 	flag.BoolVar(&opt_trace, "trace", false, "display trace logs")
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
+	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.Parse()
 
 	// setup from default + override
@@ -118,15 +123,25 @@ func entryPoint() int {
 	if opt_cpuProfile != "" {
 		f, err := os.Create(opt_cpuProfile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not create CPU profile: %d\n", flag.CommandLine.Name(), err)
+			fmt.Fprintf(os.Stderr, "%s: could not create CPU profile: %s\n", flag.CommandLine.Name(), err)
 			return 1
 		}
 		defer f.Close() // error handling omitted for example
 		if err := pprof.StartCPUProfile(f); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not start CPU profile: %d\n", flag.CommandLine.Name(), err)
+			fmt.Fprintf(os.Stderr, "%s: could not start CPU profile: %s\n", flag.CommandLine.Name(), err)
 			return 1
 		}
 		defer pprof.StopCPUProfile()
+	}
+
+	var secretFromKeyfile string
+	if opt_keyfile != "" {
+		data, err := ioutil.ReadFile(opt_keyfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not read key file: %s\n", flag.CommandLine.Name(), err)
+			return 1
+		}
+		secretFromKeyfile = strings.TrimSuffix(string(data), "\n")
 	}
 
 	ctx := Plakar{}
@@ -136,6 +151,7 @@ func entryPoint() int {
 	ctx.Repository = opt_repositoryDefault
 	ctx.CommandLine = strings.Join(os.Args, " ")
 	ctx.MachineID = opt_machineIdDefault
+	ctx.KeyFromFile = secretFromKeyfile
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a command must be provided\n", flag.CommandLine.Name())
@@ -188,20 +204,28 @@ func entryPoint() int {
 
 	var secret []byte
 	if repository.Configuration().Encryption != "" {
-		for {
-			passphrase, err := helpers.GetPassphrase("repository")
+		if ctx.KeyFromFile == "" {
+			for {
+				passphrase, err := helpers.GetPassphrase("repository")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					continue
+				}
+
+				secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().Encryption)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					continue
+				}
+
+				break
+			}
+		} else {
+			secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().Encryption)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
-				continue
+				os.Exit(1)
 			}
-
-			secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().Encryption)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				continue
-			}
-
-			break
 		}
 	}
 

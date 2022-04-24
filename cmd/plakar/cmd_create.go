@@ -47,14 +47,18 @@ func cmd_create(ctx Plakar, args []string) int {
 
 	if !opt_noencryption {
 		var passphrase []byte
-		for {
-			tmp, err := helpers.GetPassphraseConfirm("repository")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				continue
+		if ctx.KeyFromFile == "" {
+			for {
+				tmp, err := helpers.GetPassphraseConfirm("repository")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					continue
+				}
+				passphrase = tmp
+				break
 			}
-			passphrase = tmp
-			break
+		} else {
+			passphrase = []byte(ctx.KeyFromFile)
 		}
 		repositoryConfig.Encryption = encryption.BuildSecretFromPassphrase(passphrase)
 	}

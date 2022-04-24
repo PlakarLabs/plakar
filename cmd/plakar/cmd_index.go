@@ -33,10 +33,6 @@ func cmd_index(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("index", flag.ExitOnError)
 	flags.Parse(args)
 
-	if flags.NArg() == 0 {
-		return info_plakar(repository)
-	}
-
 	indexes, err := getIndexes(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)

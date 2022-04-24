@@ -33,10 +33,6 @@ func cmd_metadata(ctx Plakar, repository *storage.Repository, args []string) int
 	flags := flag.NewFlagSet("metadata", flag.ExitOnError)
 	flags.Parse(args)
 
-	if flags.NArg() == 0 {
-		return info_plakar(repository)
-	}
-
 	metadatas, err := getMetadatas(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)

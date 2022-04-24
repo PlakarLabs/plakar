@@ -50,8 +50,6 @@ type ClientRepository struct {
 	notifications chan network.Request
 	//maxConcurrentRequest chan bool
 
-	disconnect func()
-
 	storage.RepositoryBackend
 }
 
@@ -141,8 +139,6 @@ func (repository *ClientRepository) connectTCP(location *url.URL) error {
 		}
 	}()
 
-	repository.disconnect = func() { conn.Close() }
-
 	return err
 }
 
@@ -185,15 +181,12 @@ func (repository *ClientRepository) connectStdio(location *url.URL) error {
 			err = repository.decoder.Decode(&result)
 			if err != nil {
 				stdin.Close()
-				stdout.Close()
 				subProcess.Wait()
 				return
 			}
 			repository.notifications <- result
 		}
 	}()
-
-	repository.disconnect = func() { stdin.Close() }
 
 	return nil
 }
@@ -253,8 +246,6 @@ func (repository *ClientRepository) connectSSH(location *url.URL) error {
 			repository.notifications <- result
 		}
 	}()
-
-	repository.disconnect = func() { stdin.Close() }
 
 	return nil
 }
@@ -492,9 +483,6 @@ func (repository *ClientRepository) Purge(id string) error {
 
 func (repository *ClientRepository) Close() error {
 	result, err := repository.sendRequest("ReqClose", nil)
-
-	repository.disconnect()
-
 	if err != nil {
 		return err
 	}

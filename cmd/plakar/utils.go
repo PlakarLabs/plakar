@@ -119,6 +119,65 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapsho
 	return result, nil
 }
 
+func getIndexes(repository *storage.Repository, prefixes []string) ([]*snapshot.Index, error) {
+	snapshotsList, err := getSnapshotsList(repository)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*snapshot.Index, 0)
+
+	// no prefixes, this is a full fetch
+	if prefixes == nil {
+		wg := sync.WaitGroup{}
+		mu := sync.Mutex{}
+		for _, snapshotUuid := range snapshotsList {
+			wg.Add(1)
+			go func(snapshotUuid string) {
+				defer wg.Done()
+				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				mu.Lock()
+				result = append(result, index)
+				mu.Unlock()
+			}(snapshotUuid)
+		}
+		wg.Wait()
+		return result, nil
+	}
+
+	// prefixes, preprocess snapshots to only fetch necessary ones
+	for _, prefix := range prefixes {
+		parsedUuidPrefix, _ := parseSnapshotID(prefix)
+
+		matches := 0
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				matches++
+			}
+		}
+		if matches == 0 {
+			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
+		} else if matches > 1 {
+			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
+		}
+
+		for _, snapshotUuid := range snapshotsList {
+			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, index)
+			}
+		}
+	}
+	return result, nil
+}
+
 func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {

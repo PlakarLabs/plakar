@@ -22,6 +22,7 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 
 	"github.com/google/uuid"
@@ -153,6 +154,7 @@ func (repository *ClientRepository) connectStdio(location *url.URL) error {
 	if err != nil {
 		return err
 	}
+	subProcess.Stderr = os.Stderr
 
 	repository.encoder = gob.NewEncoder(stdin)
 	repository.decoder = gob.NewDecoder(stdout)
@@ -210,6 +212,8 @@ func (repository *ClientRepository) connectSSH(location *url.URL) error {
 	if err != nil {
 		return err
 	}
+
+	subProcess.Stderr = os.Stderr
 
 	repository.encoder = gob.NewEncoder(stdin)
 	repository.decoder = gob.NewDecoder(stdout)

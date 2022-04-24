@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/go-fastcdc"
@@ -275,6 +276,8 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 }
 
 func (snapshot *Snapshot) Push(scanDirs []string) error {
+	t0 := time.Now()
+
 	cache := snapshot.repository.Cache
 
 	for _, scanDir := range scanDirs {
@@ -399,6 +402,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
 	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
 	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.Pathnames))
+
+	snapshot.Metadata.Statistics.Duration = time.Since(t0)
 
 	return snapshot.Commit()
 }

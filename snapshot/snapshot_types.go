@@ -29,6 +29,7 @@ type CachedObject struct {
 }
 
 type Statistics struct {
+	Duration    time.Duration
 	Chunks      uint64
 	Objects     uint64
 	Files       uint64

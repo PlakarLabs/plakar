@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
@@ -49,6 +50,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 	Uuid, _ := uuid.NewRandom()
 	clientUuid := Uuid.String()
 
+	homeDir := os.Getenv("HOME")
+
 	for {
 		request := Request{}
 		err := decoder.Decode(&request)
@@ -61,8 +64,14 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: Create(%s, %s)", clientUuid, request.Payload.(ReqCreate).Repository, request.Payload.(ReqCreate).RepositoryConfig)
-				repository, err = storage.Create(request.Payload.(ReqCreate).Repository, request.Payload.(ReqCreate).RepositoryConfig)
+
+				dirPath := request.Payload.(ReqCreate).Repository
+				if dirPath == "" {
+					dirPath = filepath.Join(homeDir, ".plakar")
+				}
+
+				logger.Trace("%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(ReqCreate).RepositoryConfig)
+				repository, err = storage.Create(dirPath, request.Payload.(ReqCreate).RepositoryConfig)
 				result := Request{
 					Uuid:    request.Uuid,
 					Type:    "ResCreate",
@@ -78,8 +87,14 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: Open(%s)", clientUuid, request.Payload.(ReqOpen).Repository)
-				repository, err = storage.Open(request.Payload.(ReqOpen).Repository)
+
+				dirPath := request.Payload.(ReqOpen).Repository
+				if dirPath == "" {
+					dirPath = filepath.Join(homeDir, ".plakar")
+				}
+
+				logger.Trace("%s: Open(%s)", clientUuid, dirPath)
+				repository, err = storage.Open(dirPath)
 				var payload ResOpen
 				if err != nil {
 					payload = ResOpen{RepositoryConfig: nil, Err: err}

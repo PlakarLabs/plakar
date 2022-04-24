@@ -294,7 +294,7 @@ func (repository *ClientRepository) Create(location string, config storage.Repos
 	}
 
 	result, err := repository.sendRequest("ReqCreate", network.ReqCreate{
-		Repository:       parsed.RequestURI(),
+		Repository:       parsed.Path,
 		RepositoryConfig: config,
 	})
 	if err != nil {
@@ -321,7 +321,7 @@ func (repository *ClientRepository) Open(location string) error {
 	}
 
 	result, err := repository.sendRequest("ReqOpen", network.ReqOpen{
-		Repository: parsed.RequestURI(),
+		Repository: parsed.Path,
 	})
 	if err != nil {
 		return err

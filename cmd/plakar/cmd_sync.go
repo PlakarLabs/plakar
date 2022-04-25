@@ -102,18 +102,18 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		_ = destObjectChecksums
 		_ = destIndexes
 
-		syncChunkChecksums := make([]string, 0)
-		syncObjectChecksums := make([]string, 0)
+		syncChunkChecksums := make([][32]byte, 0)
+		syncObjectChecksums := make([][32]byte, 0)
 		syncIndexes := make([]uuid.UUID, 0)
 
 		for _, chunkChecksum := range sourceChunkChecksums {
-			if !arrayContains(destChunkChecksums, chunkChecksum) {
+			if !checksumArrayContains(destChunkChecksums, chunkChecksum) {
 				syncChunkChecksums = append(syncChunkChecksums, chunkChecksum)
 			}
 		}
 
 		for _, objectChecksum := range sourceObjectChecksums {
-			if !arrayContains(destObjectChecksums, objectChecksum) {
+			if !checksumArrayContains(destObjectChecksums, objectChecksum) {
 				syncObjectChecksums = append(syncObjectChecksums, objectChecksum)
 			}
 		}

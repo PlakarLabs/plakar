@@ -3,7 +3,6 @@ package snapshot
 import (
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -88,13 +87,13 @@ func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMs
 	}
 }
 
-func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Object, func()) {
+func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[[32]byte]*Object, func()) {
 	chanObjectWriter, chanObjectWriterDone := pushObjectWriterChannelHandler(snapshot)
 	chanObject, chanObjectDone := pushObjectChannelHandler(snapshot, chanObjectWriter)
 
 	maxGoroutines := make(chan bool, 1024)
 
-	c := make(chan map[string]*Object)
+	c := make(chan map[[32]byte]*Object)
 	done := make(chan bool)
 	var wg sync.WaitGroup
 
@@ -102,8 +101,8 @@ func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Ob
 		for msg := range c {
 			maxGoroutines <- true
 			wg.Add(1)
-			go func(objects map[string]*Object) {
-				checkPathnames := make([]string, 0)
+			go func(objects map[[32]byte]*Object) {
+				checkPathnames := make([][32]byte, 0)
 				for checksum := range objects {
 					checkPathnames = append(checkPathnames, checksum)
 				}
@@ -161,7 +160,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 		return nil, nil
 	}
 
-	chunks := make([]string, 0)
+	chunks := make([][32]byte, 0)
 	for _, chunk := range cachedObject.Chunks {
 		chunks = append(chunks, chunk.Checksum)
 	}
@@ -181,7 +180,7 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 
 	object := Object{}
 	object.Checksum = cachedObject.Checksum
-	object.Chunks = make([]string, 0)
+	object.Chunks = make([][32]byte, 0)
 	for _, chunk := range cachedObject.Chunks {
 		object.Chunks = append(object.Chunks, chunk.Checksum)
 	}
@@ -236,13 +235,16 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 		chunkHash := sha256.New()
 		chunkHash.Write(cdcChunk.Data)
 
+		var t32 [32]byte
+		copy(t32[:], chunkHash.Sum(nil))
+
 		chunk := Chunk{}
-		chunk.Checksum = fmt.Sprintf("%032x", chunkHash.Sum(nil))
+		chunk.Checksum = t32
 		chunk.Start = uint(cdcChunk.Offset)
 		chunk.Length = uint(cdcChunk.Size)
 		object.Chunks = append(object.Chunks, chunk.Checksum)
 
-		chunks := make([]string, 0)
+		chunks := make([][32]byte, 0)
 		chunks = append(chunks, chunk.Checksum)
 
 		// XXX - we can reduce the number of ReferenceChunks calls
@@ -271,7 +273,9 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			snapshot.Index.muChunks.Unlock()
 		}
 	}
-	object.Checksum = fmt.Sprintf("%032x", objectHash.Sum(nil))
+	var t32 [32]byte
+	copy(t32[:], objectHash.Sum(nil))
+	object.Checksum = t32
 	return object, nil
 }
 

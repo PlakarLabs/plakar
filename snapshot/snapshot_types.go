@@ -10,20 +10,20 @@ import (
 )
 
 type Chunk struct {
-	Checksum string
+	Checksum [32]byte
 	Start    uint
 	Length   uint
 }
 
 type Object struct {
-	Checksum    string
-	Chunks      []string
+	Checksum    [32]byte
+	Chunks      [][32]byte
 	ContentType string
 }
 
 // CachedObject needs to be killed
 type CachedObject struct {
-	Checksum    string
+	Checksum    [32]byte
 	Chunks      []*Chunk
 	ContentType string
 	Info        filesystem.Fileinfo
@@ -71,27 +71,27 @@ type Index struct {
 
 	// Pathnames -> Object checksum
 	muPathnames sync.Mutex
-	Pathnames   map[string]string
+	Pathnames   map[string][32]byte
 
 	// Object checksum -> Object
 	muObjects sync.Mutex
-	Objects   map[string]*Object
+	Objects   map[[32]byte]*Object
 
 	// Chunk checksum -> Chunk
 	muChunks sync.Mutex
-	Chunks   map[string]*Chunk
+	Chunks   map[[32]byte]*Chunk
 
 	// Chunk checksum -> Object checksums
 	muChunkToObjects sync.Mutex
-	ChunkToObjects   map[string][]string
+	ChunkToObjects   map[[32]byte][][32]byte
 
 	// Object checksum -> Filenames
 	muObjectToPathnames sync.Mutex
-	ObjectToPathnames   map[string][]string
+	ObjectToPathnames   map[[32]byte][]string
 
 	// Content Type -> Object checksums
 	muContentTypeToObjects sync.Mutex
-	ContentTypeToObjects   map[string][]string
+	ContentTypeToObjects   map[string][][32]byte
 }
 
 type Snapshot struct {

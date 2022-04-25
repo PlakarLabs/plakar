@@ -35,7 +35,7 @@ type ReqGetChunks struct {
 }
 
 type ResGetChunks struct {
-	Chunks []string
+	Chunks [][32]byte
 	Err    error
 }
 
@@ -43,7 +43,7 @@ type ReqGetObjects struct {
 }
 
 type ResGetObjects struct {
-	Objects []string
+	Objects [][32]byte
 	Err     error
 }
 
@@ -74,7 +74,7 @@ type ResGetIndex struct {
 }
 
 type ReqGetObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObject struct {
@@ -83,7 +83,7 @@ type ResGetObject struct {
 }
 
 type ReqGetChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunk struct {
@@ -92,7 +92,7 @@ type ResGetChunk struct {
 }
 
 type ReqCheckObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckObject struct {
@@ -101,7 +101,7 @@ type ResCheckObject struct {
 }
 
 type ReqCheckChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckChunk struct {
@@ -135,7 +135,7 @@ type ResTransaction struct {
 
 type ReqReferenceChunks struct {
 	Transaction uuid.UUID
-	Keys        []string
+	Keys        [][32]byte
 }
 
 type ResReferenceChunks struct {
@@ -145,7 +145,7 @@ type ResReferenceChunks struct {
 
 type ReqReferenceObjects struct {
 	Transaction uuid.UUID
-	Keys        []string
+	Keys        [][32]byte
 }
 
 type ResReferenceObjects struct {
@@ -155,7 +155,7 @@ type ResReferenceObjects struct {
 
 type ReqPutChunk struct {
 	Transaction uuid.UUID
-	Checksum    string
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -165,7 +165,7 @@ type ResPutChunk struct {
 
 type ReqPutObject struct {
 	Transaction uuid.UUID
-	Checksum    string
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -200,7 +200,7 @@ type ResCommit struct {
 }
 
 type ReqGetChunkRefCount struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunkRefCount struct {
@@ -209,7 +209,7 @@ type ResGetChunkRefCount struct {
 }
 
 type ReqGetObjectRefCount struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObjectRefCount struct {
@@ -218,7 +218,7 @@ type ResGetObjectRefCount struct {
 }
 
 type ReqGetObjectSize struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObjectSize struct {
@@ -227,7 +227,7 @@ type ResGetObjectSize struct {
 }
 
 type ReqGetChunkSize struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunkSize struct {

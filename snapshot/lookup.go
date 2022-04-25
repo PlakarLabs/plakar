@@ -45,7 +45,7 @@ func (snapshot *Snapshot) LookupObjectForPathname(pathname string) *Object {
 	return snapshot.LookupObjectForChecksum(objectChecksum)
 }
 
-func (snapshot *Snapshot) LookupObjectForChecksum(checksum string) *Object {
+func (snapshot *Snapshot) LookupObjectForChecksum(checksum [32]byte) *Object {
 	snapshot.Index.muObjects.Lock()
 	defer snapshot.Index.muObjects.Unlock()
 
@@ -57,7 +57,7 @@ func (snapshot *Snapshot) LookupObjectForChecksum(checksum string) *Object {
 	return object
 }
 
-func (snapshot *Snapshot) LookupChunkForChecksum(checksum string) *Chunk {
+func (snapshot *Snapshot) LookupChunkForChecksum(checksum [32]byte) *Chunk {
 	snapshot.Index.muChunks.Lock()
 	defer snapshot.Index.muChunks.Unlock()
 

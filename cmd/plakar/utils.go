@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -270,6 +271,15 @@ func arrayContains(a []string, x string) bool {
 func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 	for _, n := range a {
 		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+func checksumArrayContains(a [][32]byte, x [32]byte) bool {
+	for _, n := range a {
+		if bytes.Equal(x[:], n[:]) {
 			return true
 		}
 	}

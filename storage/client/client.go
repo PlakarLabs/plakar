@@ -364,7 +364,7 @@ func (repository *ClientRepository) GetIndexes() ([]uuid.UUID, error) {
 	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
 }
 
-func (repository *ClientRepository) GetChunks() ([]string, error) {
+func (repository *ClientRepository) GetChunks() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetChunks", nil)
 	if err != nil {
 		return nil, err
@@ -373,7 +373,7 @@ func (repository *ClientRepository) GetChunks() ([]string, error) {
 	return result.Payload.(network.ResGetChunks).Chunks, result.Payload.(network.ResGetChunks).Err
 }
 
-func (repository *ClientRepository) GetObjects() ([]string, error) {
+func (repository *ClientRepository) GetObjects() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetObjects", nil)
 	if err != nil {
 		return nil, err
@@ -404,7 +404,7 @@ func (repository *ClientRepository) GetIndex(indexID uuid.UUID) ([]byte, error) 
 	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
 }
 
-func (repository *ClientRepository) GetObject(checksum string) ([]byte, error) {
+func (repository *ClientRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetObject", network.ReqGetObject{
 		Checksum: checksum,
 	})
@@ -415,7 +415,7 @@ func (repository *ClientRepository) GetObject(checksum string) ([]byte, error) {
 	return result.Payload.(network.ResGetObject).Data, result.Payload.(network.ResGetObject).Err
 }
 
-func (repository *ClientRepository) GetChunk(checksum string) ([]byte, error) {
+func (repository *ClientRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetChunk", network.ReqGetChunk{
 		Checksum: checksum,
 	})
@@ -426,7 +426,7 @@ func (repository *ClientRepository) GetChunk(checksum string) ([]byte, error) {
 	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
 }
 
-func (repository *ClientRepository) GetObjectRefCount(checksum string) (uint64, error) {
+func (repository *ClientRepository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
 	result, err := repository.sendRequest("ReqGetObjectRefCount", network.ReqGetObjectRefCount{
 		Checksum: checksum,
 	})
@@ -437,7 +437,7 @@ func (repository *ClientRepository) GetObjectRefCount(checksum string) (uint64, 
 	return result.Payload.(network.ResGetObjectRefCount).RefCount, result.Payload.(network.ResGetObjectRefCount).Err
 }
 
-func (repository *ClientRepository) GetChunkRefCount(checksum string) (uint64, error) {
+func (repository *ClientRepository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
 	result, err := repository.sendRequest("ReqGetChunkRefCount", network.ReqGetChunkRefCount{
 		Checksum: checksum,
 	})
@@ -448,7 +448,7 @@ func (repository *ClientRepository) GetChunkRefCount(checksum string) (uint64, e
 	return result.Payload.(network.ResGetChunkRefCount).RefCount, result.Payload.(network.ResGetChunkRefCount).Err
 }
 
-func (repository *ClientRepository) GetObjectSize(checksum string) (uint64, error) {
+func (repository *ClientRepository) GetObjectSize(checksum [32]byte) (uint64, error) {
 	result, err := repository.sendRequest("ReqGetObjectSize", network.ReqGetObjectSize{
 		Checksum: checksum,
 	})
@@ -459,7 +459,7 @@ func (repository *ClientRepository) GetObjectSize(checksum string) (uint64, erro
 	return result.Payload.(network.ResGetObjectSize).Size, result.Payload.(network.ResGetObjectSize).Err
 }
 
-func (repository *ClientRepository) GetChunkSize(checksum string) (uint64, error) {
+func (repository *ClientRepository) GetChunkSize(checksum [32]byte) (uint64, error) {
 	result, err := repository.sendRequest("ReqGetChunkSize", network.ReqGetChunkSize{
 		Checksum: checksum,
 	})
@@ -495,7 +495,7 @@ func (repository *ClientRepository) Close() error {
 func (transaction *ClientTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
-func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+func (transaction *ClientTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqReferenceChunks", network.ReqReferenceChunks{
 		Transaction: transaction.GetUuid(),
@@ -508,7 +508,7 @@ func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, er
 	return result.Payload.(network.ResReferenceChunks).Exists, result.Payload.(network.ResReferenceChunks).Err
 }
 
-func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+func (transaction *ClientTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqReferenceObjects", network.ReqReferenceObjects{
 		Transaction: transaction.GetUuid(),
@@ -521,7 +521,7 @@ func (transaction *ClientTransaction) ReferenceObjects(keys []string) ([]bool, e
 	return result.Payload.(network.ResReferenceObjects).Exists, result.Payload.(network.ResReferenceObjects).Err
 }
 
-func (transaction *ClientTransaction) PutObject(checksum string, data []byte) error {
+func (transaction *ClientTransaction) PutObject(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
 		Transaction: transaction.GetUuid(),
@@ -535,7 +535,7 @@ func (transaction *ClientTransaction) PutObject(checksum string, data []byte) er
 	return result.Payload.(network.ResPutObject).Err
 }
 
-func (transaction *ClientTransaction) PutChunk(checksum string, data []byte) error {
+func (transaction *ClientTransaction) PutChunk(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqPutChunk", network.ReqPutChunk{
 		Transaction: transaction.GetUuid(),

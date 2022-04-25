@@ -17,6 +17,7 @@
 package fs
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -59,8 +60,8 @@ type FSTransaction struct {
 	chunksMutex  sync.Mutex
 	objectsMutex sync.Mutex
 
-	chunks  map[string]bool
-	objects map[string]bool
+	chunks  map[[32]byte]bool
+	objects map[[32]byte]bool
 
 	muChunkBucket sync.Mutex
 	chunkBucket   map[string]bool
@@ -79,11 +80,11 @@ func NewFSRepository() storage.RepositoryBackend {
 	return &FSRepository{}
 }
 
-func (repository *FSRepository) objectExists(checksum string) bool {
+func (repository *FSRepository) objectExists(checksum [32]byte) bool {
 	return pathnameExists(repository.PathObject(checksum))
 }
 
-func (repository *FSRepository) chunkExists(checksum string) bool {
+func (repository *FSRepository) chunkExists(checksum [32]byte) bool {
 	return pathnameExists(repository.PathChunk(checksum))
 }
 
@@ -169,8 +170,8 @@ func (repository *FSRepository) Transaction() (storage.TransactionBackend, error
 	tx.repository = *repository
 	tx.prepared = false
 
-	tx.chunks = make(map[string]bool)
-	tx.objects = make(map[string]bool)
+	tx.chunks = make(map[[32]byte]bool)
+	tx.objects = make(map[[32]byte]bool)
 	tx.chunkBucket = make(map[string]bool)
 	tx.objectBucket = make(map[string]bool)
 
@@ -259,20 +260,20 @@ func (repository *FSRepository) PutIndex(indexID uuid.UUID, data []byte) error {
 	return nil
 }
 
-func (repository *FSRepository) ReferenceIndexChunk(indexID uuid.UUID, checksum string) error {
+func (repository *FSRepository) ReferenceIndexChunk(indexID uuid.UUID, checksum [32]byte) error {
 	os.Mkdir(repository.PathIndexChunkBucket(indexID, checksum), 0700)
 	os.Link(repository.PathChunk(checksum), repository.PathIndexChunk(indexID, checksum))
 	return nil
 }
 
-func (repository *FSRepository) ReferenceIndexObject(indexID uuid.UUID, checksum string) error {
+func (repository *FSRepository) ReferenceIndexObject(indexID uuid.UUID, checksum [32]byte) error {
 	os.Mkdir(repository.PathIndexObjectBucket(indexID, checksum), 0700)
 	os.Link(repository.PathObject(checksum), repository.PathIndexObject(indexID, checksum))
 	return nil
 }
 
-func (repository *FSRepository) GetObjects() ([]string, error) {
-	ret := make([]string, 0)
+func (repository *FSRepository) GetObjects() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
 
 	buckets, err := ioutil.ReadDir(repository.PathObjects())
 	if err != nil {
@@ -290,13 +291,22 @@ func (repository *FSRepository) GetObjects() ([]string, error) {
 			//if err != nil {
 			//		return ret, nil
 			//	}
-			ret = append(ret, object.Name())
+			t, err := hex.DecodeString(object.Name())
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
 		}
 	}
 	return ret, nil
 }
 
-func (repository *FSRepository) GetIndexObject(indexID uuid.UUID, checksum string) ([]byte, error) {
+func (repository *FSRepository) GetIndexObject(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	data, err := ioutil.ReadFile(repository.PathIndexObject(indexID, checksum))
 	if err != nil {
 		return nil, err
@@ -305,7 +315,7 @@ func (repository *FSRepository) GetIndexObject(indexID uuid.UUID, checksum strin
 	return data, nil
 }
 
-func (repository *FSRepository) GetIndexChunk(indexID uuid.UUID, checksum string) ([]byte, error) {
+func (repository *FSRepository) GetIndexChunk(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	data, err := ioutil.ReadFile(repository.PathIndexChunk(indexID, checksum))
 	if err != nil {
 		return nil, err
@@ -314,7 +324,7 @@ func (repository *FSRepository) GetIndexChunk(indexID uuid.UUID, checksum string
 	return data, nil
 }
 
-func (repository *FSRepository) GetObject(checksum string) ([]byte, error) {
+func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	data, err := ioutil.ReadFile(repository.PathObject(checksum))
 	if err != nil {
 		return nil, err
@@ -323,7 +333,7 @@ func (repository *FSRepository) GetObject(checksum string) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) GetObjectRefCount(checksum string) (uint64, error) {
+func (repository *FSRepository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
 	st, err := os.Stat(repository.PathObject(checksum))
 	if err != nil {
 		return 0, err
@@ -331,7 +341,7 @@ func (repository *FSRepository) GetObjectRefCount(checksum string) (uint64, erro
 	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
 }
 
-func (repository *FSRepository) GetChunkRefCount(checksum string) (uint64, error) {
+func (repository *FSRepository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
 	st, err := os.Stat(repository.PathChunk(checksum))
 	if err != nil {
 		return 0, err
@@ -339,7 +349,7 @@ func (repository *FSRepository) GetChunkRefCount(checksum string) (uint64, error
 	return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
 }
 
-func (repository *FSRepository) GetObjectSize(checksum string) (uint64, error) {
+func (repository *FSRepository) GetObjectSize(checksum [32]byte) (uint64, error) {
 	st, err := os.Stat(repository.PathObject(checksum))
 	if err != nil {
 		return 0, err
@@ -347,7 +357,7 @@ func (repository *FSRepository) GetObjectSize(checksum string) (uint64, error) {
 	return uint64(st.Size()), nil
 }
 
-func (repository *FSRepository) GetChunkSize(checksum string) (uint64, error) {
+func (repository *FSRepository) GetChunkSize(checksum [32]byte) (uint64, error) {
 	st, err := os.Stat(repository.PathChunk(checksum))
 	if err != nil {
 		return 0, err
@@ -355,7 +365,7 @@ func (repository *FSRepository) GetChunkSize(checksum string) (uint64, error) {
 	return uint64(st.Size()), nil
 }
 
-func (repository *FSRepository) PutObject(checksum string, data []byte) error {
+func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error {
 	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
@@ -375,7 +385,7 @@ func (repository *FSRepository) PutObject(checksum string, data []byte) error {
 	return nil
 }
 
-func (repository *FSRepository) PutObjectSafe(checksum string, data []byte, link string) error {
+func (repository *FSRepository) PutObjectSafe(checksum [32]byte, data []byte, link string) error {
 	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
@@ -400,8 +410,8 @@ func (repository *FSRepository) PutObjectSafe(checksum string, data []byte, link
 	return nil
 }
 
-func (repository *FSRepository) GetChunks() ([]string, error) {
-	ret := make([]string, 0)
+func (repository *FSRepository) GetChunks() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
 
 	buckets, err := ioutil.ReadDir(repository.PathChunks())
 	if err != nil {
@@ -415,17 +425,22 @@ func (repository *FSRepository) GetChunks() ([]string, error) {
 		}
 
 		for _, chunk := range chunks {
-			//_, err = uuid.Parse(object.Name())
-			//if err != nil {
-			//		return ret, nil
-			//	}
-			ret = append(ret, chunk.Name())
+			t, err := hex.DecodeString(chunk.Name())
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
 		}
 	}
 	return ret, nil
 }
 
-func (repository *FSRepository) GetChunk(checksum string) ([]byte, error) {
+func (repository *FSRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	data, err := ioutil.ReadFile(repository.PathChunk(checksum))
 	if err != nil {
 		return nil, err
@@ -434,7 +449,7 @@ func (repository *FSRepository) GetChunk(checksum string) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) PutChunk(checksum string, data []byte) error {
+func (repository *FSRepository) PutChunk(checksum [32]byte, data []byte) error {
 	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
@@ -454,7 +469,7 @@ func (repository *FSRepository) PutChunk(checksum string, data []byte) error {
 	return nil
 }
 
-func (repository *FSRepository) PutChunkSafe(checksum string, data []byte, link string) error {
+func (repository *FSRepository) PutChunkSafe(checksum [32]byte, data []byte, link string) error {
 	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%s.*", checksum))
 	if err != nil {
 		return err
@@ -479,7 +494,7 @@ func (repository *FSRepository) PutChunkSafe(checksum string, data []byte, link 
 	return nil
 }
 
-func (repository *FSRepository) CheckIndexObject(indexID uuid.UUID, checksum string) (bool, error) {
+func (repository *FSRepository) CheckIndexObject(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	fileinfo, err := os.Stat(repository.PathIndexObject(indexID, checksum))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -487,7 +502,7 @@ func (repository *FSRepository) CheckIndexObject(indexID uuid.UUID, checksum str
 	return fileinfo.Mode().IsRegular(), nil
 }
 
-func (repository *FSRepository) CheckIndexChunk(indexID uuid.UUID, checksum string) (bool, error) {
+func (repository *FSRepository) CheckIndexChunk(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	fileinfo, err := os.Stat(repository.PathIndexChunk(indexID, checksum))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -496,7 +511,7 @@ func (repository *FSRepository) CheckIndexChunk(indexID uuid.UUID, checksum stri
 
 }
 
-func (repository *FSRepository) CheckObject(checksum string) (bool, error) {
+func (repository *FSRepository) CheckObject(checksum [32]byte) (bool, error) {
 	fileinfo, err := os.Stat(repository.PathObject(checksum))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -504,7 +519,7 @@ func (repository *FSRepository) CheckObject(checksum string) (bool, error) {
 	return fileinfo.Mode().IsRegular(), nil
 }
 
-func (repository *FSRepository) CheckChunk(checksum string) (bool, error) {
+func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
 	fileinfo, err := os.Stat(repository.PathChunk(checksum))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -590,11 +605,11 @@ func (repository *FSRepository) Tidy() {
 	wg.Wait()
 }
 
-func (transaction *FSTransaction) CreateChunkBucket(checksum string) error {
+func (transaction *FSTransaction) CreateChunkBucket(checksum [32]byte) error {
 	transaction.muChunkBucket.Lock()
 	defer transaction.muChunkBucket.Unlock()
 
-	bucket := checksum[0:2]
+	bucket := string(checksum[:])[0:2]
 	if _, exists := transaction.chunkBucket[bucket]; !exists {
 		err := os.Mkdir(transaction.PathChunkBucket(checksum), 0700)
 		if err != nil {
@@ -605,11 +620,11 @@ func (transaction *FSTransaction) CreateChunkBucket(checksum string) error {
 	return nil
 }
 
-func (transaction *FSTransaction) CreateObjectBucket(checksum string) error {
+func (transaction *FSTransaction) CreateObjectBucket(checksum [32]byte) error {
 	transaction.muObjectBucket.Lock()
 	defer transaction.muObjectBucket.Unlock()
 
-	bucket := checksum[0:2]
+	bucket := string(checksum[:])[0:2]
 	if _, exists := transaction.objectBucket[bucket]; !exists {
 		err := os.Mkdir(transaction.PathObjectBucket(checksum), 0700)
 		if err != nil {
@@ -633,7 +648,7 @@ func (transaction *FSTransaction) prepare() {
 	os.MkdirAll(fmt.Sprintf("%s/objects", transaction.Path()), 0700)
 }
 
-func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+func (transaction *FSTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		err := transaction.CreateChunkBucket(key)
@@ -661,7 +676,7 @@ func (transaction *FSTransaction) ReferenceChunks(keys []string) ([]bool, error)
 	return ret, nil
 }
 
-func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+func (transaction *FSTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		err := transaction.CreateObjectBucket(key)
@@ -689,7 +704,7 @@ func (transaction *FSTransaction) ReferenceObjects(keys []string) ([]bool, error
 	return ret, nil
 }
 
-func (transaction *FSTransaction) PutObject(checksum string, data []byte) error {
+func (transaction *FSTransaction) PutObject(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 
 	err := transaction.CreateObjectBucket(checksum)
@@ -709,7 +724,7 @@ func (transaction *FSTransaction) PutObject(checksum string, data []byte) error 
 	return nil
 }
 
-func (transaction *FSTransaction) PutChunk(checksum string, data []byte) error {
+func (transaction *FSTransaction) PutChunk(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 
 	err := transaction.CreateChunkBucket(checksum)

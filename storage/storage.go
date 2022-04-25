@@ -52,26 +52,26 @@ type RepositoryBackend interface {
 	PutMetadata(indexID uuid.UUID, data []byte) error
 	GetIndex(indexID uuid.UUID) ([]byte, error)
 	PutIndex(indexID uuid.UUID, data []byte) error
-	GetIndexObject(indexID uuid.UUID, checksum string) ([]byte, error)
-	CheckIndexObject(indexID uuid.UUID, checksum string) (bool, error)
-	GetIndexChunk(indexID uuid.UUID, checksum string) ([]byte, error)
-	CheckIndexChunk(indexID uuid.UUID, checksum string) (bool, error)
-	ReferenceIndexObject(indexID uuid.UUID, checksum string) error
-	ReferenceIndexChunk(indexID uuid.UUID, checksum string) error
+	GetIndexObject(indexID uuid.UUID, checksum [32]byte) ([]byte, error)
+	CheckIndexObject(indexID uuid.UUID, checksum [32]byte) (bool, error)
+	GetIndexChunk(indexID uuid.UUID, checksum [32]byte) ([]byte, error)
+	CheckIndexChunk(indexID uuid.UUID, checksum [32]byte) (bool, error)
+	ReferenceIndexObject(indexID uuid.UUID, checksum [32]byte) error
+	ReferenceIndexChunk(indexID uuid.UUID, checksum [32]byte) error
 
-	GetObjects() ([]string, error)
-	GetObject(checksum string) ([]byte, error)
-	CheckObject(checksum string) (bool, error)
-	PutObject(checksum string, data []byte) error
-	GetObjectRefCount(checksum string) (uint64, error)
-	GetObjectSize(checksum string) (uint64, error)
+	GetObjects() ([][32]byte, error)
+	GetObject(checksum [32]byte) ([]byte, error)
+	CheckObject(checksum [32]byte) (bool, error)
+	PutObject(checksum [32]byte, data []byte) error
+	GetObjectRefCount(checksum [32]byte) (uint64, error)
+	GetObjectSize(checksum [32]byte) (uint64, error)
 
-	GetChunks() ([]string, error)
-	GetChunk(checksum string) ([]byte, error)
-	CheckChunk(checksum string) (bool, error)
-	PutChunk(checksum string, data []byte) error
-	GetChunkRefCount(checksum string) (uint64, error)
-	GetChunkSize(checksum string) (uint64, error)
+	GetChunks() ([][32]byte, error)
+	GetChunk(checksum [32]byte) ([]byte, error)
+	CheckChunk(checksum [32]byte) (bool, error)
+	PutChunk(checksum [32]byte, data []byte) error
+	GetChunkRefCount(checksum [32]byte) (uint64, error)
+	GetChunkSize(checksum [32]byte) (uint64, error)
 
 	Purge(indexID uuid.UUID) error
 
@@ -81,11 +81,11 @@ type RepositoryBackend interface {
 type TransactionBackend interface {
 	GetUuid() uuid.UUID
 
-	ReferenceObjects(keys []string) ([]bool, error)
-	PutObject(checksum string, data []byte) error
+	ReferenceObjects(keys [][32]byte) ([]bool, error)
+	PutObject(checksum [32]byte, data []byte) error
 
-	ReferenceChunks(keys []string) ([]bool, error)
-	PutChunk(checksum string, data []byte) error
+	ReferenceChunks(keys [][32]byte) ([]bool, error)
+	PutChunk(checksum [32]byte, data []byte) error
 
 	PutMetadata(data []byte) error
 	PutIndex(data []byte) error
@@ -316,7 +316,7 @@ func (repository *Repository) PutIndex(indexID uuid.UUID, data []byte) error {
 	return repository.backend.PutIndex(indexID, data)
 }
 
-func (repository *Repository) GetIndexObject(indexID uuid.UUID, checksum string) ([]byte, error) {
+func (repository *Repository) GetIndexObject(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexObject(%s, %s): %s", indexID, checksum, time.Since(t0))
@@ -324,7 +324,7 @@ func (repository *Repository) GetIndexObject(indexID uuid.UUID, checksum string)
 	return repository.backend.GetIndexObject(indexID, checksum)
 }
 
-func (repository *Repository) GetIndexChunk(indexID uuid.UUID, checksum string) ([]byte, error) {
+func (repository *Repository) GetIndexChunk(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexObject(%s): %s", indexID, checksum, time.Since(t0))
@@ -332,7 +332,7 @@ func (repository *Repository) GetIndexChunk(indexID uuid.UUID, checksum string) 
 	return repository.backend.GetIndexChunk(indexID, checksum)
 }
 
-func (repository *Repository) ReferenceIndexChunk(indexID uuid.UUID, checksum string) error {
+func (repository *Repository) ReferenceIndexChunk(indexID uuid.UUID, checksum [32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexChunk(%s, %s): %s", indexID, checksum, time.Since(t0))
@@ -340,7 +340,7 @@ func (repository *Repository) ReferenceIndexChunk(indexID uuid.UUID, checksum st
 	return repository.backend.ReferenceIndexChunk(indexID, checksum)
 }
 
-func (repository *Repository) ReferenceIndexObject(indexID uuid.UUID, checksum string) error {
+func (repository *Repository) ReferenceIndexObject(indexID uuid.UUID, checksum [32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: RefIndexObject(%s, %s): %s", indexID, checksum, time.Since(t0))
@@ -348,7 +348,7 @@ func (repository *Repository) ReferenceIndexObject(indexID uuid.UUID, checksum s
 	return repository.backend.ReferenceIndexObject(indexID, checksum)
 }
 
-func (repository *Repository) GetObjects() ([]string, error) {
+func (repository *Repository) GetObjects() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjects(): %s", time.Since(t0))
@@ -356,7 +356,7 @@ func (repository *Repository) GetObjects() ([]string, error) {
 	return repository.backend.GetObjects()
 }
 
-func (repository *Repository) GetObject(checksum string) ([]byte, error) {
+func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObject(%s): %s", checksum, time.Since(t0))
@@ -364,7 +364,7 @@ func (repository *Repository) GetObject(checksum string) ([]byte, error) {
 	return repository.backend.GetObject(checksum)
 }
 
-func (repository *Repository) PutObject(checksum string, data []byte) error {
+func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutObject(%s): %s", checksum, time.Since(t0))
@@ -372,7 +372,7 @@ func (repository *Repository) PutObject(checksum string, data []byte) error {
 	return repository.backend.PutObject(checksum, data)
 }
 
-func (repository *Repository) GetObjectRefCount(checksum string) (uint64, error) {
+func (repository *Repository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjectRefCount(%s): %s", checksum, time.Since(t0))
@@ -380,7 +380,7 @@ func (repository *Repository) GetObjectRefCount(checksum string) (uint64, error)
 	return repository.backend.GetObjectRefCount(checksum)
 }
 
-func (repository *Repository) GetObjectSize(checksum string) (uint64, error) {
+func (repository *Repository) GetObjectSize(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetObjectSize(%s): %s", checksum, time.Since(t0))
@@ -388,7 +388,7 @@ func (repository *Repository) GetObjectSize(checksum string) (uint64, error) {
 	return repository.backend.GetObjectSize(checksum)
 }
 
-func (repository *Repository) GetChunks() ([]string, error) {
+func (repository *Repository) GetChunks() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunks(): %s", time.Since(t0))
@@ -396,7 +396,7 @@ func (repository *Repository) GetChunks() ([]string, error) {
 	return repository.backend.GetChunks()
 }
 
-func (repository *Repository) GetChunk(checksum string) ([]byte, error) {
+func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunk(%s): %s", checksum, time.Since(t0))
@@ -404,7 +404,7 @@ func (repository *Repository) GetChunk(checksum string) ([]byte, error) {
 	return repository.backend.GetChunk(checksum)
 }
 
-func (repository *Repository) PutChunk(checksum string, data []byte) error {
+func (repository *Repository) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: PutChunk(%s): %s", checksum, time.Since(t0))
@@ -412,7 +412,7 @@ func (repository *Repository) PutChunk(checksum string, data []byte) error {
 	return repository.backend.PutChunk(checksum, data)
 }
 
-func (repository *Repository) GetChunkRefCount(checksum string) (uint64, error) {
+func (repository *Repository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunkRefCount(%s): %s", checksum, time.Since(t0))
@@ -420,7 +420,7 @@ func (repository *Repository) GetChunkRefCount(checksum string) (uint64, error) 
 	return repository.backend.GetChunkRefCount(checksum)
 }
 
-func (repository *Repository) GetChunkSize(checksum string) (uint64, error) {
+func (repository *Repository) GetChunkSize(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetChunkSize(%s): %s", checksum, time.Since(t0))
@@ -428,7 +428,7 @@ func (repository *Repository) GetChunkSize(checksum string) (uint64, error) {
 	return repository.backend.GetChunkSize(checksum)
 }
 
-func (repository *Repository) CheckIndexObject(indexID uuid.UUID, checksum string) (bool, error) {
+func (repository *Repository) CheckIndexObject(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckIndexObject(%s, %s): %s", indexID, checksum, time.Since(t0))
@@ -436,7 +436,7 @@ func (repository *Repository) CheckIndexObject(indexID uuid.UUID, checksum strin
 	return repository.backend.CheckIndexObject(indexID, checksum)
 }
 
-func (repository *Repository) CheckIndexChunk(indexID uuid.UUID, checksum string) (bool, error) {
+func (repository *Repository) CheckIndexChunk(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckIndexChunk(%s, %s): %s", indexID, checksum, time.Since(t0))
@@ -444,7 +444,7 @@ func (repository *Repository) CheckIndexChunk(indexID uuid.UUID, checksum string
 	return repository.backend.CheckIndexChunk(indexID, checksum)
 }
 
-func (repository *Repository) CheckObject(checksum string) (bool, error) {
+func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckObject(%s): %s", checksum, time.Since(t0))
@@ -452,7 +452,7 @@ func (repository *Repository) CheckObject(checksum string) (bool, error) {
 	return repository.backend.CheckObject(checksum)
 }
 
-func (repository *Repository) CheckChunk(checksum string) (bool, error) {
+func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: CheckChunk(%s): %s", checksum, time.Since(t0))
@@ -480,7 +480,7 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.backend.GetUuid()
 }
 
-func (transaction *Transaction) ReferenceObjects(keys []string) ([]bool, error) {
+func (transaction *Transaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: %s.ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
@@ -488,7 +488,7 @@ func (transaction *Transaction) ReferenceObjects(keys []string) ([]bool, error) 
 	return transaction.backend.ReferenceObjects(keys)
 }
 
-func (transaction *Transaction) PutObject(checksum string, data []byte) error {
+func (transaction *Transaction) PutObject(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: %s.PutObject(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
@@ -496,7 +496,7 @@ func (transaction *Transaction) PutObject(checksum string, data []byte) error {
 	return transaction.backend.PutObject(checksum, data)
 }
 
-func (transaction *Transaction) ReferenceChunks(keys []string) ([]bool, error) {
+func (transaction *Transaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: %s.ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
@@ -504,7 +504,7 @@ func (transaction *Transaction) ReferenceChunks(keys []string) ([]bool, error) {
 	return transaction.backend.ReferenceChunks(keys)
 }
 
-func (transaction *Transaction) PutChunk(checksum string, data []byte) error {
+func (transaction *Transaction) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: %s.PutChunk(%s) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))

@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -125,7 +126,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				} else {
 					chunkHash := sha256.New()
 					chunkHash.Write(data)
-					if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
+					if !bytes.Equal(chunk.Checksum[:], chunkHash.Sum(nil)) {
 						continue
 					}
 				}
@@ -133,7 +134,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
+			if !bytes.Equal(checksum[:], objectHash.Sum(nil)) {
 			}
 
 			f.Sync()

@@ -61,13 +61,13 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		Index: &Index{
 			Filesystem: filesystem.NewFilesystem(),
 
-			Pathnames: make(map[string]string),
-			Objects:   make(map[string]*Object),
-			Chunks:    make(map[string]*Chunk),
+			Pathnames: make(map[string][32]byte),
+			Objects:   make(map[[32]byte]*Object),
+			Chunks:    make(map[[32]byte]*Chunk),
 
-			ChunkToObjects:       make(map[string][]string),
-			ObjectToPathnames:    make(map[string][]string),
-			ContentTypeToObjects: make(map[string][]string),
+			ChunkToObjects:       make(map[[32]byte][][32]byte),
+			ObjectToPathnames:    make(map[[32]byte][]string),
+			ContentTypeToObjects: make(map[string][][32]byte),
 		},
 	}
 
@@ -244,14 +244,14 @@ func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetIndexes()
 }
 
-func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
+func (snapshot *Snapshot) GetChunkInfo(checksum [32]byte) (*Chunk, bool) {
 	snapshot.Index.muChunks.Lock()
 	chunk, exists := snapshot.Index.Chunks[checksum]
 	snapshot.Index.muChunks.Unlock()
 	return chunk, exists
 }
 
-func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
+func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -271,7 +271,7 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 	return snapshot.transaction.PutChunk(checksum, buffer)
 }
 
-func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
+func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -333,12 +333,12 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
-func (snapshot *Snapshot) ReferenceChunks(keys []string) ([]bool, error) {
+func (snapshot *Snapshot) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceChunks(keys)
 }
 
-func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
+func (snapshot *Snapshot) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceObjects(keys)
 }
@@ -385,7 +385,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	return cache.PutIndex(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid.String(), buffer)
 }
 
-func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
+func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	secret := snapshot.repository.GetSecret()
 
 	logger.Trace("%s: GetChunk(%s)", snapshot.Metadata.Uuid, checksum)
@@ -408,7 +408,7 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	return buffer, nil
 }
 
-func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
+func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 	logger.Trace("%s: CheckChunk(%s)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.repository.CheckChunk(checksum)
 	if err != nil {
@@ -417,7 +417,7 @@ func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
 	return exists, nil
 }
 
-func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
+func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 	secret := snapshot.repository.GetSecret()
 
 	logger.Trace("%s: GetObject(%s)", snapshot.Metadata.Uuid, checksum)
@@ -444,7 +444,7 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	return object, err
 }
 
-func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
+func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
 	logger.Trace("%s: CheckObject(%s)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.repository.CheckObject(checksum)
 	if err != nil {
@@ -496,12 +496,12 @@ func (snapshot *Snapshot) Commit() error {
 	return snapshot.transaction.Commit()
 }
 
-func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {
+func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum [32]byte, objectChecksum [32]byte) {
 	snapshot.Index.muChunkToObjects.Lock()
 	defer snapshot.Index.muChunkToObjects.Unlock()
 
 	if _, exists := snapshot.Index.ChunkToObjects[chunkChecksum]; !exists {
-		snapshot.Index.ChunkToObjects[chunkChecksum] = make([]string, 0)
+		snapshot.Index.ChunkToObjects[chunkChecksum] = make([][32]byte, 0)
 	}
 
 	for _, value := range snapshot.Index.ChunkToObjects[chunkChecksum] {
@@ -512,7 +512,7 @@ func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChec
 	snapshot.Index.ChunkToObjects[chunkChecksum] = append(snapshot.Index.ChunkToObjects[chunkChecksum], objectChecksum)
 }
 
-func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathname string) {
+func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum [32]byte, pathname string) {
 	snapshot.Index.muObjectToPathnames.Lock()
 	defer snapshot.Index.muObjectToPathnames.Unlock()
 
@@ -528,12 +528,12 @@ func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathna
 	snapshot.Index.ObjectToPathnames[objectChecksum] = append(snapshot.Index.ObjectToPathnames[objectChecksum], pathname)
 }
 
-func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum string) {
+func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum [32]byte) {
 	snapshot.Index.muContentTypeToObjects.Lock()
 	defer snapshot.Index.muContentTypeToObjects.Unlock()
 
 	if _, exists := snapshot.Index.ContentTypeToObjects[contentType]; !exists {
-		snapshot.Index.ContentTypeToObjects[contentType] = make([]string, 0)
+		snapshot.Index.ContentTypeToObjects[contentType] = make([][32]byte, 0)
 	}
 
 	for _, value := range snapshot.Index.ContentTypeToObjects[contentType] {

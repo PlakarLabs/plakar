@@ -273,16 +273,16 @@ func (repository *DatabaseRepository) GetIndexes() ([]uuid.UUID, error) {
 	return indexes, nil
 }
 
-func (repository *DatabaseRepository) GetChunks() ([]string, error) {
+func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
 	rows, err := repository.conn.Query("SELECT chunkChecksum FROM chunks")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var checksums []string
+	var checksums [][32]byte
 	for rows.Next() {
-		var checksum string
+		var checksum [32]byte
 		err = rows.Scan(&checksum)
 		if err != nil {
 			return nil, err
@@ -292,16 +292,16 @@ func (repository *DatabaseRepository) GetChunks() ([]string, error) {
 	return checksums, nil
 }
 
-func (repository *DatabaseRepository) GetObjects() ([]string, error) {
+func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
 	rows, err := repository.conn.Query("SELECT objectChecksum FROM objects")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var checksums []string
+	var checksums [][32]byte
 	for rows.Next() {
-		var checksum string
+		var checksum [32]byte
 		err = rows.Scan(&checksum)
 		if err != nil {
 			return nil, err
@@ -329,7 +329,7 @@ func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error
 	return data, nil
 }
 
-func (repository *DatabaseRepository) GetObject(checksum string) ([]byte, error) {
+func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -338,7 +338,7 @@ func (repository *DatabaseRepository) GetObject(checksum string) ([]byte, error)
 	return data, nil
 }
 
-func (repository *DatabaseRepository) GetChunk(checksum string) ([]byte, error) {
+func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -347,7 +347,7 @@ func (repository *DatabaseRepository) GetChunk(checksum string) ([]byte, error) 
 	return data, nil
 }
 
-func (repository *DatabaseRepository) CheckObject(checksum string) (bool, error) {
+func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -356,7 +356,7 @@ func (repository *DatabaseRepository) CheckObject(checksum string) (bool, error)
 	return true, nil
 }
 
-func (repository *DatabaseRepository) CheckChunk(checksum string) (bool, error) {
+func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
 	if err != nil {
@@ -378,7 +378,7 @@ func (repository *DatabaseRepository) Close() error {
 func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
-func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, error) {
+func (transaction *DatabaseTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
@@ -401,7 +401,7 @@ func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, 
 	return ret, nil
 }
 
-func (transaction *DatabaseTransaction) ReferenceObjects(keys []string) ([]bool, error) {
+func (transaction *DatabaseTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
 		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
@@ -424,7 +424,7 @@ func (transaction *DatabaseTransaction) ReferenceObjects(keys []string) ([]bool,
 	return ret, nil
 }
 
-func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) error {
+func (transaction *DatabaseTransaction) PutObject(checksum [32]byte, data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -440,7 +440,7 @@ func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) 
 	return nil
 }
 
-func (transaction *DatabaseTransaction) PutChunk(checksum string, data []byte) error {
+func (transaction *DatabaseTransaction) PutChunk(checksum [32]byte, data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err

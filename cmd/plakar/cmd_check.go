@@ -74,10 +74,10 @@ func check_plakar(repository *storage.Repository) int {
 	}
 
 	muChunks := sync.Mutex{}
-	chunks := make(map[string]uint16)
+	chunks := make(map[[32]byte]uint16)
 
 	muObjects := sync.Mutex{}
-	objects := make(map[string]uint16)
+	objects := make(map[[32]byte]uint16)
 
 	errors := 0
 

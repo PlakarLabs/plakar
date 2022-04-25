@@ -162,6 +162,13 @@ func (index *Index) AddObject(object *Object) {
 	index.Objects[object.Checksum] = object
 }
 
+func (index *Index) AddChunk(chunk *Chunk) {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	index.Chunks[chunk.Checksum] = chunk
+}
+
 func (index *Index) AddObjectToPathnames(object *Object, pathname string) {
 	index.muObjectToPathnames.Lock()
 	defer index.muObjectToPathnames.Unlock()
@@ -172,5 +179,17 @@ func (index *Index) AddObjectToPathnames(object *Object, pathname string) {
 func (index *Index) AddContentTypeToObjects(object *Object) {
 	index.muContentTypeToObjects.Lock()
 	defer index.muContentTypeToObjects.Unlock()
+
 	index.ContentTypeToObjects[object.ContentType] = append(index.ContentTypeToObjects[object.ContentType], object.Checksum)
+}
+
+func (index *Index) LookupChunk(checksum [32]byte) *Chunk {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	if chunk, ok := index.Chunks[checksum]; !ok {
+		return nil
+	} else {
+		return chunk
+	}
 }

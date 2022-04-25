@@ -186,10 +186,8 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	}
 	object.ContentType = cachedObject.ContentType
 
-	for offset, chunkChecksum := range object.Chunks {
-		snapshot.Index.muChunks.Lock()
-		snapshot.Index.Chunks[chunkChecksum] = cachedObject.Chunks[offset]
-		snapshot.Index.muChunks.Unlock()
+	for offset, _ := range object.Chunks {
+		snapshot.Index.AddChunk(cachedObject.Chunks[offset])
 	}
 
 	return &object, nil
@@ -256,21 +254,17 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			return nil, err
 		}
 		if !res[0] {
-			snapshot.Index.muChunks.Lock()
-			if _, ok := snapshot.Index.Chunks[chunk.Checksum]; !ok {
+			if snapshot.Index.LookupChunk(chunk.Checksum) == nil {
 				err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
 				if err == nil {
-					snapshot.Index.Chunks[chunk.Checksum] = &chunk
+					snapshot.Index.AddChunk(&chunk)
 				}
 			}
-			snapshot.Index.muChunks.Unlock()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			snapshot.Index.muChunks.Lock()
-			snapshot.Index.Chunks[chunk.Checksum] = &chunk
-			snapshot.Index.muChunks.Unlock()
+			snapshot.Index.AddChunk(&chunk)
 		}
 	}
 	var t32 [32]byte

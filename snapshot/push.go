@@ -364,7 +364,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(value))
 	}
 
-	for key := range snapshot.Index.Pathnames {
+	for _, key := range snapshot.Index.ListPathnames() {
 		extension := strings.ToLower(filepath.Ext(key))
 		if extension == "" {
 			extension = "none"
@@ -387,7 +387,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
 	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
-	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.Pathnames))
+	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
 
 	snapshot.Metadata.Statistics.Duration = time.Since(t0)
 

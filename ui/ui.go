@@ -163,7 +163,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
 	ss.Files = uint64(len(snapshot.Index.Filesystem.Files))
 	ss.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
-	ss.Pathnames = uint64(len(snapshot.Index.Pathnames))
+	ss.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
 	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
 	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
 	return ss
@@ -351,13 +351,12 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	checksum, ok := snap.Index.Pathnames[path]
-	if !ok {
+	object := snap.Index.LookupObjectForPathname(path)
+	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	object := snap.Index.LookupObject(checksum)
 	info, _ := snap.Index.LookupInodeForPathname(path)
 
 	chunks := make([]*snapshot.Chunk, 0)
@@ -425,13 +424,11 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	checksum, ok := snap.Index.Pathnames[path]
-	if !ok {
+	object := snap.Index.LookupObjectForPathname(path)
+	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-
-	object := snap.Index.LookupObject(checksum)
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
 		contentType = object.ContentType
@@ -557,9 +554,9 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		for file, checksum := range snap.Index.Pathnames {
+		for _, file := range snap.Index.ListPathnames() {
 			if strings.Contains(file, q) {
-				object := snap.Index.LookupObject(checksum)
+				object := snap.Index.LookupObjectForPathname(file)
 				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
 					continue
 				}

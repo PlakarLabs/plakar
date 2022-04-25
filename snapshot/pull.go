@@ -93,8 +93,8 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			checksum, exists := snapshot.Index.Pathnames[file]
-			if !exists {
+			object := snapshot.Index.LookupObjectForPathname(file)
+			if object == nil {
 				logger.Warn("skipping %s", rel)
 				return
 			}
@@ -106,11 +106,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				return
 			}
 			defer f.Close()
-
-			object, err := snapshot.GetObject(checksum)
-			if err != nil {
-				return
-			}
 
 			objectHash := sha256.New()
 			for _, chunkChecksum := range object.Chunks {
@@ -134,7 +129,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if !bytes.Equal(checksum[:], objectHash.Sum(nil)) {
+			if !bytes.Equal(object.Checksum[:], objectHash.Sum(nil)) {
 			}
 
 			f.Sync()

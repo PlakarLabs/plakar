@@ -11,10 +11,6 @@ import (
 type Index struct {
 	Filesystem *filesystem.Filesystem
 
-	muStringSymbols  sync.Mutex
-	StringSymbols    map[string]uint64
-	StringSymbolsRev map[uint64]string
-
 	// Pathnames -> Object checksum
 	muPathnames sync.Mutex
 	Pathnames   map[string][32]byte
@@ -42,9 +38,6 @@ type Index struct {
 
 func NewIndex() *Index {
 	return &Index{
-		StringSymbols:    make(map[string]uint64),
-		StringSymbolsRev: make(map[uint64]string),
-
 		Filesystem: filesystem.NewFilesystem(),
 
 		Pathnames: make(map[string][32]byte),
@@ -223,6 +216,17 @@ func (index *Index) ListChunks() [][32]byte {
 	ret := make([][32]byte, 0)
 	for checksum := range index.Chunks {
 		ret = append(ret, checksum)
+	}
+	return ret
+}
+
+func (index *Index) ListPathnames() []string {
+	index.muPathnames.Lock()
+	defer index.muPathnames.Unlock()
+
+	ret := make([]string, 0)
+	for pathname := range index.Pathnames {
+		ret = append(ret, pathname)
 	}
 	return ret
 }

@@ -70,13 +70,13 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 }
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
-	checksum, ok := snapshot.Index.Pathnames[resource]
-	if !ok {
+	object := snapshot.Index.LookupObjectForPathname(resource)
+	if object == nil {
 		logger.Warn("%s: no such file %s", snapshot.Metadata.IndexID, resource)
 		return false, nil
 	}
 
-	ret, err := snapshotCheckObject(snapshot, checksum, fast)
+	ret, err := snapshotCheckObject(snapshot, object.Checksum, fast)
 	if err != nil {
 		return false, err
 	}
@@ -161,15 +161,9 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	}
 
 	for _, file := range snapshot.Index.Filesystem.ListFiles() {
-		checksum, ok := snapshot.Index.Pathnames[file]
-		if !ok {
-			logger.Warn("%s: unlisted file %s", snapshot.Metadata.IndexID, file)
-			ret = false
-			continue
-		}
-		object := snapshot.Index.LookupObject(checksum)
+		object := snapshot.Index.LookupObjectForPathname(file)
 		if object == nil {
-			logger.Warn("%s: unlisted object %064x", snapshot.Metadata.IndexID, checksum)
+			logger.Warn("%s: unlisted object for file %064x", snapshot.Metadata.IndexID, file)
 			ret = false
 			continue
 		}

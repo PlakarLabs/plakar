@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -149,9 +150,9 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			_, ok1 := snapshot1.Index.Pathnames[args[i]]
-			_, ok2 := snapshot2.Index.Pathnames[args[i]]
-			if !ok1 && !ok2 {
+			object1 := snapshot1.Index.LookupObjectForPathname(args[i])
+			object2 := snapshot2.Index.LookupObjectForPathname(args[i])
+			if object1 == nil && object2 == nil {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
 
@@ -183,15 +184,15 @@ func fiToDiff(fi filesystem.Fileinfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	sum1, ok1 := snapshot1.Index.Pathnames[filename1]
-	sum2, ok2 := snapshot2.Index.Pathnames[filename2]
+	object1 := snapshot1.Index.LookupObjectForPathname(filename1)
+	object2 := snapshot1.Index.LookupObjectForPathname(filename2)
 
 	// file does not exist in either snapshot
-	if !ok1 && !ok2 {
+	if object1 == nil && object2 == nil {
 		return
 	}
 
-	if sum1 == sum2 {
+	if bytes.Equal(object1.Checksum[:], object2.Checksum[:]) {
 		fmt.Printf("%s:%s and %s:%s are identical\n",
 			snapshot1.Metadata.IndexID, filename1, snapshot2.Metadata.IndexID, filename2)
 		return

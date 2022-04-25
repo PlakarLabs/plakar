@@ -164,8 +164,8 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Files = uint64(len(snapshot.Index.Filesystem.Files))
 	ss.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
 	ss.Pathnames = uint64(len(snapshot.Index.Pathnames))
-	ss.Objects = uint64(len(snapshot.Index.Objects))
-	ss.Chunks = uint64(len(snapshot.Index.Chunks))
+	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
+	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
 	return ss
 }
 
@@ -362,7 +362,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	chunks := make([]*snapshot.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
-		chunks = append(chunks, snap.Index.Chunks[chunkChecksum])
+		chunks = append(chunks, snap.Index.LookupChunk(chunkChecksum))
 	}
 
 	root := ""

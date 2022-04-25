@@ -89,7 +89,7 @@ func check_plakar(repository *storage.Repository) int {
 			continue
 		}
 
-		for chunkChecksum := range snap.Index.Chunks {
+		for _, chunkChecksum := range snap.Index.ListChunks() {
 			muChunks.Lock()
 			if _, exists := chunks[chunkChecksum]; !exists {
 				chunks[chunkChecksum] = 0
@@ -98,7 +98,7 @@ func check_plakar(repository *storage.Repository) int {
 			muChunks.Unlock()
 		}
 
-		for objectChecksum := range snap.Index.Objects {
+		for _, objectChecksum := range snap.Index.ListObjects() {
 			muObjects.Lock()
 			if _, exists := objects[objectChecksum]; !exists {
 				objects[objectChecksum] = 0

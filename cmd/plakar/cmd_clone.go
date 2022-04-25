@@ -132,16 +132,16 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				return 1
 			}
 
-			for _, chunk := range snap.Index.Chunks {
-				err = cloneRepository.ReferenceIndexChunk(indexID, chunk.Checksum)
+			for _, checksum := range snap.Index.ListChunks() {
+				err = cloneRepository.ReferenceIndexChunk(indexID, checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in repository: %s\n", repository, err)
 					return 1
 				}
 			}
 
-			for _, object := range snap.Index.Objects {
-				err = cloneRepository.ReferenceIndexObject(indexID, object.Checksum)
+			for _, checksum := range snap.Index.ListObjects() {
+				err = cloneRepository.ReferenceIndexObject(indexID, checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference object in repository: %s\n", repository, err)
 					return 1

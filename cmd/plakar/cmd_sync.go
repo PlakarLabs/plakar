@@ -180,16 +180,16 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 				return 1
 			}
 
-			for _, chunk := range snap.Index.Chunks {
-				err = syncRepository.ReferenceIndexChunk(indexID, chunk.Checksum)
+			for _, checksum := range snap.Index.ListChunks() {
+				err = syncRepository.ReferenceIndexChunk(indexID, checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in repository: %s\n", repository, err)
 					return 1
 				}
 			}
 
-			for _, object := range snap.Index.Objects {
-				err = syncRepository.ReferenceIndexObject(indexID, object.Checksum)
+			for _, checksum := range snap.Index.ListObjects() {
+				err = syncRepository.ReferenceIndexObject(indexID, checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference object in repository: %s\n", repository, err)
 					return 1

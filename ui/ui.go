@@ -357,7 +357,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	object := snap.Index.Objects[checksum]
+	object := snap.Index.LookupObject(checksum)
 	info, _ := snap.Index.LookupInodeForPathname(path)
 
 	chunks := make([]*snapshot.Chunk, 0)
@@ -431,7 +431,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	object := snap.Index.Objects[checksum]
+	object := snap.Index.LookupObject(checksum)
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
 		contentType = object.ContentType
@@ -559,7 +559,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		}
 		for file, checksum := range snap.Index.Pathnames {
 			if strings.Contains(file, q) {
-				object := snap.Index.Objects[checksum]
+				object := snap.Index.LookupObject(checksum)
 				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
 					continue
 				}

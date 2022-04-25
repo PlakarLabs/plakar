@@ -346,7 +346,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Index.Filesystem.Files))
 	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
 
-	for key, value := range snapshot.Index.ContentTypeToObjects {
+	for _, key := range snapshot.Index.ListContentTypes() {
 		objectType := strings.Split(key, ";")[0]
 		objectKind := strings.Split(key, "/")[0]
 		if objectType == "" {
@@ -356,12 +356,12 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
 			snapshot.Metadata.Statistics.Kind[objectKind] = 0
 		}
-		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(value))
+		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(snapshot.Index.GetContentType(key)))
 
 		if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
 			snapshot.Metadata.Statistics.Type[objectType] = 0
 		}
-		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(value))
+		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(snapshot.Index.GetContentType(key)))
 	}
 
 	for _, key := range snapshot.Index.ListPathnames() {

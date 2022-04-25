@@ -230,3 +230,25 @@ func (index *Index) ListPathnames() []string {
 	}
 	return ret
 }
+
+func (index *Index) ListContentTypes() []string {
+	index.muContentTypeToObjects.Lock()
+	defer index.muContentTypeToObjects.Unlock()
+
+	ret := make([]string, 0)
+	for contentType := range index.ContentTypeToObjects {
+		ret = append(ret, contentType)
+	}
+	return ret
+}
+
+func (index *Index) GetContentType(contentType string) [][32]byte {
+	index.muContentTypeToObjects.Lock()
+	defer index.muContentTypeToObjects.Unlock()
+
+	if objectsChecksums, ok := index.ContentTypeToObjects[contentType]; !ok {
+		return nil
+	} else {
+		return objectsChecksums
+	}
+}

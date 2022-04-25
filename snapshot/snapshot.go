@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/filesystem"
@@ -32,7 +33,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		transaction: tx,
 
 		Metadata: &Metadata{
-			Uuid:         tx.GetUuid(),
+			Uuid:         uuid.MustParse(tx.GetUuid()),
 			CreationTime: time.Now(),
 			Version:      storage.VERSION,
 			Hostname:     "",
@@ -172,7 +173,7 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
-		cache.PutMetadata(repository.Configuration().Uuid.String(), metadata.Uuid, orig_buffer)
+		cache.PutMetadata(repository.Configuration().Uuid.String(), metadata.Uuid.String(), orig_buffer)
 	}
 
 	return metadata, false, nil
@@ -360,7 +361,7 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
-	return cache.PutMetadata(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid, buffer)
+	return cache.PutMetadata(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid.String(), buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
@@ -381,7 +382,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutIndex(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid, buffer)
+	return cache.PutIndex(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid.String(), buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {

@@ -250,7 +250,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.Uuid != id {
+	if lcache == nil || lcache.Metadata.Uuid.String() != id {
 		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -338,7 +338,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.Uuid != id {
+	if lcache == nil || lcache.Metadata.Uuid.String() != id {
 		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -412,7 +412,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	highlight := r.URL.Query().Get("highlight")
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.Uuid != id {
+	if lcache == nil || lcache.Metadata.Uuid.String() != id {
 		tmp, err := snapshot.Load(lrepository, id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -552,7 +552,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Snapshot string
 						Date     string
 						Path     string
-					}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), directory})
+					}{snap.Metadata.Uuid.String(), snap.Metadata.CreationTime.String(), directory})
 				}
 			}
 		}
@@ -573,7 +573,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 					Snapshot string
 					Date     string
 					Path     string
-				}{snap.Metadata.Uuid, snap.Metadata.CreationTime.String(), file})
+				}{snap.Metadata.Uuid.String(), snap.Metadata.CreationTime.String(), file})
 			}
 		}
 	}

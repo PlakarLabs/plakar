@@ -218,8 +218,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(string(buf1)),
 		B:        difflib.SplitLines(string(buf2)),
-		FromFile: snapshot1.Metadata.Uuid[0:8] + ":" + filename1,
-		ToFile:   snapshot2.Metadata.Uuid[0:8] + ":" + filename2,
+		FromFile: snapshot1.Metadata.Uuid.String()[0:8] + ":" + filename1,
+		ToFile:   snapshot2.Metadata.Uuid.String()[0:8] + ":" + filename2,
 		Context:  3,
 	}
 	text, err := difflib.GetUnifiedDiffString(diff)

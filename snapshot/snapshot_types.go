@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -47,7 +48,7 @@ type Statistics struct {
 }
 
 type Metadata struct {
-	Uuid         string
+	Uuid         uuid.UUID
 	CreationTime time.Time
 	Version      string
 	Hostname     string

@@ -1,12 +1,10 @@
 package snapshot
 
-import (
-	"encoding/json"
-)
+import "github.com/vmihailenco/msgpack/v5"
 
 func indexFromBytes(data []byte) (*Index, error) {
 	var index Index
-	if err := json.Unmarshal(data, &index); err != nil {
+	if err := msgpack.Unmarshal(data, &index); err != nil {
 		return nil, err
 	}
 	index.Filesystem.Reindex()
@@ -14,7 +12,7 @@ func indexFromBytes(data []byte) (*Index, error) {
 }
 
 func indexToBytes(index *Index) ([]byte, error) {
-	serialized, err := json.Marshal(index)
+	serialized, err := msgpack.Marshal(index)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +22,7 @@ func indexToBytes(index *Index) ([]byte, error) {
 
 func metadataFromBytes(data []byte) (*Metadata, error) {
 	var metadata Metadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
+	if err := msgpack.Unmarshal(data, &metadata); err != nil {
 		return nil, err
 	}
 
@@ -32,7 +30,7 @@ func metadataFromBytes(data []byte) (*Metadata, error) {
 }
 
 func metadataToBytes(metadata *Metadata) ([]byte, error) {
-	serialized, err := json.Marshal(metadata)
+	serialized, err := msgpack.Marshal(metadata)
 	if err != nil {
 		return nil, err
 	}

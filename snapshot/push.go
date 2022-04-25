@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -19,6 +18,7 @@ import (
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type objectMsg struct {
@@ -120,7 +120,7 @@ func pushObjectsProcessorChannelHandler(snapshot *Snapshot) (chan map[string]*Ob
 							Data   []byte
 						}{object, []byte("")}
 					} else {
-						objectData, err := json.Marshal(object)
+						objectData, err := msgpack.Marshal(object)
 						if err != nil {
 							logger.Warn("%s", err)
 							break

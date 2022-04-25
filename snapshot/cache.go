@@ -2,13 +2,13 @@ package snapshot
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
@@ -40,7 +40,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	}
 
 	cacheObject := CachedObject{}
-	err = json.Unmarshal(data, &cacheObject)
+	err = msgpack.Unmarshal(data, &cacheObject)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 	cacheObject.ContentType = object.ContentType
 	cacheObject.Info = fi
 
-	jobject, err := json.Marshal(cacheObject)
+	jobject, err := msgpack.Marshal(cacheObject)
 	if err != nil {
 		return err
 	}

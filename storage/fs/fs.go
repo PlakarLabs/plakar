@@ -17,7 +17,6 @@
 package fs
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -32,6 +31,7 @@ import (
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/google/uuid"
 	"github.com/iafan/cwalk"
@@ -118,7 +118,7 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	}
 	defer f.Close()
 
-	jconfig, err := json.Marshal(config)
+	jconfig, err := msgpack.Marshal(config)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (repository *FSRepository) Open(location string) error {
 	}
 
 	config := storage.RepositoryConfig{}
-	err = json.Unmarshal(jconfig, &config)
+	err = msgpack.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
 	}

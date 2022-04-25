@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func New(repository *storage.Repository) (*Snapshot, error) {
@@ -439,7 +439,7 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	}
 
 	object := &Object{}
-	err = json.Unmarshal(data, &object)
+	err = msgpack.Unmarshal(data, &object)
 	return object, err
 }
 

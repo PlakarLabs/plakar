@@ -34,10 +34,10 @@ import (
 const VERSION string = "0.1.0"
 
 type RepositoryConfig struct {
-	Uuid        uuid.UUID
-	Version     string
-	Encryption  string
-	Compression string
+	RepositoryID uuid.UUID
+	Version      string
+	Encryption   string
+	Compression  string
 }
 
 type RepositoryBackend interface {

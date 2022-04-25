@@ -20,11 +20,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -69,135 +67,37 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 }
 
 func info_plakar(repository *storage.Repository) int {
-	indexes, err := repository.GetIndexes()
+	metadatas, err := getMetadatas(repository, nil)
 	if err != nil {
 		logger.Warn("%s", err)
 		return 1
 	}
 
-	muChunks := sync.Mutex{}
-	chunks := make(map[[32]byte]uint16)
-
-	muObjects := sync.Mutex{}
-	objects := make(map[[32]byte]uint16)
-
-	errors := 0
-
-	chunksSize := uint64(0)
-	dedupedChunksSize := uint64(0)
-	objectsSize := uint64(0)
-	dedupedObjectsSize := uint64(0)
-	for _, indexID := range indexes {
-		snap, err := snapshot.Load(repository, indexID)
-		if err != nil {
-			logger.Warn("%s", err)
-			errors++
-			continue
-		}
-
-		for chunkChecksum := range snap.Index.Chunks {
-			muChunks.Lock()
-			if _, exists := chunks[chunkChecksum]; !exists {
-				chunks[chunkChecksum] = 0
-			}
-			chunks[chunkChecksum] = chunks[chunkChecksum] + 1
-			muChunks.Unlock()
-		}
-
-		for objectChecksum := range snap.Index.Objects {
-			muObjects.Lock()
-			if _, exists := objects[objectChecksum]; !exists {
-				objects[objectChecksum] = 0
-			}
-			objects[objectChecksum] = objects[objectChecksum] + 1
-			muObjects.Unlock()
-		}
-	}
-
-	chunksChecksums, err := repository.GetChunks()
-	if err != nil {
-		logger.Warn("%s", err)
-		errors++
-		return 1
-	}
-
-	objectsChecksums, err := repository.GetObjects()
-	if err != nil {
-		logger.Warn("%s", err)
-		errors++
-		return 1
-	}
-
-	for _, checksum := range chunksChecksums {
-		if _, exists := chunks[checksum]; !exists {
-			errors++
-		}
-	}
-
-	for _, checksum := range objectsChecksums {
-		if _, exists := objects[checksum]; !exists {
-			errors++
-		}
-	}
-
-	for chunkChecksum, count := range chunks {
-		refCount, err := repository.GetChunkRefCount(chunkChecksum)
-		if err != nil {
-			logger.Warn("%s", err)
-			errors++
-		} else if refCount != uint64(count) {
-			errors++
-		}
-		size, err := repository.GetChunkSize(chunkChecksum)
-		if err != nil {
-			logger.Warn("%s", err)
-			errors++
-		} else {
-			chunksSize += size
-			dedupedChunksSize += (size * uint64(chunks[chunkChecksum]))
-		}
-	}
-
-	for objectChecksum, count := range objects {
-		refCount, err := repository.GetObjectRefCount(objectChecksum)
-		if err != nil {
-			logger.Warn("%s", err)
-			errors++
-		} else if refCount != uint64(count) {
-			errors++
-		}
-		size, err := repository.GetObjectSize(objectChecksum)
-		if err != nil {
-			logger.Warn("%s", err)
-			errors++
-		} else {
-			objectsSize += size
-			dedupedObjectsSize += (size * uint64(chunks[objectChecksum]))
-		}
-	}
-
-	dedupedChunksPercentage := 0.0
-	if dedupedChunksSize != 0 {
-		dedupedChunksPercentage = float64(dedupedChunksSize-chunksSize) / float64(dedupedChunksSize) * 100
-	}
-	dedupedObjectsPercentage := 0.0
-	if dedupedObjectsSize != 0 {
-		dedupedObjectsPercentage = float64(dedupedObjectsSize-objectsSize) / float64(dedupedObjectsSize) * 100
-	}
+	fmt.Println("RepositoryID:", repository.Configuration().RepositoryID)
+	fmt.Println("Version:", repository.Configuration().Version)
 
 	if repository.Configuration().Encryption != "" {
 		fmt.Println("Encryption:", repository.Configuration().Encryption)
 	} else {
 		fmt.Println("Encryption:", "no")
 	}
+
 	if repository.Configuration().Compression != "" {
 		fmt.Println("Compression:", repository.Configuration().Compression)
 	} else {
 		fmt.Println("Compression:", "no")
 	}
-	fmt.Println("Snapshots:", len(indexes))
-	fmt.Printf("Chunks: %d (repository size: %s, real: %s, saved: %.02f%%)\n", len(chunks), humanize.Bytes(chunksSize), humanize.Bytes(dedupedChunksSize), dedupedChunksPercentage)
-	fmt.Printf("Objects: %d (repository size: %s, real: %s, saved: %.02f%%)\n", len(objects), humanize.Bytes(objectsSize), humanize.Bytes(dedupedObjectsSize), dedupedObjectsPercentage)
+
+	//
+	fmt.Println("Snapshots:", len(metadatas))
+	totalSize := uint64(0)
+	totalIndexSize := uint64(0)
+	for _, metadata := range metadatas {
+		totalSize += metadata.Size
+		totalIndexSize += metadata.IndexSize
+	}
+	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
+	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)
 
 	return 0
 }

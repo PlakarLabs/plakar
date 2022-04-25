@@ -188,7 +188,7 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec("Uuid", config.Uuid)
+	_, err = statement.Exec("RepositoryID", config.RepositoryID)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (repository *DatabaseRepository) Open(location string) error {
 	}
 
 	repositoryConfig := storage.RepositoryConfig{}
-	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Uuid'`).Scan(&repositoryConfig.Uuid)
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='RepositoryID'`).Scan(&repositoryConfig.RepositoryID)
 	if err != nil {
 		return err
 	}

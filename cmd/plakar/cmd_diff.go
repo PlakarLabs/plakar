@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
+	"github.com/google/uuid"
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
@@ -65,11 +66,11 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			prefix2, _ := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := snapshot.Load(repository, res1[0])
+			snapshot1, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res1[0])))
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := snapshot.Load(repository, res2[0])
+			snapshot2, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res2[0])))
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -120,11 +121,11 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			prefix2, file2 := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := snapshot.Load(repository, res1[0])
+			snapshot1, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res1[0])))
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := snapshot.Load(repository, res2[0])
+			snapshot2, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res2[0])))
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -140,11 +141,11 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 		prefix2, _ := parseSnapshotID(args[1])
 		res1 := findSnapshotByPrefix(snapshots, prefix1)
 		res2 := findSnapshotByPrefix(snapshots, prefix2)
-		snapshot1, err := snapshot.Load(repository, res1[0])
+		snapshot1, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res1[0])))
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 		}
-		snapshot2, err := snapshot.Load(repository, res2[0])
+		snapshot2, err := snapshot.Load(repository, uuid.Must(uuid.Parse(res2[0])))
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}

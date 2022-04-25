@@ -21,6 +21,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -82,7 +83,7 @@ func check_plakar(repository *storage.Repository) int {
 	errors := 0
 
 	for _, index := range indexes {
-		snap, err := snapshot.Load(repository, index)
+		snap, err := snapshot.Load(repository, uuid.Must(uuid.Parse(index)))
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++

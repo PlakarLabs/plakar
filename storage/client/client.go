@@ -45,7 +45,7 @@ type ClientRepository struct {
 
 	Repository string
 
-	inflightRequests map[string]chan network.Request
+	inflightRequests map[uuid.UUID]chan network.Request
 	//registerInflight     chan inflight
 	notifications chan network.Request
 	//maxConcurrentRequest chan bool
@@ -54,7 +54,7 @@ type ClientRepository struct {
 }
 
 type ClientTransaction struct {
-	Uuid       string
+	Uuid       uuid.UUID
 	repository *ClientRepository
 
 	storage.TransactionBackend
@@ -113,7 +113,7 @@ func (repository *ClientRepository) connectTCP(location *url.URL) error {
 	repository.encoder = gob.NewEncoder(conn)
 	repository.decoder = gob.NewDecoder(conn)
 
-	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.inflightRequests = make(map[uuid.UUID]chan network.Request)
 	repository.notifications = make(chan network.Request)
 
 	//repository.maxConcurrentRequest = make(chan bool, 1024)
@@ -163,7 +163,7 @@ func (repository *ClientRepository) connectStdio(location *url.URL) error {
 		return err
 	}
 
-	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.inflightRequests = make(map[uuid.UUID]chan network.Request)
 	repository.notifications = make(chan network.Request)
 
 	go func() {
@@ -222,7 +222,7 @@ func (repository *ClientRepository) connectSSH(location *url.URL) error {
 		return err
 	}
 
-	repository.inflightRequests = make(map[string]chan network.Request)
+	repository.inflightRequests = make(map[uuid.UUID]chan network.Request)
 	repository.notifications = make(chan network.Request)
 
 	go func() {
@@ -257,7 +257,7 @@ func (repository *ClientRepository) sendRequest(Type string, Payload interface{}
 	}
 
 	request := network.Request{
-		Uuid:    Uuid.String(),
+		Uuid:    Uuid,
 		Type:    Type,
 		Payload: Payload,
 	}
@@ -382,9 +382,9 @@ func (repository *ClientRepository) GetObjects() ([]string, error) {
 	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
 }
 
-func (repository *ClientRepository) GetMetadata(Uuid string) ([]byte, error) {
+func (repository *ClientRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetMetadata", network.ReqGetMetadata{
-		Uuid: Uuid,
+		Uuid: indexID,
 	})
 	if err != nil {
 		return nil, err
@@ -393,9 +393,9 @@ func (repository *ClientRepository) GetMetadata(Uuid string) ([]byte, error) {
 	return result.Payload.(network.ResGetMetadata).Data, result.Payload.(network.ResGetMetadata).Err
 }
 
-func (repository *ClientRepository) GetIndex(Uuid string) ([]byte, error) {
+func (repository *ClientRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetIndex", network.ReqGetIndex{
-		Uuid: Uuid,
+		Uuid: indexID,
 	})
 	if err != nil {
 		return nil, err
@@ -470,9 +470,9 @@ func (repository *ClientRepository) GetChunkSize(checksum string) (uint64, error
 	return result.Payload.(network.ResGetChunkSize).Size, result.Payload.(network.ResGetChunkSize).Err
 }
 
-func (repository *ClientRepository) Purge(id string) error {
+func (repository *ClientRepository) Purge(indexID uuid.UUID) error {
 	result, err := repository.sendRequest("ReqPurge", network.ReqPurge{
-		Uuid: id,
+		Uuid: indexID,
 	})
 	if err != nil {
 		return err
@@ -492,7 +492,7 @@ func (repository *ClientRepository) Close() error {
 
 //////
 
-func (transaction *ClientTransaction) GetUuid() string {
+func (transaction *ClientTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 func (transaction *ClientTransaction) ReferenceChunks(keys []string) ([]bool, error) {

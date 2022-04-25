@@ -32,6 +32,7 @@ import (
 	"sync"
 
 	"github.com/dustin/go-humanize"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
@@ -102,7 +103,7 @@ func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) 
 		wg.Add(1)
 		go func(snapshotUuid string) {
 			defer wg.Done()
-			snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
+			snapshotInstance, err := snapshot.Load(repository, uuid.Must(uuid.Parse(snapshotUuid)))
 			if err != nil {
 				return
 			}
@@ -134,7 +135,7 @@ func getMetadatas(repository *storage.Repository) ([]*snapshot.Metadata, error) 
 		wg.Add(1)
 		go func(snapshotUuid string) {
 			defer wg.Done()
-			metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+			metadata, _, err := snapshot.GetMetadata(repository, uuid.Must(uuid.Parse(snapshotUuid)))
 			if err != nil {
 				return
 			}
@@ -251,7 +252,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid.String() != id {
-		tmp, err := snapshot.Load(lrepository, id)
+		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -339,7 +340,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid.String() != id {
-		tmp, err := snapshot.Load(lrepository, id)
+		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -413,7 +414,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 
 	var snap *snapshot.Snapshot
 	if lcache == nil || lcache.Metadata.Uuid.String() != id {
-		tmp, err := snapshot.Load(lrepository, id)
+		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -523,7 +524,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshotsList := make([]*snapshot.Snapshot, 0)
 	for _, id := range snapshots {
-		snapshot, err := snapshot.Load(lrepository, id)
+		snapshot, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			/* failed to lookup snapshot */
 			continue

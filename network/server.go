@@ -43,7 +43,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 	decoder := gob.NewDecoder(rd)
 	encoder := gob.NewEncoder(wr)
 
-	transactions := make(map[string]*storage.Transaction)
+	transactions := make(map[uuid.UUID]*storage.Transaction)
 
 	var repository *storage.Repository
 	var wg sync.WaitGroup

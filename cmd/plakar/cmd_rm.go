@@ -48,7 +48,7 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := repository.Purge(snap.Metadata.Uuid.String())
+			err := repository.Purge(snap.Metadata.Uuid)
 			if err != nil {
 				logger.Error("%s", err)
 				errors++

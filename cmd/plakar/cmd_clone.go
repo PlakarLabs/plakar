@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -103,7 +104,8 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 		}
 
-		for _, indexID := range indexes {
+		for _, index := range indexes {
+			indexID := uuid.Must(uuid.Parse(index))
 			data, err := sourceRepository.GetMetadata(indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)

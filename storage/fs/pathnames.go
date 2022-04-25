@@ -19,6 +19,8 @@ package fs
 import (
 	"fmt"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 func pathnameExists(pathname string) bool {
@@ -54,8 +56,8 @@ func (repository *FSRepository) PathObjectBucket(checksum string) string {
 	return fmt.Sprintf("%s/objects/%s", repository.root, checksum[0:2])
 }
 
-func (repository *FSRepository) PathIndexBucket(checksum string) string {
-	return fmt.Sprintf("%s/snapshots/%s", repository.root, checksum[0:2])
+func (repository *FSRepository) PathIndexBucket(indexID uuid.UUID) string {
+	return fmt.Sprintf("%s/snapshots/%s", repository.root, indexID.String()[0:2])
 }
 
 func (repository *FSRepository) PathChunk(checksum string) string {
@@ -66,37 +68,37 @@ func (repository *FSRepository) PathObject(checksum string) string {
 	return fmt.Sprintf("%s/%s", repository.PathObjectBucket(checksum), checksum)
 }
 
-func (repository *FSRepository) PathIndex(checksum string) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexBucket(checksum), checksum)
+func (repository *FSRepository) PathIndex(indexID uuid.UUID) string {
+	return fmt.Sprintf("%s/%s", repository.PathIndexBucket(indexID), indexID.String())
 }
 
-func (repository *FSRepository) PathIndexChunks(id string) string {
-	return fmt.Sprintf("%s/chunks", repository.PathIndex(id))
+func (repository *FSRepository) PathIndexChunks(indexID uuid.UUID) string {
+	return fmt.Sprintf("%s/chunks", repository.PathIndex(indexID))
 }
 
-func (repository *FSRepository) PathIndexChunkBucket(id string, checksum string) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexChunks(id), checksum[0:2])
+func (repository *FSRepository) PathIndexChunkBucket(indexID uuid.UUID, checksum string) string {
+	return fmt.Sprintf("%s/%s", repository.PathIndexChunks(indexID), checksum[0:2])
 }
 
-func (repository *FSRepository) PathIndexChunk(id string, checksum string) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexChunkBucket(id, checksum), checksum)
+func (repository *FSRepository) PathIndexChunk(indexID uuid.UUID, checksum string) string {
+	return fmt.Sprintf("%s/%s", repository.PathIndexChunkBucket(indexID, checksum), checksum)
 }
 
-func (repository *FSRepository) PathIndexObjects(id string) string {
-	return fmt.Sprintf("%s/objects", repository.PathIndex(id))
+func (repository *FSRepository) PathIndexObjects(indexID uuid.UUID) string {
+	return fmt.Sprintf("%s/objects", repository.PathIndex(indexID))
 }
 
-func (repository *FSRepository) PathIndexObjectBucket(id string, checksum string) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexObjects(id), checksum[0:2])
+func (repository *FSRepository) PathIndexObjectBucket(indexID uuid.UUID, checksum string) string {
+	return fmt.Sprintf("%s/%s", repository.PathIndexObjects(indexID), checksum[0:2])
 }
 
-func (repository *FSRepository) PathIndexObject(id string, checksum string) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexObjectBucket(id, checksum), checksum)
+func (repository *FSRepository) PathIndexObject(indexID uuid.UUID, checksum string) string {
+	return fmt.Sprintf("%s/%s", repository.PathIndexObjectBucket(indexID, checksum), checksum)
 }
 
 func (transaction *FSTransaction) Path() string {
 	return fmt.Sprintf("%s/%s/%s", transaction.repository.PathTransactions(),
-		transaction.Uuid[0:2], transaction.Uuid)
+		transaction.Uuid.String()[0:2], transaction.Uuid.String())
 }
 
 func (transaction *FSTransaction) PathObjects() string {

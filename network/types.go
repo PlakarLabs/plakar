@@ -3,11 +3,12 @@ package network
 import (
 	"encoding/gob"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type Request struct {
-	Uuid    string
+	Uuid    uuid.UUID
 	Type    string
 	Payload interface{}
 }
@@ -55,7 +56,7 @@ type ResGetIndexes struct {
 }
 
 type ReqGetMetadata struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetMetadata struct {
@@ -64,7 +65,7 @@ type ResGetMetadata struct {
 }
 
 type ReqGetIndex struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetIndex struct {
@@ -109,7 +110,7 @@ type ResCheckChunk struct {
 }
 
 type ReqPurge struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResPurge struct {
@@ -128,12 +129,12 @@ type ReqTransaction struct {
 }
 
 type ResTransaction struct {
-	Uuid string
+	Uuid uuid.UUID
 	Err  error
 }
 
 type ReqReferenceChunks struct {
-	Transaction string
+	Transaction uuid.UUID
 	Keys        []string
 }
 
@@ -143,7 +144,7 @@ type ResReferenceChunks struct {
 }
 
 type ReqReferenceObjects struct {
-	Transaction string
+	Transaction uuid.UUID
 	Keys        []string
 }
 
@@ -153,7 +154,7 @@ type ResReferenceObjects struct {
 }
 
 type ReqPutChunk struct {
-	Transaction string
+	Transaction uuid.UUID
 	Checksum    string
 	Data        []byte
 }
@@ -163,7 +164,7 @@ type ResPutChunk struct {
 }
 
 type ReqPutObject struct {
-	Transaction string
+	Transaction uuid.UUID
 	Checksum    string
 	Data        []byte
 }
@@ -173,7 +174,7 @@ type ResPutObject struct {
 }
 
 type ReqPutMetadata struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -182,7 +183,7 @@ type ResPutMetadata struct {
 }
 
 type ReqPutIndex struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -191,7 +192,7 @@ type ResPutIndex struct {
 }
 
 type ReqCommit struct {
-	Transaction string
+	Transaction uuid.UUID
 }
 
 type ResCommit struct {

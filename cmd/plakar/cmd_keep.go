@@ -61,7 +61,7 @@ func cmd_keep(ctx Plakar, repository *storage.Repository, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			repository.Purge(snap.Metadata.Uuid.String())
+			repository.Purge(snap.Metadata.Uuid)
 			wg.Done()
 		}(snap)
 	}

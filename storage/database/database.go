@@ -55,7 +55,7 @@ type DatabaseRepository struct {
 }
 
 type DatabaseTransaction struct {
-	Uuid       string
+	Uuid       uuid.UUID
 	repository *DatabaseRepository
 
 	dbTx *sql.Tx
@@ -248,7 +248,7 @@ func (repository *DatabaseRepository) Transaction() (storage.TransactionBackend,
 
 	tx := &DatabaseTransaction{}
 	tx.dbTx = dbTx
-	tx.Uuid = Uuid.String()
+	tx.Uuid = Uuid
 	tx.repository = repository
 
 	return tx, nil
@@ -311,18 +311,18 @@ func (repository *DatabaseRepository) GetObjects() ([]string, error) {
 	return checksums, nil
 }
 
-func (repository *DatabaseRepository) GetMetadata(Uuid string) ([]byte, error) {
+func (repository *DatabaseRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, indexID).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (repository *DatabaseRepository) GetIndex(Uuid string) ([]byte, error) {
+func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, indexID).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +365,7 @@ func (repository *DatabaseRepository) CheckChunk(checksum string) (bool, error) 
 	return true, nil
 }
 
-func (repository *DatabaseRepository) Purge(id string) error {
+func (repository *DatabaseRepository) Purge(indexID uuid.UUID) error {
 	return nil
 }
 
@@ -375,7 +375,7 @@ func (repository *DatabaseRepository) Close() error {
 
 //////
 
-func (transaction *DatabaseTransaction) GetUuid() string {
+func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, error) {

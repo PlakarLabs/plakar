@@ -33,7 +33,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		transaction: tx,
 
 		Metadata: &Metadata{
-			Uuid:         uuid.MustParse(tx.GetUuid()),
+			Uuid:         tx.GetUuid(),
 			CreationTime: time.Now(),
 			Version:      storage.VERSION,
 			Hostname:     "",
@@ -75,8 +75,8 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
-	metadata, _, err := GetMetadata(repository, Uuid)
+func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+	metadata, _, err := GetMetadata(repository, indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
 	//	return nil, fmt.Errorf("signature mismatches for metadata")
 	//}
 
-	index, checksum, err := GetIndex(repository, Uuid)
+	index, checksum, err := GetIndex(repository, indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, error) {
+func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, bool, error) {
 	cache := repository.GetCache()
 	secret := repository.GetSecret()
 	//keypair := repository.GetKeypair()
@@ -112,20 +112,20 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
-		tmp, err := cache.GetMetadata(repository.Configuration().Uuid.String(), Uuid)
+		logger.Trace("snapshot: cache.GetMetadata(%s)", indexID)
+		tmp, err := cache.GetMetadata(repository.Configuration().Uuid.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
-			tmp, err = repository.GetMetadata(Uuid)
+			logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+			tmp, err = repository.GetMetadata(indexID)
 			if err != nil {
 				return nil, false, err
 			}
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
-		tmp, err := repository.GetMetadata(Uuid)
+		logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+		tmp, err := repository.GetMetadata(indexID)
 		if err != nil {
 			return nil, false, err
 		}
@@ -172,14 +172,14 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 	//}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
+		logger.Trace("snapshot: cache.PutMetadata(%s)", indexID)
 		cache.PutMetadata(repository.Configuration().Uuid.String(), metadata.Uuid.String(), orig_buffer)
 	}
 
 	return metadata, false, nil
 }
 
-func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, error) {
+func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte, error) {
 	cache := repository.GetCache()
 	secret := repository.GetSecret()
 
@@ -188,20 +188,20 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
-		tmp, err := cache.GetIndex(repository.Configuration().Uuid.String(), Uuid)
+		logger.Trace("snapshot: cache.GetIndex(%s)", indexID)
+		tmp, err := cache.GetIndex(repository.Configuration().Uuid.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
-			tmp, err = repository.GetIndex(Uuid)
+			logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+			tmp, err = repository.GetIndex(indexID)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
-		tmp, err := repository.GetIndex(Uuid)
+		logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+		tmp, err := repository.GetIndex(indexID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -233,8 +233,8 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 	checksum := sha256.Sum256(buffer)
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
-		cache.PutIndex(repository.Configuration().Uuid.String(), Uuid, orig_buffer)
+		logger.Trace("snapshot: cache.PutIndex(%s)", indexID)
+		cache.PutIndex(repository.Configuration().Uuid.String(), indexID.String(), orig_buffer)
 	}
 
 	return index, checksum[:], nil

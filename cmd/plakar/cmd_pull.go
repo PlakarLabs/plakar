@@ -55,7 +55,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 			metadata := metadatas[i-1]
 			for _, scannedDir := range metadata.ScannedDirectories {
 				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(repository, metadata.Uuid.String())
+					snap, err := snapshot.Load(repository, metadata.Uuid)
 					if err != nil {
 						return 1
 					}

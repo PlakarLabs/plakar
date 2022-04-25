@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -46,7 +47,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(repository, snapshotUuid)
+		snap, err := snapshot.Load(repository, uuid.Must(uuid.Parse(snapshotUuid)))
 		if err != nil {
 			log.Fatal(err)
 			return 1

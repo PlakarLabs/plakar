@@ -22,8 +22,43 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/storage"
 )
+
+type JSONChunk struct {
+	Checksum string
+	Start    uint
+	Length   uint
+}
+
+type JSONObject struct {
+	Checksum    string
+	Chunks      []string
+	ContentType string
+}
+
+type JSONIndex struct {
+	Filesystem *filesystem.Filesystem
+
+	// Pathnames -> Object checksum
+	Pathnames map[string]string
+
+	// Object checksum -> Object
+	Objects map[string]*JSONObject
+
+	// Chunk checksum -> Chunk
+	Chunks map[string]*JSONChunk
+
+	// Chunk checksum -> Object checksums
+	ChunkToObjects map[string][]string
+
+	// Object checksum -> Filenames
+	ObjectToPathnames map[string][]string
+
+	// Content Type -> Object checksums
+	ContentTypeToObjects map[string][]string
+}
 
 func init() {
 	registerCommand("index", cmd_index)
@@ -39,7 +74,62 @@ func cmd_index(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	for _, index := range indexes {
-		serialized, err := json.Marshal(index)
+		jindex := JSONIndex{}
+		jindex.Filesystem = index.Filesystem
+		jindex.Pathnames = make(map[string]string)
+		jindex.Objects = make(map[string]*JSONObject)
+		jindex.Chunks = make(map[string]*JSONChunk)
+		jindex.ChunkToObjects = make(map[string][]string)
+		jindex.ObjectToPathnames = make(map[string][]string)
+		jindex.ContentTypeToObjects = make(map[string][]string)
+
+		for pathname, checksum := range index.Pathnames {
+			jindex.Pathnames[pathname] = fmt.Sprintf("%064x", checksum)
+		}
+
+		for checksum, object := range index.Objects {
+			jobject := &JSONObject{
+				Checksum:    fmt.Sprintf("%064x", checksum),
+				Chunks:      make([]string, 0),
+				ContentType: object.ContentType,
+			}
+
+			for _, chunkChecksum := range object.Chunks {
+				jobject.Chunks = append(jobject.Chunks, fmt.Sprintf("%064x", chunkChecksum))
+			}
+
+			jindex.Objects[fmt.Sprintf("%064x", checksum)] = jobject
+		}
+
+		for checksum, chunk := range index.Chunks {
+			jchunk := &JSONChunk{
+				Checksum: fmt.Sprintf("%064x", checksum),
+				Start:    chunk.Start,
+				Length:   chunk.Length,
+			}
+
+			jindex.Chunks[fmt.Sprintf("%064x", checksum)] = jchunk
+		}
+
+		for checksum, objects := range index.ChunkToObjects {
+			jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)] = make([]string, 0)
+			for _, objChecksum := range objects {
+				jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)] = append(jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)], fmt.Sprintf("%064x", objChecksum))
+			}
+		}
+
+		for checksum, pathnames := range index.ObjectToPathnames {
+			jindex.ObjectToPathnames[fmt.Sprintf("%064x", checksum)] = pathnames
+		}
+
+		for contentType, objects := range index.ContentTypeToObjects {
+			jindex.ContentTypeToObjects[contentType] = make([]string, 0)
+			for _, objChecksum := range objects {
+				jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], fmt.Sprintf("%064x", objChecksum))
+			}
+		}
+
+		serialized, err := json.Marshal(jindex)
 		if err != nil {
 			log.Fatal(err)
 		}

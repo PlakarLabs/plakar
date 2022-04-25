@@ -99,7 +99,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		})
 
 		for _, pathname := range files {
-			fmt.Printf("%s  %s %s\n", snap.Metadata.CreationTime.UTC().Format(time.RFC3339), snap.Metadata.Uuid, pathname)
+			fmt.Printf("%s  %s %s\n", snap.Metadata.CreationTime.UTC().Format(time.RFC3339), snap.Metadata.IndexID, pathname)
 		}
 	}
 

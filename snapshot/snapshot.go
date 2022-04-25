@@ -33,7 +33,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		transaction: tx,
 
 		Metadata: &Metadata{
-			Uuid:         tx.GetUuid(),
+			IndexID:      tx.GetUuid(),
 			CreationTime: time.Now(),
 			Version:      storage.VERSION,
 			Hostname:     "",
@@ -71,7 +71,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		},
 	}
 
-	logger.Trace("%s: New()", snapshot.Metadata.Uuid)
+	logger.Trace("%s: New()", snapshot.Metadata.IndexID)
 	return snapshot, nil
 }
 
@@ -173,7 +173,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutMetadata(%s)", indexID)
-		cache.PutMetadata(repository.Configuration().RepositoryID.String(), metadata.Uuid.String(), orig_buffer)
+		cache.PutMetadata(repository.Configuration().RepositoryID.String(), metadata.IndexID.String(), orig_buffer)
 	}
 
 	return metadata, false, nil
@@ -267,7 +267,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutChunk(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: PutChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	return snapshot.transaction.PutChunk(checksum, buffer)
 }
 
@@ -287,7 +287,7 @@ func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutObject(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: PutObject(%064x)", snapshot.Metadata.IndexID, checksum)
 	return snapshot.transaction.PutObject(checksum, buffer)
 }
 
@@ -308,7 +308,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutMetadata()", snapshot.Metadata.Uuid)
+	logger.Trace("%s: PutMetadata()", snapshot.Metadata.IndexID)
 	return snapshot.transaction.PutMetadata(buffer)
 }
 
@@ -329,17 +329,17 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutIndex()", snapshot.Metadata.Uuid)
+	logger.Trace("%s: PutIndex()", snapshot.Metadata.IndexID)
 	return snapshot.transaction.PutIndex(buffer)
 }
 
 func (snapshot *Snapshot) ReferenceChunks(keys [][32]byte) ([]bool, error) {
-	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Metadata.Uuid, len(keys))
+	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Metadata.IndexID, len(keys))
 	return snapshot.transaction.ReferenceChunks(keys)
 }
 
 func (snapshot *Snapshot) ReferenceObjects(keys [][32]byte) ([]bool, error) {
-	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Metadata.Uuid, len(keys))
+	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Metadata.IndexID, len(keys))
 	return snapshot.transaction.ReferenceObjects(keys)
 }
 
@@ -360,8 +360,8 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
-	return cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.Uuid.String(), buffer)
+	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.IndexID)
+	return cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.IndexID.String(), buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
@@ -381,14 +381,14 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.Uuid.String(), buffer)
+	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.IndexID)
+	return cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.IndexID.String(), buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	secret := snapshot.repository.GetSecret()
 
-	logger.Trace("%s: GetChunk(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: GetChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	buffer, err := snapshot.repository.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
-	logger.Trace("%s: CheckChunk(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: CheckChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	exists, err := snapshot.repository.CheckChunk(checksum)
 	if err != nil {
 		return false, err
@@ -420,7 +420,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 	secret := snapshot.repository.GetSecret()
 
-	logger.Trace("%s: GetObject(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: GetObject(%064x)", snapshot.Metadata.IndexID, checksum)
 	buffer, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -445,7 +445,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 }
 
 func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
-	logger.Trace("%s: CheckObject(%064x)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: CheckObject(%064x)", snapshot.Metadata.IndexID, checksum)
 	exists, err := snapshot.repository.CheckObject(checksum)
 	if err != nil {
 		return false, err
@@ -492,7 +492,7 @@ func (snapshot *Snapshot) Commit() error {
 		snapshot.PutIndexCache(serializedIndex)
 	}
 
-	logger.Trace("%s: Commit()", snapshot.Metadata.Uuid)
+	logger.Trace("%s: Commit()", snapshot.Metadata.IndexID)
 	return snapshot.transaction.Commit()
 }
 

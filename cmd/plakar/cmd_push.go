@@ -62,6 +62,6 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Metadata.Uuid)
+	logger.Info("created snapshot %s", snap.Metadata.IndexID)
 	return 0
 }

@@ -48,7 +48,7 @@ type Statistics struct {
 }
 
 type Metadata struct {
-	Uuid         uuid.UUID
+	IndexID      uuid.UUID
 	CreationTime time.Time
 	Version      string
 	Hostname     string

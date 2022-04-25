@@ -183,6 +183,28 @@ func (index *Index) AddContentTypeToObjects(object *Object) {
 	index.ContentTypeToObjects[object.ContentType] = append(index.ContentTypeToObjects[object.ContentType], object.Checksum)
 }
 
+func (index *Index) LookupObject(checksum [32]byte) *Object {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	if object, ok := index.Objects[checksum]; !ok {
+		return nil
+	} else {
+		return object
+	}
+}
+
+func (index *Index) ListObjects() [][32]byte {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	ret := make([][32]byte, 0)
+	for checksum := range index.Objects {
+		ret = append(ret, checksum)
+	}
+	return ret
+}
+
 func (index *Index) LookupChunk(checksum [32]byte) *Chunk {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
@@ -192,4 +214,15 @@ func (index *Index) LookupChunk(checksum [32]byte) *Chunk {
 	} else {
 		return chunk
 	}
+}
+
+func (index *Index) ListChunks() [][32]byte {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	ret := make([][32]byte, 0)
+	for checksum := range index.Chunks {
+		ret = append(ret, checksum)
+	}
+	return ret
 }

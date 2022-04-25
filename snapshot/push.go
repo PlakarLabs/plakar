@@ -341,8 +341,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	chanObjectsProcessorDone()
 
 	// compute some more metadata
-	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.Chunks))
-	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.Objects))
+	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.ListChunks()))
+	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.ListObjects()))
 	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Index.Filesystem.Files))
 	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
 

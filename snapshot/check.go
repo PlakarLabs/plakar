@@ -26,8 +26,8 @@ func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.
 }
 
 func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool, error) {
-	object, ok := snapshot.Index.Objects[checksum]
-	if !ok {
+	object := snapshot.Index.LookupObject(checksum)
+	if object == nil {
 		logger.Warn("%s: unlisted object %064x", snapshot.Metadata.IndexID, checksum)
 		return false, nil
 	}
@@ -85,11 +85,11 @@ func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool
 
 func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	ret := true
-	for _, chunk := range snapshot.Index.Chunks {
+	for _, checksum := range snapshot.Index.ListChunks() {
 		if fast {
-			exists, err := snapshot.CheckChunk(chunk.Checksum)
+			exists, err := snapshot.CheckChunk(checksum)
 			if err != nil {
-				logger.Warn("%s: missing chunk %064x", snapshot.Metadata.IndexID, chunk.Checksum)
+				logger.Warn("%s: missing chunk %064x", snapshot.Metadata.IndexID, checksum)
 				ret = false
 				continue
 			}
@@ -98,24 +98,24 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 		} else {
-			data, err := snapshot.GetChunk(chunk.Checksum)
+			data, err := snapshot.GetChunk(checksum)
 			if err != nil {
-				logger.Warn("%s: missing chunk %064x", snapshot.Metadata.IndexID, chunk.Checksum)
+				logger.Warn("%s: missing chunk %064x", snapshot.Metadata.IndexID, checksum)
 				ret = false
 				continue
 			}
 
 			chunkHash := sha256.New()
 			chunkHash.Write(data)
-			if !bytes.Equal(chunkHash.Sum(nil), chunk.Checksum[:]) {
-				logger.Warn("%s: corrupted chunk %064x", snapshot.Metadata.IndexID, chunk.Checksum)
+			if !bytes.Equal(chunkHash.Sum(nil), checksum[:]) {
+				logger.Warn("%s: corrupted chunk %064x", snapshot.Metadata.IndexID, checksum)
 				ret = false
 				continue
 			}
 		}
 	}
 
-	for checksum := range snapshot.Index.Objects {
+	for _, checksum := range snapshot.Index.ListObjects() {
 		if fast {
 			exists, err := snapshot.CheckObject(checksum)
 			if err != nil {
@@ -167,8 +167,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 			ret = false
 			continue
 		}
-		_, ok = snapshot.Index.Objects[checksum]
-		if !ok {
+		object := snapshot.Index.LookupObject(checksum)
+		if object == nil {
 			logger.Warn("%s: unlisted object %064x", snapshot.Metadata.IndexID, checksum)
 			ret = false
 			continue

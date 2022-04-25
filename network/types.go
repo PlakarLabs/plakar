@@ -51,7 +51,7 @@ type ReqGetIndexes struct {
 }
 
 type ResGetIndexes struct {
-	Indexes []string
+	Indexes []uuid.UUID
 	Err     error
 }
 

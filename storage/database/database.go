@@ -254,21 +254,21 @@ func (repository *DatabaseRepository) Transaction() (storage.TransactionBackend,
 	return tx, nil
 }
 
-func (repository *DatabaseRepository) GetIndexes() ([]string, error) {
+func (repository *DatabaseRepository) GetIndexes() ([]uuid.UUID, error) {
 	rows, err := repository.conn.Query("SELECT indexUuid FROM indexes")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var indexes []string
+	var indexes []uuid.UUID
 	for rows.Next() {
 		var indexUuid string
 		err = rows.Scan(&indexUuid)
 		if err != nil {
 			return nil, err
 		}
-		indexes = append(indexes, indexUuid)
+		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
 	}
 	return indexes, nil
 }

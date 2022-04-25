@@ -104,7 +104,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		syncChunkChecksums := make([]string, 0)
 		syncObjectChecksums := make([]string, 0)
-		syncIndexes := make([]string, 0)
+		syncIndexes := make([]uuid.UUID, 0)
 
 		for _, chunkChecksum := range sourceChunkChecksums {
 			if !arrayContains(destChunkChecksums, chunkChecksum) {
@@ -119,7 +119,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 
 		for _, index := range sourceIndexes {
-			if !arrayContains(destIndexes, index) {
+			if !indexArrayContains(destIndexes, index) {
 				syncIndexes = append(syncIndexes, index)
 			}
 		}
@@ -150,8 +150,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 		}
 
-		for _, index := range syncIndexes {
-			indexID := uuid.Must(uuid.Parse(index))
+		for _, indexID := range syncIndexes {
 
 			data, err := sourceRepository.GetMetadata(indexID)
 			if err != nil {

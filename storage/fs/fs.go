@@ -179,8 +179,8 @@ func (repository *FSRepository) Transaction() (storage.TransactionBackend, error
 	return tx, nil
 }
 
-func (repository *FSRepository) GetIndexes() ([]string, error) {
-	ret := make([]string, 0)
+func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
+	ret := make([]uuid.UUID, 0)
 
 	buckets, err := ioutil.ReadDir(repository.PathIndexes())
 	if err != nil {
@@ -193,11 +193,11 @@ func (repository *FSRepository) GetIndexes() ([]string, error) {
 			return ret, err
 		}
 		for _, index := range indexes {
-			_, err = uuid.Parse(index.Name())
+			indexID, err := uuid.Parse(index.Name())
 			if err != nil {
 				return ret, nil
 			}
-			ret = append(ret, index.Name())
+			ret = append(ret, indexID)
 		}
 	}
 	return ret, nil

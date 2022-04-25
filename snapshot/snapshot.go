@@ -240,7 +240,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 	return index, checksum[:], nil
 }
 
-func List(repository *storage.Repository) ([]string, error) {
+func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetIndexes()
 }
 

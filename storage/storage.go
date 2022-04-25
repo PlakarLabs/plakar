@@ -47,7 +47,7 @@ type RepositoryBackend interface {
 
 	Transaction() (TransactionBackend, error)
 
-	GetIndexes() ([]string, error)
+	GetIndexes() ([]uuid.UUID, error)
 	GetMetadata(indexID uuid.UUID) ([]byte, error)
 	PutMetadata(indexID uuid.UUID, data []byte) error
 	GetIndex(indexID uuid.UUID) ([]byte, error)
@@ -276,7 +276,7 @@ func (repository *Repository) Transaction() (*Transaction, error) {
 	return wrapperTx, nil
 }
 
-func (repository *Repository) GetIndexes() ([]string, error) {
+func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("storage: GetIndexes(): %s", time.Since(t0))

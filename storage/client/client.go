@@ -355,7 +355,7 @@ func (repository *ClientRepository) Transaction() (storage.TransactionBackend, e
 	return tx, nil
 }
 
-func (repository *ClientRepository) GetIndexes() ([]string, error) {
+func (repository *ClientRepository) GetIndexes() ([]uuid.UUID, error) {
 	result, err := repository.sendRequest("ReqGetIndexes", nil)
 	if err != nil {
 		return nil, err

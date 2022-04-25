@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/dustin/go-humanize"
-	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -88,8 +87,7 @@ func info_plakar(repository *storage.Repository) int {
 	dedupedChunksSize := uint64(0)
 	objectsSize := uint64(0)
 	dedupedObjectsSize := uint64(0)
-	for _, index := range indexes {
-		indexID := uuid.Must(uuid.Parse(index))
+	for _, indexID := range indexes {
 		snap, err := snapshot.Load(repository, indexID)
 		if err != nil {
 			logger.Warn("%s", err)

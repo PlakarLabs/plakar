@@ -248,7 +248,6 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 		// XXX - we can reduce the number of ReferenceChunks calls
 		// by grouping chunks but let's do that later when everything
 		// is already working
-
 		res, err := snapshot.ReferenceChunks(chunks)
 		if err != nil {
 			return nil, err

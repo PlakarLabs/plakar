@@ -38,7 +38,7 @@ func cmd_create(ctx Plakar, args []string) int {
 
 	repositoryConfig := storage.RepositoryConfig{}
 	repositoryConfig.Version = storage.VERSION
-	repositoryConfig.Uuid = uuid.NewString()
+	repositoryConfig.Uuid = uuid.Must(uuid.NewRandom())
 	if opt_nocompression {
 		repositoryConfig.Compression = ""
 	} else {

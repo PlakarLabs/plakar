@@ -112,7 +112,7 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
-		tmp, err := cache.GetMetadata(repository.Configuration().Uuid, Uuid)
+		tmp, err := cache.GetMetadata(repository.Configuration().Uuid.String(), Uuid)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
@@ -172,7 +172,7 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
-		cache.PutMetadata(repository.Configuration().Uuid, metadata.Uuid, orig_buffer)
+		cache.PutMetadata(repository.Configuration().Uuid.String(), metadata.Uuid, orig_buffer)
 	}
 
 	return metadata, false, nil
@@ -188,7 +188,7 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
-		tmp, err := cache.GetIndex(repository.Configuration().Uuid, Uuid)
+		tmp, err := cache.GetIndex(repository.Configuration().Uuid.String(), Uuid)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
@@ -233,7 +233,7 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
-		cache.PutIndex(repository.Configuration().Uuid, Uuid, orig_buffer)
+		cache.PutIndex(repository.Configuration().Uuid.String(), Uuid, orig_buffer)
 	}
 
 	return index, checksum[:], nil
@@ -360,7 +360,7 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
-	return cache.PutMetadata(snapshot.repository.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
+	return cache.PutMetadata(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
@@ -381,7 +381,7 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutIndex(snapshot.repository.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
+	return cache.PutIndex(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {

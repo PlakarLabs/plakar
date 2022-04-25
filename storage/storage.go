@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/logger"
 )
@@ -33,7 +34,7 @@ import (
 const VERSION string = "0.1.0"
 
 type RepositoryConfig struct {
-	Uuid        string
+	Uuid        uuid.UUID
 	Version     string
 	Encryption  string
 	Compression string

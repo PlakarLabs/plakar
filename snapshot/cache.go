@@ -61,7 +61,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 
 	cacheObject.Chunks = make([]*Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
-		chunk, _ := snapshot.GetChunkInfo(chunkChecksum)
+		chunk, _ := snapshot.Index.GetChunkInfo(chunkChecksum)
 		cacheObject.Chunks = append(cacheObject.Chunks, chunk)
 	}
 

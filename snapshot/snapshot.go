@@ -3,14 +3,11 @@ package snapshot
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
@@ -22,53 +19,12 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		return nil, err
 	}
 
-	//keypair := repository.GetKeypair()
-	pubkey := []byte("")
-	//if keypair != nil {
-	//	pubkey = keypair.PublicKey
-	//}
-
 	snapshot := &Snapshot{
 		repository:  repository,
 		transaction: tx,
 
-		Metadata: &Metadata{
-			IndexID:      tx.GetUuid(),
-			CreationTime: time.Now(),
-			Version:      storage.VERSION,
-			Hostname:     "",
-			Username:     "",
-			CommandLine:  "",
-			MachineID:    "",
-			PublicKey:    base64.StdEncoding.EncodeToString(pubkey),
-
-			Statistics: Statistics{
-				Chunks:      0,
-				Objects:     0,
-				Files:       0,
-				Directories: 0,
-
-				Kind:      make(map[string]uint64),
-				Type:      make(map[string]uint64),
-				Extension: make(map[string]uint64),
-
-				PercentKind:      make(map[string]float64),
-				PercentType:      make(map[string]float64),
-				PercentExtension: make(map[string]float64),
-			},
-		},
-
-		Index: &Index{
-			Filesystem: filesystem.NewFilesystem(),
-
-			Pathnames: make(map[string][32]byte),
-			Objects:   make(map[[32]byte]*Object),
-			Chunks:    make(map[[32]byte]*Chunk),
-
-			ChunkToObjects:       make(map[[32]byte][][32]byte),
-			ObjectToPathnames:    make(map[[32]byte][]string),
-			ContentTypeToObjects: make(map[string][][32]byte),
-		},
+		Metadata: NewMetadata(tx.GetUuid()),
+		Index:    NewIndex(),
 	}
 
 	logger.Trace("%s: New()", snapshot.Metadata.IndexID)
@@ -156,7 +112,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 	//	signature = append(signature, sigbuf...)
 	//}
 
-	metadata, err := metadataFromBytes(buffer)
+	metadata, err := NewMetadataFromBytes(buffer)
 	if err != nil {
 		return nil, false, err
 	}
@@ -225,7 +181,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 		buffer = tmp
 	}
 
-	index, err := indexFromBytes(buffer)
+	index, err := NewIndexFromBytes(buffer)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -242,13 +198,6 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetIndexes()
-}
-
-func (snapshot *Snapshot) GetChunkInfo(checksum [32]byte) (*Chunk, bool) {
-	snapshot.Index.muChunks.Lock()
-	chunk, exists := snapshot.Index.Chunks[checksum]
-	snapshot.Index.muChunks.Unlock()
-	return chunk, exists
 }
 
 func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
@@ -457,7 +406,7 @@ func (snapshot *Snapshot) Commit() error {
 	cache := snapshot.repository.GetCache()
 	//keypair := snapshot.repository.GetKeypair()
 
-	serializedIndex, err := indexToBytes(snapshot.Index)
+	serializedIndex, err := snapshot.Index.Serialize()
 	if err != nil {
 		return err
 	}
@@ -465,7 +414,7 @@ func (snapshot *Snapshot) Commit() error {
 	snapshot.Metadata.Checksum = indexChecksum[:]
 
 	snapshot.Metadata.IndexSize = uint64(len(serializedIndex))
-	serializedMetadata, err := metadataToBytes(snapshot.Metadata)
+	serializedMetadata, err := snapshot.Metadata.Serialize()
 	if err != nil {
 		return err
 	}

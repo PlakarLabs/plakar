@@ -267,7 +267,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 
-	_, exists := snap.LookupInodeForPathname(path)
+	_, exists := snap.Index.LookupInodeForPathname(path)
 	if !exists {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -279,7 +279,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	symlinksResolve := make(map[string]string)
 	others := make([]*filesystem.Fileinfo, 0)
 
-	children, _ := snap.LookupPathChildren(path)
+	children, _ := snap.Index.LookupPathChildren(path)
 	for _, fileinfo := range children {
 		if fileinfo.Mode.IsDir() {
 			directories = append(directories, fileinfo)
@@ -358,7 +358,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	object := snap.Index.Objects[checksum]
-	info, _ := snap.LookupInodeForPathname(path)
+	info, _ := snap.Index.LookupInodeForPathname(path)
 
 	chunks := make([]*snapshot.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {

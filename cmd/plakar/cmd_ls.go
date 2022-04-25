@@ -94,13 +94,13 @@ func list_snapshot(repository *storage.Repository, args []string) {
 		_, prefix := parseSnapshotID(args[offset])
 
 		content := make([]string, 0)
-		entries, exists := snap.LookupPathChildren(prefix)
+		entries, exists := snap.Index.LookupPathChildren(prefix)
 		if !exists {
 			continue
 		}
 
 		if len(entries) == 0 {
-			info, exists := snap.LookupInodeForPathname(prefix)
+			info, exists := snap.Index.LookupInodeForPathname(prefix)
 			if !exists {
 				continue
 			}
@@ -177,7 +177,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		})
 
 		for _, name := range filenames {
-			fi, _ := snapshot.LookupInodeForPathname(name)
+			fi, _ := snapshot.Index.LookupInodeForPathname(name)
 			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
@@ -212,7 +212,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	})
 
 	for _, name := range directories {
-		fi, _ := snapshot.LookupInodeForPathname(name)
+		fi, _ := snapshot.Index.LookupInodeForPathname(name)
 		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
@@ -248,7 +248,7 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	})
 
 	for _, name := range filenames {
-		fi, _ := snapshot.LookupInodeForPathname(name)
+		fi, _ := snapshot.Index.LookupInodeForPathname(name)
 		if !helpers.PathIsWithin(name, directory) && name != directory {
 			continue
 		}

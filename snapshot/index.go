@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"path/filepath"
 	"sync"
 
 	"github.com/poolpOrg/plakar/filesystem"
@@ -78,4 +79,98 @@ func (index *Index) GetChunkInfo(checksum [32]byte) (*Chunk, bool) {
 	chunk, exists := index.Chunks[checksum]
 	index.muChunks.Unlock()
 	return chunk, exists
+}
+
+func (index *Index) LookupObjectForChecksum(checksum [32]byte) *Object {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	object, exists := index.Objects[checksum]
+	if !exists {
+		return nil
+	}
+
+	return object
+}
+
+func (index *Index) LookupObjectForPathname(pathname string) *Object {
+	index.muPathnames.Lock()
+	defer index.muPathnames.Unlock()
+
+	objectChecksum, exists := index.Pathnames[filepath.Clean(pathname)]
+	if !exists {
+		return nil
+	}
+
+	return index.LookupObjectForChecksum(objectChecksum)
+}
+
+func (index *Index) LookupInodeForPathname(pathname string) (*filesystem.Fileinfo, bool) {
+	return index.Filesystem.LookupInode(pathname)
+}
+
+func (index *Index) LookupInodeForFilename(pathname string) (*filesystem.Fileinfo, bool) {
+	return index.Filesystem.LookupInodeForFile(pathname)
+}
+
+func (index *Index) LookupInodeForDirectory(pathname string) (*filesystem.Fileinfo, bool) {
+	return index.Filesystem.LookupInodeForDirectory(pathname)
+}
+
+func (index *Index) LookupPathChildren(pathname string) (map[string]*filesystem.Fileinfo, bool) {
+	pathname = filepath.Clean(pathname)
+
+	parent, err := index.Filesystem.Lookup(pathname)
+	if err != nil {
+		return nil, false
+	}
+
+	ret := make(map[string]*filesystem.Fileinfo)
+	for child, node := range parent.Children {
+		ret[child] = node.Inode
+	}
+	return ret, true
+}
+
+func (index *Index) LinkChunkToObject(chunkChecksum [32]byte, objectChecksum [32]byte) {
+	index.muChunkToObjects.Lock()
+	defer index.muChunkToObjects.Unlock()
+
+	if _, exists := index.ChunkToObjects[chunkChecksum]; !exists {
+		index.ChunkToObjects[chunkChecksum] = make([][32]byte, 0)
+	}
+
+	for _, value := range index.ChunkToObjects[chunkChecksum] {
+		if value == objectChecksum {
+			return
+		}
+	}
+	index.ChunkToObjects[chunkChecksum] = append(index.ChunkToObjects[chunkChecksum], objectChecksum)
+}
+
+func (index *Index) AddPathnameToObject(pathname string, object *Object) {
+	index.muPathnames.Lock()
+	defer index.muPathnames.Unlock()
+
+	index.Pathnames[pathname] = object.Checksum
+}
+
+func (index *Index) AddObject(object *Object) {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	index.Objects[object.Checksum] = object
+}
+
+func (index *Index) AddObjectToPathnames(object *Object, pathname string) {
+	index.muObjectToPathnames.Lock()
+	defer index.muObjectToPathnames.Unlock()
+
+	index.ObjectToPathnames[object.Checksum] = append(index.ObjectToPathnames[object.Checksum], pathname)
+}
+
+func (index *Index) AddContentTypeToObjects(object *Object) {
+	index.muContentTypeToObjects.Lock()
+	defer index.muContentTypeToObjects.Unlock()
+	index.ContentTypeToObjects[object.ContentType] = append(index.ContentTypeToObjects[object.ContentType], object.Checksum)
 }

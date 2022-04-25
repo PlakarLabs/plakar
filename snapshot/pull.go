@@ -53,7 +53,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
-			fi, _ := snapshot.LookupInodeForPathname(directory)
+			fi, _ := snapshot.Index.LookupInodeForPathname(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, directory[len(dpattern):])
@@ -84,7 +84,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
-			fi, _ := snapshot.LookupInodeForPathname(file)
+			fi, _ := snapshot.Index.LookupInodeForPathname(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])

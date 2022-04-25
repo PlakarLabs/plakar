@@ -11,6 +11,14 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+// CachedObject needs to be killed
+type CachedObject struct {
+	Checksum    [32]byte
+	Chunks      []*Chunk
+	ContentType string
+	Info        filesystem.Fileinfo
+}
+
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
 	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()

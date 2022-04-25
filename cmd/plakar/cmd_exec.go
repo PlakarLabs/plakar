@@ -51,7 +51,7 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	snapshot := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	object := snapshot.LookupObjectForPathname(pathname)
+	object := snapshot.Index.LookupObjectForPathname(pathname)
 	if object == nil {
 		return 0
 	}

@@ -42,7 +42,7 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
-	object := snapshot.LookupObjectForPathname(pathname)
+	object := snapshot.Index.LookupObjectForPathname(pathname)
 	if object == nil {
 		return nil, os.ErrNotExist
 	}

@@ -68,7 +68,7 @@ func pushObjectChannelHandler(snapshot *Snapshot, chanObjectWriter chan objectMs
 			wg.Add(1)
 			go func(object *Object, data []byte) {
 				for _, chunkChecksum := range object.Chunks {
-					snapshot.StateSetChunkToObject(chunkChecksum, object.Checksum)
+					snapshot.Index.LinkChunkToObject(chunkChecksum, object.Checksum)
 				}
 				if len(data) != 0 {
 					chanObjectWriter <- objectMsg{object, data}
@@ -333,21 +333,10 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				}
 			}
 
-			snapshot.Index.muPathnames.Lock()
-			snapshot.Index.Pathnames[pathname] = object.Checksum
-			snapshot.Index.muPathnames.Unlock()
-
-			snapshot.Index.muObjects.Lock()
-			snapshot.Index.Objects[object.Checksum] = object
-			snapshot.Index.muObjects.Unlock()
-
-			snapshot.Index.muObjectToPathnames.Lock()
-			snapshot.Index.ObjectToPathnames[object.Checksum] = append(snapshot.Index.ObjectToPathnames[object.Checksum], pathname)
-			snapshot.Index.muObjectToPathnames.Unlock()
-
-			snapshot.Index.muContentTypeToObjects.Lock()
-			snapshot.Index.ContentTypeToObjects[object.ContentType] = append(snapshot.Index.ContentTypeToObjects[object.ContentType], object.Checksum)
-			snapshot.Index.muContentTypeToObjects.Unlock()
+			snapshot.Index.AddPathnameToObject(pathname, object)
+			snapshot.Index.AddObject(object)
+			snapshot.Index.AddObjectToPathnames(object, pathname)
+			snapshot.Index.AddContentTypeToObjects(object)
 
 			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
 

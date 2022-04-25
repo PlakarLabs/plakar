@@ -84,7 +84,7 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 				}
 			}
 
-			info, _ := snapshot.LookupInodeForPathname(file)
+			info, _ := snapshot.Index.LookupInodeForPathname(file)
 			filepath := file
 			if tarballRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)

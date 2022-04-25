@@ -13,6 +13,16 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Snapshot struct {
+	repository  *storage.Repository
+	transaction *storage.Transaction
+
+	SkipDirs []string
+
+	Metadata *Metadata
+	Index    *Index
+}
+
 func New(repository *storage.Repository) (*Snapshot, error) {
 	tx, err := repository.Transaction()
 	if err != nil {
@@ -443,52 +453,4 @@ func (snapshot *Snapshot) Commit() error {
 
 	logger.Trace("%s: Commit()", snapshot.Metadata.IndexID)
 	return snapshot.transaction.Commit()
-}
-
-func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum [32]byte, objectChecksum [32]byte) {
-	snapshot.Index.muChunkToObjects.Lock()
-	defer snapshot.Index.muChunkToObjects.Unlock()
-
-	if _, exists := snapshot.Index.ChunkToObjects[chunkChecksum]; !exists {
-		snapshot.Index.ChunkToObjects[chunkChecksum] = make([][32]byte, 0)
-	}
-
-	for _, value := range snapshot.Index.ChunkToObjects[chunkChecksum] {
-		if value == objectChecksum {
-			return
-		}
-	}
-	snapshot.Index.ChunkToObjects[chunkChecksum] = append(snapshot.Index.ChunkToObjects[chunkChecksum], objectChecksum)
-}
-
-func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum [32]byte, pathname string) {
-	snapshot.Index.muObjectToPathnames.Lock()
-	defer snapshot.Index.muObjectToPathnames.Unlock()
-
-	if _, exists := snapshot.Index.ObjectToPathnames[objectChecksum]; !exists {
-		snapshot.Index.ObjectToPathnames[objectChecksum] = make([]string, 0)
-	}
-
-	for _, value := range snapshot.Index.ObjectToPathnames[objectChecksum] {
-		if value == pathname {
-			return
-		}
-	}
-	snapshot.Index.ObjectToPathnames[objectChecksum] = append(snapshot.Index.ObjectToPathnames[objectChecksum], pathname)
-}
-
-func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum [32]byte) {
-	snapshot.Index.muContentTypeToObjects.Lock()
-	defer snapshot.Index.muContentTypeToObjects.Unlock()
-
-	if _, exists := snapshot.Index.ContentTypeToObjects[contentType]; !exists {
-		snapshot.Index.ContentTypeToObjects[contentType] = make([][32]byte, 0)
-	}
-
-	for _, value := range snapshot.Index.ContentTypeToObjects[contentType] {
-		if value == objectChecksum {
-			return
-		}
-	}
-	snapshot.Index.ContentTypeToObjects[contentType] = append(snapshot.Index.ContentTypeToObjects[contentType], objectChecksum)
 }

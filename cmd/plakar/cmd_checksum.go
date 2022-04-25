@@ -53,7 +53,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 			continue
 		}
 
-		object := snapshot.LookupObjectForPathname(pathname)
+		object := snapshot.Index.LookupObjectForPathname(pathname)
 		if object == nil {
 			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
 			errors++

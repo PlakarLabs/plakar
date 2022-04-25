@@ -337,7 +337,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	}
 	wg.Wait()
 
-	chanObjectsProcessor <- snapshot.Index.Objects
+	chanObjectsProcessor <- snapshot.Index.GetObjects()
 	chanObjectsProcessorDone()
 
 	// compute some more metadata

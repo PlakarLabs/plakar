@@ -252,3 +252,10 @@ func (index *Index) GetContentType(contentType string) [][32]byte {
 		return objectsChecksums
 	}
 }
+
+func (index *Index) GetObjects() map[[32]byte]*Object {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	return index.Objects
+}

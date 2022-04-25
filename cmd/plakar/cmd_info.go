@@ -76,10 +76,10 @@ func info_plakar(repository *storage.Repository) int {
 	}
 
 	muChunks := sync.Mutex{}
-	chunks := make(map[string]uint16)
+	chunks := make(map[[32]byte]uint16)
 
 	muObjects := sync.Mutex{}
-	objects := make(map[string]uint16)
+	objects := make(map[[32]byte]uint16)
 
 	errors := 0
 
@@ -87,8 +87,8 @@ func info_plakar(repository *storage.Repository) int {
 	dedupedChunksSize := uint64(0)
 	objectsSize := uint64(0)
 	dedupedObjectsSize := uint64(0)
-	for _, index := range indexes {
-		snap, err := snapshot.Load(repository, index)
+	for _, indexID := range indexes {
+		snap, err := snapshot.Load(repository, indexID)
 		if err != nil {
 			logger.Warn("%s", err)
 			errors++

@@ -3,11 +3,12 @@ package network
 import (
 	"encoding/gob"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type Request struct {
-	Uuid    string
+	Uuid    uuid.UUID
 	Type    string
 	Payload interface{}
 }
@@ -34,7 +35,7 @@ type ReqGetChunks struct {
 }
 
 type ResGetChunks struct {
-	Chunks []string
+	Chunks [][32]byte
 	Err    error
 }
 
@@ -42,7 +43,7 @@ type ReqGetObjects struct {
 }
 
 type ResGetObjects struct {
-	Objects []string
+	Objects [][32]byte
 	Err     error
 }
 
@@ -50,12 +51,12 @@ type ReqGetIndexes struct {
 }
 
 type ResGetIndexes struct {
-	Indexes []string
+	Indexes []uuid.UUID
 	Err     error
 }
 
 type ReqGetMetadata struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetMetadata struct {
@@ -64,7 +65,7 @@ type ResGetMetadata struct {
 }
 
 type ReqGetIndex struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetIndex struct {
@@ -73,7 +74,7 @@ type ResGetIndex struct {
 }
 
 type ReqGetObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObject struct {
@@ -82,7 +83,7 @@ type ResGetObject struct {
 }
 
 type ReqGetChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunk struct {
@@ -91,7 +92,7 @@ type ResGetChunk struct {
 }
 
 type ReqCheckObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckObject struct {
@@ -100,7 +101,7 @@ type ResCheckObject struct {
 }
 
 type ReqCheckChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckChunk struct {
@@ -109,7 +110,7 @@ type ResCheckChunk struct {
 }
 
 type ReqPurge struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResPurge struct {
@@ -128,13 +129,13 @@ type ReqTransaction struct {
 }
 
 type ResTransaction struct {
-	Uuid string
+	Uuid uuid.UUID
 	Err  error
 }
 
 type ReqReferenceChunks struct {
-	Transaction string
-	Keys        []string
+	Transaction uuid.UUID
+	Keys        [][32]byte
 }
 
 type ResReferenceChunks struct {
@@ -143,8 +144,8 @@ type ResReferenceChunks struct {
 }
 
 type ReqReferenceObjects struct {
-	Transaction string
-	Keys        []string
+	Transaction uuid.UUID
+	Keys        [][32]byte
 }
 
 type ResReferenceObjects struct {
@@ -153,8 +154,8 @@ type ResReferenceObjects struct {
 }
 
 type ReqPutChunk struct {
-	Transaction string
-	Checksum    string
+	Transaction uuid.UUID
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -163,8 +164,8 @@ type ResPutChunk struct {
 }
 
 type ReqPutObject struct {
-	Transaction string
-	Checksum    string
+	Transaction uuid.UUID
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -173,7 +174,7 @@ type ResPutObject struct {
 }
 
 type ReqPutMetadata struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -182,7 +183,7 @@ type ResPutMetadata struct {
 }
 
 type ReqPutIndex struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -191,7 +192,7 @@ type ResPutIndex struct {
 }
 
 type ReqCommit struct {
-	Transaction string
+	Transaction uuid.UUID
 }
 
 type ResCommit struct {
@@ -199,7 +200,7 @@ type ResCommit struct {
 }
 
 type ReqGetChunkRefCount struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunkRefCount struct {
@@ -208,7 +209,7 @@ type ResGetChunkRefCount struct {
 }
 
 type ReqGetObjectRefCount struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObjectRefCount struct {
@@ -217,7 +218,7 @@ type ResGetObjectRefCount struct {
 }
 
 type ReqGetObjectSize struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObjectSize struct {
@@ -226,7 +227,7 @@ type ResGetObjectSize struct {
 }
 
 type ReqGetChunkSize struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunkSize struct {

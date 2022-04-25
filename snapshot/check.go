@@ -1,14 +1,14 @@
 package snapshot
 
 import (
+	"bytes"
 	"crypto/sha256"
-	"fmt"
 	"hash"
 
 	"github.com/poolpOrg/plakar/logger"
 )
 
-func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum string, hasher hash.Hash, fast bool) (bool, error) {
+func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.Hash, fast bool) (bool, error) {
 	if fast {
 		exists, err := snapshot.CheckChunk(chunkChecksum)
 		if err != nil {
@@ -25,7 +25,7 @@ func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum string, hasher hash.Ha
 	return true, nil
 }
 
-func snapshotCheckObject(snapshot *Snapshot, checksum string, fast bool) (bool, error) {
+func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool, error) {
 	object, ok := snapshot.Index.Objects[checksum]
 	if !ok {
 		logger.Warn("%s: unlisted object %s", snapshot.Metadata.Uuid, checksum)
@@ -61,7 +61,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum string, fast bool) (bool, 
 	}
 
 	if !fast {
-		if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
+		if !bytes.Equal(objectHash.Sum(nil), checksum[:]) {
 			logger.Warn("%s: corrupted object %s", snapshot.Metadata.Uuid, checksum)
 			ret = false
 		}
@@ -107,7 +107,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 
 			chunkHash := sha256.New()
 			chunkHash.Write(data)
-			if fmt.Sprintf("%032x", chunkHash.Sum(nil)) != chunk.Checksum {
+			if !bytes.Equal(chunkHash.Sum(nil), chunk.Checksum[:]) {
 				logger.Warn("%s: corrupted chunk %s", snapshot.Metadata.Uuid, chunk.Checksum)
 				ret = false
 				continue
@@ -152,7 +152,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				}
 				objectHash.Write(data)
 			}
-			if fmt.Sprintf("%032x", objectHash.Sum(nil)) != checksum {
+			if !bytes.Equal(objectHash.Sum(nil), checksum[:]) {
 				logger.Warn("%s: corrupted object %s", snapshot.Metadata.Uuid, checksum)
 				ret = false
 				continue

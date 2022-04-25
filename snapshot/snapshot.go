@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/filesystem"
@@ -60,13 +61,13 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		Index: &Index{
 			Filesystem: filesystem.NewFilesystem(),
 
-			Pathnames: make(map[string]string),
-			Objects:   make(map[string]*Object),
-			Chunks:    make(map[string]*Chunk),
+			Pathnames: make(map[string][32]byte),
+			Objects:   make(map[[32]byte]*Object),
+			Chunks:    make(map[[32]byte]*Chunk),
 
-			ChunkToObjects:       make(map[string][]string),
-			ObjectToPathnames:    make(map[string][]string),
-			ContentTypeToObjects: make(map[string][]string),
+			ChunkToObjects:       make(map[[32]byte][][32]byte),
+			ObjectToPathnames:    make(map[[32]byte][]string),
+			ContentTypeToObjects: make(map[string][][32]byte),
 		},
 	}
 
@@ -74,8 +75,8 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
-	metadata, _, err := GetMetadata(repository, Uuid)
+func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+	metadata, _, err := GetMetadata(repository, indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
 	//	return nil, fmt.Errorf("signature mismatches for metadata")
 	//}
 
-	index, checksum, err := GetIndex(repository, Uuid)
+	index, checksum, err := GetIndex(repository, indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,7 @@ func Load(repository *storage.Repository, Uuid string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, error) {
+func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, bool, error) {
 	cache := repository.GetCache()
 	secret := repository.GetSecret()
 	//keypair := repository.GetKeypair()
@@ -111,20 +112,20 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetMetadata(%s)", Uuid)
-		tmp, err := cache.GetMetadata(repository.Configuration().Uuid, Uuid)
+		logger.Trace("snapshot: cache.GetMetadata(%s)", indexID)
+		tmp, err := cache.GetMetadata(repository.Configuration().Uuid.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
-			tmp, err = repository.GetMetadata(Uuid)
+			logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+			tmp, err = repository.GetMetadata(indexID)
 			if err != nil {
 				return nil, false, err
 			}
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetMetadata(%s)", Uuid)
-		tmp, err := repository.GetMetadata(Uuid)
+		logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+		tmp, err := repository.GetMetadata(indexID)
 		if err != nil {
 			return nil, false, err
 		}
@@ -171,14 +172,14 @@ func GetMetadata(repository *storage.Repository, Uuid string) (*Metadata, bool, 
 	//}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutMetadata(%s)", Uuid)
-		cache.PutMetadata(repository.Configuration().Uuid, metadata.Uuid, orig_buffer)
+		logger.Trace("snapshot: cache.PutMetadata(%s)", indexID)
+		cache.PutMetadata(repository.Configuration().Uuid.String(), metadata.Uuid.String(), orig_buffer)
 	}
 
 	return metadata, false, nil
 }
 
-func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, error) {
+func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte, error) {
 	cache := repository.GetCache()
 	secret := repository.GetSecret()
 
@@ -187,20 +188,20 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetIndex(%s)", Uuid)
-		tmp, err := cache.GetIndex(repository.Configuration().Uuid, Uuid)
+		logger.Trace("snapshot: cache.GetIndex(%s)", indexID)
+		tmp, err := cache.GetIndex(repository.Configuration().Uuid.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
-			tmp, err = repository.GetIndex(Uuid)
+			logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+			tmp, err = repository.GetIndex(indexID)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetIndex(%s)", Uuid)
-		tmp, err := repository.GetIndex(Uuid)
+		logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+		tmp, err := repository.GetIndex(indexID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -232,25 +233,25 @@ func GetIndex(repository *storage.Repository, Uuid string) (*Index, []byte, erro
 	checksum := sha256.Sum256(buffer)
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutIndex(%s)", Uuid)
-		cache.PutIndex(repository.Configuration().Uuid, Uuid, orig_buffer)
+		logger.Trace("snapshot: cache.PutIndex(%s)", indexID)
+		cache.PutIndex(repository.Configuration().Uuid.String(), indexID.String(), orig_buffer)
 	}
 
 	return index, checksum[:], nil
 }
 
-func List(repository *storage.Repository) ([]string, error) {
+func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetIndexes()
 }
 
-func (snapshot *Snapshot) GetChunkInfo(checksum string) (*Chunk, bool) {
+func (snapshot *Snapshot) GetChunkInfo(checksum [32]byte) (*Chunk, bool) {
 	snapshot.Index.muChunks.Lock()
 	chunk, exists := snapshot.Index.Chunks[checksum]
 	snapshot.Index.muChunks.Unlock()
 	return chunk, exists
 }
 
-func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
+func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -266,11 +267,11 @@ func (snapshot *Snapshot) PutChunk(checksum string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutChunk(%s)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: PutChunk(%064x)", snapshot.Metadata.Uuid, checksum)
 	return snapshot.transaction.PutChunk(checksum, buffer)
 }
 
-func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
+func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -286,7 +287,7 @@ func (snapshot *Snapshot) PutObject(checksum string, data []byte) error {
 		buffer = tmp
 	}
 
-	logger.Trace("%s: PutObject(%s)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: PutObject(%064x)", snapshot.Metadata.Uuid, checksum)
 	return snapshot.transaction.PutObject(checksum, buffer)
 }
 
@@ -332,12 +333,12 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
-func (snapshot *Snapshot) ReferenceChunks(keys []string) ([]bool, error) {
+func (snapshot *Snapshot) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	logger.Trace("%s: ReferenceChunks([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceChunks(keys)
 }
 
-func (snapshot *Snapshot) ReferenceObjects(keys []string) ([]bool, error) {
+func (snapshot *Snapshot) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	logger.Trace("%s: ReferenceObjects([%d keys])", snapshot.Metadata.Uuid, len(keys))
 	return snapshot.transaction.ReferenceObjects(keys)
 }
@@ -360,7 +361,7 @@ func (snapshot *Snapshot) PutMetadataCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutMetadata(%s)", snapshot.Metadata.Uuid)
-	return cache.PutMetadata(snapshot.repository.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
+	return cache.PutMetadata(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid.String(), buffer)
 }
 
 func (snapshot *Snapshot) PutIndexCache(data []byte) error {
@@ -381,13 +382,13 @@ func (snapshot *Snapshot) PutIndexCache(data []byte) error {
 	}
 
 	logger.Trace("snapshot: cache.PutIndex(%s)", snapshot.Metadata.Uuid)
-	return cache.PutIndex(snapshot.repository.Configuration().Uuid, snapshot.Metadata.Uuid, buffer)
+	return cache.PutIndex(snapshot.repository.Configuration().Uuid.String(), snapshot.Metadata.Uuid.String(), buffer)
 }
 
-func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
+func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	secret := snapshot.repository.GetSecret()
 
-	logger.Trace("%s: GetChunk(%s)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: GetChunk(%064x)", snapshot.Metadata.Uuid, checksum)
 	buffer, err := snapshot.repository.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -407,8 +408,8 @@ func (snapshot *Snapshot) GetChunk(checksum string) ([]byte, error) {
 	return buffer, nil
 }
 
-func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
-	logger.Trace("%s: CheckChunk(%s)", snapshot.Metadata.Uuid, checksum)
+func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
+	logger.Trace("%s: CheckChunk(%064x)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.repository.CheckChunk(checksum)
 	if err != nil {
 		return false, err
@@ -416,10 +417,10 @@ func (snapshot *Snapshot) CheckChunk(checksum string) (bool, error) {
 	return exists, nil
 }
 
-func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
+func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 	secret := snapshot.repository.GetSecret()
 
-	logger.Trace("%s: GetObject(%s)", snapshot.Metadata.Uuid, checksum)
+	logger.Trace("%s: GetObject(%064x)", snapshot.Metadata.Uuid, checksum)
 	buffer, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -443,8 +444,8 @@ func (snapshot *Snapshot) GetObject(checksum string) (*Object, error) {
 	return object, err
 }
 
-func (snapshot *Snapshot) CheckObject(checksum string) (bool, error) {
-	logger.Trace("%s: CheckObject(%s)", snapshot.Metadata.Uuid, checksum)
+func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
+	logger.Trace("%s: CheckObject(%064x)", snapshot.Metadata.Uuid, checksum)
 	exists, err := snapshot.repository.CheckObject(checksum)
 	if err != nil {
 		return false, err
@@ -495,12 +496,12 @@ func (snapshot *Snapshot) Commit() error {
 	return snapshot.transaction.Commit()
 }
 
-func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChecksum string) {
+func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum [32]byte, objectChecksum [32]byte) {
 	snapshot.Index.muChunkToObjects.Lock()
 	defer snapshot.Index.muChunkToObjects.Unlock()
 
 	if _, exists := snapshot.Index.ChunkToObjects[chunkChecksum]; !exists {
-		snapshot.Index.ChunkToObjects[chunkChecksum] = make([]string, 0)
+		snapshot.Index.ChunkToObjects[chunkChecksum] = make([][32]byte, 0)
 	}
 
 	for _, value := range snapshot.Index.ChunkToObjects[chunkChecksum] {
@@ -511,7 +512,7 @@ func (snapshot *Snapshot) StateSetChunkToObject(chunkChecksum string, objectChec
 	snapshot.Index.ChunkToObjects[chunkChecksum] = append(snapshot.Index.ChunkToObjects[chunkChecksum], objectChecksum)
 }
 
-func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathname string) {
+func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum [32]byte, pathname string) {
 	snapshot.Index.muObjectToPathnames.Lock()
 	defer snapshot.Index.muObjectToPathnames.Unlock()
 
@@ -527,12 +528,12 @@ func (snapshot *Snapshot) StateSetObjectToPathname(objectChecksum string, pathna
 	snapshot.Index.ObjectToPathnames[objectChecksum] = append(snapshot.Index.ObjectToPathnames[objectChecksum], pathname)
 }
 
-func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum string) {
+func (snapshot *Snapshot) StateSetContentTypeToObjects(contentType string, objectChecksum [32]byte) {
 	snapshot.Index.muContentTypeToObjects.Lock()
 	defer snapshot.Index.muContentTypeToObjects.Unlock()
 
 	if _, exists := snapshot.Index.ContentTypeToObjects[contentType]; !exists {
-		snapshot.Index.ContentTypeToObjects[contentType] = make([]string, 0)
+		snapshot.Index.ContentTypeToObjects[contentType] = make([][32]byte, 0)
 	}
 
 	for _, value := range snapshot.Index.ContentTypeToObjects[contentType] {

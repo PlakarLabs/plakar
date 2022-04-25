@@ -69,7 +69,7 @@ func list_snapshots(repository *storage.Repository, useUuid bool) {
 		if !useUuid {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
-				strings.Split(metadata.Uuid, "-")[0],
+				strings.Split(metadata.Uuid.String(), "-")[0],
 				humanize.Bytes(metadata.Size),
 				metadata.Statistics.Duration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))

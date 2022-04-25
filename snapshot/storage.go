@@ -1,6 +1,8 @@
 package snapshot
 
-import "github.com/vmihailenco/msgpack/v5"
+import (
+	"github.com/vmihailenco/msgpack/v5"
+)
 
 func indexFromBytes(data []byte) (*Index, error) {
 	var index Index

@@ -17,6 +17,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -24,6 +25,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -39,17 +41,17 @@ func parseSnapshotID(id string) (string, string) {
 	return prefix, pattern
 }
 
-func findSnapshotByPrefix(snapshots []string, prefix string) []string {
-	ret := make([]string, 0)
+func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
+	ret := make([]uuid.UUID, 0)
 	for _, snapshot := range snapshots {
-		if strings.HasPrefix(snapshot, prefix) {
+		if strings.HasPrefix(snapshot.String(), prefix) {
 			ret = append(ret, snapshot)
 		}
 	}
 	return ret
 }
 
-func getSnapshotsList(repository *storage.Repository) ([]string, error) {
+func getSnapshotsList(repository *storage.Repository) ([]uuid.UUID, error) {
 	snapshots, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
@@ -71,7 +73,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapsho
 		mu := sync.Mutex{}
 		for _, snapshotUuid := range snapshotsList {
 			wg.Add(1)
-			go func(snapshotUuid string) {
+			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 				metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
 				if err != nil {
@@ -96,7 +98,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapsho
 
 		matches := 0
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				matches++
 			}
 		}
@@ -107,7 +109,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapsho
 		}
 
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
 				if err != nil {
 					return nil, err
@@ -133,7 +135,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*snapshot.
 		mu := sync.Mutex{}
 		for _, snapshotUuid := range snapshotsList {
 			wg.Add(1)
-			go func(snapshotUuid string) {
+			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
 				if err != nil {
@@ -155,7 +157,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*snapshot.
 
 		matches := 0
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				matches++
 			}
 		}
@@ -166,7 +168,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*snapshot.
 		}
 
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
 				if err != nil {
 					return nil, err
@@ -192,7 +194,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 		mu := sync.Mutex{}
 		for _, snapshotUuid := range snapshotsList {
 			wg.Add(1)
-			go func(snapshotUuid string) {
+			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 				snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
 				if err != nil {
@@ -213,7 +215,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 
 		matches := 0
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				matches++
 			}
 		}
@@ -224,7 +226,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 		}
 
 		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid, parsedUuidPrefix) {
+			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
 				snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
 				if err != nil {
 					return nil, err
@@ -243,6 +245,7 @@ func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	return snapshots
 }
 
+/*
 func checkSnapshotsArgs(snapshots []string) {
 	for i := 0; i < len(snapshots); i++ {
 		prefix, _ := parseSnapshotID(snapshots[i])
@@ -254,10 +257,29 @@ func checkSnapshotsArgs(snapshots []string) {
 		}
 	}
 }
+*/
 
 func arrayContains(a []string, x string) bool {
 	for _, n := range a {
 		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
+	for _, n := range a {
+		if x == n {
+			return true
+		}
+	}
+	return false
+}
+
+func checksumArrayContains(a [][32]byte, x [32]byte) bool {
+	for _, n := range a {
+		if bytes.Equal(x[:], n[:]) {
 			return true
 		}
 	}

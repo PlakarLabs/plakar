@@ -48,7 +48,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 	if err != nil {
 		log.Fatal(err)
 	}
-	checkSnapshotsArgs(snapshots)
+	//checkSnapshotsArgs(snapshots)
 
 	if len(flags.Args()) == 2 {
 		// check if snapshot id's both reference a file
@@ -218,8 +218,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	diff := difflib.UnifiedDiff{
 		A:        difflib.SplitLines(string(buf1)),
 		B:        difflib.SplitLines(string(buf2)),
-		FromFile: snapshot1.Metadata.Uuid[0:8] + ":" + filename1,
-		ToFile:   snapshot2.Metadata.Uuid[0:8] + ":" + filename2,
+		FromFile: snapshot1.Metadata.Uuid.String()[0:8] + ":" + filename1,
+		ToFile:   snapshot2.Metadata.Uuid.String()[0:8] + ":" + filename2,
 		Context:  3,
 	}
 	text, err := difflib.GetUnifiedDiffString(diff)

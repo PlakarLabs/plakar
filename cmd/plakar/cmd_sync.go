@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -101,24 +102,24 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		_ = destObjectChecksums
 		_ = destIndexes
 
-		syncChunkChecksums := make([]string, 0)
-		syncObjectChecksums := make([]string, 0)
-		syncIndexes := make([]string, 0)
+		syncChunkChecksums := make([][32]byte, 0)
+		syncObjectChecksums := make([][32]byte, 0)
+		syncIndexes := make([]uuid.UUID, 0)
 
 		for _, chunkChecksum := range sourceChunkChecksums {
-			if !arrayContains(destChunkChecksums, chunkChecksum) {
+			if !checksumArrayContains(destChunkChecksums, chunkChecksum) {
 				syncChunkChecksums = append(syncChunkChecksums, chunkChecksum)
 			}
 		}
 
 		for _, objectChecksum := range sourceObjectChecksums {
-			if !arrayContains(destObjectChecksums, objectChecksum) {
+			if !checksumArrayContains(destObjectChecksums, objectChecksum) {
 				syncObjectChecksums = append(syncObjectChecksums, objectChecksum)
 			}
 		}
 
 		for _, index := range sourceIndexes {
-			if !arrayContains(destIndexes, index) {
+			if !indexArrayContains(destIndexes, index) {
 				syncIndexes = append(syncIndexes, index)
 			}
 		}
@@ -149,37 +150,38 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 		}
 
-		for _, index := range syncIndexes {
-			data, err := sourceRepository.GetMetadata(index)
+		for _, indexID := range syncIndexes {
+
+			data, err := sourceRepository.GetMetadata(indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 				return 1
 			}
-			err = syncRepository.PutMetadata(index, data)
+			err = syncRepository.PutMetadata(indexID, data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not write object to repository: %s\n", repository, err)
 				return 1
 			}
 
-			data, err = sourceRepository.GetIndex(index)
+			data, err = sourceRepository.GetIndex(indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 				return 1
 			}
-			err = syncRepository.PutIndex(index, data)
+			err = syncRepository.PutIndex(indexID, data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not write object to repository: %s\n", repository, err)
 				return 1
 			}
 
-			snap, err := snapshot.Load(syncRepository, index)
+			snap, err := snapshot.Load(syncRepository, indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not load index from repository: %s\n", repository, err)
 				return 1
 			}
 
 			for _, chunk := range snap.Index.Chunks {
-				err = syncRepository.ReferenceIndexChunk(index, chunk.Checksum)
+				err = syncRepository.ReferenceIndexChunk(indexID, chunk.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in repository: %s\n", repository, err)
 					return 1
@@ -187,7 +189,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			for _, object := range snap.Index.Objects {
-				err = syncRepository.ReferenceIndexObject(index, object.Checksum)
+				err = syncRepository.ReferenceIndexObject(indexID, object.Checksum)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not reference object in repository: %s\n", repository, err)
 					return 1

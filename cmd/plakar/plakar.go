@@ -19,6 +19,7 @@ import (
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/storage"
 
 	_ "github.com/poolpOrg/plakar/storage/client"
@@ -246,10 +247,6 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 	}
 
-	if opt_time {
-		logger.Printf("time: %s", t1)
-	}
-
 	err = repository.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
@@ -259,7 +256,15 @@ func entryPoint() int {
 		ctx.Cache.Commit()
 	}
 
+	if opt_profiling {
+		profiler.Display()
+	}
+
 	loggerWait()
+
+	if opt_time {
+		fmt.Println("time:", t1)
+	}
 
 	if opt_memProfile != "" {
 		f, err := os.Create(opt_memProfile)

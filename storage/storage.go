@@ -29,6 +29,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/profiler"
 )
 
 const VERSION string = "0.1.0"
@@ -170,7 +171,8 @@ func Open(location string) (*Repository, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Open(%s): %s", location, time.Since(t0))
+		profiler.RecordEvent("storage.Open", time.Since(t0))
+		logger.Trace("storage: Open(%s): %s", location, time.Since(t0))
 	}()
 
 	err = repository.backend.Open(location)
@@ -189,7 +191,8 @@ func Create(location string, configuration RepositoryConfig) (*Repository, error
 
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Create(%s): %s", location, time.Since(t0))
+		profiler.RecordEvent("storage.Create", time.Since(t0))
+		logger.Trace("storage: Create(%s): %s", location, time.Since(t0))
 	}()
 
 	err = repository.backend.Create(location, configuration)
@@ -263,7 +266,8 @@ func (repository *Repository) Configuration() RepositoryConfig {
 func (repository *Repository) Transaction() (*Transaction, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Transaction(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.Transaction", time.Since(t0))
+		logger.Trace("storage: Transaction(): %s", time.Since(t0))
 	}()
 	tx, err := repository.backend.Transaction()
 	if err != nil {
@@ -278,7 +282,8 @@ func (repository *Repository) Transaction() (*Transaction, error) {
 func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetIndexes(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
+		logger.Trace("storage: GetIndexes(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetIndexes()
 }
@@ -286,7 +291,8 @@ func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
 func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetMetadata(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.GetMetadata", time.Since(t0))
+		logger.Trace("storage: GetMetadata(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.GetMetadata(indexID)
 }
@@ -294,7 +300,8 @@ func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 func (repository *Repository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetIndex(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.GetIndex", time.Since(t0))
+		logger.Trace("storage: GetIndex(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.GetIndex(indexID)
 }
@@ -302,7 +309,8 @@ func (repository *Repository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: PutMetadata(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.PutMetadata", time.Since(t0))
+		logger.Trace("storage: PutMetadata(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.PutMetadata(indexID, data)
 }
@@ -310,7 +318,8 @@ func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) error 
 func (repository *Repository) PutIndex(indexID uuid.UUID, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: PutIndex(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.PutIndex", time.Since(t0))
+		logger.Trace("storage: PutIndex(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.PutIndex(indexID, data)
 }
@@ -318,7 +327,8 @@ func (repository *Repository) PutIndex(indexID uuid.UUID, data []byte) error {
 func (repository *Repository) GetIndexObject(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetIndexObject", time.Since(t0))
+		logger.Trace("storage: GetIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.GetIndexObject(indexID, checksum)
 }
@@ -326,7 +336,8 @@ func (repository *Repository) GetIndexObject(indexID uuid.UUID, checksum [32]byt
 func (repository *Repository) GetIndexChunk(indexID uuid.UUID, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetIndexChunk", time.Since(t0))
+		logger.Trace("storage: GetIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.GetIndexChunk(indexID, checksum)
 }
@@ -334,7 +345,8 @@ func (repository *Repository) GetIndexChunk(indexID uuid.UUID, checksum [32]byte
 func (repository *Repository) ReferenceIndexChunk(indexID uuid.UUID, checksum [32]byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: RefIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.RefIndexChunk", time.Since(t0))
+		logger.Trace("storage: RefIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.ReferenceIndexChunk(indexID, checksum)
 }
@@ -342,7 +354,8 @@ func (repository *Repository) ReferenceIndexChunk(indexID uuid.UUID, checksum [3
 func (repository *Repository) ReferenceIndexObject(indexID uuid.UUID, checksum [32]byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: RefIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.RefIndexObject", time.Since(t0))
+		logger.Trace("storage: RefIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.ReferenceIndexObject(indexID, checksum)
 }
@@ -350,7 +363,8 @@ func (repository *Repository) ReferenceIndexObject(indexID uuid.UUID, checksum [
 func (repository *Repository) GetObjects() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetObjects(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.GetObjects", time.Since(t0))
+		logger.Trace("storage: GetObjects(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetObjects()
 }
@@ -358,7 +372,8 @@ func (repository *Repository) GetObjects() ([][32]byte, error) {
 func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetObject(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetObject", time.Since(t0))
+		logger.Trace("storage: GetObject(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetObject(checksum)
 }
@@ -366,7 +381,8 @@ func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: PutObject(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.PutObject", time.Since(t0))
+		logger.Trace("storage: PutObject(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.PutObject(checksum, data)
 }
@@ -374,7 +390,8 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
 func (repository *Repository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetObjectRefCount(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetObjectRefCount", time.Since(t0))
+		logger.Trace("storage: GetObjectRefCount(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetObjectRefCount(checksum)
 }
@@ -382,7 +399,8 @@ func (repository *Repository) GetObjectRefCount(checksum [32]byte) (uint64, erro
 func (repository *Repository) GetObjectSize(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetObjectSize(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetObjectSize", time.Since(t0))
+		logger.Trace("storage: GetObjectSize(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetObjectSize(checksum)
 }
@@ -390,7 +408,8 @@ func (repository *Repository) GetObjectSize(checksum [32]byte) (uint64, error) {
 func (repository *Repository) GetChunks() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetChunks(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.GetChunks", time.Since(t0))
+		logger.Trace("storage: GetChunks(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetChunks()
 }
@@ -398,7 +417,8 @@ func (repository *Repository) GetChunks() ([][32]byte, error) {
 func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetChunk(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetChunk", time.Since(t0))
+		logger.Trace("storage: GetChunk(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetChunk(checksum)
 }
@@ -406,7 +426,8 @@ func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 func (repository *Repository) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: PutChunk(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.PutChunk", time.Since(t0))
+		logger.Trace("storage: PutChunk(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.PutChunk(checksum, data)
 }
@@ -414,7 +435,8 @@ func (repository *Repository) PutChunk(checksum [32]byte, data []byte) error {
 func (repository *Repository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetChunkRefCount(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetChunkRefCount", time.Since(t0))
+		logger.Trace("storage: GetChunkRefCount(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetChunkRefCount(checksum)
 }
@@ -422,7 +444,8 @@ func (repository *Repository) GetChunkRefCount(checksum [32]byte) (uint64, error
 func (repository *Repository) GetChunkSize(checksum [32]byte) (uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: GetChunkSize(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetChunkSize", time.Since(t0))
+		logger.Trace("storage: GetChunkSize(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.GetChunkSize(checksum)
 }
@@ -430,7 +453,8 @@ func (repository *Repository) GetChunkSize(checksum [32]byte) (uint64, error) {
 func (repository *Repository) CheckIndexObject(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: CheckIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetIndexObject", time.Since(t0))
+		logger.Trace("storage: CheckIndexObject(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckIndexObject(indexID, checksum)
 }
@@ -438,7 +462,8 @@ func (repository *Repository) CheckIndexObject(indexID uuid.UUID, checksum [32]b
 func (repository *Repository) CheckIndexChunk(indexID uuid.UUID, checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: CheckIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetIndexChunk", time.Since(t0))
+		logger.Trace("storage: CheckIndexChunk(%s, %064x): %s", indexID, checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckIndexChunk(indexID, checksum)
 }
@@ -446,7 +471,8 @@ func (repository *Repository) CheckIndexChunk(indexID uuid.UUID, checksum [32]by
 func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: CheckObject(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.GetObject", time.Since(t0))
+		logger.Trace("storage: CheckObject(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckObject(checksum)
 }
@@ -454,7 +480,8 @@ func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
 func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: CheckChunk(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("storage.CheckChunk", time.Since(t0))
+		logger.Trace("storage: CheckChunk(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckChunk(checksum)
 }
@@ -462,7 +489,8 @@ func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
 func (repository *Repository) Purge(indexID uuid.UUID) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Purge(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.Purge", time.Since(t0))
+		logger.Trace("storage: Purge(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.Purge(indexID)
 }
@@ -470,7 +498,8 @@ func (repository *Repository) Purge(indexID uuid.UUID) error {
 func (repository *Repository) Close() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: Close(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.Close", time.Since(t0))
+		logger.Trace("storage: Close(): %s", time.Since(t0))
 	}()
 	return repository.backend.Close()
 }
@@ -482,7 +511,8 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 func (transaction *Transaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+		profiler.RecordEvent("storage.tx.ReferenceObjects", time.Since(t0))
+		logger.Trace("storage: %s.ReferenceObjects([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
 	}()
 	return transaction.backend.ReferenceObjects(keys)
 }
@@ -490,7 +520,8 @@ func (transaction *Transaction) ReferenceObjects(keys [][32]byte) ([]bool, error
 func (transaction *Transaction) PutObject(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutObject(%064x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+		profiler.RecordEvent("storage.tx.PutObject", time.Since(t0))
+		logger.Trace("storage: %s.PutObject(%064x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutObject(checksum, data)
 }
@@ -498,7 +529,8 @@ func (transaction *Transaction) PutObject(checksum [32]byte, data []byte) error 
 func (transaction *Transaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
+		profiler.RecordEvent("storage.tx.ReferenceChunks", time.Since(t0))
+		logger.Trace("storage: %s.ReferenceChunks([%d keys]): %s", transaction.GetUuid(), len(keys), time.Since(t0))
 	}()
 	return transaction.backend.ReferenceChunks(keys)
 }
@@ -506,7 +538,8 @@ func (transaction *Transaction) ReferenceChunks(keys [][32]byte) ([]bool, error)
 func (transaction *Transaction) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutChunk(%064x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
+		profiler.RecordEvent("storage.tx.PutChunk", time.Since(t0))
+		logger.Trace("storage: %s.PutChunk(%064x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutChunk(checksum, data)
 }
@@ -514,7 +547,8 @@ func (transaction *Transaction) PutChunk(checksum [32]byte, data []byte) error {
 func (transaction *Transaction) PutMetadata(data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+		profiler.RecordEvent("storage.tx.PutMetadata", time.Since(t0))
+		logger.Trace("storage: %s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutMetadata(data)
 }
@@ -522,7 +556,8 @@ func (transaction *Transaction) PutMetadata(data []byte) error {
 func (transaction *Transaction) PutIndex(data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+		profiler.RecordEvent("storage.tx.PutIndex", time.Since(t0))
+		logger.Trace("storage: %s.PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
 	return transaction.backend.PutIndex(data)
 }
@@ -530,7 +565,8 @@ func (transaction *Transaction) PutIndex(data []byte) error {
 func (transaction *Transaction) Commit() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Profile("storage: %s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
+		profiler.RecordEvent("storage.tx.Commit", time.Since(t0))
+		logger.Trace("storage: %s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
 	}()
 	return transaction.backend.Commit()
 }

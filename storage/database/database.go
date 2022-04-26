@@ -19,6 +19,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -68,6 +69,22 @@ func init() {
 
 func NewDatabaseRepository() storage.RepositoryBackend {
 	return &DatabaseRepository{}
+}
+
+func checksumToString(checksum [32]byte) string {
+	return fmt.Sprintf("%064x", checksum)
+}
+
+func stringToChecksum(checksum string) ([32]byte, error) {
+	var checksumBytes [32]byte
+
+	b, err := hex.DecodeString(checksum)
+	if err != nil {
+		return checksumBytes, err
+	}
+
+	copy(checksumBytes[:], b)
+	return checksumBytes, nil
 }
 
 func (repository *DatabaseRepository) connect(addr string) error {
@@ -282,12 +299,13 @@ func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
 
 	var checksums [][32]byte
 	for rows.Next() {
-		var checksum [32]byte
+		var checksum string
 		err = rows.Scan(&checksum)
 		if err != nil {
 			return nil, err
 		}
-		checksums = append(checksums, checksum)
+		checksumDecoded, _ := stringToChecksum(checksum)
+		checksums = append(checksums, checksumDecoded)
 	}
 	return checksums, nil
 }
@@ -301,12 +319,13 @@ func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
 
 	var checksums [][32]byte
 	for rows.Next() {
-		var checksum [32]byte
+		var checksum string
 		err = rows.Scan(&checksum)
 		if err != nil {
 			return nil, err
 		}
-		checksums = append(checksums, checksum)
+		checksumDecoded, _ := stringToChecksum(checksum)
+		checksums = append(checksums, checksumDecoded)
 	}
 	return checksums, nil
 }
@@ -331,7 +350,7 @@ func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error
 
 func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +359,7 @@ func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, erro
 
 func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +368,7 @@ func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error
 
 func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
@@ -358,7 +377,7 @@ func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, erro
 
 func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
@@ -381,7 +400,7 @@ func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 func (transaction *DatabaseTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
+		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), checksumToString(key))
 		if err != nil {
 			// there has to be a better way ...
 			if err.Error() == "FOREIGN KEY constraint failed" {
@@ -404,7 +423,7 @@ func (transaction *DatabaseTransaction) ReferenceChunks(keys [][32]byte) ([]bool
 func (transaction *DatabaseTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
 	ret := make([]bool, 0)
 	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
+		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), checksumToString(key))
 		if err != nil {
 			// there has to be a better way ...
 			if err.Error() == "FOREIGN KEY constraint failed" {
@@ -431,7 +450,7 @@ func (transaction *DatabaseTransaction) PutObject(checksum [32]byte, data []byte
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksum, data)
+	_, err = statement.Exec(checksumToString(checksum), data)
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -447,7 +466,7 @@ func (transaction *DatabaseTransaction) PutChunk(checksum [32]byte, data []byte)
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksum, data)
+	_, err = statement.Exec(checksumToString(checksum), data)
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err

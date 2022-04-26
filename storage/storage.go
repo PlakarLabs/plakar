@@ -104,8 +104,7 @@ type Repository struct {
 	MachineID   string
 
 	Cache *cache.Cache
-	//Keypair *encryption.Keypair
-	Key []byte
+	Key   []byte
 }
 
 type Transaction struct {

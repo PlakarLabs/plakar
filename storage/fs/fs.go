@@ -366,7 +366,7 @@ func (repository *FSRepository) GetChunkSize(checksum [32]byte) (uint64, error) 
 }
 
 func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error {
-	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -386,7 +386,7 @@ func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error 
 }
 
 func (repository *FSRepository) PutObjectSafe(checksum [32]byte, data []byte, link string) error {
-	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%s.*", checksum))
+	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
 	if err != nil {
 		return err
 	}

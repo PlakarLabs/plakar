@@ -130,7 +130,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		} else {
 			object, err := snapshot.GetObject(checksum)
 			if err != nil {
-				logger.Warn("%s: missing object %064x", snapshot.Metadata.IndexID, checksum)
+				logger.Warn("%s: missing object %064x: %s", snapshot.Metadata.IndexID, checksum, err)
 				ret = false
 				continue
 			}

@@ -95,7 +95,7 @@ func entryPoint() int {
 	var opt_memProfile string
 	var opt_nocache bool
 	var opt_time bool
-	var opt_trace bool
+	var opt_trace string
 	var opt_verbose bool
 	var opt_profiling bool
 	var opt_keyfile string
@@ -108,7 +108,7 @@ func entryPoint() int {
 	flag.StringVar(&opt_memProfile, "profile-mem", "", "profile MEM usage")
 	flag.BoolVar(&opt_nocache, "no-cache", false, "disable caching")
 	flag.BoolVar(&opt_time, "time", false, "display command execution time")
-	flag.BoolVar(&opt_trace, "trace", false, "display trace logs")
+	flag.StringVar(&opt_trace, "trace", "", "display trace logs")
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
@@ -163,8 +163,8 @@ func entryPoint() int {
 	if opt_verbose {
 		logger.EnableInfo()
 	}
-	if opt_trace {
-		logger.EnableTrace()
+	if opt_trace != "" {
+		logger.EnableTrace(opt_trace)
 	}
 	if opt_profiling {
 		logger.EnableProfiling()

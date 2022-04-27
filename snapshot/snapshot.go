@@ -44,7 +44,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		Index:    NewIndex(),
 	}
 
-	logger.Trace("snapshot: %s: New()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: New()", snapshot.Metadata.IndexID)
 	return snapshot, nil
 }
 
@@ -73,7 +73,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	snapshot.Metadata = metadata
 	snapshot.Index = index
 
-	logger.Trace("snapshot: %s: Load()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: Load()", snapshot.Metadata.IndexID)
 	return snapshot, nil
 }
 
@@ -89,11 +89,11 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetMetadata(%s)", indexID)
+		logger.Trace("snapshot", "cache.GetMetadata(%s)", indexID)
 		tmp, err := cache.GetMetadata(repository.Configuration().RepositoryID.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+			logger.Trace("snapshot", "repository.GetMetadata(%s)", indexID)
 			tmp, err = repository.GetMetadata(indexID)
 			if err != nil {
 				return nil, false, err
@@ -101,7 +101,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetMetadata(%s)", indexID)
+		logger.Trace("snapshot", "repository.GetMetadata(%s)", indexID)
 		tmp, err := repository.GetMetadata(indexID)
 		if err != nil {
 			return nil, false, err
@@ -110,7 +110,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 	}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutMetadata(%s)", indexID)
+		logger.Trace("snapshot", "cache.PutMetadata(%s)", indexID)
 		cache.PutMetadata(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
 	}
 
@@ -150,11 +150,11 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot: cache.GetIndex(%s)", indexID)
+		logger.Trace("snapshot", "cache.GetIndex(%s)", indexID)
 		tmp, err := cache.GetIndex(repository.Configuration().RepositoryID.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+			logger.Trace("snapshot", "repository.GetIndex(%s)", indexID)
 			tmp, err = repository.GetIndex(indexID)
 			if err != nil {
 				return nil, nil, err
@@ -162,7 +162,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot: repository.GetIndex(%s)", indexID)
+		logger.Trace("snapshot", "repository.GetIndex(%s)", indexID)
 		tmp, err := repository.GetIndex(indexID)
 		if err != nil {
 			return nil, nil, err
@@ -171,7 +171,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 	}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot: cache.PutIndex(%s)", indexID)
+		logger.Trace("snapshot", "cache.PutIndex(%s)", indexID)
 		cache.PutIndex(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
 	}
 
@@ -214,7 +214,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	defer func() {
 		profiler.RecordEvent("snapshot.PutChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: PutChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: PutChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -237,7 +237,7 @@ func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: PutObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.IndexID, checksum)
 
 	secret := snapshot.repository.GetSecret()
 
@@ -262,7 +262,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 		profiler.RecordEvent("snapshot.PutMetadata", time.Since(t0))
 	}()
 	cache := snapshot.repository.GetCache()
-	logger.Trace("snapshot: %s: PutMetadata()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: PutMetadata()", snapshot.Metadata.IndexID)
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -291,7 +291,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		profiler.RecordEvent("snapshot.PutIndex", time.Since(t0))
 	}()
 	cache := snapshot.repository.GetCache()
-	logger.Trace("snapshot: %s: PutIndex()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: PutIndex()", snapshot.Metadata.IndexID)
 
 	secret := snapshot.repository.GetSecret()
 
@@ -321,7 +321,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.GetChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: GetChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	buffer, err := snapshot.repository.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -351,7 +351,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: CheckChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Metadata.IndexID, checksum)
 	exists, err := snapshot.repository.CheckChunk(checksum)
 	if err != nil {
 		return false, err
@@ -364,7 +364,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.GetObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: GetObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: GetObject(%064x)", snapshot.Metadata.IndexID, checksum)
 	buffer, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot: %s: CheckObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Metadata.IndexID, checksum)
 	return snapshot.repository.CheckObject(checksum)
 }
 
@@ -430,6 +430,6 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	logger.Trace("%s: Commit()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: Commit()", snapshot.Metadata.IndexID)
 	return snapshot.transaction.Commit()
 }

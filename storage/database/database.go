@@ -23,11 +23,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
 
@@ -113,11 +111,6 @@ func (repository *DatabaseRepository) connect(addr string) error {
 }
 
 func (repository *DatabaseRepository) Create(location string, config storage.RepositoryConfig) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Create(%s): %s", repository, time.Since(t0))
-	}()
-
 	err := repository.connect(location)
 	if err != nil {
 		return err

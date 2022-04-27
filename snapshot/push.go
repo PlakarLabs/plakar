@@ -148,25 +148,27 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	cache := snapshot.repository.Cache
 
+	snapshot.Metadata.ScannedDirectories = make([]string, 0)
 	for _, scanDir := range scanDirs {
 		scanDir, err := filepath.Abs(scanDir)
 		if err != nil {
 			logger.Warn("%s", err)
 			return err
 		}
-		err = snapshot.Index.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, scanDir)
+		err = snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
 		if err != nil {
 			logger.Warn("%s", err)
 		}
 	}
 
-	for _, filename := range snapshot.Index.Filesystem.ListFiles() {
+	for _, filename := range snapshot.Filesystem.ListFiles() {
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(_filename string) {
 			defer func() { wg.Done() }()
 			defer func() { <-maxConcurrency }()
-			fileinfo, exists := snapshot.Index.Filesystem.LookupInodeForFile(_filename)
+			fileinfo, exists := snapshot.Filesystem.LookupInodeForFile(_filename)
 			if !exists {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
@@ -229,8 +231,8 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.ListChunks()))
 	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.ListObjects()))
-	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Index.Filesystem.Files))
-	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
+	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Filesystem.ListFiles()))
+	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
 
 	for _, key := range snapshot.Index.ListContentTypes() {
 		objectType := strings.Split(key, ";")[0]
@@ -271,8 +273,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
 	}
 
-	snapshot.Metadata.ScannedDirectories = snapshot.Index.Filesystem.ScannedDirectories
-	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
+	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
 	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
 
 	snapshot.Metadata.Statistics.Duration = time.Since(t0)

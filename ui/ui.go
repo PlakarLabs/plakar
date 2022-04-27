@@ -158,10 +158,10 @@ func (summary *SnapshotSummary) HumanSize() string {
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
 	ss.Metadata = snapshot.Metadata
-	ss.Roots = uint64(len(snapshot.Index.Filesystem.ScannedDirectories))
-	ss.Directories = uint64(len(snapshot.Index.Filesystem.Directories))
-	ss.Files = uint64(len(snapshot.Index.Filesystem.Files))
-	ss.NonRegular = uint64(len(snapshot.Index.Filesystem.NonRegular))
+	ss.Roots = uint64(len(snapshot.Filesystem.ScannedDirectories))
+	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
+	ss.Files = uint64(len(snapshot.Filesystem.Files))
+	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
 	ss.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
 	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
 	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
@@ -266,7 +266,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 
-	_, exists := snap.Index.LookupInodeForPathname(path)
+	_, exists := snap.Filesystem.LookupInode(path)
 	if !exists {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -278,17 +278,18 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	symlinksResolve := make(map[string]string)
 	others := make([]*snapshot.Fileinfo, 0)
 
-	children, _ := snap.Index.LookupPathChildren(path)
-	for _, fileinfo := range children {
+	children, _ := snap.Filesystem.LookupChildren(path)
+	for _, childname := range children {
+		fileinfo, _ := snap.Filesystem.LookupInode(fmt.Sprintf("%s/%s", path, childname))
 		if fileinfo.Mode.IsDir() {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode.IsRegular() {
 			files = append(files, fileinfo)
 		} else {
 			pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name)
-			if _, exists := snap.Index.Filesystem.Symlinks[pathname]; exists {
+			if _, exists := snap.Filesystem.Symlinks[pathname]; exists {
 				symlinks = append(symlinks, fileinfo)
-				symlinksResolve[fileinfo.Name] = snap.Index.Filesystem.Symlinks[pathname]
+				symlinksResolve[fileinfo.Name] = snap.Filesystem.Symlinks[pathname]
 			} else {
 				others = append(others, fileinfo)
 			}
@@ -327,7 +328,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Index.Filesystem.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Metadata.ScannedDirectories, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -356,7 +357,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, _ := snap.Index.LookupInodeForPathname(path)
+	info, _ := snap.Filesystem.LookupInode(path)
 
 	chunks := make([]*snapshot.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
@@ -366,7 +367,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Index.Filesystem.LookupInodeForDirectory(root); ok {
+		if _, ok := snap.Filesystem.LookupInodeForDirectory(root); ok {
 			break
 		}
 	}
@@ -543,7 +544,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	}, 0)
 	for _, snap := range snapshotsList {
 		if kind == "" && mime == "" && ext == "" {
-			for _, directory := range snap.Index.Filesystem.ListDirectories() {
+			for _, directory := range snap.Filesystem.ListDirectories() {
 				if strings.Contains(directory, q) {
 					directories = append(directories, struct {
 						Snapshot string

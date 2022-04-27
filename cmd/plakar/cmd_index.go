@@ -75,7 +75,6 @@ func cmd_index(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for _, index := range indexes {
 		jindex := JSONIndex{}
-		jindex.Filesystem = index.Filesystem
 		jindex.Pathnames = make(map[string]string)
 		jindex.Objects = make(map[string]*JSONObject)
 		jindex.Chunks = make(map[string]*JSONChunk)

@@ -73,9 +73,9 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for _, dir1 := range snapshot1.Index.Filesystem.ListDirectories() {
-				fi1, _ := snapshot1.Index.LookupInodeForDirectory(dir1)
-				fi2, ok := snapshot2.Index.LookupInodeForDirectory(dir1)
+			for _, dir1 := range snapshot1.Filesystem.ListDirectories() {
+				fi1, _ := snapshot1.Filesystem.LookupInodeForDirectory(dir1)
+				fi2, ok := snapshot2.Filesystem.LookupInodeForDirectory(dir1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
 					continue
@@ -86,17 +86,17 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for _, dir2 := range snapshot2.Index.Filesystem.ListDirectories() {
-				fi2, _ := snapshot2.Index.LookupInodeForDirectory(dir2)
-				_, ok := snapshot1.Index.LookupInodeForDirectory(dir2)
+			for _, dir2 := range snapshot2.Filesystem.ListDirectories() {
+				fi2, _ := snapshot2.Filesystem.LookupInodeForDirectory(dir2)
+				_, ok := snapshot1.Filesystem.LookupInodeForDirectory(dir2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), dir2)
 				}
 			}
 
-			for _, file1 := range snapshot1.Index.Filesystem.ListFiles() {
-				fi1, _ := snapshot1.Index.LookupInodeForPathname(file1)
-				fi2, ok := snapshot2.Index.LookupInodeForPathname(file1)
+			for _, file1 := range snapshot1.Filesystem.ListFiles() {
+				fi1, _ := snapshot1.Filesystem.LookupInode(file1)
+				fi2, ok := snapshot2.Filesystem.LookupInode(file1)
 				if !ok {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
 					continue
@@ -107,9 +107,9 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for _, file2 := range snapshot2.Index.Filesystem.ListFiles() {
-				fi2, _ := snapshot2.Index.LookupInodeForPathname(file2)
-				_, ok := snapshot1.Index.LookupInodeForFilename(file2)
+			for _, file2 := range snapshot2.Filesystem.ListFiles() {
+				fi2, _ := snapshot2.Filesystem.LookupInode(file2)
+				_, ok := snapshot1.Filesystem.LookupInode(file2)
 				if !ok {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)
 				}

@@ -21,6 +21,9 @@ type Cache struct {
 	mu_indexes sync.Mutex
 	indexes    map[string][]byte
 
+	mu_filesystems sync.Mutex
+	filesystems    map[string][]byte
+
 	mu_pathnames sync.Mutex
 	pathnames    map[string][]byte
 
@@ -42,6 +45,7 @@ func New(cacheDir string) *Cache {
 	cache.conn = conn
 	cache.metadatas = make(map[string][]byte)
 	cache.indexes = make(map[string][]byte)
+	cache.filesystems = make(map[string][]byte)
 	cache.pathnames = make(map[string][]byte)
 	cache.objects = make(map[string][]byte)
 
@@ -57,6 +61,17 @@ func New(cacheDir string) *Cache {
 	statement.Exec()
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+		"repository"	UUID,
+		"uuid"	UUID NOT NULL PRIMARY KEY,
+		"blob"	BLOB
+	);`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer statement.Close()
+	statement.Exec()
+
+	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
 		"repository"	UUID,
 		"uuid"	UUID NOT NULL PRIMARY KEY,
 		"blob"	BLOB
@@ -108,6 +123,14 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 	return nil
 }
 
+func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byte) error {
+	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
+	cache.mu_filesystems.Lock()
+	cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
+	cache.mu_filesystems.Unlock()
+	return nil
+}
+
 func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
 	logger.Trace("cache", "%s: GetMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
@@ -136,6 +159,23 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 
 	var data []byte
 	err := cache.conn.QueryRow(`SELECT blob FROM indexes WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, error) {
+	logger.Trace("cache", "%s: GetFilesystem()", Uuid)
+	cache.mu_filesystems.Lock()
+	ret, exists := cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
+	cache.mu_filesystems.Unlock()
+	if exists {
+		return ret, nil
+	}
+
+	var data []byte
+	err := cache.conn.QueryRow(`SELECT blob FROM filesystems WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -224,6 +264,17 @@ func (cache *Cache) Commit() error {
 		log.Fatal(err)
 	}
 	for key, data := range cache.indexes {
+		atoms := strings.Split(key, ":")
+		repository, id := atoms[0], atoms[1]
+		statement.Exec(repository, id, data)
+	}
+	statement.Close()
+
+	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO filesystems("repository", "uuid", "blob") VALUES(?, ?, ?)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for key, data := range cache.filesystems {
 		atoms := strings.Split(key, ":")
 		repository, id := atoms[0], atoms[1]
 		statement.Exec(repository, id, data)

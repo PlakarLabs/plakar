@@ -94,20 +94,22 @@ func list_snapshot(repository *storage.Repository, args []string) {
 		_, prefix := parseSnapshotID(args[offset])
 
 		content := make([]string, 0)
-		entries, exists := snap.Index.LookupPathChildren(prefix)
-		if !exists {
+		entries, err := snap.Filesystem.LookupChildren(prefix)
+		if err != nil {
 			continue
 		}
 
+		children := make(map[string]*snapshot.Fileinfo)
+
 		if len(entries) == 0 {
-			info, exists := snap.Index.LookupInodeForPathname(prefix)
+			info, exists := snap.Filesystem.LookupInode(prefix)
 			if !exists {
 				continue
 			}
-			entries[prefix] = info
+			children[prefix] = info
 			content = append(content, prefix)
 		} else {
-			for name := range entries {
+			for _, name := range entries {
 				content = append(content, name)
 			}
 			sort.Slice(content, func(i, j int) bool {
@@ -116,7 +118,7 @@ func list_snapshot(repository *storage.Repository, args []string) {
 		}
 
 		for _, item := range content {
-			fi := entries[item]
+			fi := children[item]
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 			username := fmt.Sprintf("%d", fi.Uid)
 			if err == nil {
@@ -158,7 +160,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		directories := make([]string, 0)
-		directories = append(directories, snapshot.Index.Filesystem.ListDirectories()...)
+		directories = append(directories, snapshot.Filesystem.ListDirectories()...)
 		sort.Slice(directories, func(i, j int) bool {
 			return strings.Compare(directories[i], directories[j]) < 0
 		})
@@ -171,13 +173,13 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		filenames = append(filenames, snapshot.Index.Filesystem.ListFiles()...)
+		filenames = append(filenames, snapshot.Filesystem.ListFiles()...)
 		sort.Slice(filenames, func(i, j int) bool {
 			return strings.Compare(filenames[i], filenames[j]) < 0
 		})
 
 		for _, name := range filenames {
-			fi, _ := snapshot.Index.LookupInodeForPathname(name)
+			fi, _ := snapshot.Filesystem.LookupInode(name)
 			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
@@ -206,13 +208,13 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 
 func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory string) {
 	directories := make([]string, 0)
-	directories = append(directories, snapshot.Index.Filesystem.ListDirectories()...)
+	directories = append(directories, snapshot.Filesystem.ListDirectories()...)
 	sort.Slice(directories, func(i, j int) bool {
 		return strings.Compare(directories[i], directories[j]) < 0
 	})
 
 	for _, name := range directories {
-		fi, _ := snapshot.Index.LookupInodeForPathname(name)
+		fi, _ := snapshot.Filesystem.LookupInode(name)
 		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
@@ -242,13 +244,13 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	}
 
 	filenames := make([]string, 0)
-	filenames = append(filenames, snapshot.Index.Filesystem.ListFiles()...)
+	filenames = append(filenames, snapshot.Filesystem.ListFiles()...)
 	sort.Slice(filenames, func(i, j int) bool {
 		return strings.Compare(filenames[i], filenames[j]) < 0
 	})
 
 	for _, name := range filenames {
-		fi, _ := snapshot.Index.LookupInodeForPathname(name)
+		fi, _ := snapshot.Filesystem.LookupInode(name)
 		if !helpers.PathIsWithin(name, directory) && name != directory {
 			continue
 		}

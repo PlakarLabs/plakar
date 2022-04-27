@@ -21,8 +21,9 @@ type Snapshot struct {
 
 	SkipDirs []string
 
-	Metadata *Metadata
-	Index    *Index
+	Metadata   *Metadata
+	Index      *Index
+	Filesystem *Filesystem
 }
 
 func New(repository *storage.Repository) (*Snapshot, error) {
@@ -40,8 +41,9 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		repository:  repository,
 		transaction: tx,
 
-		Metadata: NewMetadata(tx.GetUuid()),
-		Index:    NewIndex(),
+		Metadata:   NewMetadata(tx.GetUuid()),
+		Index:      NewIndex(),
+		Filesystem: NewFilesystem(),
 	}
 
 	logger.Trace("snapshot", "%s: New()", snapshot.Metadata.GetIndexShortID())
@@ -64,14 +66,23 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, err
 	}
 
-	if !bytes.Equal(checksum, metadata.Checksum) {
+	if !bytes.Equal(checksum, metadata.IndexChecksum) {
 		return nil, fmt.Errorf("index mismatches metadata checksum")
+	}
+
+	filesystem, checksum, err := GetFilesystem(repository, indexID)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(checksum, metadata.FilesystemChecksum) {
+		return nil, fmt.Errorf("filesystem mismatches metadata checksum")
 	}
 
 	snapshot := &Snapshot{}
 	snapshot.repository = repository
 	snapshot.Metadata = metadata
 	snapshot.Index = index
+	snapshot.Filesystem = filesystem
 
 	logger.Trace("snapshot", "%s: Load()", snapshot.Metadata.GetIndexShortID())
 	return snapshot, nil
@@ -201,6 +212,68 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 	return index, checksum[:], nil
 }
 
+func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*Filesystem, []byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
+	}()
+	cache := repository.GetCache()
+
+	var buffer []byte
+
+	cacheMiss := false
+	if cache != nil {
+		logger.Trace("snapshot", "cache.GetFilesystem(%s)", indexID)
+		tmp, err := cache.GetFilesystem(repository.Configuration().RepositoryID.String(), indexID.String())
+		if err != nil {
+			cacheMiss = true
+			logger.Trace("snapshot", "repository.GetFilesystem(%s)", indexID)
+			tmp, err = repository.GetFilesystem(indexID)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+		buffer = tmp
+	} else {
+		logger.Trace("snapshot", "repository.GetFilesystem(%s)", indexID)
+		tmp, err := repository.GetFilesystem(indexID)
+		if err != nil {
+			return nil, nil, err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil && cacheMiss {
+		logger.Trace("snapshot", "cache.PutFilesystem(%s)", indexID)
+		cache.PutFilesystem(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
+	}
+
+	secret := repository.GetSecret()
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, nil, err
+		}
+		buffer = tmp
+	}
+
+	if repository.Configuration().Compression != "" {
+		tmp, err := compression.Inflate(buffer)
+		if err != nil {
+			return nil, nil, err
+		}
+		buffer = tmp
+	}
+	filesystem, err := NewFilesystemFromBytes(buffer)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	checksum := sha256.Sum256(buffer)
+
+	return filesystem, checksum[:], nil
+}
+
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {
@@ -316,6 +389,37 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	return snapshot.transaction.PutIndex(buffer)
 }
 
+func (snapshot *Snapshot) PutFilesystem(data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutFilesystem", time.Since(t0))
+	}()
+	cache := snapshot.repository.GetCache()
+	logger.Trace("snapshot", "%s: PutFilesystem()", snapshot.Metadata.GetIndexShortID())
+
+	secret := snapshot.repository.GetSecret()
+
+	buffer := data
+
+	if snapshot.repository.Configuration().Compression != "" {
+		buffer = compression.Deflate(buffer)
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil {
+		cache.PutFilesystem(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
+	}
+
+	return snapshot.transaction.PutFilesystem(buffer)
+}
+
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -412,9 +516,18 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 	indexChecksum := sha256.Sum256(serializedIndex)
-	snapshot.Metadata.Checksum = indexChecksum[:]
+	snapshot.Metadata.IndexChecksum = indexChecksum[:]
+
+	serializedFilesystem, err := snapshot.Filesystem.Serialize()
+	if err != nil {
+		return err
+	}
+	filesystemChecksum := sha256.Sum256(serializedFilesystem)
+	snapshot.Metadata.FilesystemChecksum = filesystemChecksum[:]
 
 	snapshot.Metadata.IndexSize = uint64(len(serializedIndex))
+	snapshot.Metadata.FilesystemSize = uint64(len(serializedFilesystem))
+
 	serializedMetadata, err := snapshot.Metadata.Serialize()
 	if err != nil {
 		return err
@@ -426,6 +539,11 @@ func (snapshot *Snapshot) Commit() error {
 	}
 
 	err = snapshot.PutIndex(serializedIndex)
+	if err != nil {
+		return err
+	}
+
+	err = snapshot.PutFilesystem(serializedFilesystem)
 	if err != nil {
 		return err
 	}

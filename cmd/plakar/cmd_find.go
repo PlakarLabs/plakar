@@ -57,7 +57,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for _, pathname := range snap.Index.Filesystem.Stat {
+				for _, pathname := range snap.Filesystem.Stat {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true
@@ -67,7 +67,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			// try finding a directory or file
-			for name, pathnames := range snap.Index.Filesystem.Names {
+			for name, pathnames := range snap.Filesystem.Names {
 				if name == arg {
 					for _, pathname := range pathnames {
 						if exists := result[snap][arg]; !exists {

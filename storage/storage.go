@@ -53,6 +53,8 @@ type RepositoryBackend interface {
 	PutMetadata(indexID uuid.UUID, data []byte) error
 	GetIndex(indexID uuid.UUID) ([]byte, error)
 	PutIndex(indexID uuid.UUID, data []byte) error
+	GetFilesystem(indexID uuid.UUID) ([]byte, error)
+	PutFilesystem(indexID uuid.UUID, data []byte) error
 
 	GetObjects() ([][32]byte, error)
 	GetObject(checksum [32]byte) ([]byte, error)
@@ -79,6 +81,7 @@ type TransactionBackend interface {
 
 	PutMetadata(data []byte) error
 	PutIndex(data []byte) error
+	PutFilesystem(data []byte) error
 
 	Commit() error
 }
@@ -299,6 +302,15 @@ func (repository *Repository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 	return repository.backend.GetIndex(indexID)
 }
 
+func (repository *Repository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetFilesystem", time.Since(t0))
+		logger.Trace("storage", "GetFilesystem(%s): %s", indexID, time.Since(t0))
+	}()
+	return repository.backend.GetFilesystem(indexID)
+}
+
 func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
 	t0 := time.Now()
 	defer func() {
@@ -317,6 +329,16 @@ func (repository *Repository) PutIndex(indexID uuid.UUID, data []byte) error {
 	}()
 
 	return repository.backend.PutIndex(indexID, data)
+}
+
+func (repository *Repository) PutFilesystem(indexID uuid.UUID, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutFilesystem", time.Since(t0))
+		logger.Trace("storage", "PutFilesystem(%s): %s", indexID, time.Since(t0))
+	}()
+
+	return repository.backend.PutFilesystem(indexID, data)
 }
 
 func (repository *Repository) GetObjects() ([][32]byte, error) {
@@ -451,6 +473,16 @@ func (transaction *Transaction) PutIndex(data []byte) error {
 	}()
 
 	return transaction.backend.PutIndex(data)
+}
+
+func (transaction *Transaction) PutFilesystem(data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.tx.PutFilesystem", time.Since(t0))
+		logger.Trace("storage", "%s.PutFilesystem() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
+	}()
+
+	return transaction.backend.PutFilesystem(data)
 }
 
 func (transaction *Transaction) Commit() error {

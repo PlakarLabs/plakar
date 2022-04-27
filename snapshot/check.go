@@ -160,7 +160,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		}
 	}
 
-	for _, file := range snapshot.Index.Filesystem.ListFiles() {
+	for _, file := range snapshot.Filesystem.ListFiles() {
 		object := snapshot.Index.LookupObjectForPathname(file)
 		if object == nil {
 			logger.Warn("%s: unlisted object for file %s", snapshot.Metadata.GetIndexShortID(), file)

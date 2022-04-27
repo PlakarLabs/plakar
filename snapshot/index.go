@@ -8,8 +8,6 @@ import (
 )
 
 type Index struct {
-	Filesystem *Filesystem
-
 	// Pathnames -> Object checksum
 	muPathnames sync.Mutex
 	Pathnames   map[string][32]byte
@@ -37,8 +35,6 @@ type Index struct {
 
 func NewIndex() *Index {
 	return &Index{
-		Filesystem: NewFilesystem(),
-
 		Pathnames: make(map[string][32]byte),
 		Objects:   make(map[[32]byte]*Object),
 		Chunks:    make(map[[32]byte]*Chunk),
@@ -54,7 +50,6 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 	if err := msgpack.Unmarshal(serialized, &index); err != nil {
 		return nil, err
 	}
-	index.Filesystem.Reindex()
 	return &index, nil
 }
 
@@ -95,33 +90,6 @@ func (index *Index) LookupObjectForPathname(pathname string) *Object {
 	}
 
 	return index.LookupObjectForChecksum(objectChecksum)
-}
-
-func (index *Index) LookupInodeForPathname(pathname string) (*Fileinfo, bool) {
-	return index.Filesystem.LookupInode(pathname)
-}
-
-func (index *Index) LookupInodeForFilename(pathname string) (*Fileinfo, bool) {
-	return index.Filesystem.LookupInodeForFile(pathname)
-}
-
-func (index *Index) LookupInodeForDirectory(pathname string) (*Fileinfo, bool) {
-	return index.Filesystem.LookupInodeForDirectory(pathname)
-}
-
-func (index *Index) LookupPathChildren(pathname string) (map[string]*Fileinfo, bool) {
-	pathname = filepath.Clean(pathname)
-
-	parent, err := index.Filesystem.Lookup(pathname)
-	if err != nil {
-		return nil, false
-	}
-
-	ret := make(map[string]*Fileinfo)
-	for child, node := range parent.Children {
-		ret[child] = node.Inode
-	}
-	return ret, true
 }
 
 func (index *Index) LinkChunkToObject(chunkChecksum [32]byte, objectChecksum [32]byte) {

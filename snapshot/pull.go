@@ -31,7 +31,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	/* if pattern is a file, we rebase dpattern to parent */
 	//patternIsFile := false
-	if _, ok := snapshot.Index.Filesystem.LookupInodeForFile(fpattern); ok {
+	if _, ok := snapshot.Filesystem.LookupInodeForFile(fpattern); ok {
 		//patternIsFile = true
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
@@ -40,7 +40,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for _, directory := range snapshot.Index.Filesystem.ListDirectories() {
+	for _, directory := range snapshot.Filesystem.ListDirectories() {
 		if dpattern != "" {
 			if directory != dpattern &&
 				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
@@ -53,7 +53,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
-			fi, _ := snapshot.Index.LookupInodeForPathname(directory)
+			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, directory[len(dpattern):])
@@ -72,7 +72,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, filename := range snapshot.Index.Filesystem.ListFiles() {
+	for _, filename := range snapshot.Filesystem.ListFiles() {
 		if fpattern != "" {
 			if filename != fpattern &&
 				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
@@ -84,7 +84,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
-			fi, _ := snapshot.Index.LookupInodeForPathname(file)
+			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])

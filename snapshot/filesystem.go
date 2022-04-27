@@ -12,6 +12,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/iafan/cwalk"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Fileinfo struct {
@@ -97,6 +98,23 @@ func NewFilesystem() *Filesystem {
 	filesystem.nonRegularInfo = make(map[string]*Fileinfo)
 	filesystem.Symlinks = make(map[string]string)
 	return filesystem
+}
+
+func (filesystem *Filesystem) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(filesystem)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
+
+func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
+	var filesystem Filesystem
+	if err := msgpack.Unmarshal(serialized, &filesystem); err != nil {
+		return nil, err
+	}
+	filesystem.reindex()
+	return &filesystem, nil
 }
 
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
@@ -269,6 +287,25 @@ func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*Fileinf
 	return fileinfo, exists
 }
 
+func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) {
+	pathname = filepath.Clean(pathname)
+	parent, err := filesystem.Lookup(pathname)
+	if err != nil {
+		return nil, os.ErrNotExist
+	}
+
+	if !parent.Inode.Mode.IsDir() {
+		return nil, os.ErrInvalid
+	}
+
+	ret := make([]string, 0)
+	for child := range parent.Children {
+		ret = append(ret, child)
+	}
+	return ret, nil
+
+}
+
 func (filesystem *Filesystem) ListFiles() []string {
 	list := make([]string, 0)
 	filesystem.muFiles.Lock()
@@ -309,7 +346,7 @@ func (filesystem *Filesystem) ListLstat() []string {
 	return list
 }
 
-func (filesystem *Filesystem) Reindex() {
+func (filesystem *Filesystem) reindex() {
 	filesystem.filesInfo = make(map[string]*Fileinfo)
 	filesystem.directoriesInfo = make(map[string]*Fileinfo)
 	filesystem.nonRegularInfo = make(map[string]*Fileinfo)

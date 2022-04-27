@@ -7,6 +7,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -136,8 +137,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 func (snapshot *Snapshot) Push(scanDirs []string) error {
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
-	//maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
-	maxConcurrency := make(chan bool, 1)
+	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}
 
 	t0 := time.Now()

@@ -44,7 +44,8 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	for _, metadata := range metadatas {
-		fmt.Printf("IndexID: %s\n", metadata.IndexID)
+		fmt.Printf("ShortID: %s\n", metadata.GetIndexShortID())
+		fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
 		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
 		fmt.Printf("Version: %s\n", metadata.Version)
 		fmt.Printf("Hostname: %s\n", metadata.Hostname)

@@ -158,7 +158,7 @@ func (summary *SnapshotSummary) HumanSize() string {
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
 	ss.Metadata = snapshot.Metadata
-	ss.Roots = uint64(len(snapshot.Filesystem.ScannedDirectories))
+	ss.Roots = uint64(len(snapshot.Metadata.ScannedDirectories))
 	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
 	ss.Files = uint64(len(snapshot.Filesystem.Files))
 	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))

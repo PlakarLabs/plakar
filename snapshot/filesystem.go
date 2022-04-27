@@ -385,3 +385,17 @@ func (filesystem *Filesystem) addPathname(pathname string) uint64 {
 		return pathnameId
 	}
 }
+
+func (filesystem *Filesystem) GetPathnameID(pathname string) uint64 {
+	filesystem.muPathnames.Lock()
+	defer filesystem.muPathnames.Unlock()
+
+	return filesystem.Pathnames[pathname]
+}
+
+func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
+	filesystem.muPathnames.Lock()
+	defer filesystem.muPathnames.Unlock()
+
+	return filesystem.pathnamesInverse[pathnameId]
+}

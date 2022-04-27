@@ -426,50 +426,6 @@ func (repository *ClientRepository) GetChunk(checksum [32]byte) ([]byte, error) 
 	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
 }
 
-func (repository *ClientRepository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
-	result, err := repository.sendRequest("ReqGetObjectRefCount", network.ReqGetObjectRefCount{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	return result.Payload.(network.ResGetObjectRefCount).RefCount, result.Payload.(network.ResGetObjectRefCount).Err
-}
-
-func (repository *ClientRepository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
-	result, err := repository.sendRequest("ReqGetChunkRefCount", network.ReqGetChunkRefCount{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	return result.Payload.(network.ResGetChunkRefCount).RefCount, result.Payload.(network.ResGetChunkRefCount).Err
-}
-
-func (repository *ClientRepository) GetObjectSize(checksum [32]byte) (uint64, error) {
-	result, err := repository.sendRequest("ReqGetObjectSize", network.ReqGetObjectSize{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	return result.Payload.(network.ResGetObjectSize).Size, result.Payload.(network.ResGetObjectSize).Err
-}
-
-func (repository *ClientRepository) GetChunkSize(checksum [32]byte) (uint64, error) {
-	result, err := repository.sendRequest("ReqGetChunkSize", network.ReqGetChunkSize{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	return result.Payload.(network.ResGetChunkSize).Size, result.Payload.(network.ResGetChunkSize).Err
-}
-
 func (repository *ClientRepository) Purge(indexID uuid.UUID) error {
 	result, err := repository.sendRequest("ReqPurge", network.ReqPurge{
 		Uuid: indexID,
@@ -494,31 +450,6 @@ func (repository *ClientRepository) Close() error {
 
 func (transaction *ClientTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
-}
-func (transaction *ClientTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqReferenceChunks", network.ReqReferenceChunks{
-		Transaction: transaction.GetUuid(),
-		Keys:        keys,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResReferenceChunks).Exists, result.Payload.(network.ResReferenceChunks).Err
-}
-
-func (transaction *ClientTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqReferenceObjects", network.ReqReferenceObjects{
-		Transaction: transaction.GetUuid(),
-		Keys:        keys,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResReferenceObjects).Exists, result.Payload.(network.ResReferenceObjects).Err
 }
 
 func (transaction *ClientTransaction) PutObject(checksum [32]byte, data []byte) error {

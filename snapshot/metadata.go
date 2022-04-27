@@ -59,3 +59,11 @@ func (metadata *Metadata) Serialize() ([]byte, error) {
 
 	return serialized, nil
 }
+
+func (metadata *Metadata) GetIndexID() uuid.UUID {
+	return metadata.IndexID
+}
+
+func (metadata *Metadata) GetIndexShortID() string {
+	return metadata.IndexID.String()[:8]
+}

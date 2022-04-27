@@ -390,51 +390,6 @@ func (repository *DatabaseRepository) Close() error {
 func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
-func (transaction *DatabaseTransaction) ReferenceChunks(keys [][32]byte) ([]bool, error) {
-	ret := make([]bool, 0)
-	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), checksumToString(key))
-		if err != nil {
-			// there has to be a better way ...
-			if err.Error() == "FOREIGN KEY constraint failed" {
-				ret = append(ret, false)
-				continue
-			}
-			return nil, err
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		ret = append(ret, count != int64(0))
-	}
-
-	return ret, nil
-}
-
-func (transaction *DatabaseTransaction) ReferenceObjects(keys [][32]byte) ([]bool, error) {
-	ret := make([]bool, 0)
-	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), checksumToString(key))
-		if err != nil {
-			// there has to be a better way ...
-			if err.Error() == "FOREIGN KEY constraint failed" {
-				ret = append(ret, false)
-				continue
-			}
-			return nil, err
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		ret = append(ret, count != int64(0))
-	}
-
-	return ret, nil
-}
 
 func (transaction *DatabaseTransaction) PutObject(checksum [32]byte, data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)

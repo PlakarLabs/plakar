@@ -23,7 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -124,28 +123,6 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", repository, err)
 				return 1
-			}
-
-			snap, err := snapshot.Load(cloneRepository, indexID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not load index from repository: %s\n", repository, err)
-				return 1
-			}
-
-			for _, checksum := range snap.Index.ListChunks() {
-				err = cloneRepository.ReferenceIndexChunk(indexID, checksum)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in repository: %s\n", repository, err)
-					return 1
-				}
-			}
-
-			for _, checksum := range snap.Index.ListObjects() {
-				err = cloneRepository.ReferenceIndexObject(indexID, checksum)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference object in repository: %s\n", repository, err)
-					return 1
-				}
 			}
 
 		}

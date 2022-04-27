@@ -72,55 +72,7 @@ func (repository *FSRepository) PathIndex(indexID uuid.UUID) string {
 	return fmt.Sprintf("%s/%s", repository.PathIndexBucket(indexID), indexID)
 }
 
-func (repository *FSRepository) PathIndexChunks(indexID uuid.UUID) string {
-	return fmt.Sprintf("%s/chunks", repository.PathIndex(indexID))
-}
-
-func (repository *FSRepository) PathIndexChunkBucket(indexID uuid.UUID, checksum [32]byte) string {
-	return fmt.Sprintf("%s/%02x", repository.PathIndexChunks(indexID), checksum[0])
-}
-
-func (repository *FSRepository) PathIndexChunk(indexID uuid.UUID, checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", repository.PathIndexChunkBucket(indexID, checksum), checksum)
-}
-
-func (repository *FSRepository) PathIndexObjects(indexID uuid.UUID) string {
-	return fmt.Sprintf("%s/objects", repository.PathIndex(indexID))
-}
-
-func (repository *FSRepository) PathIndexObjectBucket(indexID uuid.UUID, checksum [32]byte) string {
-	return fmt.Sprintf("%s/%02x", repository.PathIndexObjects(indexID), checksum[0])
-}
-
-func (repository *FSRepository) PathIndexObject(indexID uuid.UUID, checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", repository.PathIndexObjectBucket(indexID, checksum), checksum)
-}
-
 func (transaction *FSTransaction) Path() string {
 	return fmt.Sprintf("%s/%s/%s", transaction.repository.PathTransactions(),
 		transaction.Uuid.String()[:2], transaction.Uuid.String())
-}
-
-func (transaction *FSTransaction) PathObjects() string {
-	return fmt.Sprintf("%s/objects", transaction.Path())
-}
-
-func (transaction *FSTransaction) PathObjectBucket(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%02x", transaction.PathObjects(), checksum[0])
-}
-
-func (transaction *FSTransaction) PathObject(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", transaction.PathObjectBucket(checksum), checksum)
-}
-
-func (transaction *FSTransaction) PathChunks() string {
-	return fmt.Sprintf("%s/chunks", transaction.Path())
-}
-
-func (transaction *FSTransaction) PathChunkBucket(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%02x", transaction.PathChunks(), checksum[0])
-}
-
-func (transaction *FSTransaction) PathChunk(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%64x", transaction.PathChunkBucket(checksum), checksum)
 }

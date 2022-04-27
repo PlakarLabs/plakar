@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -172,28 +171,6 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not write object to repository: %s\n", repository, err)
 				return 1
-			}
-
-			snap, err := snapshot.Load(syncRepository, indexID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not load index from repository: %s\n", repository, err)
-				return 1
-			}
-
-			for _, checksum := range snap.Index.ListChunks() {
-				err = syncRepository.ReferenceIndexChunk(indexID, checksum)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in repository: %s\n", repository, err)
-					return 1
-				}
-			}
-
-			for _, checksum := range snap.Index.ListObjects() {
-				err = syncRepository.ReferenceIndexObject(indexID, checksum)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference object in repository: %s\n", repository, err)
-					return 1
-				}
 			}
 
 		}

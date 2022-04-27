@@ -296,86 +296,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqGetChunkRefCount":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetChunkRefCount(%s)", clientUuid, request.Payload.(ReqGetChunkRefCount).Checksum)
-				refCount, err := repository.GetChunkRefCount(request.Payload.(ReqGetChunkRefCount).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetChunkRefCount",
-					Payload: ResGetChunkRefCount{
-						RefCount: refCount,
-						Err:      err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetObjectRefCount":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetObjectRefCount(%s)", clientUuid, request.Payload.(ReqGetObjectRefCount).Checksum)
-				refCount, err := repository.GetObjectRefCount(request.Payload.(ReqGetObjectRefCount).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetObjectRefCount",
-					Payload: ResGetObjectRefCount{
-						RefCount: refCount,
-						Err:      err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetChunkSize":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetChunkSize(%s)", clientUuid, request.Payload.(ReqGetChunkSize).Checksum)
-				size, err := repository.GetChunkSize(request.Payload.(ReqGetChunkSize).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetChunkSize",
-					Payload: ResGetChunkSize{
-						Size: size,
-						Err:  err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetObjectSize":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetObjectSize(%s)", clientUuid, request.Payload.(ReqGetObjectSize).Checksum)
-				size, err := repository.GetObjectSize(request.Payload.(ReqGetObjectSize).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetObjectSize",
-					Payload: ResGetObjectSize{
-						Size: size,
-						Err:  err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqPurge":
 			wg.Add(1)
 			go func() {
@@ -418,52 +338,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				transactions[tx.GetUuid()] = tx
 			}()
 
-		case "ReqReferenceChunks":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: ReferenceChunks()", clientUuid)
-				txUuid := request.Payload.(ReqReferenceChunks).Transaction
-				tx := transactions[txUuid]
-				exists, err := tx.ReferenceChunks(request.Payload.(ReqReferenceChunks).Keys)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResReferenceChunks",
-					Payload: ResReferenceChunks{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqReferenceObjects":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: ReferenceObjects()", clientUuid)
-				txUuid := request.Payload.(ReqReferenceObjects).Transaction
-				tx := transactions[txUuid]
-				exists, err := tx.ReferenceObjects(request.Payload.(ReqReferenceObjects).Keys)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResReferenceObjects",
-					Payload: ResReferenceObjects{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqPutChunk":
 			wg.Add(1)
 			go func() {
@@ -471,8 +345,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 
 				logger.Trace("%s: PutChunk(%s)", clientUuid, request.Payload.(ReqPutChunk).Checksum)
 				txUuid := request.Payload.(ReqPutChunk).Transaction
-				tx := transactions[txUuid]
-				err := tx.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
+				_ = transactions[txUuid]
+				err := repository.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutChunk",
@@ -493,8 +367,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 
 				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
 				txUuid := request.Payload.(ReqPutObject).Transaction
-				tx := transactions[txUuid]
-				err := tx.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
+				_ = transactions[txUuid]
+				err := repository.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutObject",

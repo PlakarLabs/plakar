@@ -22,42 +22,40 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type JSONChunk struct {
-	Checksum string
-	Start    uint
-	Length   uint
+	Start  uint
+	Length uint
 }
 
 type JSONObject struct {
-	Checksum    string
-	Chunks      []string
-	ContentType string
+	Chunks      []uint64
+	ContentType uint64
 }
 
 type JSONIndex struct {
-	Filesystem *snapshot.Filesystem
 
 	// Pathnames -> Object checksum
-	Pathnames map[string]string
+	Pathnames map[string]uint64
+
+	ContentTypes map[string]uint64
 
 	// Object checksum -> Object
-	Objects map[string]*JSONObject
+	Objects map[uint64]*JSONObject
 
 	// Chunk checksum -> Chunk
-	Chunks map[string]*JSONChunk
+	Chunks map[uint64]*JSONChunk
 
 	// Chunk checksum -> Object checksums
-	ChunkToObjects map[string][]string
+	ChunkToObjects map[uint64][]uint64
 
 	// Object checksum -> Filenames
-	ObjectToPathnames map[string][]string
+	ObjectToPathnames map[uint64][]uint64
 
 	// Content Type -> Object checksums
-	ContentTypeToObjects map[string][]string
+	ContentTypeToObjects map[uint64][]uint64
 }
 
 func init() {
@@ -75,56 +73,59 @@ func cmd_index(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for _, index := range indexes {
 		jindex := JSONIndex{}
-		jindex.Pathnames = make(map[string]string)
-		jindex.Objects = make(map[string]*JSONObject)
-		jindex.Chunks = make(map[string]*JSONChunk)
-		jindex.ChunkToObjects = make(map[string][]string)
-		jindex.ObjectToPathnames = make(map[string][]string)
-		jindex.ContentTypeToObjects = make(map[string][]string)
+		jindex.Pathnames = make(map[string]uint64)
+		jindex.ContentTypes = make(map[string]uint64)
+		jindex.Objects = make(map[uint64]*JSONObject)
+		jindex.Chunks = make(map[uint64]*JSONChunk)
+		jindex.ChunkToObjects = make(map[uint64][]uint64)
+		jindex.ObjectToPathnames = make(map[uint64][]uint64)
+		jindex.ContentTypeToObjects = make(map[uint64][]uint64)
 
-		for pathname, checksum := range index.Pathnames {
-			jindex.Pathnames[pathname] = fmt.Sprintf("%064x", checksum)
+		for pathname, checksumID := range index.Pathnames {
+			jindex.Pathnames[pathname] = checksumID
 		}
 
-		for checksum, object := range index.Objects {
+		for pathname, checksumID := range index.ContentTypes {
+			jindex.ContentTypes[pathname] = checksumID
+		}
+
+		for checksumID, object := range index.Objects {
 			jobject := &JSONObject{
-				Checksum:    fmt.Sprintf("%064x", checksum),
-				Chunks:      make([]string, 0),
+				Chunks:      make([]uint64, 0),
 				ContentType: object.ContentType,
 			}
 
 			for _, chunkChecksum := range object.Chunks {
-				jobject.Chunks = append(jobject.Chunks, fmt.Sprintf("%064x", chunkChecksum))
+				jobject.Chunks = append(jobject.Chunks, chunkChecksum)
 			}
 
-			jindex.Objects[fmt.Sprintf("%064x", checksum)] = jobject
+			jindex.Objects[checksumID] = jobject
 		}
 
-		for checksum, chunk := range index.Chunks {
+		for checksumID, chunk := range index.Chunks {
 			jchunk := &JSONChunk{
-				Checksum: fmt.Sprintf("%064x", checksum),
-				Start:    chunk.Start,
-				Length:   chunk.Length,
+				Start:  chunk.Start,
+				Length: chunk.Length,
 			}
 
-			jindex.Chunks[fmt.Sprintf("%064x", checksum)] = jchunk
+			jindex.Chunks[checksumID] = jchunk
 		}
 
 		for checksum, objects := range index.ChunkToObjects {
-			jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)] = make([]string, 0)
+			jindex.ChunkToObjects[checksum] = make([]uint64, 0)
 			for _, objChecksum := range objects {
-				jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)] = append(jindex.ChunkToObjects[fmt.Sprintf("%064x", checksum)], fmt.Sprintf("%064x", objChecksum))
+				jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
 			}
 		}
 
-		for checksum, pathnames := range index.ObjectToPathnames {
-			jindex.ObjectToPathnames[fmt.Sprintf("%064x", checksum)] = pathnames
+		for checksumID, pathnames := range index.ObjectToPathnames {
+			jindex.ObjectToPathnames[checksumID] = pathnames
 		}
 
 		for contentType, objects := range index.ContentTypeToObjects {
-			jindex.ContentTypeToObjects[contentType] = make([]string, 0)
+			jindex.ContentTypeToObjects[contentType] = make([]uint64, 0)
 			for _, objChecksum := range objects {
-				jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], fmt.Sprintf("%064x", objChecksum))
+				jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], objChecksum)
 			}
 		}
 

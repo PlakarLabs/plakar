@@ -137,8 +137,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 
 			objectHash := sha256.New()
 			for _, chunkChecksum := range object.Chunks {
-				_, ok := snapshot.Index.GetChunkInfo(chunkChecksum)
-				if !ok {
+				indexChunk := snapshot.Index.LookupChunk(chunkChecksum)
+				if indexChunk == nil {
 					logger.Warn("%s: unlisted chunk %064x", snapshot.Metadata.GetIndexShortID(), chunkChecksum)
 					ret = false
 					continue

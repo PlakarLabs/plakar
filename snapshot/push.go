@@ -7,7 +7,6 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -111,9 +110,9 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 		chunk.Length = uint(cdcChunk.Size)
 		object.Chunks = append(object.Chunks, chunk.Checksum)
 
-		_, exists := snapshot.Index.GetChunkInfo(chunk.Checksum)
-		if !exists {
-			exists, err = snapshot.CheckChunk(chunk.Checksum)
+		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
+		if indexChunk == nil {
+			exists, err := snapshot.CheckChunk(chunk.Checksum)
 			if err != nil {
 				return nil, err
 			}
@@ -131,17 +130,14 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 	copy(t32[:], objectHash.Sum(nil))
 	object.Checksum = t32
 
-	for _, chunkChecksum := range object.Chunks {
-		snapshot.Index.LinkChunkToObject(chunkChecksum, object.Checksum)
-	}
-
 	return object, nil
 }
 
 func (snapshot *Snapshot) Push(scanDirs []string) error {
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
-	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	//maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxConcurrency := make(chan bool, 1)
 	wg := sync.WaitGroup{}
 
 	t0 := time.Now()
@@ -220,10 +216,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			}
 
 			snapshot.Index.AddObject(object)
-			snapshot.Index.AddPathnameToObject(_filename, object)
-			snapshot.Index.AddObjectToPathnames(object, _filename)
-			snapshot.Index.AddContentTypeToObjects(object)
-
+			snapshot.Index.LinkPathnameToObject(_filename, object)
 			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
 		}(filename)
 	}
@@ -244,12 +237,12 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
 			snapshot.Metadata.Statistics.Kind[objectKind] = 0
 		}
-		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(snapshot.Index.GetContentType(key)))
+		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 
 		if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
 			snapshot.Metadata.Statistics.Type[objectType] = 0
 		}
-		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(snapshot.Index.GetContentType(key)))
+		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 	}
 
 	for _, key := range snapshot.Index.ListPathnames() {

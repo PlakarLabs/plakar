@@ -114,7 +114,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 					continue
 				}
 
-				chunk, _ := snapshot.Index.GetChunkInfo(chunkChecksum)
+				chunk := snapshot.Index.LookupChunk(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
 					continue

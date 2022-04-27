@@ -44,7 +44,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	for _, metadata := range metadatas {
-		fmt.Printf("ShortID: %s\n", metadata.GetIndexShortID())
 		fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
 		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
 		fmt.Printf("Version: %s\n", metadata.Version)
@@ -61,7 +60,9 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
 		fmt.Printf("Duration: %s\n", metadata.Statistics.Duration)
 		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
+		fmt.Printf("Index Checksum: %064x\n", metadata.IndexChecksum)
 		fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
+		fmt.Printf("Filesystem Checksum: %064x\n", metadata.FilesystemChecksum)
 		fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
 
 	}

@@ -50,6 +50,14 @@ func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string)
 	object.ContentType = cachedObject.ContentType
 
 	for offset, _ := range object.Chunks {
+		chunk := cachedObject.Chunks[offset]
+		exists, err := snapshot.CheckChunk(chunk.Checksum)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, nil
+		}
 		snapshot.Index.AddChunk(cachedObject.Chunks[offset])
 	}
 	return &object, nil
@@ -172,8 +180,16 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				// errchan <- err
 			}
 
+			if object != nil {
+				exists, err = snapshot.CheckObject(object.Checksum)
+				if err != nil {
+					logger.Warn("%s: failed to check object existence: %s", _filename, err)
+					return
+				}
+			}
+
 			// can't reuse object from cache, chunkify
-			if object == nil {
+			if object == nil || !exists {
 				object, err = chunkify(chunkerOptions, snapshot, _filename)
 				if err != nil {
 					logger.Warn("%s: could not chunkify: %s", _filename, err)

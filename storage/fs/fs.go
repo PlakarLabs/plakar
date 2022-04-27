@@ -347,6 +347,14 @@ func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error 
 	return nil
 }
 
+func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
+	err := os.Remove(repository.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (repository *FSRepository) PutObjectSafe(checksum [32]byte, data []byte, link string) error {
 	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
 	if err != nil {
@@ -428,6 +436,14 @@ func (repository *FSRepository) PutChunk(checksum [32]byte, data []byte) error {
 		return err
 	}
 
+	return nil
+}
+
+func (repository *FSRepository) DeleteChunk(checksum [32]byte) error {
+	err := os.Remove(repository.PathChunk(checksum))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

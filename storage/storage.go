@@ -58,11 +58,13 @@ type RepositoryBackend interface {
 	GetObject(checksum [32]byte) ([]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
 	PutObject(checksum [32]byte, data []byte) error
+	DeleteObject(checksum [32]byte) error
 
 	GetChunks() ([][32]byte, error)
 	GetChunk(checksum [32]byte) ([]byte, error)
 	CheckChunk(checksum [32]byte) (bool, error)
 	PutChunk(checksum [32]byte, data []byte) error
+	DeleteChunk(checksum [32]byte) error
 
 	Purge(indexID uuid.UUID) error
 
@@ -345,6 +347,15 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
 	return repository.backend.PutObject(checksum, data)
 }
 
+func (repository *Repository) DeleteObject(checksum [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteObject", time.Since(t0))
+		logger.Trace("storage: DeleteObject(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteObject(checksum)
+}
+
 func (repository *Repository) GetChunks() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -371,6 +382,15 @@ func (repository *Repository) PutChunk(checksum [32]byte, data []byte) error {
 		logger.Trace("storage: PutChunk(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.PutChunk(checksum, data)
+}
+
+func (repository *Repository) DeleteChunk(checksum [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteChunk", time.Since(t0))
+		logger.Trace("storage: DeleteChunk(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteChunk(checksum)
 }
 
 func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {

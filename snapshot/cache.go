@@ -3,11 +3,13 @@ package snapshot
 import (
 	"crypto/sha256"
 	"fmt"
+	"time"
 
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/profiler"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -20,6 +22,10 @@ type CachedObject struct {
 }
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetCachedObject", time.Since(t0))
+	}()
 	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 
@@ -57,6 +63,10 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 }
 
 func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi filesystem.Fileinfo) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))
+	}()
 	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 

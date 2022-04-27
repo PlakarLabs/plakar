@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/poolpOrg/plakar/filesystem"
+	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -39,7 +39,7 @@ type JSONObject struct {
 }
 
 type JSONIndex struct {
-	Filesystem *filesystem.Filesystem
+	Filesystem *snapshot.Filesystem
 
 	// Pathnames -> Object checksum
 	Pathnames map[string]string

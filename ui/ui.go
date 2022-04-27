@@ -34,7 +34,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 
@@ -273,11 +272,11 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	directories := make([]*filesystem.Fileinfo, 0)
-	files := make([]*filesystem.Fileinfo, 0)
-	symlinks := make([]*filesystem.Fileinfo, 0)
+	directories := make([]*snapshot.Fileinfo, 0)
+	files := make([]*snapshot.Fileinfo, 0)
+	symlinks := make([]*snapshot.Fileinfo, 0)
 	symlinksResolve := make(map[string]string)
-	others := make([]*filesystem.Fileinfo, 0)
+	others := make([]*snapshot.Fileinfo, 0)
 
 	children, _ := snap.Index.LookupPathChildren(path)
 	for _, fileinfo := range children {
@@ -319,11 +318,11 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
-		Directories     []*filesystem.Fileinfo
-		Files           []*filesystem.Fileinfo
-		Symlinks        []*filesystem.Fileinfo
+		Directories     []*snapshot.Fileinfo
+		Files           []*snapshot.Fileinfo
+		Symlinks        []*snapshot.Fileinfo
 		SymlinksResolve map[string]string
-		Others          []*filesystem.Fileinfo
+		Others          []*snapshot.Fileinfo
 		Path            string
 		Scanned         []string
 		Navigation      []string
@@ -394,7 +393,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		Snapshot        *snapshot.Snapshot
 		Object          *snapshot.Object
 		Chunks          []*snapshot.Chunk
-		Info            *filesystem.Fileinfo
+		Info            *snapshot.Fileinfo
 		Root            string
 		Path            string
 		Navigation      []string

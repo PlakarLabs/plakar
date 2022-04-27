@@ -44,7 +44,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		Index:    NewIndex(),
 	}
 
-	logger.Trace("snapshot", "%s: New()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: New()", snapshot.Metadata.GetIndexShortID())
 	return snapshot, nil
 }
 
@@ -73,7 +73,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	snapshot.Metadata = metadata
 	snapshot.Index = index
 
-	logger.Trace("snapshot", "%s: Load()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: Load()", snapshot.Metadata.GetIndexShortID())
 	return snapshot, nil
 }
 
@@ -214,7 +214,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	defer func() {
 		profiler.RecordEvent("snapshot.PutChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: PutChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: PutChunk(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -237,7 +237,7 @@ func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 
 	secret := snapshot.repository.GetSecret()
 
@@ -262,7 +262,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 		profiler.RecordEvent("snapshot.PutMetadata", time.Since(t0))
 	}()
 	cache := snapshot.repository.GetCache()
-	logger.Trace("snapshot", "%s: PutMetadata()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: PutMetadata()", snapshot.Metadata.GetIndexShortID())
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
@@ -280,7 +280,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 	}
 
 	if cache != nil {
-		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.IndexID.String(), buffer)
+		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 	return snapshot.transaction.PutMetadata(buffer)
 }
@@ -291,7 +291,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		profiler.RecordEvent("snapshot.PutIndex", time.Since(t0))
 	}()
 	cache := snapshot.repository.GetCache()
-	logger.Trace("snapshot", "%s: PutIndex()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: PutIndex()", snapshot.Metadata.GetIndexShortID())
 
 	secret := snapshot.repository.GetSecret()
 
@@ -310,7 +310,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	}
 
 	if cache != nil {
-		cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.IndexID.String(), buffer)
+		cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
 	return snapshot.transaction.PutIndex(buffer)
@@ -321,7 +321,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.GetChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 	buffer, err := snapshot.repository.GetChunk(checksum)
 	if err != nil {
 		return nil, err
@@ -351,7 +351,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 	exists, err := snapshot.repository.CheckChunk(checksum)
 	if err != nil {
 		return false, err
@@ -364,7 +364,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.GetObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: GetObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: GetObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 	buffer, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Metadata.IndexID, checksum)
+	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 	return snapshot.repository.CheckObject(checksum)
 }
 
@@ -430,6 +430,6 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	logger.Trace("snapshot", "%s: Commit()", snapshot.Metadata.IndexID)
+	logger.Trace("snapshot", "%s: Commit()", snapshot.Metadata.GetIndexShortID())
 	return snapshot.transaction.Commit()
 }

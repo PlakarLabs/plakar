@@ -35,10 +35,10 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 
 	data, err := cache.GetPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath)
 	if err != nil {
-		logger.Trace("snapshot", "%s: cache.GetPath(%s): KO", snapshot.Metadata.IndexID, pathname)
+		logger.Trace("snapshot", "%s: cache.GetPath(%s): KO", snapshot.Metadata.GetIndexShortID(), pathname)
 		return nil, err
 	}
-	logger.Trace("snapshot", "%s: cache.GetPath(%s): OK", snapshot.Metadata.IndexID, pathname)
+	logger.Trace("snapshot", "%s: cache.GetPath(%s): OK", snapshot.Metadata.GetIndexShortID(), pathname)
 
 	if snapshot.repository.Configuration().Encryption != "" {
 		tmp, err := encryption.Decrypt(secret, data)
@@ -100,7 +100,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi fil
 		jobject = tmp
 	}
 
-	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Metadata.IndexID, pathname)
+	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Metadata.GetIndexShortID(), pathname)
 	cache.PutPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath, jobject)
 	return nil
 }

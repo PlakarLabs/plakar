@@ -159,9 +159,9 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
 	ss.Metadata = snapshot.Metadata
 	ss.Roots = uint64(len(snapshot.Metadata.ScannedDirectories))
-	ss.Directories = uint64(len(snapshot.Filesystem.Directories))
-	ss.Files = uint64(len(snapshot.Filesystem.Files))
-	ss.NonRegular = uint64(len(snapshot.Filesystem.NonRegular))
+	ss.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
+	ss.Files = uint64(len(snapshot.Filesystem.ListFiles()))
+	ss.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
 	ss.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
 	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
 	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))

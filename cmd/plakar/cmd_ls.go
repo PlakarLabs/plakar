@@ -94,10 +94,7 @@ func list_snapshot(repository *storage.Repository, args []string) {
 		_, prefix := parseSnapshotID(args[offset])
 
 		content := make([]string, 0)
-		entries, err := snap.Filesystem.LookupChildren(prefix)
-		if err != nil {
-			continue
-		}
+		entries, _ := snap.Filesystem.LookupChildren(prefix)
 
 		children := make(map[string]*snapshot.Fileinfo)
 
@@ -110,6 +107,7 @@ func list_snapshot(repository *storage.Repository, args []string) {
 			content = append(content, prefix)
 		} else {
 			for _, name := range entries {
+				children[name], _ = snap.Filesystem.LookupInode(fmt.Sprintf("%s/%s", prefix, name))
 				content = append(content, name)
 			}
 			sort.Slice(content, func(i, j int) bool {

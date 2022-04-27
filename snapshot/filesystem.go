@@ -28,7 +28,7 @@ type Fileinfo struct {
 
 type FilesystemNode struct {
 	muNode   sync.Mutex
-	Inode    *Fileinfo
+	Inode    string
 	Children map[string]*FilesystemNode
 }
 
@@ -45,28 +45,8 @@ type Filesystem struct {
 	muScannedDirectories sync.Mutex
 	scannedDirectories   []string
 
-	muNames sync.Mutex
-	Names   map[string][]string
-
 	muStat   sync.Mutex
-	Stat     []string
 	statInfo map[string]*Fileinfo
-
-	muLstat   sync.Mutex
-	Lstat     []string
-	lstatInfo map[string]*Fileinfo
-
-	muDirectories   sync.Mutex
-	Directories     []string
-	directoriesInfo map[string]*Fileinfo
-
-	muFiles   sync.Mutex
-	Files     []string
-	filesInfo map[string]*Fileinfo
-
-	muNonRegular   sync.Mutex
-	NonRegular     []string
-	nonRegularInfo map[string]*Fileinfo
 
 	muSymlinks sync.Mutex
 	Symlinks   map[string]string
@@ -95,17 +75,7 @@ func NewFilesystem() *Filesystem {
 	filesystem.Pathnames = make(map[string]uint64)
 	filesystem.pathnamesInverse = make(map[uint64]string)
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
-	filesystem.Names = make(map[string][]string)
-	filesystem.Stat = make([]string, 0)
-	filesystem.Lstat = make([]string, 0)
 	filesystem.statInfo = make(map[string]*Fileinfo)
-	filesystem.lstatInfo = make(map[string]*Fileinfo)
-	filesystem.Directories = make([]string, 0)
-	filesystem.directoriesInfo = make(map[string]*Fileinfo)
-	filesystem.Files = make([]string, 0)
-	filesystem.filesInfo = make(map[string]*Fileinfo)
-	filesystem.NonRegular = make([]string, 0)
-	filesystem.nonRegularInfo = make(map[string]*Fileinfo)
 	filesystem.Symlinks = make(map[string]string)
 	return filesystem
 }
@@ -129,7 +99,6 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 	inodeKey := filesystem.addInode(*fileinfo)
-	_ = inodeKey
 
 	pathname = filepath.Clean(pathname)
 	filesystem.addPathname(pathname)
@@ -152,34 +121,12 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 		}
 	}
 	p.muNode.Lock()
-	p.Inode = fileinfo
+	p.Inode = inodeKey
 	p.muNode.Unlock()
 
-	filesystem.muNames.Lock()
-	filesystem.Names[p.Inode.Name] = append(filesystem.Names[p.Inode.Name], pathname)
-	filesystem.muNames.Unlock()
-
 	filesystem.muStat.Lock()
-	filesystem.Stat = append(filesystem.Stat, pathname)
 	filesystem.statInfo[pathname] = fileinfo
 	filesystem.muStat.Unlock()
-
-	if p.Inode.Mode.IsDir() {
-		filesystem.muDirectories.Lock()
-		filesystem.Directories = append(filesystem.Directories, pathname)
-		filesystem.directoriesInfo[pathname] = fileinfo
-		filesystem.muDirectories.Unlock()
-	} else if p.Inode.Mode.IsRegular() {
-		filesystem.muFiles.Lock()
-		filesystem.Files = append(filesystem.Files, pathname)
-		filesystem.filesInfo[pathname] = fileinfo
-		filesystem.muFiles.Unlock()
-	} else {
-		filesystem.muNonRegular.Lock()
-		filesystem.NonRegular = append(filesystem.NonRegular, pathname)
-		filesystem.nonRegularInfo[pathname] = fileinfo
-		filesystem.muNonRegular.Unlock()
-	}
 }
 
 func (filesystem *Filesystem) Scan(directory string, skip []string) error {
@@ -236,10 +183,9 @@ func (filesystem *Filesystem) Scan(directory string, skip []string) error {
 					return nil
 				}
 
-				filesystem.muLstat.Lock()
-				filesystem.Lstat = append(filesystem.Lstat, pathname)
-				filesystem.lstatInfo[pathname] = &lfileinfo
-				filesystem.muLstat.Unlock()
+				filesystem.muStat.Lock()
+				filesystem.statInfo[pathname] = &lfileinfo
+				filesystem.muStat.Unlock()
 
 				filesystem.muSymlinks.Lock()
 				filesystem.Symlinks[pathname] = originFile
@@ -278,26 +224,35 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 }
 
 func (filesystem *Filesystem) LookupInode(pathname string) (*Fileinfo, bool) {
-	pathname = filepath.Clean(pathname)
 	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
+	pathname = filepath.Clean(pathname)
 	fileinfo, exists := filesystem.statInfo[pathname]
-	filesystem.muStat.Unlock()
 	return fileinfo, exists
 }
 
 func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*Fileinfo, bool) {
+	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
 	pathname = filepath.Clean(pathname)
-	filesystem.muFiles.Lock()
-	fileinfo, exists := filesystem.filesInfo[pathname]
-	filesystem.muFiles.Unlock()
+	fileinfo, exists := filesystem.statInfo[pathname]
+	if !exists || !fileinfo.Mode.IsRegular() {
+		return nil, false
+	}
 	return fileinfo, exists
 }
 
 func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*Fileinfo, bool) {
+	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
 	pathname = filepath.Clean(pathname)
-	filesystem.muDirectories.Lock()
-	fileinfo, exists := filesystem.directoriesInfo[pathname]
-	filesystem.muDirectories.Unlock()
+	fileinfo, exists := filesystem.statInfo[pathname]
+	if !exists || !fileinfo.Mode.IsDir() {
+		return nil, false
+	}
 	return fileinfo, exists
 }
 
@@ -308,7 +263,11 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 		return nil, os.ErrNotExist
 	}
 
-	if !parent.Inode.Mode.IsDir() {
+	filesystem.muInodes.Lock()
+	parentInode := filesystem.Inodes[parent.Inode]
+	filesystem.muInodes.Unlock()
+
+	if !parentInode.Mode.IsDir() {
 		return nil, os.ErrInvalid
 	}
 
@@ -321,43 +280,73 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 }
 
 func (filesystem *Filesystem) ListFiles() []string {
+	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
 	list := make([]string, 0)
-	filesystem.muFiles.Lock()
-	list = append(list, filesystem.Files...)
-	filesystem.muFiles.Unlock()
+	for pathname, stat := range filesystem.statInfo {
+		if stat.Mode.IsRegular() {
+			list = append(list, pathname)
+		}
+	}
 	return list
 }
 
 func (filesystem *Filesystem) ListDirectories() []string {
+	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
 	list := make([]string, 0)
-	filesystem.muDirectories.Lock()
-	list = append(list, filesystem.Directories...)
-	filesystem.muDirectories.Unlock()
+	for pathname, stat := range filesystem.statInfo {
+		if stat.Mode.IsDir() {
+			list = append(list, pathname)
+		}
+	}
 	return list
 }
 
 func (filesystem *Filesystem) ListNonRegular() []string {
+	filesystem.muStat.Lock()
+	defer filesystem.muStat.Unlock()
+
 	list := make([]string, 0)
-	filesystem.muNonRegular.Lock()
-	list = append(list, filesystem.NonRegular...)
-	filesystem.muNonRegular.Unlock()
+	for pathname, stat := range filesystem.statInfo {
+		if !stat.Mode.IsDir() && !stat.Mode.IsRegular() {
+			list = append(list, pathname)
+		}
+	}
 	return list
 }
 
 func (filesystem *Filesystem) ListStat() []string {
-	list := make([]string, 0)
 	filesystem.muStat.Lock()
-	list = append(list, filesystem.Stat...)
-	filesystem.muStat.Unlock()
+	defer filesystem.muStat.Unlock()
+
+	list := make([]string, 0)
+	for pathname, _ := range filesystem.statInfo {
+		list = append(list, pathname)
+	}
 	return list
 }
 
-func (filesystem *Filesystem) ListLstat() []string {
-	list := make([]string, 0)
-	filesystem.muLstat.Lock()
-	list = append(list, filesystem.Lstat...)
-	filesystem.muLstat.Unlock()
-	return list
+func (filesystem *Filesystem) _reindex(pathname string) {
+	node, err := filesystem.Lookup(pathname)
+	if err != nil {
+		return
+	}
+
+	pathnameInode := filesystem.Inodes[node.Inode]
+	filesystem.statInfo[pathname] = &pathnameInode
+
+	for name, node := range node.Children {
+		nodeInode := filesystem.Inodes[node.Inode]
+		child := filepath.Clean(fmt.Sprintf("%s/%s", pathname, name))
+		if nodeInode.Mode.IsDir() {
+			filesystem._reindex(child)
+		} else {
+			filesystem.statInfo[child] = &nodeInode
+		}
+	}
 }
 
 func (filesystem *Filesystem) reindex() {
@@ -368,28 +357,8 @@ func (filesystem *Filesystem) reindex() {
 	}
 	filesystem.muPathnames.Unlock()
 
-	filesystem.filesInfo = make(map[string]*Fileinfo)
-	filesystem.directoriesInfo = make(map[string]*Fileinfo)
-	filesystem.nonRegularInfo = make(map[string]*Fileinfo)
 	filesystem.statInfo = make(map[string]*Fileinfo)
-	filesystem.lstatInfo = make(map[string]*Fileinfo)
-
-	for _, stat := range filesystem.ListStat() {
-		node, _ := filesystem.Lookup(stat)
-		filesystem.statInfo[stat] = node.Inode
-		if node.Inode.Mode.IsDir() {
-			filesystem.directoriesInfo[stat] = node.Inode
-		} else if node.Inode.Mode.IsRegular() {
-			filesystem.filesInfo[stat] = node.Inode
-		} else {
-			filesystem.nonRegularInfo[stat] = node.Inode
-		}
-	}
-
-	for _, lstat := range filesystem.ListLstat() {
-		node, _ := filesystem.Lookup(lstat)
-		filesystem.lstatInfo[lstat] = node.Inode
-	}
+	filesystem._reindex("/")
 }
 
 func (filesystem *Filesystem) addInode(fileinfo Fileinfo) string {

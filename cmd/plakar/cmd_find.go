@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -57,7 +58,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for _, pathname := range snap.Filesystem.Stat {
+				for _, pathname := range snap.Filesystem.ListStat() {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true
@@ -67,12 +68,10 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			// try finding a directory or file
-			for name, pathnames := range snap.Filesystem.Names {
-				if name == arg {
-					for _, pathname := range pathnames {
-						if exists := result[snap][arg]; !exists {
-							result[snap][pathname] = true
-						}
+			for _, name := range snap.Filesystem.ListStat() {
+				if filepath.Base(name) == arg {
+					if exists := result[snap][arg]; !exists {
+						result[snap][name] = true
 					}
 				}
 			}

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/poolpOrg/plakar/logger"
 )
 
 type Cache struct {
@@ -92,6 +93,7 @@ func New(cacheDir string) *Cache {
 }
 
 func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
+	logger.Trace("cache: %s: PutMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
 	cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
 	cache.mu_metadatas.Unlock()
@@ -99,6 +101,7 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 }
 
 func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) error {
+	logger.Trace("cache: %s: PutIndex()", Uuid)
 	cache.mu_indexes.Lock()
 	cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
 	cache.mu_indexes.Unlock()
@@ -106,6 +109,7 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 }
 
 func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
+	logger.Trace("cache: %s: GetMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
 	ret, exists := cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
 	cache.mu_metadatas.Unlock()
@@ -122,6 +126,7 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 }
 
 func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error) {
+	logger.Trace("cache: %s: GetIndex()", Uuid)
 	cache.mu_indexes.Lock()
 	ret, exists := cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
 	cache.mu_indexes.Unlock()
@@ -138,6 +143,7 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 }
 
 func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte) error {
+	logger.Trace("cache: %s: PutPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
 	cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
 	cache.mu_pathnames.Unlock()
@@ -145,6 +151,7 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 }
 
 func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, error) {
+	logger.Trace("cache: %s: GetPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
 	ret, exists := cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
 	cache.mu_pathnames.Unlock()
@@ -161,6 +168,7 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 }
 
 func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byte) error {
+	logger.Trace("cache: %s: PutObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
 	cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
 	cache.mu_objects.Unlock()
@@ -168,6 +176,7 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 }
 
 func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, error) {
+	logger.Trace("cache: %s: GetObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
 	ret, exists := cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
 	cache.mu_objects.Unlock()
@@ -184,6 +193,7 @@ func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, e
 }
 
 func (cache *Cache) Commit() error {
+	logger.Trace("cache: Commit()")
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
 	//

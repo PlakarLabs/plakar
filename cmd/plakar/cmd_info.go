@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -26,48 +27,191 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
+type JSONChunk struct {
+	Start  uint
+	Length uint
+}
+
+type JSONObject struct {
+	Chunks      []uint64
+	ContentType uint64
+}
+
+type JSONIndex struct {
+
+	// Pathnames -> Object checksum
+	Pathnames map[string]uint64
+
+	ContentTypes map[string]uint64
+
+	// Object checksum -> Object
+	Objects map[uint64]*JSONObject
+
+	// Chunk checksum -> Chunk
+	Chunks map[uint64]*JSONChunk
+
+	// Chunk checksum -> Object checksums
+	ChunkToObjects map[uint64][]uint64
+
+	// Object checksum -> Filenames
+	ObjectToPathnames map[uint64][]uint64
+
+	// Content Type -> Object checksums
+	ContentTypeToObjects map[uint64][]uint64
+}
+
 func init() {
 	registerCommand("info", cmd_info)
 }
 
 func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
-	flags := flag.NewFlagSet("info", flag.ExitOnError)
-	flags.Parse(args)
-
-	if flags.NArg() == 0 {
+	if len(args) == 0 {
 		return info_plakar(repository)
 	}
 
-	metadatas, err := getMetadatas(repository, flags.Args())
-	if err != nil {
-		log.Fatal(err)
+	var opt_metadata bool
+	var opt_index bool
+	var opt_filesystem bool
+
+	flags := flag.NewFlagSet("info", flag.ExitOnError)
+	flags.BoolVar(&opt_metadata, "metadata", false, "display metadata")
+	flags.BoolVar(&opt_index, "index", false, "display index")
+	flags.BoolVar(&opt_filesystem, "filesystem", false, "display filesystem")
+	flags.Parse(args)
+
+	if opt_metadata {
+		metadatas, err := getMetadatas(repository, flags.Args())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, metadata := range metadatas {
+			serialized, err := json.Marshal(metadata)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(string(serialized))
+		}
 	}
 
-	for _, metadata := range metadatas {
-		fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
-		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
-		fmt.Printf("Version: %s\n", metadata.Version)
-		fmt.Printf("Hostname: %s\n", metadata.Hostname)
-		fmt.Printf("Username: %s\n", metadata.Username)
-		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
-		fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
-		fmt.Printf("MachineID: %s\n", metadata.MachineID)
-		fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
-		fmt.Printf("Directories: %d\n", metadata.Statistics.Directories)
-		fmt.Printf("Files: %d\n", metadata.Statistics.Files)
-		fmt.Printf("NonRegular: %d\n", metadata.Statistics.NonRegular)
-		fmt.Printf("Pathnames: %d\n", metadata.Statistics.Pathnames)
-		fmt.Printf("Objects: %d\n", metadata.Statistics.Objects)
-		fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
-		fmt.Printf("Duration: %s\n", metadata.Statistics.Duration)
-		fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
-		fmt.Printf("Index Checksum: %064x\n", metadata.IndexChecksum)
-		fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
-		fmt.Printf("Filesystem Checksum: %064x\n", metadata.FilesystemChecksum)
-		fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
+	if opt_index {
+		indexes, err := getIndexes(repository, flags.Args())
+		if err != nil {
+			log.Fatal(err)
+		}
 
+		for _, index := range indexes {
+			jindex := JSONIndex{}
+			jindex.Pathnames = make(map[string]uint64)
+			jindex.ContentTypes = make(map[string]uint64)
+			jindex.Objects = make(map[uint64]*JSONObject)
+			jindex.Chunks = make(map[uint64]*JSONChunk)
+			jindex.ChunkToObjects = make(map[uint64][]uint64)
+			jindex.ObjectToPathnames = make(map[uint64][]uint64)
+			jindex.ContentTypeToObjects = make(map[uint64][]uint64)
+
+			for pathname, checksumID := range index.Pathnames {
+				jindex.Pathnames[pathname] = checksumID
+			}
+
+			for pathname, checksumID := range index.ContentTypes {
+				jindex.ContentTypes[pathname] = checksumID
+			}
+
+			for checksumID, object := range index.Objects {
+				jobject := &JSONObject{
+					Chunks:      make([]uint64, 0),
+					ContentType: object.ContentType,
+				}
+
+				for _, chunkChecksum := range object.Chunks {
+					jobject.Chunks = append(jobject.Chunks, chunkChecksum)
+				}
+
+				jindex.Objects[checksumID] = jobject
+			}
+
+			for checksumID, chunk := range index.Chunks {
+				jchunk := &JSONChunk{
+					Start:  chunk.Start,
+					Length: chunk.Length,
+				}
+
+				jindex.Chunks[checksumID] = jchunk
+			}
+
+			for checksum, objects := range index.ChunkToObjects {
+				jindex.ChunkToObjects[checksum] = make([]uint64, 0)
+				for _, objChecksum := range objects {
+					jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
+				}
+			}
+
+			for checksumID, pathnames := range index.ObjectToPathnames {
+				jindex.ObjectToPathnames[checksumID] = pathnames
+			}
+
+			for contentType, objects := range index.ContentTypeToObjects {
+				jindex.ContentTypeToObjects[contentType] = make([]uint64, 0)
+				for _, objChecksum := range objects {
+					jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], objChecksum)
+				}
+			}
+
+			serialized, err := json.Marshal(jindex)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(string(serialized))
+		}
 	}
 
+	if opt_filesystem {
+		filesystems, err := getFilesystems(repository, flags.Args())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, filesystem := range filesystems {
+			serialized, err := json.Marshal(filesystem)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(string(serialized))
+		}
+	}
+
+	if !opt_metadata && !opt_index && !opt_filesystem {
+		metadatas, err := getMetadatas(repository, flags.Args())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, metadata := range metadatas {
+			fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
+			fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
+			fmt.Printf("Version: %s\n", metadata.Version)
+			fmt.Printf("Hostname: %s\n", metadata.Hostname)
+			fmt.Printf("Username: %s\n", metadata.Username)
+			fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
+			fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
+			fmt.Printf("MachineID: %s\n", metadata.MachineID)
+			fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
+			fmt.Printf("Directories: %d\n", metadata.Statistics.Directories)
+			fmt.Printf("Files: %d\n", metadata.Statistics.Files)
+			fmt.Printf("NonRegular: %d\n", metadata.Statistics.NonRegular)
+			fmt.Printf("Pathnames: %d\n", metadata.Statistics.Pathnames)
+			fmt.Printf("Objects: %d\n", metadata.Statistics.Objects)
+			fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
+			fmt.Printf("Duration: %s\n", metadata.Statistics.Duration)
+			fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
+			fmt.Printf("Index Checksum: %064x\n", metadata.IndexChecksum)
+			fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
+			fmt.Printf("Filesystem Checksum: %064x\n", metadata.FilesystemChecksum)
+			fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
+
+		}
+	}
 	return 0
 }
 

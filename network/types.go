@@ -31,6 +31,33 @@ type ResOpen struct {
 	Err              error
 }
 
+type ReqStorePutMetadata struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutMetadata struct {
+	Err error
+}
+
+type ReqStorePutIndex struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutIndex struct {
+	Err error
+}
+
+type ReqStorePutFilesystem struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutFilesystem struct {
+	Err error
+}
+
 type ReqGetChunks struct {
 }
 
@@ -265,6 +292,15 @@ func ProtocolRegister() {
 
 	gob.Register(ReqGetIndexes{})
 	gob.Register(ResGetIndexes{})
+
+	gob.Register(ReqStorePutMetadata{})
+	gob.Register(ResStorePutMetadata{})
+
+	gob.Register(ReqStorePutIndex{})
+	gob.Register(ResStorePutIndex{})
+
+	gob.Register(ReqStorePutFilesystem{})
+	gob.Register(ResStorePutFilesystem{})
 
 	gob.Register(ReqGetChunks{})
 	gob.Register(ResGetChunks{})

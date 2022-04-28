@@ -233,6 +233,63 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqStorePutMetadata":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutMetadata()", clientUuid)
+				err := repository.PutMetadata(request.Payload.(ReqStorePutMetadata).IndexID, request.Payload.(ReqStorePutMetadata).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutMetadata",
+					Payload: ResStorePutMetadata{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqStorePutIndex":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutIndex()", clientUuid)
+				err := repository.PutIndex(request.Payload.(ReqStorePutIndex).IndexID, request.Payload.(ReqStorePutIndex).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutIndex",
+					Payload: ResStorePutIndex{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqStorePutFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutFilesystem()", clientUuid)
+				err := repository.PutFilesystem(request.Payload.(ReqStorePutFilesystem).IndexID, request.Payload.(ReqStorePutFilesystem).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutFilesystem",
+					Payload: ResStorePutFilesystem{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetObject":
 			wg.Add(1)
 			go func() {

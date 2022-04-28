@@ -366,6 +366,42 @@ func (repository *ClientRepository) GetIndexes() ([]uuid.UUID, error) {
 	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
 }
 
+func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqStorePutMetadata", network.ReqStorePutMetadata{
+		IndexID: indexID,
+		Data:    data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResStorePutMetadata).Err
+}
+
+func (repository *ClientRepository) PutIndex(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqStorePutIndex", network.ReqStorePutIndex{
+		IndexID: indexID,
+		Data:    data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResStorePutIndex).Err
+}
+
+func (repository *ClientRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqStorePutFilesystem", network.ReqStorePutFilesystem{
+		IndexID: indexID,
+		Data:    data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResStorePutFilesystem).Err
+}
+
 func (repository *ClientRepository) GetChunks() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetChunks", nil)
 	if err != nil {

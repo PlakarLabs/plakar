@@ -35,6 +35,7 @@ import (
 const VERSION string = "0.2.0"
 
 type RepositoryConfig struct {
+	CreationTime time.Time
 	RepositoryID uuid.UUID
 	Version      string
 	Encryption   string

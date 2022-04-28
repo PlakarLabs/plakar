@@ -50,6 +50,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		fmt.Printf("Hostname: %s\n", metadata.Hostname)
 		fmt.Printf("Username: %s\n", metadata.Username)
 		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
+		fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
 		fmt.Printf("MachineID: %s\n", metadata.MachineID)
 		fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
 		fmt.Printf("Directories: %d\n", metadata.Statistics.Directories)
@@ -78,6 +79,7 @@ func info_plakar(repository *storage.Repository) int {
 	}
 
 	fmt.Println("RepositoryID:", repository.Configuration().RepositoryID)
+	fmt.Printf("CreationTime: %s\n", repository.Configuration().CreationTime)
 	fmt.Println("Version:", repository.Configuration().Version)
 
 	if repository.Configuration().Encryption != "" {

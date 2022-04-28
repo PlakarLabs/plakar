@@ -223,6 +223,11 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 		return err
 	}
 
+	_, err = statement.Exec("CreationTime", config.CreationTime)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

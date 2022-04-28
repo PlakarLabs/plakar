@@ -9,15 +9,16 @@ import (
 )
 
 type Metadata struct {
-	IndexID      uuid.UUID
-	CreationTime time.Time
-	Version      string
-	Hostname     string
-	Username     string
-	CommandLine  string
-	MachineID    string
-	PublicKey    string
-	Size         uint64
+	IndexID         uuid.UUID
+	CreationTime    time.Time
+	Version         string
+	Hostname        string
+	Username        string
+	CommandLine     string
+	OperatingSystem string
+	MachineID       string
+	PublicKey       string
+	Size            uint64
 
 	IndexChecksum      []byte
 	FilesystemChecksum []byte

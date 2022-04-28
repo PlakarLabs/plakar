@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
@@ -49,6 +50,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	snap.Metadata.Hostname = ctx.Hostname
 	snap.Metadata.Username = ctx.Username
+	snap.Metadata.OperatingSystem = runtime.GOOS
 	snap.Metadata.MachineID = ctx.MachineID
 	snap.Metadata.CommandLine = ctx.CommandLine
 

@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/encryption"
@@ -39,6 +40,7 @@ func cmd_create(ctx Plakar, args []string) int {
 	repositoryConfig := storage.RepositoryConfig{}
 	repositoryConfig.Version = storage.VERSION
 	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
+	repositoryConfig.CreationTime = time.Now()
 	if opt_nocompression {
 		repositoryConfig.Compression = ""
 	} else {

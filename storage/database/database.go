@@ -146,6 +146,16 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
+		filesystemUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
+		filesystemBlob	BLOB
+	);`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	statement.Exec()
+
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
 		objectChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		objectBlob		BLOB
@@ -279,6 +289,83 @@ func (repository *DatabaseRepository) GetIndexes() ([]uuid.UUID, error) {
 	return indexes, nil
 }
 
+func (repository *DatabaseRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutIndex(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum), data)
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutObject(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum), data)
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
 func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
 	rows, err := repository.conn.Query("SELECT chunkChecksum FROM chunks")
 	if err != nil {
@@ -331,6 +418,15 @@ func (repository *DatabaseRepository) GetMetadata(indexID uuid.UUID) ([]byte, er
 func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, indexID).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT filesystemBlob FROM filesystems WHERE filesystemUuid=?`, indexID).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -436,6 +532,21 @@ func (transaction *DatabaseTransaction) PutMetadata(data []byte) error {
 
 func (transaction *DatabaseTransaction) PutIndex(data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(transaction.GetUuid(), data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *DatabaseTransaction) PutFilesystem(data []byte) error {
+	statement, err := transaction.dbTx.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}

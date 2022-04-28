@@ -19,9 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/poolpOrg/plakar/snapshot"
@@ -53,18 +51,6 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for _, repository := range flags.Args() {
 		var cloneRepository *storage.Repository
-		if !strings.HasPrefix(repository, "/") {
-			log.Fatalf("%s: does not support non filesystem plakar destinations for now", flag.CommandLine.Name())
-			/*
-				if strings.HasPrefix(repository, "plakar://") {
-					cloneRepository, _ = storage.New("client")
-				} else if strings.HasPrefix(repository, "sqlite://") {
-					cloneRepository, _ = storage.New("database")
-				} else {
-					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-				}
-			*/
-		}
 
 		cloneRepository, err := storage.Create(repository, repositoryConfig)
 		if err != nil {
@@ -107,13 +93,13 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				return 1
 			}
 
-			index, _, err := snapshot.GetIndex(cloneRepository, indexID)
+			sourceSnapshot, err := snapshot.Load(sourceRepository, indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not load index %s: %s\n", repository, indexID, err)
 				return 1
 			}
 
-			for _, chunkID := range index.ListChunks() {
+			for _, chunkID := range sourceSnapshot.Index.ListChunks() {
 				muChunkChecksum.Lock()
 				if _, exists := chunkChecksum[chunkID]; !exists {
 					data, err := sourceRepository.GetChunk(chunkID)
@@ -131,7 +117,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				muChunkChecksum.Unlock()
 			}
 
-			for _, objectID := range index.ListObjects() {
+			for _, objectID := range sourceSnapshot.Index.ListObjects() {
 				muObjectChecksum.Lock()
 				if _, exists := objectChecksum[objectID]; !exists {
 					data, err := sourceRepository.GetObject(objectID)

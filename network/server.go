@@ -341,8 +341,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("%s: Transaction", clientUuid)
-				tx, err := repository.Transaction()
+				logger.Trace("%s: Transaction(%s)", clientUuid, request.Payload.(ReqTransaction).Uuid)
+				tx, err := repository.Transaction(request.Payload.(ReqTransaction).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResTransaction",

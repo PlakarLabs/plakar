@@ -158,11 +158,11 @@ func (repository *FSRepository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *FSRepository) Transaction() (storage.TransactionBackend, error) {
+func (repository *FSRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 	// XXX - keep a map of current transactions
 
 	tx := &FSTransaction{}
-	tx.Uuid = uuid.Must(uuid.NewRandom())
+	tx.Uuid = indexID
 	tx.repository = *repository
 	tx.prepared = false
 

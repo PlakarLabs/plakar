@@ -135,6 +135,7 @@ type ResClose struct {
 }
 
 type ReqTransaction struct {
+	Uuid uuid.UUID
 }
 
 type ResTransaction struct {

@@ -25,6 +25,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -72,6 +74,24 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			return 1
 		}
 
+		if syncRepository.Configuration().Encryption != "" {
+			for {
+				passphrase, err := helpers.GetPassphrase("repository")
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					continue
+				}
+
+				secret, err := encryption.DeriveSecret(passphrase, syncRepository.Configuration().Encryption)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					continue
+				}
+				syncRepository.SetSecret(secret)
+				break
+			}
+		}
+
 		destIndexes, err := syncRepository.GetIndexes()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
@@ -97,9 +117,9 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 				return 1
 			}
 
-			copySnapshot, err := snapshot.New(syncRepository)
+			copySnapshot, err := snapshot.New(syncRepository, indexID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", syncRepository, err)
+				fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", repository, err)
 				return 1
 			}
 
@@ -112,7 +132,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			for _, chunkID := range sourceSnapshot.Index.ListChunks() {
 				muChunkChecksum.Lock()
 				if _, exists := chunkChecksum[chunkID]; !exists {
-					exists, err := sourceSnapshot.CheckChunk(chunkID)
+					exists, err := copySnapshot.CheckChunk(chunkID)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s: could not check chunk from repository: %s\n", ctx.Repository, err)
 						return 1
@@ -137,7 +157,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			for _, objectID := range sourceSnapshot.Index.ListObjects() {
 				muObjectChecksum.Lock()
 				if _, exists := objectChecksum[objectID]; !exists {
-					exists, err := sourceSnapshot.CheckObject(objectID)
+					exists, err := copySnapshot.CheckObject(objectID)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s: could not check object from repository: %s\n", ctx.Repository, err)
 						return 1

@@ -245,11 +245,7 @@ func (repository *DatabaseRepository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *DatabaseRepository) Transaction() (storage.TransactionBackend, error) {
-	Uuid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
+func (repository *DatabaseRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 
 	dbTx, err := repository.conn.BeginTx(context.TODO(), nil)
 	if err != nil {
@@ -258,7 +254,7 @@ func (repository *DatabaseRepository) Transaction() (storage.TransactionBackend,
 
 	tx := &DatabaseTransaction{}
 	tx.dbTx = dbTx
-	tx.Uuid = Uuid
+	tx.Uuid = indexID
 	tx.repository = repository
 
 	return tx, nil

@@ -339,7 +339,7 @@ func (repository *ClientRepository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *ClientRepository) Transaction() (storage.TransactionBackend, error) {
+func (repository *ClientRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 	result, err := repository.sendRequest("ReqTransaction", nil)
 	if err != nil {
 		return nil, err

@@ -46,7 +46,7 @@ type RepositoryBackend interface {
 	Open(repository string) error
 	Configuration() RepositoryConfig
 
-	Transaction() (TransactionBackend, error)
+	Transaction(indexID uuid.UUID) (TransactionBackend, error)
 
 	GetIndexes() ([]uuid.UUID, error)
 	GetMetadata(indexID uuid.UUID) ([]byte, error)
@@ -257,13 +257,13 @@ func (repository *Repository) Configuration() RepositoryConfig {
 	return repository.backend.Configuration()
 }
 
-func (repository *Repository) Transaction() (*Transaction, error) {
+func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.Transaction", time.Since(t0))
 		logger.Trace("storage", "Transaction(): %s", time.Since(t0))
 	}()
-	tx, err := repository.backend.Transaction()
+	tx, err := repository.backend.Transaction(indexID)
 	if err != nil {
 		return nil, err
 	}

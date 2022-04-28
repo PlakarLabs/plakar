@@ -26,13 +26,13 @@ type Snapshot struct {
 	Filesystem *Filesystem
 }
 
-func New(repository *storage.Repository) (*Snapshot, error) {
+func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
 	}()
 
-	tx, err := repository.Transaction()
+	tx, err := repository.Transaction(indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func New(repository *storage.Repository) (*Snapshot, error) {
 		repository:  repository,
 		transaction: tx,
 
-		Metadata:   NewMetadata(tx.GetUuid()),
+		Metadata:   NewMetadata(indexID),
 		Index:      NewIndex(),
 		Filesystem: NewFilesystem(),
 	}

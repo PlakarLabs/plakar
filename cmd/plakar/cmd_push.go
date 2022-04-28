@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -40,7 +41,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snap, err := snapshot.New(repository)
+	snap, err := snapshot.New(repository, uuid.Must(uuid.NewRandom()))
 	if err != nil {
 		logger.Error("%s", err)
 		return 1

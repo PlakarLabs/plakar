@@ -16,7 +16,6 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type objectMsg struct {
@@ -200,12 +199,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 					return
 				}
 				if !exists {
-					objectData, err := msgpack.Marshal(object)
-					if err != nil {
-						logger.Warn("%s: failed to serialize object: %s", _filename, err)
-						return
-					}
-					err = snapshot.PutObject(object.Checksum, objectData)
+					err = snapshot.PutObject(object)
 					if err != nil {
 						logger.Warn("%s: failed to store object: %s", _filename, err)
 						return

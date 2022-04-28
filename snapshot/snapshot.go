@@ -305,12 +305,17 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	return snapshot.repository.PutChunk(checksum, buffer)
 }
 
-func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
+func (snapshot *Snapshot) PutObject(object *Object) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
+	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.GetIndexShortID(), object.Checksum)
+
+	data, err := msgpack.Marshal(object)
+	if err != nil {
+		return err
+	}
 
 	secret := snapshot.repository.GetSecret()
 
@@ -326,7 +331,7 @@ func (snapshot *Snapshot) PutObject(checksum [32]byte, data []byte) error {
 		}
 		buffer = tmp
 	}
-	return snapshot.repository.PutObject(checksum, buffer)
+	return snapshot.repository.PutObject(object.Checksum, buffer)
 }
 
 func (snapshot *Snapshot) PutMetadata(data []byte) error {

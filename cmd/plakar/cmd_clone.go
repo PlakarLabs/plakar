@@ -72,6 +72,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			return 1
 		}
 
+		// XXX - this can be parallelized
 		for _, indexID := range indexes {
 			metadataBytes, err := sourceRepository.GetMetadata(indexID)
 			if err != nil {

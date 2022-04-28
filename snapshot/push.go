@@ -65,7 +65,6 @@ func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, 
 func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
-		logger.Warn("%s", err)
 		return nil, err
 	}
 	defer rd.Close()
@@ -76,7 +75,6 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 
 	chk, err := fastcdc.NewChunker(rd, chunkerOptions)
 	if err != nil {
-		logger.Warn("%s", err)
 		return nil, err
 	}
 
@@ -87,7 +85,6 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			break
 		}
 		if err != nil {
-			logger.Warn("%s", err)
 			return nil, err
 		}
 		if firstChunk {

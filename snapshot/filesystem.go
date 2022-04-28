@@ -50,6 +50,8 @@ type Filesystem struct {
 
 	muSymlinks sync.Mutex
 	Symlinks   map[string]string
+
+	totalSize uint64
 }
 
 func FileinfoFromStat(stat os.FileInfo) Fileinfo {
@@ -77,6 +79,7 @@ func NewFilesystem() *Filesystem {
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
 	filesystem.statInfo = make(map[string]*Fileinfo)
 	filesystem.Symlinks = make(map[string]string)
+	filesystem.totalSize = 0
 	return filesystem
 }
 
@@ -337,6 +340,7 @@ func (filesystem *Filesystem) _reindex(pathname string) {
 
 	pathnameInode := filesystem.Inodes[node.Inode]
 	filesystem.statInfo[pathname] = &pathnameInode
+	filesystem.totalSize += uint64(pathnameInode.Size)
 
 	for name, node := range node.Children {
 		nodeInode := filesystem.Inodes[node.Inode]
@@ -368,6 +372,7 @@ func (filesystem *Filesystem) addInode(fileinfo Fileinfo) string {
 	key := fmt.Sprintf("%d,%d", fileinfo.Dev, fileinfo.Ino)
 	if _, exists := filesystem.Inodes[key]; !exists {
 		filesystem.Inodes[key] = fileinfo
+		filesystem.totalSize += uint64(fileinfo.Size)
 	}
 	return key
 }
@@ -398,4 +403,11 @@ func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
 	defer filesystem.muPathnames.Unlock()
 
 	return filesystem.pathnamesInverse[pathnameId]
+}
+
+func (filesystem *Filesystem) Size() uint64 {
+	filesystem.muInodes.Lock()
+	defer filesystem.muInodes.Unlock()
+
+	return filesystem.totalSize
 }

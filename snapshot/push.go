@@ -164,6 +164,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		go func(_filename string) {
 			defer func() { wg.Done() }()
 			defer func() { <-maxConcurrency }()
+
 			fileinfo, exists := snapshot.Filesystem.LookupInodeForFile(_filename)
 			if !exists {
 				logger.Warn("%s: failed to find file informations", _filename)

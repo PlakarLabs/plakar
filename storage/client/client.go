@@ -404,6 +404,17 @@ func (repository *ClientRepository) GetIndex(indexID uuid.UUID) ([]byte, error) 
 	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
 }
 
+func (repository *ClientRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetFilesystem", network.ReqGetFilesystem{
+		Uuid: indexID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Payload.(network.ResGetFilesystem).Data, result.Payload.(network.ResGetFilesystem).Err
+}
+
 func (repository *ClientRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetObject", network.ReqGetObject{
 		Checksum: checksum,
@@ -424,6 +435,49 @@ func (repository *ClientRepository) GetChunk(checksum [32]byte) ([]byte, error) 
 	}
 
 	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
+}
+
+func (repository *ClientRepository) CheckObject(checksum [32]byte) (bool, error) {
+	result, err := repository.sendRequest("ReqCheckObject", network.ReqCheckObject{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return false, err
+	}
+	return result.Payload.(network.ResCheckObject).Exists, result.Payload.(network.ResCheckObject).Err
+}
+
+func (repository *ClientRepository) CheckChunk(checksum [32]byte) (bool, error) {
+	result, err := repository.sendRequest("ReqCheckChunk", network.ReqCheckChunk{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return false, err
+	}
+	return result.Payload.(network.ResCheckChunk).Exists, result.Payload.(network.ResCheckChunk).Err
+}
+
+func (repository *ClientRepository) PutObject(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
+		Checksum: checksum,
+		Data:     data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResPutObject).Err
+}
+
+func (repository *ClientRepository) PutChunk(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqPutChunk", network.ReqPutChunk{
+		Checksum: checksum,
+		Data:     data,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResPutChunk).Err
 }
 
 func (repository *ClientRepository) Purge(indexID uuid.UUID) error {
@@ -503,6 +557,19 @@ func (transaction *ClientTransaction) PutIndex(data []byte) error {
 	}
 
 	return result.Payload.(network.ResPutIndex).Err
+}
+
+func (transaction *ClientTransaction) PutFilesystem(data []byte) error {
+	repository := transaction.repository
+	result, err := repository.sendRequest("ReqPutFilesystem", network.ReqPutFilesystem{
+		Transaction: transaction.GetUuid(),
+		Data:        data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResPutFilesystem).Err
 }
 
 func (transaction *ClientTransaction) Commit() error {

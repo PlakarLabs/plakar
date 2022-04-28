@@ -15,8 +15,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/poolpOrg/go-fastcdc v0.0.0-20211130115626-1f6e826f4a2f
 	github.com/vmihailenco/msgpack/v5 v5.3.5
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
+	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

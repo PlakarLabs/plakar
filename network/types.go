@@ -73,6 +73,15 @@ type ResGetIndex struct {
 	Err  error
 }
 
+type ReqGetFilesystem struct {
+	Uuid uuid.UUID
+}
+
+type ResGetFilesystem struct {
+	Data []byte
+	Err  error
+}
+
 type ReqGetObject struct {
 	Checksum [32]byte
 }
@@ -191,6 +200,15 @@ type ResPutIndex struct {
 	Err error
 }
 
+type ReqPutFilesystem struct {
+	Transaction uuid.UUID
+	Data        []byte
+}
+
+type ResPutFilesystem struct {
+	Err error
+}
+
 type ReqCommit struct {
 	Transaction uuid.UUID
 }
@@ -259,6 +277,9 @@ func ProtocolRegister() {
 	gob.Register(ReqGetIndex{})
 	gob.Register(ResGetIndex{})
 
+	gob.Register(ReqGetFilesystem{})
+	gob.Register(ResGetFilesystem{})
+
 	gob.Register(ReqGetObject{})
 	gob.Register(ResGetObject{})
 
@@ -297,6 +318,9 @@ func ProtocolRegister() {
 
 	gob.Register(ReqPutIndex{})
 	gob.Register(ResPutIndex{})
+
+	gob.Register(ReqPutFilesystem{})
+	gob.Register(ResPutFilesystem{})
 
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})

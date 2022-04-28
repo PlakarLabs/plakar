@@ -213,6 +213,26 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqGetFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetFilesystem(%s)", clientUuid, request.Payload.(ReqGetFilesystem).Uuid)
+				data, err := repository.GetFilesystem(request.Payload.(ReqGetFilesystem).Uuid)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetFilesystem",
+					Payload: ResGetFilesystem{
+						Data: data,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetObject":
 			wg.Add(1)
 			go func() {
@@ -415,6 +435,27 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					Uuid: request.Uuid,
 					Type: "ResPutIndex",
 					Payload: ResPutIndex{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqPutFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutFilesystem()", clientUuid)
+				txUuid := request.Payload.(ReqPutFilesystem).Transaction
+				tx := transactions[txUuid]
+				err := tx.PutFilesystem(request.Payload.(ReqPutFilesystem).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutFilesystem",
+					Payload: ResPutFilesystem{
 						Err: err,
 					},
 				}

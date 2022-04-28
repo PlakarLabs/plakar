@@ -340,12 +340,14 @@ func (repository *ClientRepository) Configuration() storage.RepositoryConfig {
 }
 
 func (repository *ClientRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	result, err := repository.sendRequest("ReqTransaction", nil)
+	result, err := repository.sendRequest("ReqTransaction", network.ReqTransaction{
+		Uuid: indexID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	Uuid, err := result.Payload.(network.ResTransaction).Uuid, result.Payload.(network.ResTransaction).Err
+	Uuid, err := indexID, result.Payload.(network.ResTransaction).Err
 	if err != nil {
 		return nil, err
 	}

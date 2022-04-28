@@ -19,9 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -55,18 +53,6 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for _, repository := range flags.Args() {
 		var syncRepository *storage.Repository
-		if !strings.HasPrefix(repository, "/") {
-			log.Fatalf("%s: does not support non filesystem plakar destinations for now", flag.CommandLine.Name())
-			/*
-				if strings.HasPrefix(repository, "plakar://") {
-					syncrepository, _ = storage.New("client")
-				} else if strings.HasPrefix(repository, "sqlite://") {
-					syncrepository, _ = storage.New("database")
-				} else {
-					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-				}
-			*/
-		}
 
 		syncRepository, err = storage.Open(repository)
 		if err != nil {
@@ -76,7 +62,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		if syncRepository.Configuration().Encryption != "" {
 			for {
-				passphrase, err := helpers.GetPassphrase("repository")
+				passphrase, err := helpers.GetPassphrase("destination repository")
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					continue

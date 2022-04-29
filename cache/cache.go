@@ -1,40 +1,35 @@
 package cache
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/profiler"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type Cache struct {
-	conn *sql.DB
+	db *leveldb.DB
 
-	mu_metadatas    sync.Mutex
-	metadatas       map[string][]byte
-	putMetadataStmt *sql.Stmt
+	mu_metadatas sync.Mutex
+	metadatas    map[string][]byte
 
-	mu_indexes   sync.Mutex
-	indexes      map[string][]byte
-	putIndexStmt *sql.Stmt
+	mu_indexes sync.Mutex
+	indexes    map[string][]byte
 
-	mu_filesystems    sync.Mutex
-	filesystems       map[string][]byte
-	putFilesystemStmt *sql.Stmt
+	mu_filesystems sync.Mutex
+	filesystems    map[string][]byte
 
-	mu_pathnames    sync.Mutex
-	pathnames       map[string][]byte
-	putPathnameStmt *sql.Stmt
+	mu_pathnames sync.Mutex
+	pathnames    map[string][]byte
 
-	mu_objects    sync.Mutex
-	objects       map[string][]byte
-	putObjectStmt *sql.Stmt
+	mu_objects sync.Mutex
+	objects    map[string][]byte
 }
 
 func Create(localdir string) error {
@@ -51,73 +46,18 @@ func New(cacheDir string) *Cache {
 		profiler.RecordEvent("cache.New", time.Since(t0))
 	}()
 
-	conn, err := sql.Open("sqlite3", fmt.Sprintf("%s/cache.db", cacheDir))
+	db, err := leveldb.OpenFile(fmt.Sprintf("%s/cache.db", cacheDir), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	cache := &Cache{}
-	cache.conn = conn
+	cache.db = db
 	cache.metadatas = make(map[string][]byte)
 	cache.indexes = make(map[string][]byte)
 	cache.filesystems = make(map[string][]byte)
 	cache.pathnames = make(map[string][]byte)
 	cache.objects = make(map[string][]byte)
-
-	statement, err := conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
-		"repository"	UUID,
-		"uuid"	UUID NOT NULL PRIMARY KEY,
-		"blob"	BLOB
-	);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
-		"repository"	UUID,
-		"uuid"	UUID NOT NULL PRIMARY KEY,
-		"blob"	BLOB
-	);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
-		"repository"	UUID,
-		"uuid"	UUID NOT NULL PRIMARY KEY,
-		"blob"	BLOB
-	);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
-		"repository"	UUID,
-		"checksum"	VARCHAR NOT NULL PRIMARY KEY,
-		"blob"		BLOB
-	);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS pathnames (
-		"repository"	UUID,
-		"checksum"	VARCHAR NOT NULL PRIMARY KEY,
-		"blob"		BLOB
-	);`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer statement.Close()
-	statement.Exec()
 
 	return cache
 }
@@ -129,17 +69,14 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 	}()
 
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+
 	cache.mu_metadatas.Lock()
-	defer cache.mu_metadatas.Unlock()
-	cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-	if cache.putMetadataStmt == nil {
-		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cache.putMetadataStmt = stmt
-	}
-	cache.putMetadataStmt.Exec(RepositoryUuid, Uuid, data)
+	cache.metadatas[key] = data
+	cache.mu_metadatas.Unlock()
+
+	cache.db.Put([]byte(key), data, nil)
+
 	return nil
 }
 
@@ -150,19 +87,14 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 	}()
 
 	logger.Trace("cache", "%s: PutIndex()", Uuid)
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+
 	cache.mu_indexes.Lock()
-	defer cache.mu_indexes.Unlock()
+	cache.indexes[key] = data
+	cache.mu_indexes.Unlock()
 
-	cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
+	cache.db.Put([]byte(key), data, nil)
 
-	if cache.putIndexStmt == nil {
-		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cache.putIndexStmt = stmt
-	}
-	cache.putIndexStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
 
@@ -173,18 +105,14 @@ func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byt
 	}()
 
 	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
-	cache.mu_filesystems.Lock()
-	defer cache.mu_filesystems.Unlock()
-	cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
 
-	if cache.putFilesystemStmt == nil {
-		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO filesystems("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cache.putFilesystemStmt = stmt
-	}
-	cache.putFilesystemStmt.Exec(RepositoryUuid, Uuid, data)
+	cache.mu_filesystems.Lock()
+	cache.filesystems[key] = data
+	cache.mu_filesystems.Unlock()
+
+	cache.db.Put([]byte(key), data, nil)
+
 	return nil
 }
 
@@ -194,15 +122,18 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 		profiler.RecordEvent("cache.GetMetadata", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetMetadata()", Uuid)
+
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
 	cache.mu_metadatas.Lock()
-	ret, exists := cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
+	ret, exists := cache.metadatas[key]
 	cache.mu_metadatas.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM metadatas WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
+	data, err := cache.db.Get([]byte(key), nil)
+
 	if err != nil {
 		return nil, err
 	}
@@ -215,15 +146,17 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetIndex()", Uuid)
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
 	cache.mu_indexes.Lock()
-	ret, exists := cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
+	ret, exists := cache.indexes[key]
 	cache.mu_indexes.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM indexes WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
+	data, err := cache.db.Get([]byte(key), nil)
+
 	if err != nil {
 		return nil, err
 	}
@@ -236,15 +169,17 @@ func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, e
 		profiler.RecordEvent("cache.GetFilesystem", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetFilesystem()", Uuid)
+
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
 	cache.mu_filesystems.Lock()
-	ret, exists := cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
+	ret, exists := cache.filesystems[key]
 	cache.mu_filesystems.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM filesystems WHERE uuid=? AND repository=?`, Uuid, RepositoryUuid).Scan(&data)
+	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -257,19 +192,14 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 		profiler.RecordEvent("cache.PutPath", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
+
 	cache.mu_pathnames.Lock()
-	defer cache.mu_pathnames.Unlock()
+	cache.pathnames[key] = data
+	cache.mu_pathnames.Unlock()
 
-	cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
+	cache.db.Put([]byte(key), data, nil)
 
-	if cache.putPathnameStmt == nil {
-		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("repository", "checksum", "blob") VALUES(?, ?, ?)`)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cache.putPathnameStmt = stmt
-	}
-	cache.putPathnameStmt.Exec(RepositoryUuid, checksum, data)
 	return nil
 }
 
@@ -279,15 +209,17 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 		profiler.RecordEvent("cache.GetPath", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetPath()", RepositoryUuid)
+
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
 	cache.mu_pathnames.Lock()
-	ret, exists := cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
+	ret, exists := cache.pathnames[key]
 	cache.mu_pathnames.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM pathnames WHERE checksum=? AND repository=?`, checksum, RepositoryUuid).Scan(&data)
+	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -300,18 +232,13 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 		profiler.RecordEvent("cache.PutObject", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
-	cache.mu_objects.Lock()
-	defer cache.mu_objects.Unlock()
-	cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
 
-	if cache.putObjectStmt == nil {
-		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO objects("repository", "checksum", "blob") VALUES(?, ?, ?)`)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cache.putObjectStmt = stmt
-	}
-	cache.putObjectStmt.Exec(RepositoryUuid, checksum, data)
+	cache.mu_objects.Lock()
+	cache.objects[key] = data
+	cache.mu_objects.Unlock()
+
+	cache.db.Put([]byte(key), data, nil)
 
 	return nil
 }
@@ -322,15 +249,17 @@ func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, e
 		profiler.RecordEvent("cache.GetObject", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetObject()", RepositoryUuid)
+
+	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
 	cache.mu_objects.Lock()
-	ret, exists := cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
+	ret, exists := cache.objects[key]
 	cache.mu_objects.Unlock()
 	if exists {
 		return ret, nil
 	}
 
 	var data []byte
-	err := cache.conn.QueryRow(`SELECT blob FROM objects WHERE checksum=? AND repository=?`, checksum, RepositoryUuid).Scan(&data)
+	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -344,35 +273,8 @@ func (cache *Cache) Commit() error {
 	}()
 
 	logger.Trace("cache", "Commit()")
-	// XXX - to handle parallel use, New() needs to open a read-only version of the database
-	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
-	//
 
-	if cache.putMetadataStmt != nil {
-		cache.putMetadataStmt.Close()
-	}
-
-	if cache.putIndexStmt != nil {
-		cache.putIndexStmt.Close()
-	}
-
-	if cache.putFilesystemStmt != nil {
-		cache.putFilesystemStmt.Close()
-	}
-
-	if cache.putFilesystemStmt != nil {
-		cache.putFilesystemStmt.Close()
-	}
-
-	if cache.putPathnameStmt != nil {
-		cache.putPathnameStmt.Close()
-	}
-
-	if cache.putObjectStmt != nil {
-		cache.putObjectStmt.Close()
-	}
-
-	cache.conn.Close()
+	cache.db.Close()
 
 	return nil
 }

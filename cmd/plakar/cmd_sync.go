@@ -75,6 +75,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 	} else {
 		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
+		return 1
 	}
 
 	var muChunkChecksum sync.Mutex

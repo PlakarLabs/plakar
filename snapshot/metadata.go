@@ -10,18 +10,16 @@ import (
 
 type Metadata struct {
 	IndexID          uuid.UUID
+	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
+	PublicKey        string
 
-	Version         string
 	Hostname        string
 	Username        string
-	CommandLine     string
 	OperatingSystem string
 	MachineID       string
-	PublicKey       string
-
-	Size uint64
+	CommandLine     string
 
 	ScanSize          uint64
 	ScanProcessedSize uint64
@@ -44,7 +42,19 @@ type Metadata struct {
 	NonRegularCount  uint64
 	PathnamesCount   uint64
 
-	Statistics *Statistics
+	ObjectsTransferCount uint64
+	ObjectsTransferSize  uint64
+
+	ChunksTransferCount uint64
+	ChunksTransferSize  uint64
+
+	FileKind      map[string]uint64
+	FileType      map[string]uint64
+	FileExtension map[string]uint64
+
+	FilePercentKind      map[string]float64
+	FilePercentType      map[string]float64
+	FilePercentExtension map[string]float64
 }
 
 func NewMetadata(indexID uuid.UUID) *Metadata {
@@ -58,7 +68,13 @@ func NewMetadata(indexID uuid.UUID) *Metadata {
 		MachineID:    "",
 		PublicKey:    "",
 
-		Statistics: NewStatistics(),
+		FileKind:      make(map[string]uint64),
+		FileType:      make(map[string]uint64),
+		FileExtension: make(map[string]uint64),
+
+		FilePercentKind:      make(map[string]float64),
+		FilePercentType:      make(map[string]float64),
+		FilePercentExtension: make(map[string]float64),
 	}
 }
 

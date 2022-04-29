@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -120,7 +119,9 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 				if err != nil {
 					return nil, err
 				}
-				fmt.Println("### chunksize: ", nbytes)
+				atomic.AddUint64(&snapshot.Metadata.ChunksTransferCount, uint64(1))
+				atomic.AddUint64(&snapshot.Metadata.ChunksTransferSize, uint64(nbytes))
+
 			}
 			snapshot.Index.AddChunk(&chunk)
 		}
@@ -202,11 +203,13 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 					return
 				}
 				if !exists {
-					_, err = snapshot.PutObject(object)
+					nbytes, err := snapshot.PutObject(object)
 					if err != nil {
 						logger.Warn("%s: failed to store object: %s", _filename, err)
 						return
 					}
+					atomic.AddUint64(&snapshot.Metadata.ObjectsTransferCount, uint64(1))
+					atomic.AddUint64(&snapshot.Metadata.ObjectsTransferSize, uint64(nbytes))
 				}
 			}
 
@@ -229,15 +232,15 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			objectType = "unknown"
 			objectKind = "unknown"
 		}
-		if _, exists := snapshot.Metadata.Statistics.Kind[objectKind]; !exists {
-			snapshot.Metadata.Statistics.Kind[objectKind] = 0
+		if _, exists := snapshot.Metadata.FileKind[objectKind]; !exists {
+			snapshot.Metadata.FileKind[objectKind] = 0
 		}
-		snapshot.Metadata.Statistics.Kind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Metadata.FileKind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 
-		if _, exists := snapshot.Metadata.Statistics.Type[objectType]; !exists {
-			snapshot.Metadata.Statistics.Type[objectType] = 0
+		if _, exists := snapshot.Metadata.FileType[objectType]; !exists {
+			snapshot.Metadata.FileType[objectType] = 0
 		}
-		snapshot.Metadata.Statistics.Type[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Metadata.FileType[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 	}
 
 	for _, key := range snapshot.Index.ListPathnames() {
@@ -245,20 +248,20 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		if extension == "" {
 			extension = "none"
 		}
-		if _, exists := snapshot.Metadata.Statistics.Extension[extension]; !exists {
-			snapshot.Metadata.Statistics.Extension[extension] = 0
+		if _, exists := snapshot.Metadata.FileExtension[extension]; !exists {
+			snapshot.Metadata.FileExtension[extension] = 0
 		}
-		snapshot.Metadata.Statistics.Extension[extension]++
+		snapshot.Metadata.FileExtension[extension]++
 	}
 
-	for key, value := range snapshot.Metadata.Statistics.Type {
-		snapshot.Metadata.Statistics.PercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Metadata.FileType {
+		snapshot.Metadata.FilePercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
-	for key, value := range snapshot.Metadata.Statistics.Kind {
-		snapshot.Metadata.Statistics.PercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Metadata.FileKind {
+		snapshot.Metadata.FilePercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
-	for key, value := range snapshot.Metadata.Statistics.Extension {
-		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Metadata.FileExtension {
+		snapshot.Metadata.FilePercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
 
 	snapshot.Metadata.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))

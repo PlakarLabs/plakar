@@ -203,8 +203,14 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("Files: %d\n", metadata.FilesCount)
 			fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
 			fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
+
 			fmt.Printf("Objects: %d\n", metadata.ObjectsCount)
+			fmt.Printf("ObjectsTransferCount: %d\n", metadata.ObjectsTransferCount)
+			fmt.Printf("ObjectsTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
+
 			fmt.Printf("Chunks: %d\n", metadata.ChunksCount)
+			fmt.Printf("ChunkssTransferCount: %d\n", metadata.ChunksTransferCount)
+			fmt.Printf("ChunksTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
 
 			fmt.Printf("SnapshotSize: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
@@ -249,7 +255,7 @@ func info_plakar(repository *storage.Repository) int {
 	totalIndexSize := uint64(0)
 	totalFilesystemSize := uint64(0)
 	for _, metadata := range metadatas {
-		totalSize += metadata.Size
+		totalSize += metadata.ScanProcessedSize
 		totalIndexSize += metadata.IndexDiskSize
 		totalFilesystemSize += metadata.FilesystemDiskSize
 

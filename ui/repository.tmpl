@@ -59,9 +59,9 @@
                     <td>{{$metadata.Username }}</td>
                     <td>{{$metadata.Hostname }}</td>
                     <td>{{$metadata.CreationTime }}</td>
-                    <td>{{$metadata.Statistics.Directories}}</td>
-                    <td>{{$metadata.Statistics.Files}}</td>
-                    <td>{{humanizeBytes $metadata.Size}}</td>
+                    <td>{{$metadata.DirectoriesCount}}</td>
+                    <td>{{$metadata.FilesCount}}</td>
+                    <td>{{humanizeBytes $metadata.ScanProcessedSize}}</td>
                 </tr>
                 {{end}}
             </tbody>

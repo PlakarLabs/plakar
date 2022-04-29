@@ -69,7 +69,7 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 	}()
 
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 
 	cache.mu_metadatas.Lock()
 	cache.metadatas[key] = data
@@ -87,7 +87,7 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 	}()
 
 	logger.Trace("cache", "%s: PutIndex()", Uuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Index:%s:%s", RepositoryUuid, Uuid)
 
 	cache.mu_indexes.Lock()
 	cache.indexes[key] = data
@@ -105,7 +105,7 @@ func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byt
 	}()
 
 	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Filesystem:%s:%s", RepositoryUuid, Uuid)
 
 	cache.mu_filesystems.Lock()
 	cache.filesystems[key] = data
@@ -123,7 +123,7 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 	}()
 	logger.Trace("cache", "%s: GetMetadata()", Uuid)
 
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 	cache.mu_metadatas.Lock()
 	ret, exists := cache.metadatas[key]
 	cache.mu_metadatas.Unlock()
@@ -146,7 +146,7 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: GetIndex()", Uuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Index:%s:%s", RepositoryUuid, Uuid)
 	cache.mu_indexes.Lock()
 	ret, exists := cache.indexes[key]
 	cache.mu_indexes.Unlock()
@@ -170,7 +170,7 @@ func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, e
 	}()
 	logger.Trace("cache", "%s: GetFilesystem()", Uuid)
 
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Filesystem:%s:%s", RepositoryUuid, Uuid)
 	cache.mu_filesystems.Lock()
 	ret, exists := cache.filesystems[key]
 	cache.mu_filesystems.Unlock()
@@ -192,7 +192,7 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 		profiler.RecordEvent("cache.PutPath", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
+	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
 
 	cache.mu_pathnames.Lock()
 	cache.pathnames[key] = data
@@ -210,7 +210,7 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 	}()
 	logger.Trace("cache", "%s: GetPath()", RepositoryUuid)
 
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
+	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
 	cache.mu_pathnames.Lock()
 	ret, exists := cache.pathnames[key]
 	cache.mu_pathnames.Unlock()
@@ -232,7 +232,7 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 		profiler.RecordEvent("cache.PutObject", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
+	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
 
 	cache.mu_objects.Lock()
 	cache.objects[key] = data
@@ -250,7 +250,7 @@ func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, e
 	}()
 	logger.Trace("cache", "%s: GetObject()", RepositoryUuid)
 
-	key := fmt.Sprintf("%s:%s", RepositoryUuid, checksum)
+	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
 	cache.mu_objects.Lock()
 	ret, exists := cache.objects[key]
 	cache.mu_objects.Unlock()

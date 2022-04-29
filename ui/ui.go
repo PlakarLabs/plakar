@@ -185,7 +185,7 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 	res := make([]*snapshot.Metadata, 0)
 	for _, metadata := range metadatas {
 		res = append(res, metadata)
-		totalFiles += metadata.Statistics.Files
+		totalFiles += metadata.FilesCount
 
 		for key, value := range metadata.Statistics.Kind {
 			if _, exists := kinds[key]; !exists {

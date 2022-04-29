@@ -9,8 +9,10 @@ import (
 )
 
 type Metadata struct {
-	IndexID         uuid.UUID
-	CreationTime    time.Time
+	IndexID          uuid.UUID
+	CreationTime     time.Time
+	CreationDuration time.Duration
+
 	Version         string
 	Hostname        string
 	Username        string
@@ -18,15 +20,29 @@ type Metadata struct {
 	OperatingSystem string
 	MachineID       string
 	PublicKey       string
-	Size            uint64
 
-	IndexChecksum      []byte
-	FilesystemChecksum []byte
+	Size uint64
+
+	ScannedSize uint64
+	SavedSize   uint64
 
 	ScannedDirectories []string
 
-	IndexSize      uint64
-	FilesystemSize uint64
+	IndexChecksum   []byte
+	IndexDiskSize   uint64
+	IndexMemorySize uint64
+
+	FilesystemChecksum   []byte
+	FilesystemDiskSize   uint64
+	FilesystemMemorySize uint64
+
+	ChunksCount  uint64
+	ObjectsCount uint64
+
+	FilesCount       uint64
+	DirectoriesCount uint64
+	NonRegularCount  uint64
+	PathnamesCount   uint64
 
 	Statistics *Statistics
 }

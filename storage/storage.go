@@ -32,7 +32,7 @@ import (
 	"github.com/poolpOrg/plakar/profiler"
 )
 
-const VERSION string = "0.2.0"
+const VERSION string = "0.2.1"
 
 type RepositoryConfig struct {
 	CreationTime time.Time

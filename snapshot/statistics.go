@@ -1,18 +1,6 @@
 package snapshot
 
-import (
-	"time"
-)
-
 type Statistics struct {
-	Duration    time.Duration
-	Chunks      uint64
-	Objects     uint64
-	Files       uint64
-	Directories uint64
-	NonRegular  uint64
-	Pathnames   uint64
-
 	Kind      map[string]uint64
 	Type      map[string]uint64
 	Extension map[string]uint64
@@ -24,11 +12,6 @@ type Statistics struct {
 
 func NewStatistics() *Statistics {
 	return &Statistics{
-		Chunks:      0,
-		Objects:     0,
-		Files:       0,
-		Directories: 0,
-
 		Kind:      make(map[string]uint64),
 		Type:      make(map[string]uint64),
 		Extension: make(map[string]uint64),

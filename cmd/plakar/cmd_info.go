@@ -190,6 +190,8 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, metadata := range metadatas {
 			fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
 			fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
+			fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
+
 			fmt.Printf("Version: %s\n", metadata.Version)
 			fmt.Printf("Hostname: %s\n", metadata.Hostname)
 			fmt.Printf("Username: %s\n", metadata.Username)
@@ -197,18 +199,22 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
 			fmt.Printf("MachineID: %s\n", metadata.MachineID)
 			fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
-			fmt.Printf("Directories: %d\n", metadata.Statistics.Directories)
-			fmt.Printf("Files: %d\n", metadata.Statistics.Files)
-			fmt.Printf("NonRegular: %d\n", metadata.Statistics.NonRegular)
-			fmt.Printf("Pathnames: %d\n", metadata.Statistics.Pathnames)
-			fmt.Printf("Objects: %d\n", metadata.Statistics.Objects)
-			fmt.Printf("Chunks: %d\n", metadata.Statistics.Chunks)
-			fmt.Printf("Duration: %s\n", metadata.Statistics.Duration)
-			fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(metadata.Size), metadata.Size)
-			fmt.Printf("Index Checksum: %064x\n", metadata.IndexChecksum)
-			fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.Size)
-			fmt.Printf("Filesystem Checksum: %064x\n", metadata.FilesystemChecksum)
-			fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
+			fmt.Printf("Directories: %d\n", metadata.DirectoriesCount)
+			fmt.Printf("Files: %d\n", metadata.FilesCount)
+			fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
+			fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
+			fmt.Printf("Objects: %d\n", metadata.ObjectsCount)
+			fmt.Printf("Chunks: %d\n", metadata.ChunksCount)
+
+			fmt.Printf("SnapshotSize: %s (%d bytes)\n", humanize.Bytes(metadata.SavedSize), metadata.SavedSize)
+
+			fmt.Printf("MappingIndexChecksum: %064x\n", metadata.IndexChecksum)
+			fmt.Printf("MappingIndexDiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexDiskSize), metadata.IndexDiskSize)
+			fmt.Printf("MappingIndexMemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexMemorySize), metadata.IndexMemorySize)
+
+			fmt.Printf("FilesystemIndexChecksum: %064x\n", metadata.FilesystemChecksum)
+			fmt.Printf("FilesystemIndexDiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemDiskSize), metadata.FilesystemDiskSize)
+			fmt.Printf("FilesystemIndexMemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemMemorySize), metadata.FilesystemMemorySize)
 
 		}
 	}
@@ -241,12 +247,16 @@ func info_plakar(repository *storage.Repository) int {
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)
 	totalIndexSize := uint64(0)
+	totalFilesystemSize := uint64(0)
 	for _, metadata := range metadatas {
 		totalSize += metadata.Size
-		totalIndexSize += metadata.IndexSize
+		totalIndexSize += metadata.IndexDiskSize
+		totalFilesystemSize += metadata.FilesystemDiskSize
+
 	}
 	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
 	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)
+	fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(totalFilesystemSize), totalFilesystemSize)
 
 	return 0
 }

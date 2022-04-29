@@ -282,7 +282,7 @@ func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetIndexes()
 }
 
-func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
+func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutChunk", time.Since(t0))
@@ -298,14 +298,19 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		buffer = tmp
 	}
-	return snapshot.repository.PutChunk(checksum, buffer)
+
+	err := snapshot.repository.PutChunk(checksum, buffer)
+	if err != nil {
+		return 0, err
+	}
+	return len(buffer), nil
 }
 
-func (snapshot *Snapshot) PutObject(object *Object) error {
+func (snapshot *Snapshot) PutObject(object *Object) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
@@ -314,7 +319,7 @@ func (snapshot *Snapshot) PutObject(object *Object) error {
 
 	data, err := msgpack.Marshal(object)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	secret := snapshot.repository.GetSecret()
@@ -327,14 +332,19 @@ func (snapshot *Snapshot) PutObject(object *Object) error {
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		buffer = tmp
 	}
-	return snapshot.repository.PutObject(object.Checksum, buffer)
+
+	err = snapshot.repository.PutObject(object.Checksum, buffer)
+	if err != nil {
+		return 0, err
+	}
+	return len(buffer), nil
 }
 
-func (snapshot *Snapshot) PutMetadata(data []byte) error {
+func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutMetadata", time.Since(t0))
@@ -352,7 +362,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		buffer = tmp
 	}
@@ -360,10 +370,16 @@ func (snapshot *Snapshot) PutMetadata(data []byte) error {
 	if cache != nil {
 		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
-	return snapshot.transaction.PutMetadata(buffer)
+
+	err := snapshot.transaction.PutMetadata(buffer)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(buffer), nil
 }
 
-func (snapshot *Snapshot) PutIndex(data []byte) error {
+func (snapshot *Snapshot) PutIndex(data []byte) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutIndex", time.Since(t0))
@@ -382,7 +398,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		buffer = tmp
 	}
@@ -391,10 +407,14 @@ func (snapshot *Snapshot) PutIndex(data []byte) error {
 		cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
-	return snapshot.transaction.PutIndex(buffer)
+	err := snapshot.transaction.PutIndex(buffer)
+	if err != nil {
+		return 0, err
+	}
+	return len(buffer), nil
 }
 
-func (snapshot *Snapshot) PutFilesystem(data []byte) error {
+func (snapshot *Snapshot) PutFilesystem(data []byte) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutFilesystem", time.Since(t0))
@@ -413,7 +433,7 @@ func (snapshot *Snapshot) PutFilesystem(data []byte) error {
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		buffer = tmp
 	}
@@ -422,7 +442,11 @@ func (snapshot *Snapshot) PutFilesystem(data []byte) error {
 		cache.PutFilesystem(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
-	return snapshot.transaction.PutFilesystem(buffer)
+	err := snapshot.transaction.PutFilesystem(buffer)
+	if err != nil {
+		return 0, err
+	}
+	return len(buffer), nil
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
@@ -520,35 +544,33 @@ func (snapshot *Snapshot) Commit() error {
 	if err != nil {
 		return err
 	}
+	nbytes, err := snapshot.PutIndex(serializedIndex)
+	if err != nil {
+		return err
+	}
 	indexChecksum := sha256.Sum256(serializedIndex)
 	snapshot.Metadata.IndexChecksum = indexChecksum[:]
+	snapshot.Metadata.IndexMemorySize = uint64(len(serializedIndex))
+	snapshot.Metadata.IndexDiskSize = uint64(nbytes)
 
 	serializedFilesystem, err := snapshot.Filesystem.Serialize()
 	if err != nil {
 		return err
 	}
+	nbytes, err = snapshot.PutFilesystem(serializedFilesystem)
+	if err != nil {
+		return err
+	}
 	filesystemChecksum := sha256.Sum256(serializedFilesystem)
 	snapshot.Metadata.FilesystemChecksum = filesystemChecksum[:]
-
-	snapshot.Metadata.IndexSize = uint64(len(serializedIndex))
-	snapshot.Metadata.FilesystemSize = uint64(len(serializedFilesystem))
+	snapshot.Metadata.FilesystemMemorySize = uint64(len(serializedFilesystem))
+	snapshot.Metadata.FilesystemDiskSize = uint64(nbytes)
 
 	serializedMetadata, err := snapshot.Metadata.Serialize()
 	if err != nil {
 		return err
 	}
-
-	err = snapshot.PutMetadata(serializedMetadata)
-	if err != nil {
-		return err
-	}
-
-	err = snapshot.PutIndex(serializedIndex)
-	if err != nil {
-		return err
-	}
-
-	err = snapshot.PutFilesystem(serializedFilesystem)
+	_, err = snapshot.PutMetadata(serializedMetadata)
 	if err != nil {
 		return err
 	}

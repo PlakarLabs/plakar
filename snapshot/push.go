@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -115,10 +116,11 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			}
 
 			if !exists {
-				err = snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+				nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
 				if err != nil {
 					return nil, err
 				}
+				fmt.Println("### chunksize: ", nbytes)
 			}
 			snapshot.Index.AddChunk(&chunk)
 		}
@@ -166,6 +168,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
 			}
+			atomic.AddUint64(&snapshot.Metadata.ScannedSize, uint64(fileinfo.Size))
 
 			var object *Object
 			object, err := pathnameCached(snapshot, *fileinfo, _filename)
@@ -199,7 +202,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 					return
 				}
 				if !exists {
-					err = snapshot.PutObject(object)
+					_, err = snapshot.PutObject(object)
 					if err != nil {
 						logger.Warn("%s: failed to store object: %s", _filename, err)
 						return
@@ -209,15 +212,15 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			snapshot.Index.AddObject(object)
 			snapshot.Index.LinkPathnameToObject(_filename, object)
-			atomic.AddUint64(&snapshot.Metadata.Size, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.SavedSize, uint64(fileinfo.Size))
 		}(filename)
 	}
 	wg.Wait()
 
-	snapshot.Metadata.Statistics.Chunks = uint64(len(snapshot.Index.ListChunks()))
-	snapshot.Metadata.Statistics.Objects = uint64(len(snapshot.Index.ListObjects()))
-	snapshot.Metadata.Statistics.Files = uint64(len(snapshot.Filesystem.ListFiles()))
-	snapshot.Metadata.Statistics.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
+	snapshot.Metadata.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
+	snapshot.Metadata.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
+	snapshot.Metadata.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
+	snapshot.Metadata.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
 
 	for _, key := range snapshot.Index.ListContentTypes() {
 		objectType := strings.Split(key, ";")[0]
@@ -249,19 +252,19 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	}
 
 	for key, value := range snapshot.Metadata.Statistics.Type {
-		snapshot.Metadata.Statistics.PercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+		snapshot.Metadata.Statistics.PercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
 	for key, value := range snapshot.Metadata.Statistics.Kind {
-		snapshot.Metadata.Statistics.PercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+		snapshot.Metadata.Statistics.PercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
 	for key, value := range snapshot.Metadata.Statistics.Extension {
-		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.Statistics.Files)*100)*100) / 100
+		snapshot.Metadata.Statistics.PercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
 	}
 
-	snapshot.Metadata.Statistics.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	snapshot.Metadata.Statistics.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
+	snapshot.Metadata.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))
+	snapshot.Metadata.PathnamesCount = uint64(len(snapshot.Index.ListPathnames()))
 
-	snapshot.Metadata.Statistics.Duration = time.Since(t0)
+	snapshot.Metadata.CreationDuration = time.Since(t0)
 
 	err := snapshot.Commit()
 	if err != nil {

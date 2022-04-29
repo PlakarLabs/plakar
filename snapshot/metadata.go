@@ -23,8 +23,8 @@ type Metadata struct {
 
 	Size uint64
 
-	ScannedSize uint64
-	SavedSize   uint64
+	ScanSize          uint64
+	ScanProcessedSize uint64
 
 	ScannedDirectories []string
 

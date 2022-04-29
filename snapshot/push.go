@@ -168,7 +168,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
 			}
-			atomic.AddUint64(&snapshot.Metadata.ScannedSize, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size))
 
 			var object *Object
 			object, err := pathnameCached(snapshot, *fileinfo, _filename)
@@ -212,7 +212,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 			snapshot.Index.AddObject(object)
 			snapshot.Index.LinkPathnameToObject(_filename, object)
-			atomic.AddUint64(&snapshot.Metadata.SavedSize, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size))
 		}(filename)
 	}
 	wg.Wait()

@@ -206,7 +206,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("Objects: %d\n", metadata.ObjectsCount)
 			fmt.Printf("Chunks: %d\n", metadata.ChunksCount)
 
-			fmt.Printf("SnapshotSize: %s (%d bytes)\n", humanize.Bytes(metadata.SavedSize), metadata.SavedSize)
+			fmt.Printf("SnapshotSize: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
 			fmt.Printf("MappingIndexChecksum: %064x\n", metadata.IndexChecksum)
 			fmt.Printf("MappingIndexDiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexDiskSize), metadata.IndexDiskSize)

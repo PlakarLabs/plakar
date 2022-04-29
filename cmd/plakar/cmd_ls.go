@@ -70,14 +70,14 @@ func list_snapshots(repository *storage.Repository, useUuid bool) {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				metadata.GetIndexShortID(),
-				humanize.Bytes(metadata.SavedSize),
+				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))
 		} else {
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				metadata.GetIndexID(),
-				humanize.Bytes(metadata.SavedSize),
+				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))
 		}

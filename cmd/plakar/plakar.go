@@ -252,7 +252,7 @@ func entryPoint() int {
 		logger.Warn("could not close repository: %s", err)
 	}
 
-	if !opt_nocache {
+	if ctx.Cache != nil {
 		ctx.Cache.Commit()
 	}
 

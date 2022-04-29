@@ -2,7 +2,6 @@ package cache
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -48,7 +47,8 @@ func New(cacheDir string) *Cache {
 
 	db, err := leveldb.OpenFile(fmt.Sprintf("%s/cache.db", cacheDir), nil)
 	if err != nil {
-		log.Fatal(err)
+		logger.Warn("could not open cache, bypassing: %s", err)
+		return nil
 	}
 
 	cache := &Cache{}

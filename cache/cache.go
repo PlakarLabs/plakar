@@ -74,6 +74,7 @@ func New(cacheDir string) *Cache {
 	}
 	defer statement.Close()
 	statement.Exec()
+	conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_metadatas ON metadatas(repository,uuid)")
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
 		"repository"	UUID,
@@ -85,6 +86,7 @@ func New(cacheDir string) *Cache {
 	}
 	defer statement.Close()
 	statement.Exec()
+	conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_indexes ON indexes(repository,uuid)")
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
 		"repository"	UUID,
@@ -96,6 +98,7 @@ func New(cacheDir string) *Cache {
 	}
 	defer statement.Close()
 	statement.Exec()
+	conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_indexes ON filesystems(repository,uuid)")
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
 		"repository"	UUID,
@@ -107,6 +110,7 @@ func New(cacheDir string) *Cache {
 	}
 	defer statement.Close()
 	statement.Exec()
+	conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_objects ON objects(repository,checksum)")
 
 	statement, err = conn.Prepare(`CREATE TABLE IF NOT EXISTS pathnames (
 		"repository"	UUID,
@@ -118,6 +122,7 @@ func New(cacheDir string) *Cache {
 	}
 	defer statement.Close()
 	statement.Exec()
+	conn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_pathnames ON objects(repository,checksum)")
 
 	return cache
 }
@@ -130,7 +135,6 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
-	defer cache.mu_metadatas.Unlock()
 	cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
 	if cache.putMetadataStmt == nil {
 		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("repository", "uuid", "blob") VALUES(?, ?, ?)`)
@@ -139,6 +143,8 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 		}
 		cache.putMetadataStmt = stmt
 	}
+	cache.mu_metadatas.Unlock()
+
 	cache.putMetadataStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
@@ -151,10 +157,7 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 
 	logger.Trace("cache", "%s: PutIndex()", Uuid)
 	cache.mu_indexes.Lock()
-	defer cache.mu_indexes.Unlock()
-
 	cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-
 	if cache.putIndexStmt == nil {
 		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("repository", "uuid", "blob") VALUES(?, ?, ?)`)
 		if err != nil {
@@ -162,6 +165,8 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 		}
 		cache.putIndexStmt = stmt
 	}
+	cache.mu_indexes.Unlock()
+
 	cache.putIndexStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
@@ -174,9 +179,7 @@ func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byt
 
 	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
 	cache.mu_filesystems.Lock()
-	defer cache.mu_filesystems.Unlock()
 	cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-
 	if cache.putFilesystemStmt == nil {
 		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO filesystems("repository", "uuid", "blob") VALUES(?, ?, ?)`)
 		if err != nil {
@@ -184,6 +187,8 @@ func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byt
 		}
 		cache.putFilesystemStmt = stmt
 	}
+	cache.mu_filesystems.Unlock()
+
 	cache.putFilesystemStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
@@ -258,7 +263,6 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 	}()
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
-	defer cache.mu_pathnames.Unlock()
 
 	cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
 
@@ -269,6 +273,8 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 		}
 		cache.putPathnameStmt = stmt
 	}
+	cache.mu_pathnames.Unlock()
+
 	cache.putPathnameStmt.Exec(RepositoryUuid, checksum, data)
 	return nil
 }
@@ -301,9 +307,7 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 	}()
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
-	defer cache.mu_objects.Unlock()
 	cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
-
 	if cache.putObjectStmt == nil {
 		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO objects("repository", "checksum", "blob") VALUES(?, ?, ?)`)
 		if err != nil {
@@ -311,6 +315,8 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 		}
 		cache.putObjectStmt = stmt
 	}
+	cache.mu_objects.Unlock()
+
 	cache.putObjectStmt.Exec(RepositoryUuid, checksum, data)
 
 	return nil

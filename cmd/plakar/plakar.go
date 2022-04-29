@@ -183,11 +183,6 @@ func entryPoint() int {
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
-	if !opt_nocache {
-		cache.Create(opt_cachedir)
-		ctx.Cache = cache.New(opt_cachedir)
-	}
-
 	// cmd_create must be ran after workdir.New() but before other commands
 	if command == "create" {
 		return cmd_create(ctx, args)
@@ -195,6 +190,11 @@ func entryPoint() int {
 
 	if command == "stdio" {
 		return cmd_stdio(ctx, args)
+	}
+
+	if !opt_nocache {
+		cache.Create(opt_cachedir)
+		ctx.Cache = cache.New(opt_cachedir)
 	}
 
 	repository, err := storage.Open(ctx.Repository)

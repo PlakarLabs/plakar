@@ -35,6 +35,7 @@ type Metadata struct {
 	FilesystemMemorySize uint64
 
 	ChunksCount  uint64
+	ChunksSize   uint64
 	ObjectsCount uint64
 
 	FilesCount       uint64

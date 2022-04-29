@@ -225,6 +225,10 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 	snapshot.Metadata.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
 	snapshot.Metadata.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
 
+	for _, chunk := range snapshot.Index.Chunks {
+		atomic.AddUint64(&snapshot.Metadata.ChunksSize, uint64(chunk.Length))
+	}
+
 	for _, key := range snapshot.Index.ListContentTypes() {
 		objectType := strings.Split(key, ";")[0]
 		objectKind := strings.Split(key, "/")[0]

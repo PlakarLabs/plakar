@@ -209,6 +209,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("ObjectsTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
 
 			fmt.Printf("Chunks: %d\n", metadata.ChunksCount)
+			fmt.Printf("ChunksSize: %d\n", metadata.ChunksSize)
 			fmt.Printf("ChunkssTransferCount: %d\n", metadata.ChunksTransferCount)
 			fmt.Printf("ChunksTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
 

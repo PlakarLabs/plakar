@@ -6,9 +6,11 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/profiler"
 )
 
 type Cache struct {
@@ -36,10 +38,19 @@ type Cache struct {
 }
 
 func Create(localdir string) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.Create", time.Since(t0))
+	}()
 	return os.MkdirAll(localdir, 0700)
 }
 
 func New(cacheDir string) *Cache {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.New", time.Since(t0))
+	}()
+
 	conn, err := sql.Open("sqlite3", fmt.Sprintf("%s/cache.db", cacheDir))
 	if err != nil {
 		log.Fatal(err)
@@ -112,6 +123,11 @@ func New(cacheDir string) *Cache {
 }
 
 func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.PutMetadata", time.Since(t0))
+	}()
+
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
 	defer cache.mu_metadatas.Unlock()
@@ -128,6 +144,11 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 }
 
 func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.PutIndex", time.Since(t0))
+	}()
+
 	logger.Trace("cache", "%s: PutIndex()", Uuid)
 	cache.mu_indexes.Lock()
 	defer cache.mu_indexes.Unlock()
@@ -146,6 +167,11 @@ func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) er
 }
 
 func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.PutFilesystem", time.Since(t0))
+	}()
+
 	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
 	cache.mu_filesystems.Lock()
 	defer cache.mu_filesystems.Unlock()
@@ -163,6 +189,10 @@ func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byt
 }
 
 func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetMetadata", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: GetMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
 	ret, exists := cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
@@ -180,6 +210,10 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 }
 
 func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: GetIndex()", Uuid)
 	cache.mu_indexes.Lock()
 	ret, exists := cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
@@ -197,6 +231,10 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 }
 
 func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetFilesystem", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: GetFilesystem()", Uuid)
 	cache.mu_filesystems.Lock()
 	ret, exists := cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)]
@@ -214,6 +252,10 @@ func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, e
 }
 
 func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.PutPath", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
 	defer cache.mu_pathnames.Unlock()
@@ -232,6 +274,10 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 }
 
 func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetPath", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: GetPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
 	ret, exists := cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
@@ -249,6 +295,10 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 }
 
 func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.PutObject", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
 	defer cache.mu_objects.Unlock()
@@ -267,6 +317,10 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 }
 
 func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetObject", time.Since(t0))
+	}()
 	logger.Trace("cache", "%s: GetObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
 	ret, exists := cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)]
@@ -284,6 +338,11 @@ func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, e
 }
 
 func (cache *Cache) Commit() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.Commit", time.Since(t0))
+	}()
+
 	logger.Trace("cache", "Commit()")
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -15,20 +14,25 @@ import (
 type Cache struct {
 	conn *sql.DB
 
-	mu_metadatas sync.Mutex
-	metadatas    map[string][]byte
+	mu_metadatas    sync.Mutex
+	metadatas       map[string][]byte
+	putMetadataStmt *sql.Stmt
 
-	mu_indexes sync.Mutex
-	indexes    map[string][]byte
+	mu_indexes   sync.Mutex
+	indexes      map[string][]byte
+	putIndexStmt *sql.Stmt
 
-	mu_filesystems sync.Mutex
-	filesystems    map[string][]byte
+	mu_filesystems    sync.Mutex
+	filesystems       map[string][]byte
+	putFilesystemStmt *sql.Stmt
 
-	mu_pathnames sync.Mutex
-	pathnames    map[string][]byte
+	mu_pathnames    sync.Mutex
+	pathnames       map[string][]byte
+	putPathnameStmt *sql.Stmt
 
-	mu_objects sync.Mutex
-	objects    map[string][]byte
+	mu_objects    sync.Mutex
+	objects       map[string][]byte
+	putObjectStmt *sql.Stmt
 }
 
 func Create(localdir string) error {
@@ -110,24 +114,51 @@ func New(cacheDir string) *Cache {
 func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
 	cache.mu_metadatas.Lock()
+	defer cache.mu_metadatas.Unlock()
 	cache.metadatas[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-	cache.mu_metadatas.Unlock()
+	if cache.putMetadataStmt == nil {
+		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("repository", "uuid", "blob") VALUES(?, ?, ?)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache.putMetadataStmt = stmt
+	}
+	cache.putMetadataStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
 
 func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) error {
 	logger.Trace("cache", "%s: PutIndex()", Uuid)
 	cache.mu_indexes.Lock()
+	defer cache.mu_indexes.Unlock()
+
 	cache.indexes[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-	cache.mu_indexes.Unlock()
+
+	if cache.putIndexStmt == nil {
+		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("repository", "uuid", "blob") VALUES(?, ?, ?)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache.putIndexStmt = stmt
+	}
+	cache.putIndexStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
 
 func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byte) error {
 	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
 	cache.mu_filesystems.Lock()
+	defer cache.mu_filesystems.Unlock()
 	cache.filesystems[fmt.Sprintf("%s:%s", RepositoryUuid, Uuid)] = data
-	cache.mu_filesystems.Unlock()
+
+	if cache.putFilesystemStmt == nil {
+		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO filesystems("repository", "uuid", "blob") VALUES(?, ?, ?)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache.putFilesystemStmt = stmt
+	}
+	cache.putFilesystemStmt.Exec(RepositoryUuid, Uuid, data)
 	return nil
 }
 
@@ -185,8 +216,18 @@ func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, e
 func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte) error {
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
 	cache.mu_pathnames.Lock()
+	defer cache.mu_pathnames.Unlock()
+
 	cache.pathnames[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
-	cache.mu_pathnames.Unlock()
+
+	if cache.putPathnameStmt == nil {
+		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("repository", "checksum", "blob") VALUES(?, ?, ?)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache.putPathnameStmt = stmt
+	}
+	cache.putPathnameStmt.Exec(RepositoryUuid, checksum, data)
 	return nil
 }
 
@@ -210,8 +251,18 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byte) error {
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
 	cache.mu_objects.Lock()
+	defer cache.mu_objects.Unlock()
 	cache.objects[fmt.Sprintf("%s:%s", RepositoryUuid, checksum)] = data
-	cache.mu_objects.Unlock()
+
+	if cache.putObjectStmt == nil {
+		stmt, err := cache.conn.Prepare(`INSERT OR REPLACE INTO objects("repository", "checksum", "blob") VALUES(?, ?, ?)`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache.putObjectStmt = stmt
+	}
+	cache.putObjectStmt.Exec(RepositoryUuid, checksum, data)
+
 	return nil
 }
 
@@ -237,49 +288,30 @@ func (cache *Cache) Commit() error {
 	// XXX - to handle parallel use, New() needs to open a read-only version of the database
 	// and Commit needs to re-open for writes so that cache.db is not locked for too long.
 	//
-	statement, err := cache.conn.Prepare(`INSERT OR REPLACE INTO pathnames("repository", "checksum", "blob") VALUES(?, ?, ?)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for key, data := range cache.pathnames {
-		atoms := strings.Split(key, ":")
-		repository, checksum := atoms[0], atoms[1]
-		statement.Exec(repository, checksum, data)
-	}
-	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO metadatas("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-	if err != nil {
-		log.Fatal(err)
+	if cache.putMetadataStmt != nil {
+		cache.putMetadataStmt.Close()
 	}
-	for key, data := range cache.metadatas {
-		atoms := strings.Split(key, ":")
-		repository, id := atoms[0], atoms[1]
-		statement.Exec(repository, id, data)
-	}
-	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO indexes("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-	if err != nil {
-		log.Fatal(err)
+	if cache.putIndexStmt != nil {
+		cache.putIndexStmt.Close()
 	}
-	for key, data := range cache.indexes {
-		atoms := strings.Split(key, ":")
-		repository, id := atoms[0], atoms[1]
-		statement.Exec(repository, id, data)
-	}
-	statement.Close()
 
-	statement, err = cache.conn.Prepare(`INSERT OR REPLACE INTO filesystems("repository", "uuid", "blob") VALUES(?, ?, ?)`)
-	if err != nil {
-		log.Fatal(err)
+	if cache.putFilesystemStmt != nil {
+		cache.putFilesystemStmt.Close()
 	}
-	for key, data := range cache.filesystems {
-		atoms := strings.Split(key, ":")
-		repository, id := atoms[0], atoms[1]
-		statement.Exec(repository, id, data)
+
+	if cache.putFilesystemStmt != nil {
+		cache.putFilesystemStmt.Close()
 	}
-	statement.Close()
+
+	if cache.putPathnameStmt != nil {
+		cache.putPathnameStmt.Close()
+	}
+
+	if cache.putObjectStmt != nil {
+		cache.putObjectStmt.Close()
+	}
 
 	cache.conn.Close()
 

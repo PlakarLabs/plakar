@@ -40,6 +40,8 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
+	cloneRepositoryName := flags.Arg(0)
+
 	sourceRepository := repository
 	repositoryConfig := sourceRepository.Configuration()
 
@@ -70,7 +72,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 		err = cloneRepository.PutMetadata(indexID, metadataBytes)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
 			return 1
 		}
 
@@ -81,7 +83,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 		err = cloneRepository.PutIndex(indexID, indexBytes)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
 		}
 
@@ -92,13 +94,13 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 		err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
 		}
 
 		sourceSnapshot, err := snapshot.Load(sourceRepository, indexID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not load index %s: %s\n", repository, indexID, err)
+			fmt.Fprintf(os.Stderr, "%s: could not load index %s: %s\n", cloneRepositoryName, indexID, err)
 			return 1
 		}
 
@@ -112,7 +114,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 				err = cloneRepository.PutChunk(chunkID, data)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", repository, err)
+					fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", cloneRepositoryName, err)
 					return 1
 				}
 				chunkChecksum[chunkID] = true
@@ -130,7 +132,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 				err = cloneRepository.PutObject(objectID, data)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", repository, err)
+					fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
 					return 1
 				}
 				objectChecksum[objectID] = true

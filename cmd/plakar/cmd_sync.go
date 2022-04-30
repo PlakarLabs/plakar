@@ -132,7 +132,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		copySnapshot, err := snapshot.New(dstRepository, indexID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", syncRepository, err)
 			return 1
 		}
 
@@ -158,7 +158,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					}
 					_, err = copySnapshot.PutChunk(chunkID, data)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", repository, err)
+						fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", syncRepository, err)
 						return 1
 					}
 				}
@@ -183,7 +183,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					}
 					_, err = copySnapshot.PutObject(object)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", repository, err)
+						fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)
 						return 1
 					}
 				}
@@ -193,7 +193,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 		err = copySnapshot.Commit()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not commit object to repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not commit object to repository: %s\n", syncRepository, err)
 			return 1
 		}
 	}

@@ -70,7 +70,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 		err = cloneRepository.PutMetadata(indexID, metadataBytes)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", flags.Arg(1), err)
 			return 1
 		}
 

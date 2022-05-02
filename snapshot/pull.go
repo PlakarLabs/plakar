@@ -17,8 +17,8 @@ import (
 
 func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showProgress bool) {
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*4+1)
-	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*4+1)
+	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	var dest string
 
 	dpattern := path.Clean(pattern)

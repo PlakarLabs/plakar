@@ -28,6 +28,7 @@ func NewProgress(name string, description string) chan int64 {
 		}
 		bar.Finish()
 		bar.Close()
+		fmt.Println()
 	}()
 	return inputChannel
 }
@@ -53,6 +54,7 @@ func NewProgressCount(name string, description string, total int64) chan int64 {
 		}
 		bar.Finish()
 		bar.Close()
+		fmt.Println()
 	}()
 	return inputChannel
 }

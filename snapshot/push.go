@@ -296,20 +296,10 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 
 	snapshot.Metadata.CreationDuration = time.Since(t0)
 
-	if showProgress {
-		c = progress.NewProgress("push", "committing")
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 	err := snapshot.Commit()
 	if err != nil {
 		logger.Warn("could not commit snapshot: %s", err)
 	}
-	close(c)
 
 	return err
 }

@@ -7,17 +7,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/progress"
 )
 
-func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
+func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showProgress bool) {
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, 1)
-	maxFilesConcurrency := make(chan bool, 1)
-	//maxChunksConcurrency := make(chan bool, 1024)
+	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*4+1)
+	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*4+1)
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -39,6 +40,17 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		}
 	}
 
+	var c chan int64
+	if showProgress {
+		c = progress.NewProgressCount("pull", "restoring directories", int64(len(snapshot.Filesystem.ListDirectories())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
+
 	directoriesCount := 0
 	for _, directory := range snapshot.Filesystem.ListDirectories() {
 		if dpattern != "" {
@@ -53,6 +65,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
+			c <- 1
 			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
@@ -69,6 +82,17 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		}(directory)
 	}
 	wg.Wait()
+	close(c)
+
+	if showProgress {
+		c = progress.NewProgressCount("pull", "restoring files", int64(len(snapshot.Filesystem.ListFiles())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 
 	filesCount := 0
 	var filesSize uint64 = 0
@@ -84,6 +108,8 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
+
+			c <- 1
 			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
@@ -140,4 +166,5 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		}(filename)
 	}
 	wg.Wait()
+	close(c)
 }

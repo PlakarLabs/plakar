@@ -33,7 +33,9 @@ func init() {
 }
 
 func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_progress bool
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
+	flags.BoolVar(&opt_progress, "progress", false, "display progress bar")
 	flags.Parse(args)
 
 	dir, err := os.Getwd()
@@ -55,9 +57,9 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	snap.Metadata.CommandLine = ctx.CommandLine
 
 	if flags.NArg() == 0 {
-		err = snap.Push([]string{dir})
+		err = snap.Push([]string{dir}, opt_progress)
 	} else {
-		err = snap.Push(flags.Args())
+		err = snap.Push(flags.Args(), opt_progress)
 	}
 
 	if err != nil {

@@ -132,7 +132,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
 	filesystem.muStat.Unlock()
 }
 
-func (filesystem *Filesystem) Scan(directory string, skip []string) error {
+func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []string) error {
 	directory = filepath.Clean(directory)
 	for _, scanned := range filesystem.scannedDirectories {
 		if scanned == directory {
@@ -195,7 +195,7 @@ func (filesystem *Filesystem) Scan(directory string, skip []string) error {
 				filesystem.muSymlinks.Unlock()
 			}
 		}
-
+		c <- 1
 		return nil
 	})
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/progress"
 )
 
 type objectMsg struct {
@@ -133,7 +134,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDirs []string) error {
+func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -143,6 +144,16 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	cache := snapshot.repository.Cache
 
+	var c chan int64
+	if showProgress {
+		c = progress.NewProgress("push", "scanning filesystem")
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	snapshot.Metadata.ScannedDirectories = make([]string, 0)
 	for _, scanDir := range scanDirs {
 		scanDir, err := filepath.Abs(scanDir)
@@ -151,12 +162,22 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 			return err
 		}
 		snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, scanDir)
-		err = snapshot.Filesystem.Scan(scanDir, snapshot.SkipDirs)
+		err = snapshot.Filesystem.Scan(c, scanDir, snapshot.SkipDirs)
 		if err != nil {
 			logger.Warn("%s", err)
 		}
 	}
+	close(c)
 
+	if showProgress {
+		c = progress.NewProgressBytes("push", "pushing snapshot", int64(snapshot.Filesystem.Size()))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	for _, filename := range snapshot.Filesystem.ListFiles() {
 		maxConcurrency <- true
 		wg.Add(1)
@@ -169,6 +190,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
 			}
+			c <- fileinfo.Size
 			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size))
 
 			var object *Object
@@ -219,6 +241,7 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 		}(filename)
 	}
 	wg.Wait()
+	close(c)
 
 	snapshot.Metadata.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
 	snapshot.Metadata.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
@@ -273,10 +296,20 @@ func (snapshot *Snapshot) Push(scanDirs []string) error {
 
 	snapshot.Metadata.CreationDuration = time.Since(t0)
 
+	if showProgress {
+		c = progress.NewProgress("push", "committing")
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	err := snapshot.Commit()
 	if err != nil {
 		logger.Warn("could not commit snapshot: %s", err)
 	}
+	close(c)
 
 	return err
 }

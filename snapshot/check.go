@@ -6,6 +6,7 @@ import (
 	"hash"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/progress"
 )
 
 func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.Hash, fast bool) (bool, error) {
@@ -69,7 +70,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 	return ret, nil
 }
 
-func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
+func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool, showProgress bool) (bool, error) {
 	object := snapshot.Index.LookupObjectForPathname(resource)
 	if object == nil {
 		logger.Warn("%s: no such file %s", snapshot.Metadata.GetIndexShortID(), resource)
@@ -83,8 +84,19 @@ func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool
 	return ret, nil
 }
 
-func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
+func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, error) {
+	var c chan int64
+
 	ret := true
+	if showProgress {
+		c = progress.NewProgressCount("check", "checking chunks", int64(len(snapshot.Index.ListChunks())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	for _, checksum := range snapshot.Index.ListChunks() {
 		if fast {
 			exists, err := snapshot.CheckChunk(checksum)
@@ -113,8 +125,20 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 		}
-	}
+		c <- 1
 
+	}
+	close(c)
+
+	if showProgress {
+		c = progress.NewProgressCount("check", "checking objects", int64(len(snapshot.Index.ListObjects())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	for _, checksum := range snapshot.Index.ListObjects() {
 		if fast {
 			exists, err := snapshot.CheckObject(checksum)
@@ -158,8 +182,19 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 		}
+		c <- 1
 	}
+	close(c)
 
+	if showProgress {
+		c = progress.NewProgressCount("check", "checking pathnames", int64(len(snapshot.Filesystem.ListFiles())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 	for _, file := range snapshot.Filesystem.ListFiles() {
 		object := snapshot.Index.LookupObjectForPathname(file)
 		if object == nil {
@@ -167,14 +202,17 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 			ret = false
 			continue
 		}
+		c <- 1
+
 	}
+	close(c)
 	return ret, nil
 }
 
-func (snapshot *Snapshot) Check(resource string, fast bool) (bool, error) {
+func (snapshot *Snapshot) Check(resource string, fast bool, showProgress bool) (bool, error) {
 	if resource != "" {
-		return snapshotCheckResource(snapshot, resource, fast)
+		return snapshotCheckResource(snapshot, resource, fast, showProgress)
 	} else {
-		return snapshotCheckFull(snapshot, fast)
+		return snapshotCheckFull(snapshot, fast, showProgress)
 	}
 }

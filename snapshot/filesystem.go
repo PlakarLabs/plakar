@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -278,6 +279,9 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 	for child := range parent.Children {
 		ret = append(ret, child)
 	}
+
+	sort.Strings(ret)
+
 	return ret, nil
 
 }

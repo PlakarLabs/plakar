@@ -34,8 +34,6 @@ func allocateInodeID() fuseops.InodeID {
 	return nextInode
 }
 
-//var pathnameToInode map[string]fuseops.InodeID
-
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
@@ -50,8 +48,6 @@ type plakarFS struct {
 }
 
 func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server, error) {
-
-	//pathnameToInode = make(map[string]fuseops.InodeID)
 
 	fs := &plakarFS{
 		repository:   repository,

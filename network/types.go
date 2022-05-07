@@ -3,27 +3,66 @@ package network
 import (
 	"encoding/gob"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 type Request struct {
-	Uuid    string
+	Uuid    uuid.UUID
 	Type    string
 	Payload interface{}
 }
 
+type ReqCreate struct {
+	Repository       string
+	RepositoryConfig storage.RepositoryConfig
+}
+
+type ResCreate struct {
+	Err error
+}
+
 type ReqOpen struct {
+	Repository string
 }
 
 type ResOpen struct {
-	StoreConfig storage.StoreConfig
+	RepositoryConfig *storage.RepositoryConfig
+	Err              error
+}
+
+type ReqStorePutMetadata struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutMetadata struct {
+	Err error
+}
+
+type ReqStorePutIndex struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutIndex struct {
+	Err error
+}
+
+type ReqStorePutFilesystem struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResStorePutFilesystem struct {
+	Err error
 }
 
 type ReqGetChunks struct {
 }
 
 type ResGetChunks struct {
-	Chunks []string
+	Chunks [][32]byte
 	Err    error
 }
 
@@ -31,7 +70,7 @@ type ReqGetObjects struct {
 }
 
 type ResGetObjects struct {
-	Objects []string
+	Objects [][32]byte
 	Err     error
 }
 
@@ -39,12 +78,12 @@ type ReqGetIndexes struct {
 }
 
 type ResGetIndexes struct {
-	Indexes []string
+	Indexes []uuid.UUID
 	Err     error
 }
 
 type ReqGetMetadata struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetMetadata struct {
@@ -53,7 +92,7 @@ type ResGetMetadata struct {
 }
 
 type ReqGetIndex struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResGetIndex struct {
@@ -61,8 +100,17 @@ type ResGetIndex struct {
 	Err  error
 }
 
+type ReqGetFilesystem struct {
+	Uuid uuid.UUID
+}
+
+type ResGetFilesystem struct {
+	Data []byte
+	Err  error
+}
+
 type ReqGetObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetObject struct {
@@ -71,7 +119,7 @@ type ResGetObject struct {
 }
 
 type ReqGetChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResGetChunk struct {
@@ -80,7 +128,7 @@ type ResGetChunk struct {
 }
 
 type ReqCheckObject struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckObject struct {
@@ -89,7 +137,7 @@ type ResCheckObject struct {
 }
 
 type ReqCheckChunk struct {
-	Checksum string
+	Checksum [32]byte
 }
 
 type ResCheckChunk struct {
@@ -98,7 +146,7 @@ type ResCheckChunk struct {
 }
 
 type ReqPurge struct {
-	Uuid string
+	Uuid uuid.UUID
 }
 
 type ResPurge struct {
@@ -114,16 +162,17 @@ type ResClose struct {
 }
 
 type ReqTransaction struct {
+	Uuid uuid.UUID
 }
 
 type ResTransaction struct {
-	Uuid string
+	Uuid uuid.UUID
 	Err  error
 }
 
 type ReqReferenceChunks struct {
-	Transaction string
-	Keys        []string
+	Transaction uuid.UUID
+	Keys        [][32]byte
 }
 
 type ResReferenceChunks struct {
@@ -132,8 +181,8 @@ type ResReferenceChunks struct {
 }
 
 type ReqReferenceObjects struct {
-	Transaction string
-	Keys        []string
+	Transaction uuid.UUID
+	Keys        [][32]byte
 }
 
 type ResReferenceObjects struct {
@@ -142,8 +191,8 @@ type ResReferenceObjects struct {
 }
 
 type ReqPutChunk struct {
-	Transaction string
-	Checksum    string
+	Transaction uuid.UUID
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -152,8 +201,8 @@ type ResPutChunk struct {
 }
 
 type ReqPutObject struct {
-	Transaction string
-	Checksum    string
+	Transaction uuid.UUID
+	Checksum    [32]byte
 	Data        []byte
 }
 
@@ -162,7 +211,7 @@ type ResPutObject struct {
 }
 
 type ReqPutMetadata struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -171,7 +220,7 @@ type ResPutMetadata struct {
 }
 
 type ReqPutIndex struct {
-	Transaction string
+	Transaction uuid.UUID
 	Data        []byte
 }
 
@@ -179,22 +228,79 @@ type ResPutIndex struct {
 	Err error
 }
 
+type ReqPutFilesystem struct {
+	Transaction uuid.UUID
+	Data        []byte
+}
+
+type ResPutFilesystem struct {
+	Err error
+}
+
 type ReqCommit struct {
-	Transaction string
+	Transaction uuid.UUID
 }
 
 type ResCommit struct {
 	Err error
 }
 
+type ReqGetChunkRefCount struct {
+	Checksum [32]byte
+}
+
+type ResGetChunkRefCount struct {
+	RefCount uint64
+	Err      error
+}
+
+type ReqGetObjectRefCount struct {
+	Checksum [32]byte
+}
+
+type ResGetObjectRefCount struct {
+	RefCount uint64
+	Err      error
+}
+
+type ReqGetObjectSize struct {
+	Checksum [32]byte
+}
+
+type ResGetObjectSize struct {
+	Size uint64
+	Err  error
+}
+
+type ReqGetChunkSize struct {
+	Checksum [32]byte
+}
+
+type ResGetChunkSize struct {
+	Size uint64
+	Err  error
+}
+
 func ProtocolRegister() {
 	gob.Register(Request{})
+
+	gob.Register(ReqCreate{})
+	gob.Register(ResCreate{})
 
 	gob.Register(ReqOpen{})
 	gob.Register(ResOpen{})
 
 	gob.Register(ReqGetIndexes{})
 	gob.Register(ResGetIndexes{})
+
+	gob.Register(ReqStorePutMetadata{})
+	gob.Register(ResStorePutMetadata{})
+
+	gob.Register(ReqStorePutIndex{})
+	gob.Register(ResStorePutIndex{})
+
+	gob.Register(ReqStorePutFilesystem{})
+	gob.Register(ResStorePutFilesystem{})
 
 	gob.Register(ReqGetChunks{})
 	gob.Register(ResGetChunks{})
@@ -207,6 +313,9 @@ func ProtocolRegister() {
 
 	gob.Register(ReqGetIndex{})
 	gob.Register(ResGetIndex{})
+
+	gob.Register(ReqGetFilesystem{})
+	gob.Register(ResGetFilesystem{})
 
 	gob.Register(ReqGetObject{})
 	gob.Register(ResGetObject{})
@@ -247,6 +356,21 @@ func ProtocolRegister() {
 	gob.Register(ReqPutIndex{})
 	gob.Register(ResPutIndex{})
 
+	gob.Register(ReqPutFilesystem{})
+	gob.Register(ResPutFilesystem{})
+
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})
+
+	gob.Register(ReqGetChunkRefCount{})
+	gob.Register(ResGetChunkRefCount{})
+
+	gob.Register(ReqGetObjectRefCount{})
+	gob.Register(ResGetObjectRefCount{})
+
+	gob.Register(ReqGetChunkSize{})
+	gob.Register(ResGetChunkSize{})
+
+	gob.Register(ReqGetObjectSize{})
+	gob.Register(ResGetObjectSize{})
 }

@@ -31,8 +31,8 @@ func init() {
 	registerCommand("mount", cmd_mount)
 }
 
-func cmd_mount(ctx Plakar, store *storage.Store, args []string) int {
-	flags := flag.NewFlagSet("mount", flag.ExitOnError)
+func cmd_mount(ctx Plakar, repository *storage.Repository, args []string) int {
+	flags := flag.NewFlagSet("rm", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() != 1 {
@@ -43,7 +43,7 @@ func cmd_mount(ctx Plakar, store *storage.Store, args []string) int {
 	mountpoint := flags.Arg(0)
 
 	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(store)
+	server, err := plakarfs.NewPlakarFS(repository, mountpoint)
 	if err != nil {
 		log.Fatalf("makeFS: %v", err)
 	}

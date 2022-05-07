@@ -19,10 +19,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"strings"
+	"sync"
 
+	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/helpers"
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -31,162 +34,168 @@ func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 
-	sourceStore := store
-	sourceChunkChecksums, err := sourceStore.GetChunks()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get chunks list from store: %s\n", ctx.Repository, err)
+	snapshotID := ""
+	direction := ""
+	syncRepository := ""
+	switch flags.NArg() {
+	case 2:
+		direction = flags.Arg(0)
+		syncRepository = flags.Arg(1)
+
+	case 3:
+		snapshotID = flags.Arg(0)
+		direction = flags.Arg(1)
+		syncRepository = flags.Arg(2)
+
+	default:
+		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
 
-	sourceObjectChecksums, err := sourceStore.GetObjects()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get objects list from store: %s\n", ctx.Repository, err)
+	var srcRepository *storage.Repository
+	var dstRepository *storage.Repository
+	var err error
+	if direction == "to" {
+		srcRepository = repository
+		dstRepository, err = storage.Open(syncRepository)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
+			return 1
+		}
+	} else if direction == "from" {
+		dstRepository = repository
+		srcRepository, err = storage.Open(syncRepository)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
+			return 1
+		}
+	} else {
+		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
 
-	sourceIndexes, err := sourceStore.GetIndexes()
+	var muChunkChecksum sync.Mutex
+	chunkChecksum := make(map[[32]byte]bool)
+
+	var muObjectChecksum sync.Mutex
+	objectChecksum := make(map[[32]byte]bool)
+
+	sourceIndexes, err := srcRepository.GetIndexes()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from store: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1
 	}
 
-	for _, repository := range flags.Args() {
-		var syncStore *storage.Store
-		if !strings.HasPrefix(repository, "/") {
-			log.Fatalf("%s: does not support non filesystem plakar destinations for now", flag.CommandLine.Name())
-			/*
-				if strings.HasPrefix(repository, "plakar://") {
-					syncStore, _ = storage.New("client")
-				} else if strings.HasPrefix(repository, "sqlite://") {
-					syncStore, _ = storage.New("database")
-				} else {
-					log.Fatalf("%s: unsupported plakar protocol", flag.CommandLine.Name())
-				}
-			*/
-		} else {
-			syncStore, _ = storage.New("filesystem")
-		}
+	if dstRepository.Configuration().Encryption != "" {
+		for {
+			passphrase, err := helpers.GetPassphrase("destination repository")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
 
-		err = syncStore.Open(repository)
+			secret, err := encryption.DeriveSecret(passphrase, dstRepository.Configuration().Encryption)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			dstRepository.SetSecret(secret)
+			break
+		}
+	}
+
+	destIndexes, err := dstRepository.GetIndexes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
+		return 1
+	}
+
+	syncIndexes := make([]uuid.UUID, 0)
+
+	for _, index := range findSnapshotByPrefix(sourceIndexes, snapshotID) {
+		if !indexArrayContains(destIndexes, index) {
+			syncIndexes = append(syncIndexes, index)
+		}
+	}
+
+	for _, indexID := range syncIndexes {
+
+		sourceSnapshot, err := snapshot.Load(srcRepository, indexID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open store: %s\n", ctx.Repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not load snapshot from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
 
-		destChunkChecksums, err := syncStore.GetChunks()
+		copySnapshot, err := snapshot.New(dstRepository, indexID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get chunks list from store: %s\n", ctx.Repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", syncRepository, err)
 			return 1
 		}
 
-		destObjectChecksums, err := syncStore.GetObjects()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get objects list from store: %s\n", ctx.Repository, err)
-			return 1
-		}
+		// rebuild a new snapshot w/ identical fs, but destination specific index and rebuilt metadata
+		// should share same UUID but take into account configuration differnces
+		copySnapshot.Metadata = sourceSnapshot.Metadata
+		copySnapshot.Filesystem = sourceSnapshot.Filesystem
+		copySnapshot.Index = sourceSnapshot.Index
 
-		destIndexes, err := syncStore.GetIndexes()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get indexes list from store: %s\n", ctx.Repository, err)
-			return 1
-		}
-
-		_ = sourceChunkChecksums
-		_ = sourceObjectChecksums
-		_ = sourceIndexes
-
-		_ = destChunkChecksums
-		_ = destObjectChecksums
-		_ = destIndexes
-
-		syncChunkChecksums := make([]string, 0)
-		syncObjectChecksums := make([]string, 0)
-		syncIndexes := make([]string, 0)
-
-		for _, chunkChecksum := range sourceChunkChecksums {
-			if !arrayContains(destChunkChecksums, chunkChecksum) {
-				syncChunkChecksums = append(syncChunkChecksums, chunkChecksum)
-			}
-		}
-
-		for _, objectChecksum := range sourceObjectChecksums {
-			if !arrayContains(destObjectChecksums, objectChecksum) {
-				syncObjectChecksums = append(syncObjectChecksums, objectChecksum)
-			}
-		}
-
-		for _, index := range sourceIndexes {
-			if !arrayContains(destIndexes, index) {
-				syncIndexes = append(syncIndexes, index)
-			}
-		}
-
-		for _, chunkChecksum := range syncChunkChecksums {
-			data, err := sourceStore.GetChunk(chunkChecksum)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get chunk from store: %s\n", ctx.Repository, err)
-				return 1
-			}
-			err = syncStore.PutChunk(chunkChecksum, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not write chunk to store: %s\n", repository, err)
-				return 1
-			}
-		}
-
-		for _, objectChecksum := range syncObjectChecksums {
-			data, err := sourceStore.GetObject(objectChecksum)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get object from store: %s\n", ctx.Repository, err)
-				return 1
-			}
-			err = syncStore.PutObject(objectChecksum, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not write object to store: %s\n", repository, err)
-				return 1
-			}
-		}
-
-		for _, index := range syncIndexes {
-			data, err := sourceStore.GetIndex(index)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get index from store: %s\n", ctx.Repository, err)
-				return 1
-			}
-			err = syncStore.PutIndex(index, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not write object to store: %s\n", repository, err)
-				return 1
-			}
-
-			snap, err := snapshot.Load(syncStore, index)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not load index from store: %s\n", repository, err)
-				return 1
-			}
-
-			for _, chunk := range snap.Index.Chunks {
-				err = syncStore.ReferenceIndexChunk(index, chunk.Checksum)
+		for _, chunkID := range sourceSnapshot.Index.ListChunks() {
+			muChunkChecksum.Lock()
+			if _, exists := chunkChecksum[chunkID]; !exists {
+				exists, err := copySnapshot.CheckChunk(chunkID)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference chunk in store: %s\n", repository, err)
+					fmt.Fprintf(os.Stderr, "%s: could not check chunk from repository: %s\n", ctx.Repository, err)
 					return 1
 				}
-			}
-
-			for _, object := range snap.Index.Objects {
-				err = syncStore.ReferenceIndexObject(index, object.Checksum)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not reference object in store: %s\n", repository, err)
-					return 1
+				if !exists {
+					data, err := sourceSnapshot.GetChunk(chunkID)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
+						return 1
+					}
+					_, err = copySnapshot.PutChunk(chunkID, data)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", syncRepository, err)
+						return 1
+					}
 				}
 			}
-
+			chunkChecksum[chunkID] = true
+			muChunkChecksum.Unlock()
 		}
 
+		for _, objectID := range sourceSnapshot.Index.ListObjects() {
+			muObjectChecksum.Lock()
+			if _, exists := objectChecksum[objectID]; !exists {
+				exists, err := copySnapshot.CheckObject(objectID)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s: could not check object from repository: %s\n", ctx.Repository, err)
+					return 1
+				}
+				if !exists {
+					object, err := sourceSnapshot.GetObject(objectID)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
+						return 1
+					}
+					_, err = copySnapshot.PutObject(object)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)
+						return 1
+					}
+				}
+			}
+			objectChecksum[objectID] = true
+			muObjectChecksum.Unlock()
+		}
+		err = copySnapshot.Commit()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not commit object to repository: %s\n", syncRepository, err)
+			return 1
+		}
 	}
 
 	return 0

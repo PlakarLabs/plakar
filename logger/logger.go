@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -14,6 +15,9 @@ var traceChannel chan string
 var enableInfo = false
 var enableTracing = false
 var enableProfiling = false
+
+var mutraceSubsystems sync.Mutex
+var traceSubsystems map[string]bool
 
 func Printf(format string, args ...interface{}) {
 	stdoutChannel <- fmt.Sprintf(format, args...)
@@ -37,24 +41,37 @@ func Debug(format string, args ...interface{}) {
 	debugChannel <- fmt.Sprintf(format, args...)
 }
 
-func Trace(format string, args ...interface{}) {
+func Trace(subsystem string, format string, args ...interface{}) {
 	if enableTracing {
-		traceChannel <- fmt.Sprintf(format, args...)
+		mutraceSubsystems.Lock()
+		_, exists := traceSubsystems[subsystem]
+		if !exists {
+			_, exists = traceSubsystems["all"]
+		}
+		mutraceSubsystems.Unlock()
+		if exists {
+			traceChannel <- fmt.Sprintf("[trace]: "+subsystem+": "+format, args...)
+		}
 	}
 }
 
 func Profile(format string, args ...interface{}) {
 	if enableProfiling {
-		traceChannel <- fmt.Sprintf("[profiling] "+format, args...)
+		traceChannel <- fmt.Sprintf("[profiling]: "+format, args...)
 	}
 }
 
 func EnableInfo() {
 	enableInfo = true
 }
-func EnableTrace() {
+func EnableTrace(traces string) {
 	enableTracing = true
+	traceSubsystems = make(map[string]bool)
+	for _, subsystem := range strings.Split(traces, ",") {
+		traceSubsystems[subsystem] = true
+	}
 }
+
 func EnableProfiling() {
 	enableProfiling = true
 }
@@ -94,7 +111,7 @@ func Start() func() {
 	wg.Add(1)
 	go func() {
 		for msg := range traceChannel {
-			fmt.Println(msg)
+			fmt.Fprintln(os.Stderr, msg)
 		}
 		wg.Done()
 	}()

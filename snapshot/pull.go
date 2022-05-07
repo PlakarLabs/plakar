@@ -1,22 +1,24 @@
 package snapshot
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/progress"
 )
 
-func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
+func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showProgress bool) {
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, 1024)
-	maxFilesConcurrency := make(chan bool, 1024)
-	//maxChunksConcurrency := make(chan bool, 1024)
+	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	var dest string
 
 	dpattern := path.Clean(pattern)
@@ -29,28 +31,50 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	}
 
 	/* if pattern is a file, we rebase dpattern to parent */
-	if _, ok := snapshot.Index.Filesystem.LookupInodeForFile(fpattern); ok {
+	//patternIsFile := false
+	if _, ok := snapshot.Filesystem.LookupInodeForFile(fpattern); ok {
+		//patternIsFile = true
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
 			dpattern = strings.Join(tmp[:len(tmp)-1], "/")
 		}
 	}
 
+	var c chan int64
+	if showProgress {
+		c = progress.NewProgressCount("pull", "restoring directories", int64(len(snapshot.Filesystem.ListDirectories())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
+
 	directoriesCount := 0
-	for _, directory := range snapshot.Index.Filesystem.ListDirectories() {
-		if directory != dpattern &&
-			!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) {
-			continue
+	for _, directory := range snapshot.Filesystem.ListDirectories() {
+		if dpattern != "" {
+			if directory != dpattern &&
+				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
+					len(directory) > len(dpattern)) {
+				continue
+			}
 		}
 		maxDirectoriesConcurrency <- true
 		wg.Add(1)
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
-			fi, _ := snapshot.LookupInodeForPathname(directory)
+			c <- 1
+			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
-			dest = path.Clean(fmt.Sprintf("%s/%s", root, directory))
-			logger.Trace("snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			if rebase && strings.HasPrefix(directory, dpattern) {
+				dest = fmt.Sprintf("%s/%s", root, directory[len(dpattern):])
+			} else {
+				dest = fmt.Sprintf("%s/%s", root, directory)
+			}
+
+			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode.String(), fi.Uid, fi.Gid)
 			os.MkdirAll(dest, 0700)
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
@@ -58,20 +82,35 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 		}(directory)
 	}
 	wg.Wait()
+	close(c)
+
+	if showProgress {
+		c = progress.NewProgressCount("pull", "restoring files", int64(len(snapshot.Filesystem.ListFiles())))
+	} else {
+		c = make(chan int64)
+		go func() {
+			for _ = range c {
+			}
+		}()
+	}
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, file := range snapshot.Index.Filesystem.ListFiles() {
-		if file != fpattern &&
-			!strings.HasPrefix(file, fmt.Sprintf("%s/", fpattern)) {
-			continue
+	for _, filename := range snapshot.Filesystem.ListFiles() {
+		if fpattern != "" {
+			if filename != fpattern &&
+				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
+				continue
+			}
 		}
 		maxFilesConcurrency <- true
 		wg.Add(1)
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
-			fi, _ := snapshot.LookupInodeForPathname(file)
+
+			c <- 1
+			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])
@@ -80,20 +119,19 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			checksum := snapshot.Index.Pathnames[file]
+			object := snapshot.Index.LookupObjectForPathname(file)
+			if object == nil {
+				logger.Warn("skipping %s", rel)
+				return
+			}
 
-			logger.Trace("snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.Uuid, rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode.String(), fi.Uid, fi.Gid)
 
 			f, err := os.Create(dest)
 			if err != nil {
 				return
 			}
 			defer f.Close()
-
-			object, err := snapshot.GetObject(checksum)
-			if err != nil {
-				return
-			}
 
 			objectHash := sha256.New()
 			for _, chunkChecksum := range object.Chunks {
@@ -102,14 +140,14 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 					continue
 				}
 
-				chunk, _ := snapshot.GetChunkInfo(chunkChecksum)
+				chunk := snapshot.Index.LookupChunk(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
 					continue
 				} else {
 					chunkHash := sha256.New()
 					chunkHash.Write(data)
-					if chunk.Checksum != fmt.Sprintf("%032x", chunkHash.Sum(nil)) {
+					if !bytes.Equal(chunk.Checksum[:], chunkHash.Sum(nil)) {
 						continue
 					}
 				}
@@ -117,14 +155,16 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if checksum != fmt.Sprintf("%032x", objectHash.Sum(nil)) {
+			if !bytes.Equal(object.Checksum[:], objectHash.Sum(nil)) {
 			}
 
+			f.Sync()
 			f.Close()
 			os.Chmod(dest, fi.Mode)
 			os.Chown(dest, int(fi.Uid), int(fi.Gid))
 			filesCount++
-		}(file)
+		}(filename)
 	}
 	wg.Wait()
+	close(c)
 }

@@ -35,36 +35,19 @@ it may work on older versions but hasn't been tested.
 $ go get github.com/poolpOrg/plakar/cmd/plakar
 ```
 
-### Initializing plakar work directory
-
-First thing to do is to initialize the work directory and generate a keypair:
-
-```
-$ plakar init
-keypair passphrase: 
-keypair passphrase (confirm):
-$ 
-```
-
-This results in a work directory created in `~/.plakar`,
-containing a passphrase-protected keypair in `~/.plakar/keypair`.
-Note that **if you lose this file or forget the passphrase**,
-there is no way to recover your encrypted backups to the best of my knowledge.
-Make sure to back up the file on separate devices.
-
-
 ### Creating a plakar repository
 
 The next thing to do is to create a plakar repository,
 
 ```
 $ plakar create
-keypair passphrase:
+repository passphrase:
+repository passphrase (confirm):
 $
 ```
 
 It may be desirable to create unencrypted plakar repositories,
-particularly for a default local plakar,
+particularly for the default local plakar,
 the `-no-encryption` option may be used in this case:
 
 ```
@@ -76,15 +59,12 @@ It is possible to create multiple repositories,
 simply by providing a path to the plakar `create` subcommand:
 
 ```
-$ mkdir ~/plakars
+$ plakar on /tmp/plakar.1 create -no-encryption
+$
 
-$ plakar on ~/plakars/one create -no-encryption
-
-$ plakar on ~/plakars/two create
-passphrase: 
-
-$ plakar create
-passphrase: 
+$ plakar on /tmp/plakar.2 create
+repository passphrase:
+repository passphrase (confirm):
 $
 ```
 
@@ -95,9 +75,9 @@ Whenever a non-default plakar is used,
 it should be noted on the command line with `on`:
 
 ```
-$ plakar on ~/plakars/one push /bin
-$ plakar on ~/plakars/one ls
-2022-03-21T22:02:17Z  22cd673e-58a1-47f5-af77-019099d076a7    3.1 MB /private/etc
+$ plakar on /tmp/plakar.1 push /bin
+$ plakar on /tmp/plakar.1 ls
+2022-03-21T22:02:17Z  22cd673e    3.1 MB /private/etc
 $ 
 ```
 
@@ -118,7 +98,7 @@ Available snapshots are identified by UUID identifiers and can be listed:
 
 ```sh
 $ plakar ls
-2021-10-06T19:46:58Z b3bdb2b0-115a-4198-93a4-976edf883eb5 3.1 MB (files: 248, dirs: 42)
+2022-03-21T22:02:17Z  b3bdb2b0    3.1 MB /private/etc
 $
 ```
 
@@ -127,7 +107,7 @@ $
 Each snapshot can be restored with a single command:
 
 ```sh
-$ plakar pull b3bdb2b0-115a-4198-93a4-976edf883eb5
+$ plakar pull b3bdb2b0
 $ ls -ld private/etc/
 drwxr-xr-x  82 gilles  staff  2624  6 Oct 21:48 private/etc/
 $
@@ -144,7 +124,7 @@ a user may provide the first characters and `plakar` will complete the missing p
 
 ```
 $ plakar ls
-2021-10-06T19:46:58Z b3bdb2b0-115a-4198-93a4-976edf883eb5 3.1 MB (files: 248, dirs: 42)
+2022-03-21T22:02:17Z  b3bdb2b0    3.1 MB /private/etc
 $ plakar check b3
 $ echo $?
 0
@@ -156,10 +136,10 @@ an error will be emitted to ensure an unambiguous identifier is provided:
 
 ```
 $ plakar ls
-2021-10-06T19:46:58Z b3bdb2b0-115a-4198-93a4-976edf883eb5 3.1 MB (files: 248, dirs: 42)
-2021-10-06T19:49:51Z b68a8f07-da5e-4b01-bd1a-78aa8156f871 3.1 MB (files: 248, dirs: 42)
+2022-03-21T22:02:17Z  b3bdb2b0    3.1 MB /private/etc
+2022-03-21T22:02:17Z  b68a8f07    3.1 MB /private/etc
 $ plakar check b
-2021/10/06 21:50:10 plakar: snapshot ID is ambiguous: b (matches 2 snapshots)
+2022/03/06 21:50:10 plakar: snapshot ID is ambiguous: b (matches 2 snapshots)
 $ plakar check b3
 $ 
 ```
@@ -172,10 +152,10 @@ These paths must be absolute but are prefixed with the snapshot they are relativ
 
 ```
 $ plakar ls b3:/private/etc/passwd
-e45b72f5c0c0b572db4d8d3ab7e97f368ff74e62347a824decb67a84e5224d75 -rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
+-rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
 $ plakar ls b3:/private/etc/passwd b6:/private/etc/passwd
-e45b72f5c0c0b572db4d8d3ab7e97f368ff74e62347a824decb67a84e5224d75 -rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
-e45b72f5c0c0b572db4d8d3ab7e97f368ff74e62347a824decb67a84e5224d75 -rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
+-rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
+-rw-r--r--     root    wheel   7.6 kB /private/etc/passwd
 $
 ```
 

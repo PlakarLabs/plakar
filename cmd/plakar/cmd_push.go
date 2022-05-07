@@ -20,7 +20,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -30,8 +32,10 @@ func init() {
 	registerCommand("push", cmd_push)
 }
 
-func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_progress bool
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
+	flags.BoolVar(&opt_progress, "progress", false, "display progress bar")
 	flags.Parse(args)
 
 	dir, err := os.Getwd()
@@ -40,7 +44,7 @@ func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snap, err := snapshot.New(store)
+	snap, err := snapshot.New(repository, uuid.Must(uuid.NewRandom()))
 	if err != nil {
 		logger.Error("%s", err)
 		return 1
@@ -48,13 +52,14 @@ func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
 
 	snap.Metadata.Hostname = ctx.Hostname
 	snap.Metadata.Username = ctx.Username
+	snap.Metadata.OperatingSystem = runtime.GOOS
 	snap.Metadata.MachineID = ctx.MachineID
 	snap.Metadata.CommandLine = ctx.CommandLine
 
 	if flags.NArg() == 0 {
-		err = snap.Push([]string{dir})
+		err = snap.Push([]string{dir}, opt_progress)
 	} else {
-		err = snap.Push(flags.Args())
+		err = snap.Push(flags.Args(), opt_progress)
 	}
 
 	if err != nil {
@@ -62,6 +67,6 @@ func cmd_push(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Metadata.Uuid)
+	logger.Info("created snapshot %s", snap.Metadata.GetIndexShortID())
 	return 0
 }

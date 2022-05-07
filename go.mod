@@ -12,12 +12,15 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
 	github.com/jacobsa/fuse v0.0.0-20211019165009-c75d3f26fceb
-	github.com/jacobsa/timeutil v0.0.0-20170205232429-577e5acbbcf6
+	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/poolpOrg/go-fastcdc v0.0.0-20211130115626-1f6e826f4a2f
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
+	github.com/schollz/progressbar/v3 v3.8.6
+	github.com/syndtr/goleveldb v1.0.0
+	github.com/vmihailenco/msgpack/v5 v5.3.5
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

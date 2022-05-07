@@ -19,40 +19,89 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/cache"
+	"github.com/poolpOrg/plakar/network"
 	"github.com/poolpOrg/plakar/storage"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
+type inflight struct {
+	Add  bool
+	Uuid string
+	Chan chan network.Request
+}
+
+type DatabaseRepository struct {
+	config storage.RepositoryConfig
+
+	Cache *cache.Cache
+
+	backend string
+
+	conn *sql.DB
+	mu   sync.Mutex
+
+	Repository string
+
+	storage.RepositoryBackend
+}
+
+type DatabaseTransaction struct {
+	Uuid       uuid.UUID
+	repository *DatabaseRepository
+
+	dbTx *sql.Tx
+	storage.TransactionBackend
+}
+
 func init() {
-	storage.Register("database", NewDatabaseStore)
+	storage.Register("database", NewDatabaseRepository)
 }
 
-func NewDatabaseStore() storage.StoreBackend {
-	return &DatabaseStore{}
+func NewDatabaseRepository() storage.RepositoryBackend {
+	return &DatabaseRepository{}
 }
 
-func (store *DatabaseStore) connect(addr string) error {
+func checksumToString(checksum [32]byte) string {
+	return fmt.Sprintf("%064x", checksum)
+}
+
+func stringToChecksum(checksum string) ([32]byte, error) {
+	var checksumBytes [32]byte
+
+	b, err := hex.DecodeString(checksum)
+	if err != nil {
+		return checksumBytes, err
+	}
+
+	copy(checksumBytes[:], b)
+	return checksumBytes, nil
+}
+
+func (repository *DatabaseRepository) connect(addr string) error {
 	var connectionString string
 	if strings.HasPrefix(addr, "sqlite://") {
-		store.backend = "sqlite3"
+		repository.backend = "sqlite3"
 		connectionString = addr[9:]
 	} else {
 		return fmt.Errorf("unsupported database backend: %s", addr)
 	}
 
-	conn, err := sql.Open(store.backend, connectionString)
+	conn, err := sql.Open(repository.backend, connectionString)
 	if err != nil {
 		return err
 	}
-	store.conn = conn
+	repository.conn = conn
 
-	if store.backend == "sqlite3" {
-		_, err = store.conn.Exec("PRAGMA foreign_keys = ON")
+	if repository.backend == "sqlite3" {
+		_, err = repository.conn.Exec("PRAGMA foreign_keys = ON")
 		if err != nil {
 			return nil
 		}
@@ -61,18 +110,13 @@ func (store *DatabaseStore) connect(addr string) error {
 	return nil
 }
 
-func (store *DatabaseStore) Create(repository string, config storage.StoreConfig) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Create(%s): %s", repository, time.Since(t0))
-	}()
-
-	err := store.connect(repository)
+func (repository *DatabaseRepository) Create(location string, config storage.RepositoryConfig) error {
+	err := repository.connect(location)
 	if err != nil {
 		return err
 	}
 
-	statement, err := store.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
+	statement, err := repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
 		configKey	VARCHAR(32) NOT NULL PRIMARY KEY,
 		configValue	VARCHAR(64)
 	);`)
@@ -82,7 +126,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
 		metadataUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
 		metadataBlob	BLOB
 	);`)
@@ -92,7 +136,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
 		indexUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
 		indexBlob	BLOB
 	);`)
@@ -102,7 +146,17 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
+		filesystemUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
+		filesystemBlob	BLOB
+	);`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	statement.Exec()
+
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
 		objectChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		objectBlob		BLOB
 	);`)
@@ -112,7 +166,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunks (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunks (
 		chunkChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		chunkBlob		BLOB
 	);`)
@@ -122,7 +176,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunksReferences (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunksReferences (
 		indexUuid		VARCHAR(36) NOT NULL,
 		chunkChecksum	VARCHAR(64) NOT NULL,
 
@@ -135,7 +189,7 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`CREATE TABLE IF NOT EXISTS objectsReferences (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objectsReferences (
 		indexUuid		VARCHAR(36) NOT NULL,
 		objectChecksum	VARCHAR(64) NOT NULL,
 
@@ -149,12 +203,12 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = store.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
+	statement, err = repository.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
 	defer statement.Close()
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec("Uuid", config.Uuid)
+	_, err = statement.Exec("RepositoryID", config.RepositoryID)
 	if err != nil {
 		return err
 	}
@@ -169,235 +223,130 @@ func (store *DatabaseStore) Create(repository string, config storage.StoreConfig
 		return err
 	}
 
+	_, err = statement.Exec("CreationTime", config.CreationTime)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (store *DatabaseStore) Open(repository string) error {
-	err := store.connect(repository)
+func (repository *DatabaseRepository) Open(location string) error {
+	err := repository.connect(location)
 	if err != nil {
 		return err
 	}
 
-	storeConfig := storage.StoreConfig{}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Uuid'`).Scan(&storeConfig.Uuid)
+	repositoryConfig := storage.RepositoryConfig{}
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='RepositoryID'`).Scan(&repositoryConfig.RepositoryID)
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&storeConfig.Compression)
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&repositoryConfig.Compression)
 	if err != nil {
 		return err
 	}
-	err = store.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&storeConfig.Encryption)
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&repositoryConfig.Encryption)
 	if err != nil {
 		return err
 	}
-	store.config = storeConfig
+	repository.config = repositoryConfig
 
 	return nil
 
 }
 
-func (store *DatabaseStore) Configuration() storage.StoreConfig {
-	return store.config
+func (repository *DatabaseRepository) Configuration() storage.RepositoryConfig {
+	return repository.config
 }
 
-func (store *DatabaseStore) Transaction() (storage.TransactionBackend, error) {
-	Uuid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
+func (repository *DatabaseRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 
-	dbTx, err := store.conn.BeginTx(context.TODO(), nil)
+	dbTx, err := repository.conn.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
 	}
 
 	tx := &DatabaseTransaction{}
 	tx.dbTx = dbTx
-	tx.Uuid = Uuid.String()
-	tx.store = store
+	tx.Uuid = indexID
+	tx.repository = repository
 
 	return tx, nil
 }
 
-func (store *DatabaseStore) GetIndexes() ([]string, error) {
-	rows, err := store.conn.Query("SELECT indexUuid FROM indexes")
+func (repository *DatabaseRepository) GetIndexes() ([]uuid.UUID, error) {
+	rows, err := repository.conn.Query("SELECT indexUuid FROM indexes")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var indexes []string
+	var indexes []uuid.UUID
 	for rows.Next() {
 		var indexUuid string
 		err = rows.Scan(&indexUuid)
 		if err != nil {
 			return nil, err
 		}
-		indexes = append(indexes, indexUuid)
+		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
 	}
 	return indexes, nil
 }
 
-func (store *DatabaseStore) GetChunks() ([]string, error) {
-	rows, err := store.conn.Query("SELECT chunkChecksum FROM chunks")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checksums []string
-	for rows.Next() {
-		var checksum string
-		err = rows.Scan(&checksum)
-		if err != nil {
-			return nil, err
-		}
-		checksums = append(checksums, checksum)
-	}
-	return checksums, nil
-}
-
-func (store *DatabaseStore) GetObjects() ([]string, error) {
-	rows, err := store.conn.Query("SELECT objectChecksum FROM objects")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checksums []string
-	for rows.Next() {
-		var checksum string
-		err = rows.Scan(&checksum)
-		if err != nil {
-			return nil, err
-		}
-		checksums = append(checksums, checksum)
-	}
-	return checksums, nil
-}
-
-func (store *DatabaseStore) GetMetadata(Uuid string) ([]byte, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, Uuid).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (store *DatabaseStore) GetIndex(Uuid string) ([]byte, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, Uuid).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (store *DatabaseStore) GetObject(checksum string) ([]byte, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (store *DatabaseStore) GetChunk(checksum string) ([]byte, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (store *DatabaseStore) CheckObject(checksum string) (bool, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum).Scan(&data)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-func (store *DatabaseStore) CheckChunk(checksum string) (bool, error) {
-	var data []byte
-	err := store.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum).Scan(&data)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-func (store *DatabaseStore) Purge(id string) error {
-	return nil
-}
-
-func (store *DatabaseStore) Close() error {
-	return nil
-}
-
-//////
-
-func (transaction *DatabaseTransaction) GetUuid() string {
-	return transaction.Uuid
-}
-func (transaction *DatabaseTransaction) ReferenceChunks(keys []string) ([]bool, error) {
-	ret := make([]bool, 0)
-	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO chunksReferences (indexUuid, chunkChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
-		if err != nil {
-			// there has to be a better way ...
-			if err.Error() == "FOREIGN KEY constraint failed" {
-				ret = append(ret, false)
-				continue
-			}
-			return nil, err
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		ret = append(ret, count != int64(0))
-	}
-
-	return ret, nil
-}
-
-func (transaction *DatabaseTransaction) ReferenceObjects(keys []string) ([]bool, error) {
-	ret := make([]bool, 0)
-	for _, key := range keys {
-		res, err := transaction.dbTx.Exec("INSERT OR REPLACE INTO objectsReferences (indexUuid, objectChecksum) VALUES(?, ?)", transaction.GetUuid(), key)
-		if err != nil {
-			// there has to be a better way ...
-			if err.Error() == "FOREIGN KEY constraint failed" {
-				ret = append(ret, false)
-				continue
-			}
-			return nil, err
-		}
-		count, err := res.RowsAffected()
-		if err != nil {
-			fmt.Println(err)
-			return nil, err
-		}
-		ret = append(ret, count != int64(0))
-	}
-
-	return ret, nil
-}
-
-func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
+func (repository *DatabaseRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksum, data)
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutIndex(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(indexID, data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum), data)
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -406,14 +355,163 @@ func (transaction *DatabaseTransaction) PutObject(checksum string, data []byte) 
 	return nil
 }
 
-func (transaction *DatabaseTransaction) PutChunk(checksum string, data []byte) error {
+func (repository *DatabaseRepository) PutObject(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum), data)
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT chunkChecksum FROM chunks")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checksums [][32]byte
+	for rows.Next() {
+		var checksum string
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		checksumDecoded, _ := stringToChecksum(checksum)
+		checksums = append(checksums, checksumDecoded)
+	}
+	return checksums, nil
+}
+
+func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT objectChecksum FROM objects")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checksums [][32]byte
+	for rows.Next() {
+		var checksum string
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		checksumDecoded, _ := stringToChecksum(checksum)
+		checksums = append(checksums, checksumDecoded)
+	}
+	return checksums, nil
+}
+
+func (repository *DatabaseRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, indexID).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, indexID).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT filesystemBlob FROM filesystems WHERE filesystemUuid=?`, indexID).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (repository *DatabaseRepository) Purge(indexID uuid.UUID) error {
+	return nil
+}
+
+func (repository *DatabaseRepository) Close() error {
+	return nil
+}
+
+//////
+
+func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
+	return transaction.Uuid
+}
+
+func (transaction *DatabaseTransaction) PutObject(checksum [32]byte, data []byte) error {
+	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum), data)
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *DatabaseTransaction) PutChunk(checksum [32]byte, data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksum, data)
+	_, err = statement.Exec(checksumToString(checksum), data)
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -439,6 +537,21 @@ func (transaction *DatabaseTransaction) PutMetadata(data []byte) error {
 
 func (transaction *DatabaseTransaction) PutIndex(data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(transaction.GetUuid(), data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (transaction *DatabaseTransaction) PutFilesystem(data []byte) error {
+	statement, err := transaction.dbTx.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}

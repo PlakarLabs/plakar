@@ -2,8 +2,11 @@ package network
 
 import (
 	"encoding/gob"
+	"io"
 	"log"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/google/uuid"
@@ -11,7 +14,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-func Server(store *storage.Store, addr string) {
+func Server(repository *storage.Repository, addr string) {
 
 	ProtocolRegister()
 
@@ -26,19 +29,28 @@ func Server(store *storage.Store, addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(store, c)
+		go handleConnection(c, c)
 	}
 }
 
-func handleConnection(store *storage.Store, conn net.Conn) {
-	decoder := gob.NewDecoder(conn)
-	encoder := gob.NewEncoder(conn)
+func Stdio() error {
+	ProtocolRegister()
+	handleConnection(os.Stdin, os.Stdout)
+	return nil
+}
 
-	transactions := make(map[string]*storage.Transaction)
+func handleConnection(rd io.Reader, wr io.Writer) {
+	decoder := gob.NewDecoder(rd)
+	encoder := gob.NewEncoder(wr)
 
+	transactions := make(map[uuid.UUID]*storage.Transaction)
+
+	var repository *storage.Repository
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()
 	clientUuid := Uuid.String()
+
+	homeDir := os.Getenv("HOME")
 
 	for {
 		request := Request{}
@@ -48,15 +60,52 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 		}
 
 		switch request.Type {
+		case "ReqCreate":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				dirPath := request.Payload.(ReqCreate).Repository
+				if dirPath == "" {
+					dirPath = filepath.Join(homeDir, ".plakar")
+				}
+
+				logger.Trace("%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(ReqCreate).RepositoryConfig)
+				repository, err = storage.Create(dirPath, request.Payload.(ReqCreate).RepositoryConfig)
+				result := Request{
+					Uuid:    request.Uuid,
+					Type:    "ResCreate",
+					Payload: ResCreate{Err: err},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqOpen":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: Open", clientUuid)
+
+				dirPath := request.Payload.(ReqOpen).Repository
+				if dirPath == "" {
+					dirPath = filepath.Join(homeDir, ".plakar")
+				}
+
+				logger.Trace("%s: Open(%s)", clientUuid, dirPath)
+				repository, err = storage.Open(dirPath)
+				var payload ResOpen
+				if err != nil {
+					payload = ResOpen{RepositoryConfig: nil, Err: err}
+				} else {
+					config := repository.Configuration()
+					payload = ResOpen{RepositoryConfig: &config, Err: nil}
+				}
 				result := Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
-					Payload: ResOpen{StoreConfig: store.Configuration()},
+					Payload: payload,
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -69,7 +118,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetIndexes", clientUuid)
-				indexes, err := store.GetIndexes()
+				indexes, err := repository.GetIndexes()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndexes",
@@ -89,7 +138,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetChunks", clientUuid)
-				chunks, err := store.GetChunks()
+				chunks, err := repository.GetChunks()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetChunks",
@@ -109,7 +158,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetObjects", clientUuid)
-				objects, err := store.GetObjects()
+				objects, err := repository.GetObjects()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetObjects",
@@ -129,7 +178,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetMetadata).Uuid)
-				data, err := store.GetMetadata(request.Payload.(ReqGetMetadata).Uuid)
+				data, err := repository.GetMetadata(request.Payload.(ReqGetMetadata).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetMetadata",
@@ -149,7 +198,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetIndex(%s)", clientUuid, request.Payload.(ReqGetIndex).Uuid)
-				data, err := store.GetIndex(request.Payload.(ReqGetIndex).Uuid)
+				data, err := repository.GetIndex(request.Payload.(ReqGetIndex).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndex",
@@ -164,12 +213,89 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				}
 			}()
 
+		case "ReqGetFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: GetFilesystem(%s)", clientUuid, request.Payload.(ReqGetFilesystem).Uuid)
+				data, err := repository.GetFilesystem(request.Payload.(ReqGetFilesystem).Uuid)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetFilesystem",
+					Payload: ResGetFilesystem{
+						Data: data,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqStorePutMetadata":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutMetadata()", clientUuid)
+				err := repository.PutMetadata(request.Payload.(ReqStorePutMetadata).IndexID, request.Payload.(ReqStorePutMetadata).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutMetadata",
+					Payload: ResStorePutMetadata{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqStorePutIndex":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutIndex()", clientUuid)
+				err := repository.PutIndex(request.Payload.(ReqStorePutIndex).IndexID, request.Payload.(ReqStorePutIndex).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutIndex",
+					Payload: ResStorePutIndex{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqStorePutFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutFilesystem()", clientUuid)
+				err := repository.PutFilesystem(request.Payload.(ReqStorePutFilesystem).IndexID, request.Payload.(ReqStorePutFilesystem).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResStorePutFilesystem",
+					Payload: ResStorePutFilesystem{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetObject":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetObject(%s)", clientUuid, request.Payload.(ReqGetObject).Checksum)
-				data, err := store.GetObject(request.Payload.(ReqGetObject).Checksum)
+				data, err := repository.GetObject(request.Payload.(ReqGetObject).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetObject",
@@ -190,7 +316,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: GetChunk(%s)", clientUuid, request.Payload.(ReqGetChunk).Checksum)
-				data, err := store.GetChunk(request.Payload.(ReqGetChunk).Checksum)
+				data, err := repository.GetChunk(request.Payload.(ReqGetChunk).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetChunk",
@@ -211,7 +337,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
-				exists, err := store.CheckObject(request.Payload.(ReqCheckObject).Checksum)
+				exists, err := repository.CheckObject(request.Payload.(ReqCheckObject).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResCheckObject",
@@ -232,7 +358,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
-				exists, err := store.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
+				exists, err := repository.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResCheckChunk",
@@ -253,7 +379,7 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
-				err := store.Purge(request.Payload.(ReqPurge).Uuid)
+				err := repository.Purge(request.Payload.(ReqPurge).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPurge",
@@ -272,8 +398,8 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("%s: Transaction", clientUuid)
-				tx, err := store.Transaction()
+				logger.Trace("%s: Transaction(%s)", clientUuid, request.Payload.(ReqTransaction).Uuid)
+				tx, err := repository.Transaction(request.Payload.(ReqTransaction).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResTransaction",
@@ -289,52 +415,6 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				transactions[tx.GetUuid()] = tx
 			}()
 
-		case "ReqReferenceChunks":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: ReferenceChunks()", clientUuid)
-				txUuid := request.Payload.(ReqReferenceChunks).Transaction
-				tx := transactions[txUuid]
-				exists, err := tx.ReferenceChunks(request.Payload.(ReqReferenceChunks).Keys)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResReferenceChunks",
-					Payload: ResReferenceChunks{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqReferenceObjects":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: ReferenceObjects()", clientUuid)
-				txUuid := request.Payload.(ReqReferenceObjects).Transaction
-				tx := transactions[txUuid]
-				exists, err := tx.ReferenceObjects(request.Payload.(ReqReferenceObjects).Keys)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResReferenceObjects",
-					Payload: ResReferenceObjects{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqPutChunk":
 			wg.Add(1)
 			go func() {
@@ -342,8 +422,8 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 
 				logger.Trace("%s: PutChunk(%s)", clientUuid, request.Payload.(ReqPutChunk).Checksum)
 				txUuid := request.Payload.(ReqPutChunk).Transaction
-				tx := transactions[txUuid]
-				err := tx.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
+				_ = transactions[txUuid]
+				err := repository.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutChunk",
@@ -364,8 +444,8 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 
 				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
 				txUuid := request.Payload.(ReqPutObject).Transaction
-				tx := transactions[txUuid]
-				err := tx.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
+				_ = transactions[txUuid]
+				err := repository.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutObject",
@@ -421,6 +501,27 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				}
 			}()
 
+		case "ReqPutFilesystem":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("%s: PutFilesystem()", clientUuid)
+				txUuid := request.Payload.(ReqPutFilesystem).Transaction
+				tx := transactions[txUuid]
+				err := tx.PutFilesystem(request.Payload.(ReqPutFilesystem).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutFilesystem",
+					Payload: ResPutFilesystem{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqCommit":
 			wg.Add(1)
 			go func() {
@@ -449,7 +550,8 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 				defer wg.Done()
 
 				logger.Trace("%s: Close()", clientUuid)
-				err := store.Close()
+				err := repository.Close()
+				repository = nil
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResClose",
@@ -465,4 +567,8 @@ func handleConnection(store *storage.Store, conn net.Conn) {
 		}
 	}
 	wg.Wait()
+
+	if repository != nil {
+		repository.Close()
+	}
 }

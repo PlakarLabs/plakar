@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
-	"path/filepath"
 	"sync"
-	"time"
 
+	"github.com/google/uuid"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -19,6 +17,14 @@ import (
 var inodeMutex sync.Mutex
 var nextInode fuseops.InodeID = fuseops.RootInodeID
 
+type inodeEntry struct {
+	id         fuseops.InodeID
+	name       string
+	path       string
+	isSnapshot bool
+	snapshotID uuid.UUID
+}
+
 func allocateInodeID() fuseops.InodeID {
 	inodeMutex.Lock()
 	defer inodeMutex.Unlock()
@@ -28,94 +34,488 @@ func allocateInodeID() fuseops.InodeID {
 	return nextInode
 }
 
-type InodeInfo struct {
-	Name         string
-	Path         string
-	Inode        fuseops.InodeID
-	Mode         os.FileMode
-	Size         uint64
-	Uid          uint32
-	Gid          uint32
-	CreationTime time.Time
-}
-
-var snapshotToInode map[string]fuseops.InodeID
-var inodeToSnapshot map[fuseops.InodeID]string
-var inodeInSnapshot map[fuseops.InodeID]string
-var inodeToInfo map[fuseops.InodeID]InodeInfo
-var children map[fuseops.InodeID][]fuseops.InodeID
-var pathToInode map[string]fuseops.InodeID
-var inodeToPath map[fuseops.InodeID]string
+var pathnameToInode map[string]fuseops.InodeID
 
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	store *storage.Store
+	repository *storage.Repository
+	mountpoint string
+	inodes     *sync.Map
 }
 
-func NewPlakarFS(store *storage.Store) (fuse.Server, error) {
-	snapshotToInode = make(map[string]fuseops.InodeID)
-	inodeToSnapshot = make(map[fuseops.InodeID]string)
-	inodeInSnapshot = make(map[fuseops.InodeID]string)
-	inodeToInfo = make(map[fuseops.InodeID]InodeInfo)
-	children = make(map[fuseops.InodeID][]fuseops.InodeID)
-	pathToInode = make(map[string]fuseops.InodeID)
-	inodeToPath = make(map[fuseops.InodeID]string)
+func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server, error) {
 
-	fs := &plakarFS{store: store}
+	pathnameToInode = make(map[string]fuseops.InodeID)
 
-	snapshotsList, _ := snapshot.List(store)
-	for _, snapshotUuid := range snapshotsList {
-		snapshotInstance, _ := snapshot.Load(store, snapshotUuid)
-		snapshotInodeID := allocateInodeID()
-		inodeInfo := InodeInfo{
-			Name:  snapshotUuid,
-			Path:  fmt.Sprintf("/%s", snapshotUuid),
-			Inode: snapshotInodeID,
-			Mode:  0555 | os.ModeDir,
-		}
-		children[fuseops.RootInodeID] = append(children[fuseops.RootInodeID], snapshotInodeID)
-		inodeToInfo[snapshotInodeID] = inodeInfo
-		inodeToSnapshot[snapshotInodeID] = snapshotUuid
-
-		for pathname, fileInfo := range snapshotInstance.Index.Pathnames {
-			dirInodeID := allocateInodeID()
-			inodeInfo := InodeInfo{
-				Name:  fileInfo.Name,
-				Inode: dirInodeID,
-				Mode:  fileInfo.Mode | os.ModeDir,
-				Size:  uint64(fileInfo.Size),
-			}
-			inodeToInfo[dirInodeID] = inodeInfo
-			children[snapshotInodeID] = append(children[snapshotInodeID], dirInodeID)
-			inodeInSnapshot[dirInodeID] = snapshotUuid
-			pathToInode[path.Clean(pathname)] = dirInodeID
-		}
-
-		for pathname, fileInfo := range snapshotInstance.Filesystem.Files {
-			inodeID := allocateInodeID()
-			inodeInfo := InodeInfo{
-				Name:  fileInfo.Name,
-				Path:  fmt.Sprintf("/%s/%s", snapshotUuid, fileInfo.Name),
-				Inode: inodeID,
-				Mode:  fileInfo.Mode,
-				Size:  uint64(fileInfo.Size),
-			}
-			inodeToInfo[inodeID] = inodeInfo
-			basedir := filepath.Dir(pathname)
-			inodeToPath[inodeID] = pathname
-
-			dirInodeID := pathToInode[basedir]
-			children[dirInodeID] = append(children[dirInodeID], inodeID)
-			inodeInSnapshot[inodeID] = snapshotUuid
-
-		}
-
+	fs := &plakarFS{
+		repository: repository,
+		mountpoint: mountpoint,
+		inodes:     &sync.Map{},
 	}
+	fs.inodes.Store(fuseops.RootInodeID, &inodeEntry{
+		name:       "/",
+		id:         fuseops.RootInodeID,
+		path:       mountpoint,
+		isSnapshot: false,
+	})
 
 	return fuseutil.NewFileSystemServer(fs), nil
 }
 
+func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, error) {
+
+	if id == fuseops.RootInodeID {
+		return fuseops.InodeAttributes{
+			Nlink: 1,
+			Mode:  0777 | os.ModeDir,
+		}, nil
+	}
+
+	entry, exists := fs.inodes.Load(id)
+	if !exists {
+		return fuseops.InodeAttributes{}, fuse.ENOENT
+	}
+
+	inode := entry.(*inodeEntry)
+	if inode.isSnapshot {
+		metadata, _, err := snapshot.GetMetadata(fs.repository, uuid.MustParse(inode.name))
+		if err != nil {
+			return fuseops.InodeAttributes{}, fuse.EIO
+		}
+		return fuseops.InodeAttributes{
+			Nlink: 1,
+			Mode:  0700 | os.ModeDir,
+			Ctime: metadata.CreationTime,
+			Mtime: metadata.CreationTime,
+			Size:  metadata.ScanProcessedSize,
+			Uid:   uint32(os.Geteuid()),
+			Gid:   uint32(os.Getgid()),
+		}, nil
+	}
+
+	filesystem, _, err := snapshot.GetFilesystem(fs.repository, inode.snapshotID)
+	if err != nil {
+		return fuseops.InodeAttributes{}, fuse.EIO
+	}
+
+	fmt.Println("=>", inode.path)
+	lookuppath := inode.path[36+1:]
+	fmt.Println("=>", lookuppath)
+
+	fileinfo, exists := filesystem.LookupInode(lookuppath)
+	if !exists {
+		return fuseops.InodeAttributes{}, fuse.ENOENT
+	}
+	return fuseops.InodeAttributes{
+		Nlink: 1,
+		Mode:  fileinfo.Mode,
+		Ctime: fileinfo.ModTime,
+		Mtime: fileinfo.ModTime,
+		Size:  uint64(fileinfo.Size),
+		Uid:   uint32(os.Geteuid()),
+		Gid:   uint32(os.Getgid()),
+	}, nil
+}
+
+func (fs *plakarFS) StatFS(
+	ctx context.Context,
+	op *fuseops.StatFSOp) error {
+	return nil
+}
+
+func (fs *plakarFS) LookUpInode(
+	ctx context.Context,
+	op *fuseops.LookUpInodeOp) error {
+	fmt.Println("LookUpInode", op.Parent, op.Name)
+
+	if op.Parent == fuseops.RootInodeID {
+		pathname := fmt.Sprintf("%s/%s", fs.mountpoint, op.Name)
+		fmt.Println(pathname)
+		inodeID, exists := pathnameToInode[pathname]
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		metadata, _, err := snapshot.GetMetadata(fs.repository, uuid.MustParse(op.Name))
+		if err != nil {
+			return fuse.EIO
+		}
+
+		op.Entry.Child = inodeID
+		op.Entry.Attributes = fuseops.InodeAttributes{
+			Size:  metadata.ScanProcessedSize,
+			Nlink: 1,
+			Mode:  0700 | os.ModeDir,
+			Ctime: metadata.CreationTime,
+			Atime: metadata.CreationTime,
+			Mtime: metadata.CreationTime,
+		}
+		return nil
+	}
+
+	parentEntry, exists := fs.inodes.Load(op.Parent)
+	if !exists {
+		return fuse.ENOENT
+	}
+
+	inodeParent := parentEntry.(*inodeEntry)
+	if inodeParent.isSnapshot {
+		pathname := fmt.Sprintf("%s:/%s", inodeParent.name, op.Name)
+		fmt.Println(pathname)
+		inodeID, exists := pathnameToInode[pathname]
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		entry, exists := fs.inodes.Load(inodeID)
+		if !exists {
+			return fuse.ENOENT
+		}
+		inode := entry.(*inodeEntry)
+
+		lookuppath := inode.path[len(inodeParent.name)+1:]
+
+		fmt.Println(">>>>>>>>>>>", inode.path, lookuppath)
+
+		filesystem, _, err := snapshot.GetFilesystem(fs.repository, uuid.MustParse(inodeParent.name))
+		if err != nil {
+			return fuse.EIO
+		}
+
+		stat, exists := filesystem.LookupInode(lookuppath)
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		op.Entry.Child = inodeID
+		op.Entry.Attributes = fuseops.InodeAttributes{
+			Size:  uint64(stat.Size),
+			Nlink: 1,
+			Mode:  stat.Mode,
+			Ctime: stat.ModTime,
+			Atime: stat.ModTime,
+			Mtime: stat.ModTime,
+		}
+		return nil
+
+	} else {
+		pathname := fmt.Sprintf("%s/%s", inodeParent.path, op.Name)
+		fmt.Println(pathname)
+		inodeID, exists := pathnameToInode[pathname]
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		entry, exists := fs.inodes.Load(inodeID)
+		if !exists {
+			return fuse.ENOENT
+		}
+		inode := entry.(*inodeEntry)
+
+		lookuppath := inode.path[36+1:]
+
+		fmt.Println("#>>>>>>>>>>>", inode.path, lookuppath)
+
+		filesystem, _, err := snapshot.GetFilesystem(fs.repository, inodeParent.snapshotID)
+		if err != nil {
+			return fuse.EIO
+		}
+
+		stat, exists := filesystem.LookupInode(lookuppath)
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		op.Entry.Child = inodeID
+		op.Entry.Attributes = fuseops.InodeAttributes{
+			Size:  uint64(stat.Size),
+			Nlink: 1,
+			Mode:  stat.Mode,
+			Ctime: stat.ModTime,
+			Atime: stat.ModTime,
+			Mtime: stat.ModTime,
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (fs *plakarFS) GetInodeAttributes(
+	ctx context.Context,
+	op *fuseops.GetInodeAttributesOp) error {
+	fmt.Println("GetInodeAttributes", op.Inode)
+	var err error
+	op.Attributes, err = fs.getAttributes(op.Inode)
+	return err
+}
+
+func (fs *plakarFS) SetInodeAttributes(
+	ctx context.Context,
+	op *fuseops.SetInodeAttributesOp) error {
+	fmt.Println("SetInodeAttributes")
+	return fuse.ENOENT
+}
+
+func (fs *plakarFS) OpenFile(
+	ctx context.Context,
+	op *fuseops.OpenFileOp) error {
+	fmt.Println("OpenFile")
+	return nil
+}
+
+func (fs *plakarFS) ReadFile(
+	ctx context.Context,
+	op *fuseops.ReadFileOp) error {
+	fmt.Println("ReadFile")
+
+	entry, exists := fs.inodes.Load(op.Inode)
+	if !exists {
+		return fuse.ENOENT
+	}
+
+	inode := entry.(*inodeEntry)
+	snap, err := snapshot.Load(fs.repository, inode.snapshotID)
+	if err != nil {
+		return fuse.EIO
+	}
+
+	info, exists := snap.Filesystem.LookupInode(inode.path[37:])
+	if !exists {
+		return fuse.ENOENT
+	}
+
+	rd, err := snap.NewReader(inode.path[37:])
+	if err != nil {
+		return fuse.EIO
+	}
+
+	if op.Offset > info.Size {
+		return nil
+	}
+
+	// temphack until rd is a ReadSeekCloser
+	buf := make([]byte, op.Offset)
+	rd.Read(buf)
+
+	buf = make([]byte, 16384)
+	rd.Read(buf)
+	b := copy(op.Dst, buf)
+	op.BytesRead += b
+
+	return nil
+
+}
+
+func (fs *plakarFS) OpenDir(
+	ctx context.Context,
+	op *fuseops.OpenDirOp) error {
+	fmt.Println("OpenDir", op)
+
+	if op.Inode == fuseops.RootInodeID {
+		snapshotIDs, err := snapshot.List(fs.repository)
+		if err != nil {
+			return fuse.EIO
+		}
+		for _, snapshotID := range snapshotIDs {
+			pathname := fmt.Sprintf("%s/%s", fs.mountpoint, snapshotID.String())
+			_, exists := pathnameToInode[pathname]
+			if !exists {
+				inodeID := allocateInodeID()
+				fs.inodes.Store(inodeID, &inodeEntry{
+					id:         inodeID,
+					name:       snapshotID.String(),
+					path:       pathname,
+					isSnapshot: true,
+				})
+				pathnameToInode[pathname] = inodeID
+			}
+		}
+		return nil
+	}
+
+	fmt.Println("#####1")
+	entry, exists := fs.inodes.Load(op.Inode)
+	if !exists {
+		return fuse.ENOENT
+	}
+	fmt.Println("#####2")
+
+	inode := entry.(*inodeEntry)
+	if inode.isSnapshot {
+		fmt.Println("#####3")
+
+		filesystem, _, err := snapshot.GetFilesystem(fs.repository, uuid.MustParse(inode.name))
+		if err != nil {
+			return fuse.EIO
+		}
+		children, err := filesystem.LookupChildren("/")
+		if err != nil {
+			return fuse.EIO
+		}
+		fmt.Println("#####4")
+
+		for _, child := range children {
+			pathname := fmt.Sprintf("%s:/%s", inode.name, child)
+			fmt.Println("#####5", pathname)
+			_, exists := pathnameToInode[pathname]
+			if !exists {
+				inodeID := allocateInodeID()
+				fs.inodes.Store(inodeID, &inodeEntry{
+					id:         inodeID,
+					name:       child,
+					path:       pathname,
+					isSnapshot: false,
+					snapshotID: uuid.MustParse(inode.name),
+				})
+				pathnameToInode[pathname] = inodeID
+			}
+		}
+		return nil
+
+	}
+
+	//
+	fmt.Println("#####1000000000")
+	filesystem, _, err := snapshot.GetFilesystem(fs.repository, inode.snapshotID)
+	if err != nil {
+		return fuse.EIO
+	}
+	children, err := filesystem.LookupChildren(inode.path[37:])
+	if err != nil {
+		return fuse.EIO
+	}
+
+	for _, child := range children {
+		pathname := fmt.Sprintf("%s:%s/%s", inode.snapshotID, inode.path[37:], child)
+		fmt.Println("#####5", pathname)
+		_, exists := pathnameToInode[pathname]
+		if !exists {
+			inodeID := allocateInodeID()
+			fs.inodes.Store(inodeID, &inodeEntry{
+				id:         inodeID,
+				name:       child,
+				path:       pathname,
+				isSnapshot: false,
+				snapshotID: inode.snapshotID,
+			})
+			pathnameToInode[pathname] = inodeID
+		}
+	}
+	return nil
+
+}
+
+func (fs *plakarFS) ReadDir(
+	ctx context.Context,
+	op *fuseops.ReadDirOp) error {
+	fmt.Println("ReadDir")
+
+	dirents := make([]*fuseutil.Dirent, 0)
+
+	if op.Inode == fuseops.RootInodeID {
+		snapshotIDs, err := snapshot.List(fs.repository)
+		if err != nil {
+			return fuse.EIO
+		}
+
+		for i, snapshotID := range snapshotIDs {
+			dirents = append(dirents, &fuseutil.Dirent{
+				Offset: fuseops.DirOffset(i + 1),
+				Inode:  pathnameToInode[fmt.Sprintf("%s/%s", fs.mountpoint, snapshotID)],
+				Name:   snapshotID.String(),
+				Type:   fuseutil.DT_Directory,
+			})
+		}
+	} else {
+		entry, exists := fs.inodes.Load(op.Inode)
+		if !exists {
+			return fuse.ENOENT
+		}
+
+		inode := entry.(*inodeEntry)
+		if inode.isSnapshot {
+
+			filesystem, _, err := snapshot.GetFilesystem(fs.repository, uuid.MustParse(inode.name))
+			if err != nil {
+				return fuse.EIO
+			}
+
+			children, err := filesystem.LookupChildren("/")
+			if err != nil {
+				return fuse.EIO
+			}
+
+			for i, child := range children {
+				stat, exists := filesystem.LookupInode("/" + child)
+				if !exists {
+					return fuse.EIO
+				}
+
+				dtype := fuseutil.DT_Directory
+				if stat.Mode.IsRegular() {
+					dtype = fuseutil.DT_Char
+				}
+
+				dirents = append(dirents, &fuseutil.Dirent{
+					Offset: fuseops.DirOffset(i + 1),
+					Inode:  pathnameToInode[fmt.Sprintf("%s:/%s", inode.name, child)],
+					Name:   child,
+					Type:   dtype,
+				})
+			}
+		} else {
+			fmt.Println("@@@@1")
+
+			filesystem, _, err := snapshot.GetFilesystem(fs.repository, inode.snapshotID)
+			if err != nil {
+				return fuse.EIO
+			}
+			children, err := filesystem.LookupChildren(inode.path[37:])
+			if err != nil {
+				return fuse.EIO
+			}
+			fmt.Println("@@@@2")
+
+			for i, child := range children {
+				fmt.Println("inode.path:", inode.path)
+				stat, exists := filesystem.LookupInode(inode.path[37:] + "/" + child)
+				if !exists {
+					return fuse.EIO
+				}
+				fmt.Println("#2 inode.path:", inode.path)
+				dtype := fuseutil.DT_Directory
+				if stat.Mode.IsRegular() {
+					dtype = fuseutil.DT_Char
+				}
+				dirents = append(dirents, &fuseutil.Dirent{
+					Offset: fuseops.DirOffset(i + 1),
+					Inode:  pathnameToInode[fmt.Sprintf("%s/%s", inode.path, child)],
+					Name:   child,
+					Type:   dtype,
+				})
+			}
+
+		}
+	}
+
+	if op.Offset > fuseops.DirOffset(len(dirents)) {
+		return fuse.EIO
+	}
+
+	for _, dirent := range dirents[op.Offset:] {
+		fmt.Println(dirent)
+		bytesWritten := fuseutil.WriteDirent(op.Dst[op.BytesRead:], *dirent)
+		if bytesWritten == 0 {
+			break
+		}
+		op.BytesRead += bytesWritten
+	}
+	return nil
+}
+
+/*
 func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, error) {
 	if id == fuseops.RootInodeID {
 		return fuseops.InodeAttributes{
@@ -306,3 +706,4 @@ func (fs *plakarFS) ReadDir(
 
 	return nil
 }
+*/

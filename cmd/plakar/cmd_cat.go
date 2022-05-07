@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"os"
 
 	"github.com/poolpOrg/plakar/logger"
@@ -28,7 +29,7 @@ func init() {
 	registerCommand("cat", cmd_cat)
 }
 
-func cmd_cat(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -37,7 +38,7 @@ func cmd_cat(ctx Plakar, store *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
@@ -48,30 +49,23 @@ func cmd_cat(ctx Plakar, store *storage.Store, args []string) int {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.Uuid)
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.GetIndexShortID())
 			errors++
 			continue
 		}
 
-		object := snapshot.LookupObjectForPathname(pathname)
-		if object == nil {
-			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
+		rd, err := snapshot.NewReader(pathname)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
 
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snapshot.GetChunk(chunkChecksum)
-			if err != nil {
-				logger.Error("%s: %s: could not obtain chunk '%s': %s", flags.Name(), pathname, chunkChecksum, err)
-				errors++
-				continue
-			}
-			_, err = os.Stdout.Write(data)
-			if err != nil {
-				logger.Error("%s: %s: could not write chunk '%s' to stdout: %s", flags.Name(), pathname, chunkChecksum, err)
-				break
-			}
+		_, err = io.Copy(os.Stdout, rd)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
 		}
 	}
 

@@ -3,7 +3,7 @@
 {{define "title"}}Plakar{{end}}
 
 {{define "main"}}
-    {{$Store := .Store}}
+    {{$Repository := .Repository}}
     {{$Metadatas := .Metadatas}}
     {{$MajorTypes := .MajorTypes}}
     {{$MimeTypes := .MimeTypes}}
@@ -55,13 +55,13 @@
             <tbody>
                 {{range $metadata := $Metadatas}}
                 <tr>
-                    <th scope="row"><a href="/snapshot/{{$metadata.Uuid}}:/">{{slice $metadata.Uuid  0 8}}</a></th>
+                    <th scope="row"><a href="/snapshot/{{$metadata.IndexID}}:/">{{slice $metadata.IndexID  0 8}}</a></th>
                     <td>{{$metadata.Username }}</td>
                     <td>{{$metadata.Hostname }}</td>
                     <td>{{$metadata.CreationTime }}</td>
-                    <td>{{$metadata.Statistics.Directories}}</td>
-                    <td>{{$metadata.Statistics.Files}}</td>
-                    <td>{{humanizeBytes $metadata.Size}}</td>
+                    <td>{{$metadata.DirectoriesCount}}</td>
+                    <td>{{$metadata.FilesCount}}</td>
+                    <td>{{humanizeBytes $metadata.ScanProcessedSize}}</td>
                 </tr>
                 {{end}}
             </tbody>

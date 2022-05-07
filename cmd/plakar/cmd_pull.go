@@ -18,9 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
+	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
@@ -28,9 +31,10 @@ func init() {
 	registerCommand("pull", cmd_pull)
 }
 
-func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
+	var opt_progress bool
 
 	dir, err := os.Getwd()
 	if err != nil {
@@ -40,20 +44,40 @@ func cmd_pull(ctx Plakar, store *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("pull", flag.ExitOnError)
 	flags.StringVar(&pullPath, "path", dir, "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
+	flags.BoolVar(&opt_progress, "progress", false, "display progress bar")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
+		metadatas, err := getMetadatas(repository, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i := len(metadatas); i != 0; i-- {
+			metadata := metadatas[i-1]
+			for _, scannedDir := range metadata.ScannedDirectories {
+				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
+					snap, err := snapshot.Load(repository, metadata.GetIndexID())
+					if err != nil {
+						return 1
+					}
+					snap.Pull(pullPath, true, dir, opt_progress)
+					return 0
+				}
+			}
+		}
+		log.Fatalf("%s: could not find a snapshot to restore this path from", flag.CommandLine.Name())
+		return 1
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for offset, snapshot := range snapshots {
+	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snapshot.Pull(pullPath, pullRebase, pattern)
+		snap.Pull(pullPath, pullRebase, pattern, opt_progress)
 	}
 
 	return 0

@@ -39,7 +39,7 @@ func TestEncryption(t *testing.T) {
 		t.Error(err)
 	}
 
-	if bytes.Compare(decrypted, buffer) != 0 {
+	if !bytes.Equal(decrypted, buffer) {
 		t.Errorf("Decrypt(Encrypt(buffer)) != buffer")
 	}
 }

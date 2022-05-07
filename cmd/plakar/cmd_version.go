@@ -29,7 +29,7 @@ func init() {
 	registerCommand("version", cmd_version)
 }
 
-func cmd_version(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_version(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -18,23 +18,29 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/poolpOrg/plakar/ui"
 )
 
 func init() {
-	registerCommand("ui", cmd_ui)
+	registerCommand("browser", cmd_browser)
 }
 
-func cmd_ui(ctx Plakar, store *storage.Store, args []string) int {
-	var spawn bool
+func cmd_browser(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_nospawn bool
 
-	flags := flag.NewFlagSet("ui", flag.ExitOnError)
-	flags.BoolVar(&spawn, "spawn", false, "spawn browser")
+	flags := flag.NewFlagSet("browser", flag.ExitOnError)
+	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.Parse(args)
 
-	ui.Ui(store, spawn)
+	err := ui.Ui(repository, !opt_nospawn)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+		return 1
+	}
 
 	return 0
 }

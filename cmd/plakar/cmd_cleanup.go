@@ -18,48 +18,61 @@ package main
 
 import (
 	"flag"
-	"log"
-	"sync"
 
-	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {
-	registerCommand("rm", cmd_rm)
+	registerCommand("cleanup", cmd_cleanup)
 }
 
-func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
-	flags := flag.NewFlagSet("rm", flag.ExitOnError)
+func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int {
+	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
 
-	if flags.NArg() == 0 {
-		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
-	}
+	chunks := make(map[[32]byte]bool)
+	objects := make(map[[32]byte]bool)
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	indexesList, err := repository.GetIndexes()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	errors := 0
-	wg := sync.WaitGroup{}
-	for _, snap := range snapshots {
-		wg.Add(1)
-		go func(snap *snapshot.Snapshot) {
-			err := repository.Purge(snap.Metadata.GetIndexID())
-			if err != nil {
-				logger.Error("%s", err)
-				errors++
-			}
-			wg.Done()
-		}(snap)
-	}
-	wg.Wait()
-
-	if errors != 0 {
 		return 1
 	}
+
+	for _, indexID := range indexesList {
+		s, err := snapshot.Load(repository, indexID)
+		if err != nil {
+			return 1
+		}
+		for _, objectID := range s.Index.ListObjects() {
+			objects[objectID] = true
+		}
+		for _, chunkID := range s.Index.ListChunks() {
+			chunks[chunkID] = true
+		}
+	}
+
+	objectList, err := repository.GetObjects()
+	if err != nil {
+		return 1
+	}
+
+	chunkList, err := repository.GetChunks()
+	if err != nil {
+		return 1
+	}
+
+	for _, objectID := range objectList {
+		if _, exists := objects[objectID]; !exists {
+			repository.DeleteObject(objectID)
+		}
+	}
+
+	for _, chunkID := range chunkList {
+		if _, exists := chunks[chunkID]; !exists {
+			repository.DeleteChunk(chunkID)
+		}
+	}
+
 	return 0
 }

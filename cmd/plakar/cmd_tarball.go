@@ -36,7 +36,7 @@ func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
+func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 
@@ -54,7 +54,7 @@ func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots, err := getSnapshots(store, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,14 +77,14 @@ func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file, checksum := range snapshot.Index.Pathnames {
+		for _, file := range snapshot.Index.ListPathnames() {
 			if prefix != "" {
 				if !helpers.PathIsWithin(file, prefix) {
 					continue
 				}
 			}
 
-			info, _ := snapshot.LookupInodeForPathname(file)
+			info, _ := snapshot.Filesystem.LookupInode(file)
 			filepath := file
 			if tarballRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)
@@ -102,21 +102,16 @@ func cmd_tarball(ctx Plakar, store *storage.Store, args []string) int {
 				continue
 			}
 
-			obj := snapshot.LookupObjectForChecksum(checksum)
-			for _, chunkChecksum := range obj.Chunks {
-				data, err := snapshot.GetChunk(chunkChecksum)
-				if err != nil {
-					logger.Error("corrupted file %s", file)
-					continue
-				}
-
-				_, err = io.WriteString(tarWriter, string(data))
-				if err != nil {
-					logger.Error("could not write file %s", file)
-					continue
-				}
+			rd, err := snapshot.NewReader(file)
+			if err != nil {
+				logger.Error("could not find file %s", file)
+				continue
 			}
-
+			_, err = io.Copy(tarWriter, rd)
+			if err != nil {
+				logger.Error("could not write file %s: %s", file, err)
+				continue
+			}
 		}
 	}
 

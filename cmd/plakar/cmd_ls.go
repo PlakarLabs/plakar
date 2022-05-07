@@ -37,43 +37,55 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, store *storage.Store, args []string) int {
-	var recursive bool
+func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_recursive bool
+	var opt_uuid bool
 
 	flags := flag.NewFlagSet("ls", flag.ExitOnError)
-	flags.BoolVar(&recursive, "recursive", false, "recursive listing")
+	flags.BoolVar(&opt_uuid, "uuid", false, "display uuid instead of short ID")
+	flags.BoolVar(&opt_recursive, "recursive", false, "recursive listing")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(store)
+		list_snapshots(repository, opt_uuid)
 		return 0
 	}
 
-	if recursive {
-		list_snapshot_recursive(store, flags.Args())
+	if opt_recursive {
+		list_snapshot_recursive(repository, flags.Args())
 	} else {
-		list_snapshot(store, flags.Args())
+		list_snapshot(repository, flags.Args())
 	}
 	return 0
 }
 
-func list_snapshots(store *storage.Store) {
-	metadatas, err := getMetadatas(store, nil)
+func list_snapshots(repository *storage.Repository, useUuid bool) {
+	metadatas, err := getMetadatas(repository, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for _, metadata := range metadatas {
-		fmt.Fprintf(os.Stdout, "%s%38s%10s %s\n",
-			metadata.CreationTime.UTC().Format(time.RFC3339),
-			metadata.Uuid,
-			humanize.Bytes(metadata.Size),
-			strings.Join(metadata.ScannedDirectories, ", "))
+		if !useUuid {
+			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
+				metadata.CreationTime.UTC().Format(time.RFC3339),
+				metadata.GetIndexShortID(),
+				humanize.Bytes(metadata.ScanProcessedSize),
+				metadata.CreationDuration.Round(time.Second),
+				strings.Join(metadata.ScannedDirectories, ", "))
+		} else {
+			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
+				metadata.CreationTime.UTC().Format(time.RFC3339),
+				metadata.GetIndexID(),
+				humanize.Bytes(metadata.ScanProcessedSize),
+				metadata.CreationDuration.Round(time.Second),
+				strings.Join(metadata.ScannedDirectories, ", "))
+		}
 	}
 }
 
-func list_snapshot(store *storage.Store, args []string) {
-	snapshots, err := getSnapshots(store, args)
+func list_snapshot(repository *storage.Repository, args []string) {
+	snapshots, err := getSnapshots(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}
@@ -82,20 +94,20 @@ func list_snapshot(store *storage.Store, args []string) {
 		_, prefix := parseSnapshotID(args[offset])
 
 		content := make([]string, 0)
-		entries, exists := snap.LookupPathChildren(prefix)
-		if !exists {
-			continue
-		}
+		entries, _ := snap.Filesystem.LookupChildren(prefix)
+
+		children := make(map[string]*snapshot.Fileinfo)
 
 		if len(entries) == 0 {
-			info, exists := snap.LookupInodeForPathname(prefix)
+			info, exists := snap.Filesystem.LookupInode(prefix)
 			if !exists {
 				continue
 			}
-			entries[prefix] = info
+			children[prefix] = info
 			content = append(content, prefix)
 		} else {
-			for name := range entries {
+			for _, name := range entries {
+				children[name], _ = snap.Filesystem.LookupInode(fmt.Sprintf("%s/%s", prefix, name))
 				content = append(content, name)
 			}
 			sort.Slice(content, func(i, j int) bool {
@@ -104,7 +116,7 @@ func list_snapshot(store *storage.Store, args []string) {
 		}
 
 		for _, item := range content {
-			fi := entries[item]
+			fi := children[item]
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 			username := fmt.Sprintf("%d", fi.Uid)
 			if err == nil {
@@ -127,8 +139,8 @@ func list_snapshot(store *storage.Store, args []string) {
 	}
 }
 
-func list_snapshot_recursive(store *storage.Store, args []string) {
-	snapshots, err := getSnapshots(store, args)
+func list_snapshot_recursive(repository *storage.Repository, args []string) {
+	snapshots, err := getSnapshots(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list: %s", flag.CommandLine.Name(), err)
 	}
@@ -146,9 +158,7 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 		}
 
 		directories := make([]string, 0)
-		for _, name := range snapshot.Index.Filesystem.ListDirectories() {
-			directories = append(directories, name)
-		}
+		directories = append(directories, snapshot.Filesystem.ListDirectories()...)
 		sort.Slice(directories, func(i, j int) bool {
 			return strings.Compare(directories[i], directories[j]) < 0
 		})
@@ -161,15 +171,13 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		for _, name := range snapshot.Index.Filesystem.ListFiles() {
-			filenames = append(filenames, name)
-		}
+		filenames = append(filenames, snapshot.Filesystem.ListFiles()...)
 		sort.Slice(filenames, func(i, j int) bool {
 			return strings.Compare(filenames[i], filenames[j]) < 0
 		})
 
 		for _, name := range filenames {
-			fi, _ := snapshot.LookupInodeForPathname(name)
+			fi, _ := snapshot.Filesystem.LookupInode(name)
 			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
@@ -186,7 +194,6 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				//snapshot.Pathnames[name],
 				fi.ModTime.UTC().Format(time.RFC3339),
 				fi.Mode,
 				username,
@@ -199,15 +206,13 @@ func list_snapshot_recursive(store *storage.Store, args []string) {
 
 func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory string) {
 	directories := make([]string, 0)
-	for _, name := range snapshot.Index.Filesystem.ListDirectories() {
-		directories = append(directories, name)
-	}
+	directories = append(directories, snapshot.Filesystem.ListDirectories()...)
 	sort.Slice(directories, func(i, j int) bool {
 		return strings.Compare(directories[i], directories[j]) < 0
 	})
 
 	for _, name := range directories {
-		fi, _ := snapshot.LookupInodeForPathname(name)
+		fi, _ := snapshot.Filesystem.LookupInode(name)
 		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
@@ -227,7 +232,6 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			//snapshot.Pathnames[name],
 			fi.ModTime.UTC().Format(time.RFC3339),
 			fi.Mode,
 			username,
@@ -238,15 +242,13 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 	}
 
 	filenames := make([]string, 0)
-	for _, name := range snapshot.Index.Filesystem.ListFiles() {
-		filenames = append(filenames, name)
-	}
+	filenames = append(filenames, snapshot.Filesystem.ListFiles()...)
 	sort.Slice(filenames, func(i, j int) bool {
 		return strings.Compare(filenames[i], filenames[j]) < 0
 	})
 
 	for _, name := range filenames {
-		fi, _ := snapshot.LookupInodeForPathname(name)
+		fi, _ := snapshot.Filesystem.LookupInode(name)
 		if !helpers.PathIsWithin(name, directory) && name != directory {
 			continue
 		}
@@ -263,7 +265,6 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			//snapshot.Pathnames[name],
 			fi.ModTime.UTC().Format(time.RFC3339),
 			fi.Mode,
 			username,

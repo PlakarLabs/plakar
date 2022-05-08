@@ -200,28 +200,51 @@ func (repository *S3Repository) GetIndexes() ([]uuid.UUID, error) {
 }
 
 func (repository *S3Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
-	fmt.Println("PutMetadata")
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (repository *S3Repository) PutIndex(indexID uuid.UUID, data []byte) error {
-	fmt.Println("PutIndex")
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (repository *S3Repository) PutFilesystem(indexID uuid.UUID, data []byte) error {
-	fmt.Println("PutFilesystem")
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (repository *S3Repository) GetChunks() ([][32]byte, error) {
-	fmt.Println("GetChunks")
-	return nil, nil
+	ret := make([][32]byte, 0)
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{}) {
+		if strings.HasPrefix(object.Key, "CHUNK:") {
+			var key [32]byte
+			copy(key[:], object.Key[6:])
+			ret = append(ret, key)
+		}
+	}
+	return ret, nil
 }
 
 func (repository *S3Repository) GetObjects() ([][32]byte, error) {
-	fmt.Println("GetObjects")
-	return nil, nil
+	ret := make([][32]byte, 0)
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{}) {
+		if strings.HasPrefix(object.Key, "OBJECT:") {
+			var key [32]byte
+			copy(key[:], object.Key[7:])
+			ret = append(ret, key)
+		}
+	}
+	return ret, nil
 }
 
 func (repository *S3Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
@@ -401,8 +424,7 @@ func (repository *S3Repository) PutChunk(checksum [32]byte, data []byte) error {
 }
 
 func (repository *S3Repository) Purge(indexID uuid.UUID) error {
-	fmt.Println("Purge")
-	return nil
+	return repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
 }
 
 func (repository *S3Repository) Close() error {

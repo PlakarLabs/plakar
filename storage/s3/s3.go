@@ -424,7 +424,27 @@ func (repository *S3Repository) PutChunk(checksum [32]byte, data []byte) error {
 }
 
 func (repository *S3Repository) Purge(indexID uuid.UUID) error {
-	return repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", indexID.String()), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", indexID.String()), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+
+	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", indexID.String()), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (repository *S3Repository) Close() error {

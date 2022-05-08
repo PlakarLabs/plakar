@@ -141,6 +141,8 @@ func New(location string) (*Repository, error) {
 			backendName = "client"
 		} else if strings.HasPrefix(location, "sqlite://") {
 			backendName = "database"
+		} else if strings.HasPrefix(location, "s3://") {
+			backendName = "s3"
 		} else {
 			return nil, fmt.Errorf("unsupported plakar protocol")
 		}

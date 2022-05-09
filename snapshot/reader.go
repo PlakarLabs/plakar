@@ -11,34 +11,81 @@ type Reader struct {
 	object       *Object
 	objectOffset int
 	obuf         *bytes.Buffer
+
+	chunks []IndexChunk
+	offset int64
+	size   int64
 }
 
 func (reader *Reader) Read(buf []byte) (int, error) {
-	if reader.objectOffset == len(reader.object.Chunks) {
-		if len(reader.obuf.Bytes()) != 0 {
-			return reader.obuf.Read(buf)
-		}
+
+	if reader.offset == reader.size {
 		return 0, io.EOF
 	}
 
-	for len(reader.obuf.Bytes()) < len(buf) {
-		data, err := reader.snapshot.GetChunk(reader.object.Chunks[reader.objectOffset])
+	readSize := uint(len(buf))
+	for chunkOffset, chunkInfo := range reader.chunks {
+		// reader offset is past this chunk, skip
+		if reader.offset > int64(chunkInfo.Start)+int64(chunkInfo.Length) {
+			continue
+		}
+
+		// we have data to read from this chunk, fetch content
+		data, err := reader.snapshot.GetChunk(reader.object.Chunks[chunkOffset])
 		if err != nil {
 			return -1, err
 		}
 
-		_, err = reader.obuf.Write(data)
+		// compute how much we can read from this one
+		endOffset := chunkInfo.Start + chunkInfo.Length
+		available := endOffset - uint(reader.offset)
+
+		// find beginning and ending offsets in current chunk
+		beg := chunkInfo.Length - available
+		end := beg + available
+		if available >= uint(readSize) {
+			end = beg + uint(readSize)
+		}
+
+		nbytes, err := reader.obuf.Write(data[beg:end])
 		if err != nil {
 			return -1, err
 		}
 
-		reader.objectOffset++
-		if reader.objectOffset == len(reader.object.Chunks) {
+		// update offset and remaining buffer capacity, possibly exiting loop
+		reader.offset += int64(nbytes)
+		readSize -= uint(nbytes)
+		if reader.offset == reader.size || readSize == 0 {
 			break
 		}
 	}
 
 	return reader.obuf.Read(buf)
+}
+
+func (reader *Reader) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	case io.SeekStart:
+		if offset >= reader.size {
+			return 0, io.EOF
+		}
+		reader.offset = offset
+	case io.SeekCurrent:
+		if reader.offset+offset >= reader.size {
+			return 0, io.EOF
+		}
+		reader.offset += offset
+	case io.SeekEnd:
+		if offset > reader.size {
+			return 0, io.EOF
+		}
+		reader.offset = reader.size - offset
+	}
+	return reader.offset, nil
+}
+
+func (reader *Reader) Close() error {
+	return nil
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
@@ -47,5 +94,18 @@ func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 		return nil, os.ErrNotExist
 	}
 
-	return &Reader{snapshot: snapshot, object: object, obuf: bytes.NewBuffer([]byte(""))}, nil
+	chunks := make([]IndexChunk, 0)
+	size := int64(0)
+	for _, chunkChecksum := range object.Chunks {
+		chunkID, exists := snapshot.Index.getChecksumID(chunkChecksum)
+		if !exists {
+			return nil, os.ErrNotExist
+		}
+		chunk := snapshot.Index.Chunks[chunkID]
+
+		chunks = append(chunks, chunk)
+		size += int64(chunk.Length)
+	}
+
+	return &Reader{snapshot: snapshot, object: object, chunks: chunks, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
 }

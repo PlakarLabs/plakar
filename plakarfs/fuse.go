@@ -308,11 +308,12 @@ func (fs *plakarFS) ReadFile(
 		return nil
 	}
 
-	// temphack until rd is a ReadSeekCloser
-	buf := make([]byte, op.Offset)
-	rd.Read(buf)
+	_, err = rd.Seek(op.Offset, os.SEEK_SET)
+	if err != nil {
+		return err
+	}
 
-	buf = make([]byte, 16384)
+	buf := make([]byte, 16384)
 	rd.Read(buf)
 	b := copy(op.Dst, buf)
 	op.BytesRead += b

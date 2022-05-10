@@ -60,7 +60,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 			continue
 		}
 
-		fmt.Println(object.Checksum, pathname)
+		fmt.Printf("%064x %s\n", object.Checksum, pathname)
 
 	}
 

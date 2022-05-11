@@ -17,6 +17,10 @@ type Reader struct {
 	size   int64
 }
 
+func (reader *Reader) GetContentType() string {
+	return reader.object.ContentType
+}
+
 func (reader *Reader) Read(buf []byte) (int, error) {
 
 	if reader.offset == reader.size {

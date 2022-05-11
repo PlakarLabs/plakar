@@ -17,6 +17,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"flag"
 	"io"
 	"os"
@@ -61,7 +62,20 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		_, err = io.Copy(os.Stdout, rd)
+		var outRd io.ReadCloser
+		outRd = rd
+
+		if rd.GetContentType() == "application/gzip" {
+			gzRd, err := gzip.NewReader(outRd)
+			if err != nil {
+				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+				errors++
+				continue
+			}
+			outRd = gzRd
+		}
+
+		_, err = io.Copy(os.Stdout, outRd)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

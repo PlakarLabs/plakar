@@ -14,7 +14,7 @@ require (
 	github.com/jacobsa/fuse v0.0.0-20211019165009-c75d3f26fceb
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/mattn/go-sqlite3 v1.14.9
-	github.com/minio/minio-go/v7 v7.0.26 // indirect
+	github.com/minio/minio-go/v7 v7.0.26
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/poolpOrg/go-fastcdc v0.0.0-20211130115626-1f6e826f4a2f
 	github.com/schollz/progressbar/v3 v3.8.6

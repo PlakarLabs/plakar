@@ -17,6 +17,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"flag"
 	"io"
 	"os"
@@ -26,11 +27,11 @@ import (
 )
 
 func init() {
-	registerCommand("cat", cmd_cat)
+	registerCommand("gzcat", cmd_gzcat)
 }
 
-func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
-	flags := flag.NewFlagSet("cat", flag.ExitOnError)
+func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
+	flags := flag.NewFlagSet("gzcat", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -63,6 +64,18 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		var outRd io.ReadCloser
 		outRd = rd
+
+		if rd.GetContentType() == "application/gzip" {
+			logger.Error("%s: %s: not in gzip format", flags.Name(), pathname)
+		}
+
+		gzRd, err := gzip.NewReader(outRd)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
+		outRd = gzRd
 
 		_, err = io.Copy(os.Stdout, outRd)
 		if err != nil {

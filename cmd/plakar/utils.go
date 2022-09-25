@@ -37,6 +37,9 @@ func parseSnapshotID(id string) (string, string) {
 	if len(tmp) != 0 {
 		prefix = tmp[0]
 		pattern = strings.Join(tmp[1:], ":")
+		if !strings.HasPrefix(pattern, "/") {
+			pattern = "/" + pattern
+		}
 	}
 	return prefix, pattern
 }

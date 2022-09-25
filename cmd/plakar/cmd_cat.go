@@ -61,8 +61,7 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		var outRd io.ReadCloser
-		outRd = rd
+		var outRd io.ReadCloser = rd
 
 		_, err = io.Copy(os.Stdout, outRd)
 		if err != nil {

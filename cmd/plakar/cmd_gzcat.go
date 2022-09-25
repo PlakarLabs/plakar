@@ -62,8 +62,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		var outRd io.ReadCloser
-		outRd = rd
+		var outRd io.ReadCloser = rd
 
 		if rd.GetContentType() != "application/gzip" {
 			logger.Error("%s: %s: not in gzip format", flags.Name(), pathname)

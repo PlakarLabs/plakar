@@ -130,23 +130,25 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			if err != nil {
 				return
 			}
-			defer f.Close()
 
 			objectHash := sha256.New()
 			for _, chunkChecksum := range object.Chunks {
 				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
+					f.Close()
 					continue
 				}
 
 				chunk := snapshot.Index.LookupChunk(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
+					f.Close()
 					continue
 				} else {
 					chunkHash := sha256.New()
 					chunkHash.Write(data)
 					if !bytes.Equal(chunk.Checksum[:], chunkHash.Sum(nil)) {
+						f.Close()
 						continue
 					}
 				}

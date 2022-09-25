@@ -17,8 +17,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"flag"
 	"fmt"
+	"io"
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
@@ -29,7 +31,11 @@ func init() {
 }
 
 func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int {
+	var enableFastChecksum bool
+
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)
+	flags.BoolVar(&enableFastChecksum, "fast", false, "enable fast checksum (return recorded checksum)")
+
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -60,8 +66,24 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 			continue
 		}
 
-		fmt.Printf("%064x %s\n", object.Checksum, pathname)
+		if enableFastChecksum {
+			fmt.Printf("%064x %s\n", object.Checksum, pathname)
+		} else {
+			rd, err := snapshot.NewReader(pathname)
+			if err != nil {
+				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+				errors++
+				continue
+			}
 
+			checksum := sha256.New()
+			if _, err := io.Copy(checksum, rd); err != nil {
+				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+				errors++
+				continue
+			}
+			fmt.Printf("%064x %s\n", checksum.Sum(nil), pathname)
+		}
 	}
 
 	return 0

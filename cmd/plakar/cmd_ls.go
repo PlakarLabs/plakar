@@ -93,11 +93,6 @@ func list_snapshot(repository *storage.Repository, args []string) {
 
 	for offset, snap := range snapshots {
 		_, prefix := parseSnapshotID(args[offset])
-
-		// XXX should be fixed at a lower level ?
-		if !strings.HasPrefix(prefix, "/") {
-			prefix = "/" + prefix
-		}
 		prefix = path.Clean(prefix)
 
 		content := make([]string, 0)

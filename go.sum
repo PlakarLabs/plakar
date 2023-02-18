@@ -32,6 +32,8 @@ github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711 h1:UnfAf/kLhzHd6UQ6nyu
 github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711/go.mod h1:9NZZY8JKo3RhqKRYhRWMgCO4S4adM76u8w4gGUMnlig=
 github.com/jacobsa/fuse v0.0.0-20211019165009-c75d3f26fceb h1:3azI0mTb6MzOp2/z69FJHlktZ8AI5fE04aXes4EO7yw=
 github.com/jacobsa/fuse v0.0.0-20211019165009-c75d3f26fceb/go.mod h1:xtZnnLxHY6QniCrfIpTwr5h8mH8zr+jsOFj0y9cfyp4=
+github.com/jacobsa/fuse v0.0.0-20230218174505-702f658418eb h1:Xo6qRS41X1NVOe6zgI3H33wBDNfZcLragLe5WWnn0MM=
+github.com/jacobsa/fuse v0.0.0-20230218174505-702f658418eb/go.mod h1:MSEZPbsHf3ge4R54Q+OhJUIe+C9gLq8A30KaN8vuo3Y=
 github.com/jacobsa/oglematchers v0.0.0-20150720000706-141901ea67cd/go.mod h1:TlmyIZDpGmwRoTWiakdr+HA1Tukze6C6XbRVidYq02M=
 github.com/jacobsa/oglemock v0.0.0-20150831005832-e94d794d06ff/go.mod h1:gJWba/XXGl0UoOmBQKRWCJdHrr3nE0T65t6ioaj3mLI=
 github.com/jacobsa/ogletest v0.0.0-20170503003838-80d50a735a11/go.mod h1:+DBdDyfoO2McrOyDemRBq0q9CMEByef7sYl7JH5Q3BI=
@@ -124,6 +126,7 @@ golang.org/x/net v0.0.0-20200707034311-ab3426394381/go.mod h1:/O7V0waA8r7cgGh81R
 golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v0D8zg8gWTRqZa9RBIspLL5mdg=
 golang.org/x/net v0.0.0-20210505024714-0287a6fb4125/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+golang.org/x/net v0.0.0-20220526153639-5463443f8c37/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
 golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
 golang.org/x/net v0.6.0 h1:L4ZwwTvKW9gr0ZMS1yrHD9GZhIuVjOBBnaKH+SPQK0Q=
 golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=

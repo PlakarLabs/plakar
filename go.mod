@@ -11,7 +11,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
-	github.com/jacobsa/fuse v0.0.0-20211019165009-c75d3f26fceb
+	github.com/jacobsa/fuse v0.0.0-20230218174505-702f658418eb
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/minio/minio-go/v7 v7.0.26

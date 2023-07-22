@@ -12,6 +12,7 @@ import (
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/metadata"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/storage"
@@ -24,7 +25,7 @@ type Snapshot struct {
 
 	SkipDirs []string
 
-	Metadata   *Metadata
+	Metadata   *metadata.Metadata
 	Index      *index.Index
 	Filesystem *filesystem.Filesystem
 }
@@ -44,7 +45,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		repository:  repository,
 		transaction: tx,
 
-		Metadata:   NewMetadata(indexID),
+		Metadata:   metadata.NewMetadata(indexID),
 		Index:      index.NewIndex(),
 		Filesystem: filesystem.NewFilesystem(),
 	}
@@ -91,7 +92,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	return snapshot, nil
 }
 
-func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, bool, error) {
+func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*metadata.Metadata, bool, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetMetada", time.Since(t0))
@@ -145,7 +146,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 		buffer = tmp
 	}
 
-	metadata, err := NewMetadataFromBytes(buffer)
+	metadata, err := metadata.NewMetadataFromBytes(buffer)
 	if err != nil {
 		return nil, false, err
 	}

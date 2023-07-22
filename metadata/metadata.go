@@ -1,4 +1,4 @@
-package snapshot
+package metadata
 
 import (
 	"time"

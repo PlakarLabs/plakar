@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/index"
+	"github.com/poolpOrg/plakar/metadata"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -64,13 +65,13 @@ func getSnapshotsList(repository *storage.Repository) ([]uuid.UUID, error) {
 	return snapshots, nil
 }
 
-func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapshot.Metadata, error) {
+func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadata.Metadata, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*snapshot.Metadata, 0)
+	result := make([]*metadata.Metadata, 0)
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {

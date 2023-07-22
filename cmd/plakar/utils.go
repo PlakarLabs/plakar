@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -184,13 +185,13 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 	return result, nil
 }
 
-func getFilesystems(repository *storage.Repository, prefixes []string) ([]*snapshot.Filesystem, error) {
+func getFilesystems(repository *storage.Repository, prefixes []string) ([]*filesystem.Filesystem, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*snapshot.Filesystem, 0)
+	result := make([]*filesystem.Filesystem, 0)
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {

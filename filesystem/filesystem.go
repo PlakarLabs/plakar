@@ -1,4 +1,4 @@
-package snapshot
+package filesystem
 
 import (
 	"fmt"

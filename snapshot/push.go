@@ -15,6 +15,7 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/go-fastcdc"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
@@ -25,7 +26,7 @@ type objectMsg struct {
 	Data   []byte
 }
 
-func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*objects.Object, error) {
+func pathnameCached(snapshot *Snapshot, fi filesystem.Fileinfo, pathname string) (*objects.Object, error) {
 	cache := snapshot.repository.GetCache()
 
 	if cache == nil {

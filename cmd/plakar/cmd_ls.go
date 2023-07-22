@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
@@ -98,7 +99,7 @@ func list_snapshot(repository *storage.Repository, args []string) {
 		content := make([]string, 0)
 		entries, _ := snap.Filesystem.LookupChildren(prefix)
 
-		children := make(map[string]*snapshot.Fileinfo)
+		children := make(map[string]*filesystem.Fileinfo)
 
 		if len(entries) == 0 {
 			info, exists := snap.Filesystem.LookupInode(prefix)

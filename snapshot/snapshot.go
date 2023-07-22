@@ -92,6 +92,53 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	return snapshot, nil
 }
 
+func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.Fork", time.Since(t0))
+	}()
+
+	metadata, _, err := GetMetadata(repository, indexID)
+	if err != nil {
+		return nil, err
+	}
+
+	index, checksum, err := GetIndex(repository, indexID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(checksum, metadata.IndexChecksum) {
+		return nil, fmt.Errorf("index mismatches metadata checksum")
+	}
+
+	filesystem, checksum, err := GetFilesystem(repository, indexID)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(checksum, metadata.FilesystemChecksum) {
+		return nil, fmt.Errorf("filesystem mismatches metadata checksum")
+	}
+
+	tx, err := repository.Transaction(uuid.Must(uuid.NewRandom()))
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot := &Snapshot{
+		repository:  repository,
+		transaction: tx,
+
+		Metadata:   metadata,
+		Index:      index,
+		Filesystem: filesystem,
+	}
+	snapshot.Metadata.IndexID = tx.GetUuid()
+
+	logger.Trace("snapshot", "%s: Fork(): %s", indexID, snapshot.Metadata.GetIndexShortID())
+	return snapshot, nil
+}
+
 func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*metadata.Metadata, bool, error) {
 	t0 := time.Now()
 	defer func() {

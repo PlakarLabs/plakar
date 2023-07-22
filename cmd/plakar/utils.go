@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -124,13 +125,13 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*snapsho
 	return result, nil
 }
 
-func getIndexes(repository *storage.Repository, prefixes []string) ([]*snapshot.Index, error) {
+func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Index, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*snapshot.Index, 0)
+	result := make([]*index.Index, 0)
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {

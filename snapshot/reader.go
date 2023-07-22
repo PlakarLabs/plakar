@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/objects"
 )
 
@@ -14,7 +15,7 @@ type Reader struct {
 	objectOffset int
 	obuf         *bytes.Buffer
 
-	chunks []IndexChunk
+	chunks []index.IndexChunk
 	offset int64
 	size   int64
 }
@@ -100,10 +101,10 @@ func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 		return nil, os.ErrNotExist
 	}
 
-	chunks := make([]IndexChunk, 0)
+	chunks := make([]index.IndexChunk, 0)
 	size := int64(0)
 	for _, chunkChecksum := range object.Chunks {
-		chunkID, exists := snapshot.Index.getChecksumID(chunkChecksum)
+		chunkID, exists := snapshot.Index.ChecksumToId(chunkChecksum)
 		if !exists {
 			return nil, os.ErrNotExist
 		}

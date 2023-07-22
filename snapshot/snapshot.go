@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
+	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
@@ -23,7 +24,7 @@ type Snapshot struct {
 	SkipDirs []string
 
 	Metadata   *Metadata
-	Index      *Index
+	Index      *index.Index
 	Filesystem *Filesystem
 }
 
@@ -43,7 +44,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		transaction: tx,
 
 		Metadata:   NewMetadata(indexID),
-		Index:      NewIndex(),
+		Index:      index.NewIndex(),
 		Filesystem: NewFilesystem(),
 	}
 
@@ -151,7 +152,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*Metadata, 
 	return metadata, false, nil
 }
 
-func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte, error) {
+func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*index.Index, []byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetIndex", time.Since(t0))
@@ -203,7 +204,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*Index, []byte
 		}
 		buffer = tmp
 	}
-	index, err := NewIndexFromBytes(buffer)
+	index, err := index.NewIndexFromBytes(buffer)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"io"
 	"os"
+
+	"github.com/poolpOrg/plakar/objects"
 )
 
 type Reader struct {
 	snapshot     *Snapshot
-	object       *Object
+	object       *objects.Object
 	objectOffset int
 	obuf         *bytes.Buffer
 

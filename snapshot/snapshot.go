@@ -10,6 +10,7 @@ import (
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
@@ -310,7 +311,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) 
 	return len(buffer), nil
 }
 
-func (snapshot *Snapshot) PutObject(object *Object) (int, error) {
+func (snapshot *Snapshot) PutObject(object *objects.Object) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
@@ -492,7 +493,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 	return exists, nil
 }
 
-func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
+func (snapshot *Snapshot) GetObject(checksum [32]byte) (*objects.Object, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetObject", time.Since(t0))
@@ -520,7 +521,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*Object, error) {
 		buffer = tmp
 	}
 
-	object := &Object{}
+	object := &objects.Object{}
 	err = msgpack.Unmarshal(buffer, &object)
 	return object, err
 }

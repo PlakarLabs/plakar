@@ -8,6 +8,7 @@ import (
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -15,7 +16,7 @@ import (
 // CachedObject needs to be killed
 type CachedObject struct {
 	Checksum    [32]byte
-	Chunks      []*Chunk
+	Chunks      []*objects.Chunk
 	ContentType string
 	Info        Fileinfo
 }
@@ -61,7 +62,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fileinfo) error {
+func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object, fi Fileinfo) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))
@@ -76,7 +77,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object Object, fi Fil
 	cacheObject := CachedObject{}
 	cacheObject.Checksum = object.Checksum
 
-	cacheObject.Chunks = make([]*Chunk, 0)
+	cacheObject.Chunks = make([]*objects.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
 		chunk := snapshot.Index.LookupChunk(chunkChecksum)
 		cacheObject.Chunks = append(cacheObject.Chunks, chunk)

@@ -34,6 +34,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
 
@@ -359,7 +360,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	info, _ := snap.Filesystem.LookupInode(path)
 
-	chunks := make([]*snapshot.Chunk, 0)
+	chunks := make([]*objects.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
 		chunks = append(chunks, snap.Index.LookupChunk(chunkChecksum))
 	}
@@ -392,8 +393,8 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
-		Object          *snapshot.Object
-		Chunks          []*snapshot.Chunk
+		Object          *objects.Object
+		Chunks          []*objects.Chunk
 		Info            *snapshot.Fileinfo
 		Root            string
 		Path            string

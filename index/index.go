@@ -1,11 +1,12 @@
-package snapshot
+package index
 
 import (
 	"path/filepath"
 	"sync"
 
-	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
+
+	"github.com/poolpOrg/plakar/logger"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

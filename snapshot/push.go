@@ -16,15 +16,16 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/go-fastcdc"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
 )
 
 type objectMsg struct {
-	Object *Object
+	Object *objects.Object
 	Data   []byte
 }
 
-func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, error) {
+func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*objects.Object, error) {
 	cache := snapshot.repository.GetCache()
 
 	if cache == nil {
@@ -40,7 +41,7 @@ func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, 
 		return nil, nil
 	}
 
-	object := Object{}
+	object := objects.Object{}
 	object.Checksum = cachedObject.Checksum
 	object.Chunks = make([][32]byte, 0)
 	for _, chunk := range cachedObject.Chunks {
@@ -62,14 +63,14 @@ func pathnameCached(snapshot *Snapshot, fi Fileinfo, pathname string) (*Object, 
 	return &object, nil
 }
 
-func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*Object, error) {
+func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	rd, err := os.Open(pathname)
 	if err != nil {
 		return nil, err
 	}
 	defer rd.Close()
 
-	object := &Object{}
+	object := &objects.Object{}
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHash := sha256.New()
 
@@ -102,7 +103,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 		var t32 [32]byte
 		copy(t32[:], chunkHash.Sum(nil))
 
-		chunk := Chunk{}
+		chunk := objects.Chunk{}
 		chunk.Checksum = t32
 		chunk.Start = uint(cdcChunk.Offset)
 		chunk.Length = uint(cdcChunk.Size)
@@ -193,7 +194,7 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 			c <- fileinfo.Size
 			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size))
 
-			var object *Object
+			var object *objects.Object
 			object, err := pathnameCached(snapshot, *fileinfo, _filename)
 			if err != nil {
 				// something went wrong with the cache

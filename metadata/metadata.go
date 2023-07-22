@@ -14,6 +14,7 @@ type Metadata struct {
 	CreationTime     time.Time
 	CreationDuration time.Duration
 	PublicKey        string
+	Tags             []string
 
 	Hostname        string
 	Username        string

@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/dustin/go-humanize"
 	"github.com/poolpOrg/plakar/logger"
@@ -199,6 +200,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
 			fmt.Printf("MachineID: %s\n", metadata.MachineID)
 			fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
+			fmt.Printf("Tags: %s\n", strings.Join(metadata.Tags, ", "))
 			fmt.Printf("Directories: %d\n", metadata.DirectoriesCount)
 			fmt.Printf("Files: %d\n", metadata.FilesCount)
 			fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)

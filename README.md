@@ -32,7 +32,7 @@ it may work on older versions but hasn't been tested.
 ### Installing the CLI
 
 ```
-$ go get github.com/poolpOrg/plakar/cmd/plakar
+go install github.com/poolpOrg/plakar/cmd/plakar@latest
 ```
 
 ### Creating a plakar repository

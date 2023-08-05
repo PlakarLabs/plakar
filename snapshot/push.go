@@ -5,7 +5,6 @@ import (
 	"io"
 	"math"
 	"mime"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
 	"github.com/poolpOrg/plakar/vfs"
+	_ "github.com/poolpOrg/plakar/vfs/importer/fs"
 )
 
 type objectMsg struct {
@@ -65,7 +65,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 }
 
 func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*objects.Object, error) {
-	rd, err := os.Open(pathname)
+	rd, err := snapshot.Filesystem.ImporterOpen(pathname)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
+func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	chunkerOptions := fastcdc.NewChunkerOptions()
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -156,19 +156,24 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 			}
 		}()
 	}
+
 	snapshot.Metadata.ScannedDirectories = make([]string, 0)
-	for _, scanDir := range scanDirs {
-		scanDir, err := filepath.Abs(scanDir)
+
+	fs, err := vfs.NewFilesystemFromScan(scanDir)
+	if err != nil {
+		logger.Warn("%s", err)
+	}
+	snapshot.Filesystem = fs
+
+	if !strings.Contains(scanDir, "://") {
+		scanDir, err = filepath.Abs(scanDir)
 		if err != nil {
 			logger.Warn("%s", err)
 			return err
 		}
-		snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, scanDir)
-		err = snapshot.Filesystem.Scan(c, scanDir, snapshot.SkipDirs)
-		if err != nil {
-			logger.Warn("%s", err)
-		}
 	}
+	snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, scanDir)
+
 	close(c)
 
 	if showProgress {
@@ -298,7 +303,7 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 
 	snapshot.Metadata.CreationDuration = time.Since(t0)
 
-	err := snapshot.Commit()
+	err = snapshot.Commit()
 	if err != nil {
 		logger.Warn("could not commit snapshot: %s", err)
 	}

@@ -18,6 +18,7 @@ package vfs
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -103,31 +104,29 @@ func NewFilesystemFromScan(directory string) (*Filesystem, error) {
 	fs := NewFilesystem()
 	fs.importer = imp
 
-	var failure error = nil
-
 	go func() {
 		for msg := range echan {
 			logger.Warn("%s", msg)
 		}
 	}()
 
-	go func() {
-		for msg := range schan {
-			pathname := filepath.Clean(msg.Pathname)
-			stat := msg.Stat
+	for msg := range schan {
+		pathname := filepath.Clean(msg.Pathname)
+		if stat, ok := msg.Stat.(FileInfo); !ok {
+			return nil, fmt.Errorf("received invalid stat type")
+		} else {
 
 			if pathname != "/" {
 				atoms := strings.Split(pathname, "/")
 				for i := 0; i < len(atoms)-1; i++ {
 					path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
 					if _, found := fs.LookupInodeForDirectory(path); !found {
-						failure = err
-						return
+						return nil, err
 					}
 				}
 			}
-			fileinfo := FileInfoFromStat(stat)
-			fs.buildTree(pathname, &fileinfo)
+
+			fs.buildTree(pathname, &stat)
 
 			/*
 				if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
@@ -155,13 +154,9 @@ func NewFilesystemFromScan(directory string) (*Filesystem, error) {
 					}
 				}
 			*/
-
 		}
-	}()
-
-	if failure != nil {
-		return nil, failure
 	}
+
 	return fs, nil
 }
 
@@ -478,4 +473,8 @@ func (filesystem *Filesystem) Size() uint64 {
 	defer filesystem.muInodes.Unlock()
 
 	return filesystem.totalSize
+}
+
+func (filesystem *Filesystem) ImporterOpen(filename string) (io.ReadCloser, error) {
+	return filesystem.importer.Open(filename)
 }

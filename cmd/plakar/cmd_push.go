@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 
@@ -67,9 +68,11 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	snap.Metadata.Tags = tags
 
 	if flags.NArg() == 0 {
-		err = snap.Push([]string{dir}, opt_progress)
+		err = snap.Push(dir, opt_progress)
+	} else if flags.NArg() == 1 {
+		err = snap.Push(flags.Arg(0), opt_progress)
 	} else {
-		err = snap.Push(flags.Args(), opt_progress)
+		log.Fatal("only one directory pushable")
 	}
 
 	if err != nil {

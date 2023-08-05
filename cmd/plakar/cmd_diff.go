@@ -28,9 +28,9 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/vfs"
 )
 
 func init() {
@@ -162,7 +162,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 	return 0
 }
 
-func fiToDiff(fi filesystem.Fileinfo) string {
+func fiToDiff(fi vfs.FileInfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
 	username := fmt.Sprintf("%d", fi.Uid)
 	if err == nil {

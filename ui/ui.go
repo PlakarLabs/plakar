@@ -34,11 +34,11 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/metadata"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/vfs"
 
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
@@ -275,11 +275,11 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	directories := make([]*filesystem.Fileinfo, 0)
-	files := make([]*filesystem.Fileinfo, 0)
-	symlinks := make([]*filesystem.Fileinfo, 0)
+	directories := make([]*vfs.FileInfo, 0)
+	files := make([]*vfs.FileInfo, 0)
+	symlinks := make([]*vfs.FileInfo, 0)
 	symlinksResolve := make(map[string]string)
-	others := make([]*filesystem.Fileinfo, 0)
+	others := make([]*vfs.FileInfo, 0)
 
 	children, _ := snap.Filesystem.LookupChildren(path)
 	for _, childname := range children {
@@ -322,11 +322,11 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
-		Directories     []*filesystem.Fileinfo
-		Files           []*filesystem.Fileinfo
-		Symlinks        []*filesystem.Fileinfo
+		Directories     []*vfs.FileInfo
+		Files           []*vfs.FileInfo
+		Symlinks        []*vfs.FileInfo
 		SymlinksResolve map[string]string
-		Others          []*filesystem.Fileinfo
+		Others          []*vfs.FileInfo
 		Path            string
 		Scanned         []string
 		Navigation      []string
@@ -397,7 +397,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		Snapshot        *snapshot.Snapshot
 		Object          *objects.Object
 		Chunks          []*objects.Chunk
-		Info            *filesystem.Fileinfo
+		Info            *vfs.FileInfo
 		Root            string
 		Path            string
 		Navigation      []string

@@ -1,4 +1,4 @@
-package filesystem
+package vfs
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Fileinfo struct {
+type FileInfo struct {
 	Name    string
 	Size    int64
 	Mode    os.FileMode
@@ -37,7 +37,7 @@ type Filesystem struct {
 	Root *FilesystemNode
 
 	muInodes sync.Mutex
-	Inodes   map[string]Fileinfo
+	Inodes   map[string]FileInfo
 
 	muPathnames      sync.Mutex
 	Pathnames        map[string]uint64
@@ -47,7 +47,7 @@ type Filesystem struct {
 	scannedDirectories   []string
 
 	muStat   sync.Mutex
-	statInfo map[string]*Fileinfo
+	statInfo map[string]*FileInfo
 
 	muSymlinks sync.Mutex
 	Symlinks   map[string]string
@@ -55,8 +55,8 @@ type Filesystem struct {
 	totalSize uint64
 }
 
-func FileinfoFromStat(stat os.FileInfo) Fileinfo {
-	return Fileinfo{
+func FileInfoFromStat(stat os.FileInfo) FileInfo {
+	return FileInfo{
 		Name:    stat.Name(),
 		Size:    stat.Size(),
 		Mode:    stat.Mode(),
@@ -68,17 +68,17 @@ func FileinfoFromStat(stat os.FileInfo) Fileinfo {
 	}
 }
 
-func (fileinfo *Fileinfo) HumanSize() string {
+func (fileinfo *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fileinfo.Size))
 }
 
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
-	filesystem.Inodes = make(map[string]Fileinfo)
+	filesystem.Inodes = make(map[string]FileInfo)
 	filesystem.Pathnames = make(map[string]uint64)
 	filesystem.pathnamesInverse = make(map[uint64]string)
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
-	filesystem.statInfo = make(map[string]*Fileinfo)
+	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem.Symlinks = make(map[string]string)
 	filesystem.totalSize = 0
 	return filesystem
@@ -101,7 +101,7 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	return &filesystem, nil
 }
 
-func (filesystem *Filesystem) buildTree(pathname string, fileinfo *Fileinfo) {
+func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 	inodeKey := filesystem.addInode(*fileinfo)
 
 	pathname = filepath.Clean(pathname)
@@ -151,7 +151,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 		if err != nil {
 			return err
 		}
-		fi := FileinfoFromStat(f)
+		fi := FileInfoFromStat(f)
 		filesystem.buildTree(path, &fi)
 	}
 
@@ -169,7 +169,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 
 		pathname := fmt.Sprintf("%s/%s", directory, path)
 
-		fileinfo := FileinfoFromStat(f)
+		fileinfo := FileInfoFromStat(f)
 		filesystem.buildTree(pathname, &fileinfo)
 
 		if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
@@ -179,7 +179,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 				return nil
 			}
 
-			lfileinfo := FileinfoFromStat(lstat)
+			lfileinfo := FileInfoFromStat(lstat)
 			if lfileinfo.Mode&os.ModeSymlink != 0 {
 				originFile, err := os.Readlink(lfileinfo.Name)
 				if err != nil {
@@ -227,7 +227,7 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 	return p, nil
 }
 
-func (filesystem *Filesystem) LookupInode(pathname string) (*Fileinfo, bool) {
+func (filesystem *Filesystem) LookupInode(pathname string) (*FileInfo, bool) {
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -236,7 +236,7 @@ func (filesystem *Filesystem) LookupInode(pathname string) (*Fileinfo, bool) {
 	return fileinfo, exists
 }
 
-func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*Fileinfo, bool) {
+func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bool) {
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -248,7 +248,7 @@ func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*Fileinfo, bo
 	return fileinfo, exists
 }
 
-func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*Fileinfo, bool) {
+func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInfo, bool) {
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -365,11 +365,11 @@ func (filesystem *Filesystem) reindex() {
 	}
 	filesystem.muPathnames.Unlock()
 
-	filesystem.statInfo = make(map[string]*Fileinfo)
+	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem._reindex("/")
 }
 
-func (filesystem *Filesystem) addInode(fileinfo Fileinfo) string {
+func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
 	filesystem.muInodes.Lock()
 	defer filesystem.muInodes.Unlock()
 

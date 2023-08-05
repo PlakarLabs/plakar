@@ -9,13 +9,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/metadata"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/vfs"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -27,7 +27,7 @@ type Snapshot struct {
 
 	Metadata   *metadata.Metadata
 	Index      *index.Index
-	Filesystem *filesystem.Filesystem
+	Filesystem *vfs.Filesystem
 }
 
 func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
@@ -47,7 +47,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 
 		Metadata:   metadata.NewMetadata(indexID),
 		Index:      index.NewIndex(),
-		Filesystem: filesystem.NewFilesystem(),
+		Filesystem: vfs.NewFilesystem(),
 	}
 
 	logger.Trace("snapshot", "%s: New()", snapshot.Metadata.GetIndexShortID())
@@ -263,7 +263,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*index.Index, 
 	return index, checksum[:], nil
 }
 
-func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*filesystem.Filesystem, []byte, error) {
+func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*vfs.Filesystem, []byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
@@ -315,7 +315,7 @@ func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*filesyst
 		}
 		buffer = tmp
 	}
-	filesystem, err := filesystem.NewFilesystemFromBytes(buffer)
+	filesystem, err := vfs.NewFilesystemFromBytes(buffer)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -7,10 +7,10 @@ import (
 
 	"github.com/poolpOrg/plakar/compression"
 	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
+	"github.com/poolpOrg/plakar/vfs"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -19,7 +19,7 @@ type CachedObject struct {
 	Checksum    [32]byte
 	Chunks      []*objects.Chunk
 	ContentType string
-	Info        filesystem.Fileinfo
+	Info        vfs.FileInfo
 }
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
@@ -63,7 +63,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object, fi filesystem.Fileinfo) error {
+func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object, fi vfs.FileInfo) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))

@@ -10,10 +10,10 @@ import (
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
-	"github.com/poolpOrg/plakar/filesystem"
 	"github.com/poolpOrg/plakar/metadata"
 	"github.com/poolpOrg/plakar/snapshot"
 	"github.com/poolpOrg/plakar/storage"
+	"github.com/poolpOrg/plakar/vfs"
 )
 
 var inodeMutex sync.Mutex
@@ -104,7 +104,7 @@ func (fs *plakarFS) getMetadata(snapshotID uuid.UUID) (*metadata.Metadata, error
 	return entry.(*metadata.Metadata), nil
 }
 
-func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*filesystem.Filesystem, error) {
+func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
 		filesystem, _, err := snapshot.GetFilesystem(fs.repository, snapshotID)
@@ -114,7 +114,7 @@ func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*filesystem.Filesystem,
 		fs.fsCache.Store(snapshotID, filesystem)
 		return filesystem, err
 	}
-	return entry.(*filesystem.Filesystem), nil
+	return entry.(*vfs.Filesystem), nil
 }
 
 func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, error) {

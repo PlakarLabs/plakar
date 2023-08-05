@@ -26,6 +26,7 @@ import (
 
 	"github.com/iafan/cwalk"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/vfs/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -36,6 +37,8 @@ type FilesystemNode struct {
 }
 
 type Filesystem struct {
+	importer *importer.Importer
+
 	Root *FilesystemNode
 
 	muInodes sync.Mutex
@@ -84,6 +87,82 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	}
 	filesystem.reindex()
 	return &filesystem, nil
+}
+
+func NewFilesystemFromScan(directory string) (*Filesystem, error) {
+	imp, err := importer.NewImporter(directory)
+	if err != nil {
+		return nil, err
+	}
+
+	schan, echan, err := imp.Scan(directory)
+	if err != nil {
+		return nil, err
+	}
+
+	fs := NewFilesystem()
+	fs.importer = imp
+
+	var failure error = nil
+
+	go func() {
+		for msg := range echan {
+			logger.Warn("%s", msg)
+		}
+	}()
+
+	go func() {
+		for msg := range schan {
+			pathname := filepath.Clean(msg.Pathname)
+			stat := msg.Stat
+
+			if pathname != "/" {
+				atoms := strings.Split(pathname, "/")
+				for i := 0; i < len(atoms)-1; i++ {
+					path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
+					if _, found := fs.LookupInodeForDirectory(path); !found {
+						failure = err
+						return
+					}
+				}
+			}
+			fileinfo := FileInfoFromStat(stat)
+			fs.buildTree(pathname, &fileinfo)
+
+			/*
+				if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
+					lstat, err := os.Lstat(pathname)
+					if err != nil {
+						logger.Warn("%s", err)
+						return nil
+					}
+
+					lfileinfo := FileinfoFromStat(lstat)
+					if lfileinfo.Mode&os.ModeSymlink != 0 {
+						originFile, err := os.Readlink(lfileinfo.Name)
+						if err != nil {
+							logger.Warn("%s", err)
+							return nil
+						}
+
+						filesystem.muStat.Lock()
+						filesystem.statInfo[pathname] = &lfileinfo
+						filesystem.muStat.Unlock()
+
+						filesystem.muSymlinks.Lock()
+						filesystem.Symlinks[pathname] = originFile
+						filesystem.muSymlinks.Unlock()
+					}
+				}
+			*/
+
+		}
+	}()
+
+	if failure != nil {
+		return nil, failure
+	}
+	return fs, nil
 }
 
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {

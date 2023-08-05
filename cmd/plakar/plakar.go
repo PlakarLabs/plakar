@@ -26,6 +26,9 @@ import (
 	_ "github.com/poolpOrg/plakar/storage/database"
 	_ "github.com/poolpOrg/plakar/storage/fs"
 	_ "github.com/poolpOrg/plakar/storage/s3"
+
+	_ "github.com/poolpOrg/plakar/vfs/importer/fs"
+	_ "github.com/poolpOrg/plakar/vfs/importer/s3"
 )
 
 type Plakar struct {

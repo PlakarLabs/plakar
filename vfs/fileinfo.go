@@ -89,6 +89,19 @@ func FileInfoFromStat(stat os.FileInfo) FileInfo {
 	}
 }
 
+func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, dev uint64, ino uint64, uid uint64, gid uint64) FileInfo {
+	return FileInfo{
+		Lname:    name,
+		Lsize:    size,
+		Lmode:    mode,
+		LmodTime: modTime,
+		Ldev:     dev,
+		Lino:     ino,
+		Luid:     uid,
+		Lgid:     gid,
+	}
+}
+
 func (fileinfo *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fileinfo.Size()))
 }

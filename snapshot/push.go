@@ -38,7 +38,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 		return nil, nil
 	}
 
-	if cachedObject.Info.Mode != fi.Mode || cachedObject.Info.Dev != fi.Dev || cachedObject.Info.Size != fi.Size || cachedObject.Info.ModTime != fi.ModTime {
+	if cachedObject.Info.Mode() != fi.Mode() || cachedObject.Info.Dev() != fi.Dev() || cachedObject.Info.Size() != fi.Size() || cachedObject.Info.ModTime() != fi.ModTime() {
 		return nil, nil
 	}
 
@@ -192,8 +192,8 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
 			}
-			c <- fileinfo.Size
-			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size))
+			c <- fileinfo.Size()
+			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size()))
 
 			var object *objects.Object
 			object, err := pathnameCached(snapshot, *fileinfo, _filename)
@@ -239,7 +239,7 @@ func (snapshot *Snapshot) Push(scanDirs []string, showProgress bool) error {
 
 			snapshot.Index.AddObject(object)
 			snapshot.Index.LinkPathnameToObject(_filename, object)
-			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size))
+			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)
 	}
 	wg.Wait()

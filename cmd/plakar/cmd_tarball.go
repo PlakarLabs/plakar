@@ -91,9 +91,9 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 			}
 			header := &tar.Header{
 				Name:    filepath,
-				Size:    info.Size,
-				Mode:    int64(info.Mode),
-				ModTime: info.ModTime,
+				Size:    info.Size(),
+				Mode:    int64(info.Mode()),
+				ModTime: info.ModTime(),
 			}
 
 			err = tarWriter.WriteHeader(header)

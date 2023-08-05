@@ -162,10 +162,10 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	}
 	return fuseops.InodeAttributes{
 		Nlink: 1,
-		Mode:  fileinfo.Mode,
-		Ctime: fileinfo.ModTime,
-		Mtime: fileinfo.ModTime,
-		Size:  uint64(fileinfo.Size),
+		Mode:  fileinfo.Mode(),
+		Ctime: fileinfo.ModTime(),
+		Mtime: fileinfo.ModTime(),
+		Size:  uint64(fileinfo.Size()),
 		Uid:   uint32(os.Geteuid()),
 		Gid:   uint32(os.Getgid()),
 	}, nil
@@ -251,12 +251,12 @@ func (fs *plakarFS) LookUpInode(
 
 	op.Entry.Child = inodeID
 	op.Entry.Attributes = fuseops.InodeAttributes{
-		Size:  uint64(stat.Size),
+		Size:  uint64(stat.Size()),
 		Nlink: 1,
-		Mode:  stat.Mode,
-		Ctime: stat.ModTime,
-		Atime: stat.ModTime,
-		Mtime: stat.ModTime,
+		Mode:  stat.Mode(),
+		Ctime: stat.ModTime(),
+		Atime: stat.ModTime(),
+		Mtime: stat.ModTime(),
 	}
 
 	return nil
@@ -306,7 +306,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	if op.Offset > info.Size {
+	if op.Offset > info.Size() {
 		return nil
 	}
 
@@ -464,7 +464,7 @@ func (fs *plakarFS) ReadDir(
 			}
 
 			dtype := fuseutil.DT_Directory
-			if stat.Mode.IsRegular() {
+			if stat.Mode().IsRegular() {
 				dtype = fuseutil.DT_Char
 			}
 

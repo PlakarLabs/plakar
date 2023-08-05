@@ -179,8 +179,8 @@ func fiToDiff(fi vfs.FileInfo) string {
 		fi.Mode,
 		username,
 		groupname,
-		humanize.Bytes(uint64(fi.Size)),
-		fi.ModTime.UTC())
+		humanize.Bytes(uint64(fi.Size())),
+		fi.ModTime().UTC())
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {

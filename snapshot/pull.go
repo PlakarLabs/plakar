@@ -73,10 +73,10 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				dest = fmt.Sprintf("%s/%s", root, directory)
 			}
 
-			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 			os.MkdirAll(dest, 0700)
-			os.Chmod(dest, fi.Mode)
-			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+			os.Chmod(dest, fi.Mode())
+			os.Chown(dest, int(fi.Uid()), int(fi.Gid()))
 			directoriesCount++
 		}(directory)
 	}
@@ -124,7 +124,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				return
 			}
 
-			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode.String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			f, err := os.Create(dest)
 			if err != nil {
@@ -161,8 +161,8 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 
 			f.Sync()
 			f.Close()
-			os.Chmod(dest, fi.Mode)
-			os.Chown(dest, int(fi.Uid), int(fi.Gid))
+			os.Chmod(dest, fi.Mode())
+			os.Chown(dest, int(fi.Uid()), int(fi.Gid()))
 			filesCount++
 		}(filename)
 	}

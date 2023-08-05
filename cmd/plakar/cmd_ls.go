@@ -120,24 +120,24 @@ func list_snapshot(repository *storage.Repository, args []string) {
 
 		for _, item := range content {
 			fi := children[item]
-			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-			username := fmt.Sprintf("%d", fi.Uid)
+			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+			username := fmt.Sprintf("%d", fi.Uid())
 			if err == nil {
 				username = pwUserLookup.Username
 			}
 
-			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-			groupname := fmt.Sprintf("%d", fi.Gid)
+			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+			groupname := fmt.Sprintf("%d", fi.Gid())
 			if err == nil {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				fi.ModTime.UTC().Format(time.RFC3339),
-				fi.Mode,
+				fi.ModTime().UTC().Format(time.RFC3339),
+				fi.Mode(),
 				username,
 				groupname,
-				humanize.Bytes(uint64(fi.Size)),
-				fi.Name)
+				humanize.Bytes(uint64(fi.Size())),
+				fi.Name())
 		}
 	}
 }
@@ -185,23 +185,23 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 				continue
 			}
 
-			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-			username := fmt.Sprintf("%d", fi.Uid)
+			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+			username := fmt.Sprintf("%d", fi.Uid())
 			if err == nil {
 				username = pwUserLookup.Username
 			}
 
-			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-			groupname := fmt.Sprintf("%d", fi.Gid)
+			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+			groupname := fmt.Sprintf("%d", fi.Gid())
 			if err == nil {
 				groupname = grGroupLookup.Name
 			}
 			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				fi.ModTime.UTC().Format(time.RFC3339),
-				fi.Mode,
+				fi.ModTime().UTC().Format(time.RFC3339),
+				fi.Mode(),
 				username,
 				groupname,
-				humanize.Bytes(uint64(fi.Size)),
+				humanize.Bytes(uint64(fi.Size())),
 				name)
 		}
 	}
@@ -223,23 +223,23 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			continue
 		}
 
-		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-		username := fmt.Sprintf("%d", fi.Uid)
+		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+		username := fmt.Sprintf("%d", fi.Uid())
 		if err == nil {
 			username = pwUserLookup.Username
 		}
 
-		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-		groupname := fmt.Sprintf("%d", fi.Gid)
+		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+		groupname := fmt.Sprintf("%d", fi.Gid())
 		if err == nil {
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			fi.ModTime.UTC().Format(time.RFC3339),
-			fi.Mode,
+			fi.ModTime().UTC().Format(time.RFC3339),
+			fi.Mode(),
 			username,
 			groupname,
-			humanize.Bytes(uint64(fi.Size)),
+			humanize.Bytes(uint64(fi.Size())),
 			name)
 		list_snapshot_recursive_directory(snapshot, name)
 	}
@@ -256,23 +256,23 @@ func list_snapshot_recursive_directory(snapshot *snapshot.Snapshot, directory st
 			continue
 		}
 
-		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-		username := fmt.Sprintf("%d", fi.Uid)
+		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+		username := fmt.Sprintf("%d", fi.Uid())
 		if err == nil {
 			username = pwUserLookup.Username
 		}
 
-		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-		groupname := fmt.Sprintf("%d", fi.Gid)
+		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+		groupname := fmt.Sprintf("%d", fi.Gid())
 		if err == nil {
 			groupname = grGroupLookup.Name
 		}
 		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			fi.ModTime.UTC().Format(time.RFC3339),
-			fi.Mode,
+			fi.ModTime().UTC().Format(time.RFC3339),
+			fi.Mode(),
 			username,
 			groupname,
-			humanize.Bytes(uint64(fi.Size)),
+			humanize.Bytes(uint64(fi.Size())),
 			name)
 	}
 }

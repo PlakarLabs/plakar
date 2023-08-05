@@ -25,7 +25,7 @@ HERE IS A FLOW CHART TO BETTER EXPLAIN VALID CURRENT USE-CASES:
 
 ### Requirement
 
-`plakar` requires Go 1.16 or higher,
+`plakar` requires Go 1.18 or higher,
 it may work on older versions but hasn't been tested.
 
 

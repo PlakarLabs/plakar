@@ -18,7 +18,6 @@ import (
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
 	"github.com/poolpOrg/plakar/vfs"
-	_ "github.com/poolpOrg/plakar/vfs/importer/fs"
 )
 
 type objectMsg struct {
@@ -249,6 +248,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	}
 	wg.Wait()
 	close(c)
+	snapshot.Filesystem.ImporterEnd()
 
 	snapshot.Metadata.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
 	snapshot.Metadata.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))

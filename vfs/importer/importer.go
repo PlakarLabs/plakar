@@ -36,8 +36,10 @@ type ImporterRecord struct {
 }
 
 type ImporterBackend interface {
-	Scan(config string) (<-chan ImporterRecord, <-chan error, error)
+	Begin(config string) error
+	Scan() (<-chan ImporterRecord, <-chan error, error)
 	Open(pathname string) (io.ReadCloser, error)
+	End() error
 }
 
 type Importer struct {
@@ -79,6 +81,8 @@ func NewImporter(location string) (*Importer, error) {
 	if !strings.HasPrefix(location, "/") {
 		if strings.HasPrefix(location, "s3://") {
 			backendName = "s3"
+		} else if strings.HasPrefix(location, "imap://") {
+			backendName = "imap"
 		} else {
 			return nil, fmt.Errorf("unsupported importer method")
 		}
@@ -95,14 +99,24 @@ func NewImporter(location string) (*Importer, error) {
 	}
 }
 
-func (importer *Importer) Scan(config string) (<-chan ImporterRecord, <-chan error, error) {
+func (importer *Importer) Begin(config string) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.importer.Begin", time.Since(t0))
+		logger.Trace("vfs", "importer.Begin(%s): %s", config, time.Since(t0))
+	}()
+
+	return importer.backend.Begin(config)
+}
+
+func (importer *Importer) Scan() (<-chan ImporterRecord, <-chan error, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.importer.Scan", time.Since(t0))
-		logger.Trace("vfs", "importer.Scan(%s): %s", config, time.Since(t0))
+		logger.Trace("vfs", "importer.Scan(): %s", time.Since(t0))
 	}()
 
-	return importer.backend.Scan(config)
+	return importer.backend.Scan()
 }
 
 func (importer *Importer) Open(pathname string) (io.ReadCloser, error) {
@@ -113,4 +127,14 @@ func (importer *Importer) Open(pathname string) (io.ReadCloser, error) {
 	}()
 
 	return importer.backend.Open(pathname)
+}
+
+func (importer *Importer) End() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.importer.End", time.Since(t0))
+		logger.Trace("vfs", "importer.End(): %s", time.Since(t0))
+	}()
+
+	return importer.backend.End()
 }

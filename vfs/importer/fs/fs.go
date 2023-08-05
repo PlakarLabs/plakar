@@ -30,6 +30,7 @@ import (
 
 type FSImporter struct {
 	importer.ImporterBackend
+	config string
 }
 
 func init() {
@@ -41,11 +42,11 @@ func NewFSImporter() importer.ImporterBackend {
 	return &FSImporter{}
 }
 
-func (p *FSImporter) Scan(config string) (<-chan importer.ImporterRecord, <-chan error, error) {
+func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
 	go func() {
-		directory := filepath.Clean(config)
+		directory := filepath.Clean(p.config)
 		atoms := strings.Split(directory, "/")
 		for i := 0; i < len(atoms)-1; i++ {
 			path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i+1], "/")))
@@ -104,4 +105,13 @@ func (p *FSImporter) Scan(config string) (<-chan importer.ImporterRecord, <-chan
 
 func (p *FSImporter) Open(pathname string) (io.ReadCloser, error) {
 	return os.Open(pathname)
+}
+
+func (p *FSImporter) Begin(config string) error {
+	p.config = config
+	return nil
+}
+
+func (p *FSImporter) End() error {
+	return nil
 }

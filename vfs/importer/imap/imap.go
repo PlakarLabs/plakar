@@ -14,61 +14,56 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package s3
+package imap
 
 import (
-	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-
+	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/client"
 	"github.com/poolpOrg/plakar/vfs"
 	"github.com/poolpOrg/plakar/vfs/importer"
 )
 
-type S3Importer struct {
+type IMAPImporter struct {
 	importer.ImporterBackend
 
-	location    string
-	minioClient *minio.Client
-	bucketName  string
+	location string
+	client   *client.Client
+	clientMu sync.Mutex
 }
 
 func init() {
-	importer.Register("s3", NewS3Importer)
+	importer.Register("imap", NewIMAPImporter)
 }
 
-func NewS3Importer() importer.ImporterBackend {
-	return &S3Importer{}
+func NewIMAPImporter() importer.ImporterBackend {
+	return &IMAPImporter{}
 }
 
-func (provider *S3Importer) connect(location *url.URL) error {
-	endpoint := location.Host
-	accessKeyID := location.User.Username()
-	secretAccessKey, _ := location.User.Password()
-	useSSL := false
-
-	// Initialize minio client object.
-	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-	})
-	if err != nil {
-		log.Fatalln(err)
+func (p *IMAPImporter) connect(location *url.URL) error {
+	port := "993"
+	if location.Port() != "" {
+		port = location.Port()
 	}
-
-	provider.minioClient = minioClient
+	client, err := client.DialTLS(location.Host+":"+port, nil)
+	if err != nil {
+		return err
+	}
+	p.client = client
 	return nil
 }
 
-func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
+func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
 	parsed, err := url.Parse(p.location)
 	if err != nil {
 		return nil, nil, err
@@ -78,7 +73,14 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	if err != nil {
 		return nil, nil, err
 	}
-	p.bucketName = parsed.RequestURI()[1:]
+
+	username := parsed.User.Username()
+	password, _ := parsed.User.Password()
+
+	err = p.client.Login(username, password)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
@@ -100,9 +102,14 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 		directories["/"] = fi
 		ino++
 
-		for object := range p.minioClient.ListObjects(context.Background(), p.bucketName, minio.ListObjectsOptions{Prefix: "", Recursive: true}) {
-			atoms := strings.Split(object.Key, "/")
+		mailboxes := make(chan *imap.MailboxInfo, 10)
+		done := make(chan error, 1)
+		go func() {
+			done <- p.client.List("", "*", mailboxes)
+		}()
 
+		for m := range mailboxes {
+			atoms := strings.Split(m.Name, "/")
 			for i := 0; i < len(atoms)-1; i++ {
 				dir := strings.Join(atoms[0:i+1], "/")
 				if _, exists := directories[dir]; !exists {
@@ -120,19 +127,57 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 					ino++
 				}
 			}
-
 			stat := vfs.NewFileInfo(
 				atoms[len(atoms)-1],
-				object.Size,
-				0700,
-				object.LastModified,
+				0,
+				0700|fs.ModeDir,
+				time.Now(),
 				0,
 				ino,
 				0,
 				0,
 			)
 			ino++
-			files["/"+object.Key] = stat
+			directories["/"+m.Name] = stat
+
+			mbox, err := p.client.Select(m.Name, false)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			from := uint32(1)
+			to := mbox.Messages
+			if mbox.Messages == 0 {
+				continue
+			}
+
+			seqset := new(imap.SeqSet)
+			seqset.AddRange(from, to)
+
+			messages := make(chan *imap.Message, 10)
+			done = make(chan error, 1)
+			go func() {
+				done <- p.client.Fetch(seqset, []imap.FetchItem{imap.FetchRFC822Size, imap.FetchUid, imap.FetchEnvelope}, messages)
+			}()
+
+			for msg := range messages {
+				stat := vfs.NewFileInfo(
+					fmt.Sprint(msg.Uid),
+					int64(msg.Size),
+					0700,
+					msg.Envelope.Date,
+					0,
+					ino,
+					0,
+					0,
+				)
+				ino++
+				files["/"+m.Name+"/"+fmt.Sprint(msg.Uid)] = stat
+			}
+
+			if err := <-done; err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		directoryNames := make([]string, 0)
@@ -166,20 +211,46 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	return c, cerr, nil
 }
 
-func (p *S3Importer) Open(pathname string) (io.ReadCloser, error) {
-	obj, err := p.minioClient.GetObject(context.Background(), p.bucketName, pathname,
-		minio.GetObjectOptions{})
+func (p *IMAPImporter) Open(pathname string) (io.ReadCloser, error) {
+	atoms := strings.Split(pathname, "/")
+	mbox := strings.Join(atoms[1:len(atoms)-1], "/")
+	uid, err := strconv.ParseUint(atoms[len(atoms)-1], 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	return obj, nil
+
+	p.clientMu.Lock()
+	defer p.clientMu.Unlock()
+
+	seqset := imap.SeqSet{}
+	seqset.AddNum(uint32(uid))
+
+	messages := make(chan *imap.Message, 1)
+	_, err = p.client.Select(mbox, true)
+	if err != nil {
+		return nil, err
+	}
+	err = p.client.UidFetch(&seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, messages)
+	if err != nil {
+		return nil, err
+	}
+
+	msg := <-messages
+	if len(msg.Body) == 0 {
+		return nil, fmt.Errorf("failed to open body")
+	}
+
+	for _, literal := range msg.Body {
+		return io.NopCloser(literal), nil
+	}
+	return nil, fmt.Errorf("failed to open body")
 }
 
-func (p *S3Importer) Begin(location string) error {
+func (p *IMAPImporter) Begin(location string) error {
 	p.location = location
 	return nil
 }
 
-func (p *S3Importer) End() error {
+func (p *IMAPImporter) End() error {
 	return nil
 }

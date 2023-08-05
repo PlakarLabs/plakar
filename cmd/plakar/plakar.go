@@ -28,6 +28,7 @@ import (
 	_ "github.com/poolpOrg/plakar/storage/s3"
 
 	_ "github.com/poolpOrg/plakar/vfs/importer/fs"
+	_ "github.com/poolpOrg/plakar/vfs/importer/imap"
 	_ "github.com/poolpOrg/plakar/vfs/importer/s3"
 )
 

@@ -95,8 +95,9 @@ func NewFilesystemFromScan(directory string) (*Filesystem, error) {
 	if err != nil {
 		return nil, err
 	}
+	imp.Begin(directory)
 
-	schan, echan, err := imp.Scan(directory)
+	schan, echan, err := imp.Scan()
 	if err != nil {
 		return nil, err
 	}
@@ -473,6 +474,14 @@ func (filesystem *Filesystem) Size() uint64 {
 	defer filesystem.muInodes.Unlock()
 
 	return filesystem.totalSize
+}
+
+func (filesystem *Filesystem) ImporterBegin(location string) error {
+	return filesystem.importer.Begin(location)
+}
+
+func (filesystem *Filesystem) ImporterEnd() error {
+	return filesystem.importer.End()
 }
 
 func (filesystem *Filesystem) ImporterOpen(filename string) (io.ReadCloser, error) {

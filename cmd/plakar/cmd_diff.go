@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -163,20 +163,20 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 }
 
 func fiToDiff(fi vfs.FileInfo) string {
-	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid))
-	username := fmt.Sprintf("%d", fi.Uid)
+	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+	username := fmt.Sprintf("%d", fi.Uid())
 	if err == nil {
 		username = pwUserLookup.Username
 	}
 
-	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid))
-	groupname := fmt.Sprintf("%d", fi.Gid)
+	grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+	groupname := fmt.Sprintf("%d", fi.Gid())
 	if err == nil {
 		groupname = grGroupLookup.Name
 	}
 
 	return fmt.Sprintf("%s % 8s % 8s % 8s %s",
-		fi.Mode,
+		fi.Mode(),
 		username,
 		groupname,
 		humanize.Bytes(uint64(fi.Size())),
@@ -201,7 +201,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	buf1 := make([]byte, 0)
 	rd1, err := snapshot1.NewReader(filename1)
 	if err == nil {
-		buf1, err = ioutil.ReadAll(rd1)
+		buf1, err = io.ReadAll(rd1)
 		if err != nil {
 			return
 		}
@@ -210,7 +210,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	buf2 := make([]byte, 0)
 	rd2, err := snapshot2.NewReader(filename2)
 	if err == nil {
-		buf2, err = ioutil.ReadAll(rd2)
+		buf2, err = io.ReadAll(rd2)
 		if err != nil {
 			return
 		}

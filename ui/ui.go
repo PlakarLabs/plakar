@@ -289,7 +289,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		} else if fileinfo.Mode().IsRegular() {
 			files = append(files, fileinfo)
 		} else {
-			pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name)
+			pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name())
 			if _, exists := snap.Filesystem.Symlinks[pathname]; exists {
 				symlinks = append(symlinks, fileinfo)
 				symlinksResolve[fileinfo.Name()] = snap.Filesystem.Symlinks[pathname]

@@ -19,7 +19,7 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
-	"io/ioutil"
+	"io"
 )
 
 func Deflate(buf []byte) []byte {
@@ -37,7 +37,7 @@ func Inflate(buf []byte) ([]byte, error) {
 	}
 	defer w.Close()
 
-	data, err := ioutil.ReadAll(w)
+	data, err := io.ReadAll(w)
 	if err != nil {
 		return nil, err
 	}

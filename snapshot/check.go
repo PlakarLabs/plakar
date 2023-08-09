@@ -210,7 +210,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 }
 
 func (snapshot *Snapshot) Check(resource string, fast bool, showProgress bool) (bool, error) {
-	if resource != "" {
+	if resource != "" && resource != "/" {
 		return snapshotCheckResource(snapshot, resource, fast, showProgress)
 	} else {
 		return snapshotCheckFull(snapshot, fast, showProgress)

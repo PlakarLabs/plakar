@@ -18,15 +18,9 @@ package fs
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/google/uuid"
 )
-
-func pathnameExists(pathname string) bool {
-	_, err := os.Stat(pathname)
-	return !os.IsNotExist(err)
-}
 
 func (repository *FSRepository) PathPurge() string {
 	return fmt.Sprintf("%s/purge", repository.root)

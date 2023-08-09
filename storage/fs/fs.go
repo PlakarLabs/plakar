@@ -76,14 +76,6 @@ func NewFSRepository() storage.RepositoryBackend {
 	return &FSRepository{}
 }
 
-func (repository *FSRepository) objectExists(checksum [32]byte) bool {
-	return pathnameExists(repository.PathObject(checksum))
-}
-
-func (repository *FSRepository) chunkExists(checksum [32]byte) bool {
-	return pathnameExists(repository.PathChunk(checksum))
-}
-
 func (repository *FSRepository) Create(location string, config storage.RepositoryConfig) error {
 	t0 := time.Now()
 	defer func() {

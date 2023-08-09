@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -16,9 +17,8 @@ import (
 
 func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showProgress bool) {
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, 1)
-	maxFilesConcurrency := make(chan bool, 1)
-	var dest string
+	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 
 	dpattern := path.Clean(pattern)
 	fpattern := path.Clean(pattern)
@@ -65,6 +65,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
 			c <- 1
+
+			var dest string
+
 			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(fmt.Sprintf("./%s", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
@@ -109,6 +112,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			defer func() { <-maxFilesConcurrency }()
 
 			c <- 1
+
+			var dest string
+
 			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(fmt.Sprintf("./%s", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
@@ -128,6 +134,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 
 			f, err := os.Create(dest)
 			if err != nil {
+				logger.Warn("failed to create restored file %s: %s", dest, err)
 				return
 			}
 
@@ -135,6 +142,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			for _, chunkChecksum := range object.Chunks {
 				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
+					logger.Warn("failed to obtain chunk %064x for %s: %s", chunkChecksum, dest, err)
 					f.Close()
 					continue
 				}
@@ -142,12 +150,14 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				chunk := snapshot.Index.LookupChunk(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
+					logger.Warn("chunk length mismatch: got=%d, expected=%d", len(data), int(chunk.Length))
 					f.Close()
 					continue
 				} else {
 					chunkHash := sha256.New()
 					chunkHash.Write(data)
 					if !bytes.Equal(chunk.Checksum[:], chunkHash.Sum(nil)) {
+						logger.Warn("chunk checksums mismatch: got=%064x, expected=%064x", chunkHash.Sum(nil), chunk.Checksum[:])
 						f.Close()
 						continue
 					}
@@ -157,12 +167,22 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				filesSize += uint64(len(data))
 			}
 			if !bytes.Equal(object.Checksum[:], objectHash.Sum(nil)) {
+				logger.Warn("object checksum mismatches: got=%064x, expected=%064x",
+					objectHash.Sum(nil), object.Checksum[:])
 			}
 
-			f.Sync()
-			f.Close()
-			os.Chmod(dest, fi.Mode())
-			os.Chown(dest, int(fi.Uid()), int(fi.Gid()))
+			if err := f.Sync(); err != nil {
+				logger.Warn("sync failure: %s: %s", dest, err)
+			}
+			if err := f.Close(); err != nil {
+				logger.Warn("close failure: %s: %s", dest, err)
+			}
+			if err := os.Chmod(dest, fi.Mode()); err != nil {
+				logger.Warn("chmod failure: %s: %s", dest, err)
+			}
+			if err := os.Chown(dest, int(fi.Uid()), int(fi.Gid())); err != nil {
+				logger.Warn("chown failure: %s: %s", dest, err)
+			}
 			filesCount++
 		}(filename)
 	}

@@ -52,8 +52,6 @@ type FSTransaction struct {
 	repository FSRepository
 	prepared   bool
 
-	//SkipDirs []string
-
 	chunksMutex  sync.Mutex
 	objectsMutex sync.Mutex
 
@@ -294,10 +292,6 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 		}
 
 		for _, object := range objects {
-			//_, err = uuid.Parse(object.Name())
-			//if err != nil {
-			//		return ret, nil
-			//	}
 			t, err := hex.DecodeString(object.Name())
 			if err != nil {
 				return nil, err

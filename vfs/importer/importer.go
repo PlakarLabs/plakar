@@ -83,11 +83,13 @@ func NewImporter(location string) (*Importer, error) {
 			backendName = "s3"
 		} else if strings.HasPrefix(location, "imap://") {
 			backendName = "imap"
+		} else if strings.HasPrefix(location, "fs://") {
+			backendName = "fs"
 		} else {
 			return nil, fmt.Errorf("unsupported importer method")
 		}
 	} else {
-		backendName = "filesystem"
+		backendName = "fs"
 	}
 
 	if backend, exists := backends[backendName]; !exists {

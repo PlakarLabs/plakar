@@ -143,11 +143,14 @@ func New(location string) (*Repository, error) {
 			backendName = "database"
 		} else if strings.HasPrefix(location, "s3://") {
 			backendName = "s3"
+		} else if strings.HasPrefix(location, "fs://") {
+			backendName = "fs"
+
 		} else {
 			return nil, fmt.Errorf("unsupported plakar protocol")
 		}
 	} else {
-		backendName = "filesystem"
+		backendName = "fs"
 	}
 
 	if backend, exists := backends[backendName]; !exists {

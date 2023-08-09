@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -69,7 +70,7 @@ type FSTransaction struct {
 }
 
 func init() {
-	storage.Register("filesystem", NewFSRepository)
+	storage.Register("fs", NewFSRepository)
 }
 
 func NewFSRepository() storage.RepositoryBackend {
@@ -81,6 +82,10 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	defer func() {
 		logger.Profile("Create(%s): %s", location, time.Since(t0))
 	}()
+
+	if strings.HasPrefix(location, "fs://") {
+		location = location[4:]
+	}
 
 	repository.root = location
 
@@ -123,6 +128,10 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 }
 
 func (repository *FSRepository) Open(location string) error {
+	if strings.HasPrefix(location, "fs://") {
+		location = location[4:]
+	}
+
 	repository.root = location
 
 	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", repository.root))

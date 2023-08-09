@@ -34,7 +34,6 @@ type FSImporter struct {
 }
 
 func init() {
-	importer.Register("filesystem", NewFSImporter)
 	importer.Register("fs", NewFSImporter)
 }
 
@@ -108,6 +107,9 @@ func (p *FSImporter) Open(pathname string) (io.ReadCloser, error) {
 }
 
 func (p *FSImporter) Begin(config string) error {
+	if strings.HasPrefix(config, "fs://") {
+		config = config[4:]
+	}
 	p.config = config
 	return nil
 }

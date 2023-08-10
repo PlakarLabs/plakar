@@ -29,13 +29,13 @@ import (
 )
 
 func init() {
-	registerCommand("browser", cmd_browser)
+	registerCommand("ui", cmd_ui)
 }
 
-func cmd_browser(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_nospawn bool
 
-	flags := flag.NewFlagSet("browser", flag.ExitOnError)
+	flags := flag.NewFlagSet("ui", flag.ExitOnError)
 	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.Parse(args)
 

@@ -636,7 +636,7 @@ func Ui(repository *storage.Repository, spawn bool) error {
 	port := rand.Uint32() % 0xffff
 	url := fmt.Sprintf("http://localhost:%d", port)
 
-	fmt.Println("lauching browser API at", url)
+	fmt.Println("lauching browser UI pointing at", url)
 	if spawn {
 		switch runtime.GOOS {
 		case "linux":

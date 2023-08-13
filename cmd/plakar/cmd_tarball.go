@@ -78,12 +78,12 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
 		for _, file := range snapshot.Index.ListPathnames() {
+
 			if prefix != "" {
 				if !helpers.PathIsWithin(file, prefix) {
 					continue
 				}
 			}
-
 			info, _ := snapshot.Filesystem.LookupInode(file)
 			filepath := file
 			if tarballRebase {
@@ -107,6 +107,7 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 				logger.Error("could not find file %s", file)
 				continue
 			}
+
 			_, err = io.Copy(tarWriter, rd)
 			if err != nil {
 				logger.Error("could not write file %s: %s", file, err)

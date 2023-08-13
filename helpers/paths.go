@@ -21,6 +21,10 @@ import (
 )
 
 func PathIsWithin(pathname string, within string) bool {
+	if within == "/" {
+		return true
+	}
+
 	withinArr := strings.Split(within, "/")
 	pathnameArr := strings.Split(pathname, "/")
 

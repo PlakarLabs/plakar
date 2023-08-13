@@ -42,6 +42,10 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 		log.Fatal(err)
 	}
 
+	if len(snapshots) == 0 {
+		log.Fatal("check needs at least one snapshot ID")
+	}
+
 	failures := false
 	for offset, snapshot := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])

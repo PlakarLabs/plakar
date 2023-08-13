@@ -23,7 +23,7 @@ import (
 	"github.com/poolpOrg/plakar/storage"
 )
 
-const VERSION = "0.0.1"
+const VERSION = "0.2.5"
 
 func init() {
 	registerCommand("version", cmd_version)

@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/PlakarLabs/go-fastcdc"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
@@ -80,6 +80,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 	}
 
 	firstChunk := true
+	cdcOffset := 0
 	for {
 		cdcChunk, err := chk.Next()
 		if err == io.EOF {
@@ -90,24 +91,25 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 		}
 		if firstChunk {
 			if object.ContentType == "" {
-				object.ContentType = mimetype.Detect(cdcChunk.Data).String()
+				object.ContentType = mimetype.Detect(cdcChunk).String()
 			}
 			firstChunk = false
 		}
 
-		objectHash.Write(cdcChunk.Data)
+		objectHash.Write(cdcChunk)
 
 		chunkHash := sha256.New()
-		chunkHash.Write(cdcChunk.Data)
+		chunkHash.Write(cdcChunk)
 
 		var t32 [32]byte
 		copy(t32[:], chunkHash.Sum(nil))
 
 		chunk := objects.Chunk{}
 		chunk.Checksum = t32
-		chunk.Start = uint(cdcChunk.Offset)
-		chunk.Length = uint(cdcChunk.Size)
+		chunk.Start = uint(cdcOffset)
+		chunk.Length = uint(len(cdcChunk))
 		object.Chunks = append(object.Chunks, chunk.Checksum)
+		cdcOffset += len(cdcChunk)
 
 		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
 		if indexChunk == nil {
@@ -117,7 +119,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 			}
 
 			if !exists {
-				nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk.Data)
+				nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
 				if err != nil {
 					return nil, err
 				}

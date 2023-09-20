@@ -3,7 +3,7 @@ module github.com/poolpOrg/plakar
 go 1.18
 
 require (
-	github.com/PlakarLabs/go-fastcdc v0.3.0
+	github.com/PlakarLabs/go-fastcdc v0.4.0
 	github.com/alecthomas/chroma v0.10.0
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be
 	github.com/denisbrodbeck/machineid v1.0.1

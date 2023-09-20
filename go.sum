@@ -1,5 +1,5 @@
-github.com/PlakarLabs/go-fastcdc v0.3.0 h1:qm94HT8cnAgpze/Q7JhjB/zNs/orRYeNJo1I2CUmtiE=
-github.com/PlakarLabs/go-fastcdc v0.3.0/go.mod h1:vhDUv02Bos7HbLNyS4onBbOFGu8RoqIq8hCe1UPaGzI=
+github.com/PlakarLabs/go-fastcdc v0.4.0 h1:j6VoYyMDS2tuBZOOxS6TRl7chg1RDeeV4Pz3Vgv8Bm8=
+github.com/PlakarLabs/go-fastcdc v0.4.0/go.mod h1:vhDUv02Bos7HbLNyS4onBbOFGu8RoqIq8hCe1UPaGzI=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=

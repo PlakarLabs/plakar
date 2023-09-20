@@ -1,3 +1,5 @@
+github.com/PlakarLabs/go-fastcdc v0.3.0 h1:qm94HT8cnAgpze/Q7JhjB/zNs/orRYeNJo1I2CUmtiE=
+github.com/PlakarLabs/go-fastcdc v0.3.0/go.mod h1:vhDUv02Bos7HbLNyS4onBbOFGu8RoqIq8hCe1UPaGzI=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
@@ -75,8 +77,6 @@ github.com/onsi/gomega v1.4.3 h1:RE1xgDvH7imwFD45h+u2SgIfERHlS2yNG4DObb5BSKU=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/poolpOrg/go-fastcdc v0.2.0 h1:HpGR4buBXj8rcvhYFrD2OdazvHFy01vnvT1JT1lcNIg=
-github.com/poolpOrg/go-fastcdc v0.2.0/go.mod h1:9KpZcfiu0ZuQsRGTJ8ggDEjKUndlV6TFf8IMKNhW1qA=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rivo/uniseg v0.4.4 h1:8TfxU8dW6PdqD27gjM8MVNuicgxIjxpm4K7x4jp8sis=
 github.com/rivo/uniseg v0.4.4/go.mod h1:FN3SvrM+Zdj16jyLfmOkMNblXMcoc8DfTHruCPUcx88=

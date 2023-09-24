@@ -40,6 +40,7 @@ type RepositoryConfig struct {
 	Version      string
 	Encryption   string
 	Compression  string
+	Hashing      string
 }
 
 type RepositoryBackend interface {

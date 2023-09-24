@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"crypto/sha256"
 	"io"
 	"math"
 	"mime"
@@ -16,16 +15,12 @@ import (
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/progress"
 	"github.com/poolpOrg/plakar/vfs"
 )
-
-type objectMsg struct {
-	Object *objects.Object
-	Data   []byte
-}
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
 	cache := snapshot.repository.GetCache()
@@ -74,12 +69,14 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 
 	object := &objects.Object{}
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
-	objectHash := sha256.New()
+	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	chk, err := chunkers.NewChunker("fastcdc", rd)
 	if err != nil {
 		return nil, err
 	}
+
+	chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	firstChunk := true
 	cdcOffset := 0
@@ -98,13 +95,15 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 			firstChunk = false
 		}
 
-		objectHash.Write(cdcChunk)
+		objectHasher.Write(cdcChunk)
 
-		chunkHash := sha256.New()
-		chunkHash.Write(cdcChunk)
+		if !firstChunk {
+			chunkHasher.Reset()
+		}
+		chunkHasher.Write(cdcChunk)
 
 		var t32 [32]byte
-		copy(t32[:], chunkHash.Sum(nil))
+		copy(t32[:], chunkHasher.Sum(nil))
 
 		chunk := objects.Chunk{}
 		chunk.Checksum = t32
@@ -133,7 +132,7 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 		}
 	}
 	var t32 [32]byte
-	copy(t32[:], objectHash.Sum(nil))
+	copy(t32[:], objectHasher.Sum(nil))
 	object.Checksum = t32
 
 	return object, nil

@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"os"
 	"path"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/progress"
 )
@@ -138,7 +138,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				return
 			}
 
-			objectHash := sha256.New()
+			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
 				data, err := snapshot.GetChunk(chunkChecksum)
 				if err != nil {
@@ -154,21 +154,21 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 					f.Close()
 					continue
 				} else {
-					chunkHash := sha256.New()
-					chunkHash.Write(data)
-					if !bytes.Equal(chunk.Checksum[:], chunkHash.Sum(nil)) {
-						logger.Warn("chunk checksums mismatch: got=%064x, expected=%064x", chunkHash.Sum(nil), chunk.Checksum[:])
+					chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+					chunkHasher.Write(data)
+					if !bytes.Equal(chunk.Checksum[:], chunkHasher.Sum(nil)) {
+						logger.Warn("chunk checksums mismatch: got=%064x, expected=%064x", chunkHasher.Sum(nil), chunk.Checksum[:])
 						f.Close()
 						continue
 					}
 				}
-				objectHash.Write(data)
+				objectHasher.Write(data)
 				f.Write(data)
 				filesSize += uint64(len(data))
 			}
-			if !bytes.Equal(object.Checksum[:], objectHash.Sum(nil)) {
+			if !bytes.Equal(object.Checksum[:], objectHasher.Sum(nil)) {
 				logger.Warn("object checksum mismatches: got=%064x, expected=%064x",
-					objectHash.Sum(nil), object.Checksum[:])
+					objectHasher.Sum(nil), object.Checksum[:])
 			}
 
 			if err := f.Sync(); err != nil {

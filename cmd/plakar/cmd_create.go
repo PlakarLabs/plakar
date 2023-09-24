@@ -47,7 +47,8 @@ func cmd_create(ctx Plakar, args []string) int {
 		repositoryConfig.Compression = "gzip"
 	}
 
-	repositoryConfig.Hashing = "sha256"
+	//repositoryConfig.Hashing = "sha256"
+	repositoryConfig.Hashing = "blake3"
 
 	if !opt_noencryption {
 		var passphrase []byte

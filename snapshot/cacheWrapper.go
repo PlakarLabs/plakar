@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -30,9 +29,9 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 
-	pathHash := sha256.New()
-	pathHash.Write([]byte(pathname))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	pathHasher.Write([]byte(pathname))
+	hashedPath := fmt.Sprintf("%032x", pathHasher.Sum(nil))
 
 	data, err := cache.GetPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath)
 	if err != nil {
@@ -71,9 +70,9 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 
-	pathHash := sha256.New()
-	pathHash.Write([]byte(pathname))
-	hashedPath := fmt.Sprintf("%032x", pathHash.Sum(nil))
+	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	pathHasher.Write([]byte(pathname))
+	hashedPath := fmt.Sprintf("%032x", pathHasher.Sum(nil))
 
 	cacheObject := CachedObject{}
 	cacheObject.Checksum = object.Checksum

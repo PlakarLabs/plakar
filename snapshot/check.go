@@ -2,9 +2,9 @@ package snapshot
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"hash"
 
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/progress"
 )
@@ -52,9 +52,10 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 	}
 
 	ret := true
-	objectHash := sha256.New()
+
+	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 	for _, chunkChecksum := range object.Chunks {
-		_, err := snapshotCheckChunk(snapshot, chunkChecksum, objectHash, fast)
+		_, err := snapshotCheckChunk(snapshot, chunkChecksum, objectHasher, fast)
 		if err != nil {
 			logger.Warn("%s: chunk %064x: %s", snapshot.Metadata.GetIndexShortID(), chunkChecksum, err)
 			continue
@@ -62,7 +63,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 	}
 
 	if !fast {
-		if !bytes.Equal(objectHash.Sum(nil), checksum[:]) {
+		if !bytes.Equal(objectHasher.Sum(nil), checksum[:]) {
 			logger.Warn("%s: corrupted object %064x", snapshot.Metadata.GetIndexShortID(), checksum)
 			ret = false
 		}
@@ -117,9 +118,9 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 				continue
 			}
 
-			chunkHash := sha256.New()
-			chunkHash.Write(data)
-			if !bytes.Equal(chunkHash.Sum(nil), checksum[:]) {
+			chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+			chunkHasher.Write(data)
+			if !bytes.Equal(chunkHasher.Sum(nil), checksum[:]) {
 				logger.Warn("%s: corrupted chunk %064x", snapshot.Metadata.GetIndexShortID(), checksum)
 				ret = false
 				continue
@@ -159,7 +160,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 				continue
 			}
 
-			objectHash := sha256.New()
+			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
 				indexChunk := snapshot.Index.LookupChunk(chunkChecksum)
 				if indexChunk == nil {
@@ -174,9 +175,9 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 					ret = false
 					continue
 				}
-				objectHash.Write(data)
+				objectHasher.Write(data)
 			}
-			if !bytes.Equal(objectHash.Sum(nil), checksum[:]) {
+			if !bytes.Equal(objectHasher.Sum(nil), checksum[:]) {
 				logger.Warn("%s: corrupted object %064x", snapshot.Metadata.GetIndexShortID(), checksum)
 				ret = false
 				continue

@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -258,7 +257,9 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*index.Index, 
 		return nil, nil, err
 	}
 
-	checksum := sha256.Sum256(buffer)
+	indexHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	indexHasher.Write(buffer)
+	checksum := indexHasher.Sum(nil)
 
 	return index, checksum[:], nil
 }
@@ -320,7 +321,9 @@ func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*vfs.File
 		return nil, nil, err
 	}
 
-	checksum := sha256.Sum256(buffer)
+	fsHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	fsHasher.Write(buffer)
+	checksum := fsHasher.Sum(nil)
 
 	return filesystem, checksum[:], nil
 }
@@ -599,7 +602,11 @@ func (snapshot *Snapshot) Commit() error {
 	if err != nil {
 		return err
 	}
-	indexChecksum := sha256.Sum256(serializedIndex)
+
+	indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	indexHasher.Write(serializedIndex)
+	indexChecksum := indexHasher.Sum(nil)
+
 	snapshot.Metadata.IndexChecksum = indexChecksum[:]
 	snapshot.Metadata.IndexMemorySize = uint64(len(serializedIndex))
 	snapshot.Metadata.IndexDiskSize = uint64(nbytes)
@@ -612,7 +619,11 @@ func (snapshot *Snapshot) Commit() error {
 	if err != nil {
 		return err
 	}
-	filesystemChecksum := sha256.Sum256(serializedFilesystem)
+
+	fsHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	fsHasher.Write(serializedFilesystem)
+	filesystemChecksum := fsHasher.Sum(nil)
+
 	snapshot.Metadata.FilesystemChecksum = filesystemChecksum[:]
 	snapshot.Metadata.FilesystemMemorySize = uint64(len(serializedFilesystem))
 	snapshot.Metadata.FilesystemDiskSize = uint64(nbytes)

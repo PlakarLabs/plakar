@@ -17,11 +17,11 @@
 package main
 
 import (
-	"crypto/sha256"
 	"flag"
 	"fmt"
 	"io"
 
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/storage"
 )
@@ -76,13 +76,13 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 				continue
 			}
 
-			checksum := sha256.New()
-			if _, err := io.Copy(checksum, rd); err != nil {
+			hasher := encryption.GetHasher(repository.Configuration().Hashing)
+			if _, err := io.Copy(hasher, rd); err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++
 				continue
 			}
-			fmt.Printf("%064x %s\n", checksum.Sum(nil), pathname)
+			fmt.Printf("%064x %s\n", hasher.Sum(nil), pathname)
 		}
 	}
 

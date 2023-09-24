@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/PlakarLabs/go-fastcdc"
+	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/objects"
@@ -63,7 +65,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 	return &object, nil
 }
 
-func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname string) (*objects.Object, error) {
+func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	rd, err := snapshot.Filesystem.ImporterOpen(pathname)
 	if err != nil {
 		return nil, err
@@ -74,7 +76,7 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHash := sha256.New()
 
-	chk, err := fastcdc.NewChunker(rd, chunkerOptions)
+	chk, err := chunkers.NewChunker("fastcdc", rd)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +140,6 @@ func chunkify(chunkerOptions *fastcdc.ChunkerOpts, snapshot *Snapshot, pathname 
 }
 
 func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
-	chunkerOptions := fastcdc.NewChunkerOptions()
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}
@@ -218,7 +219,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil || !exists {
-				object, err = chunkify(chunkerOptions, snapshot, _filename)
+				object, err = chunkify(snapshot, _filename)
 				if err != nil {
 					logger.Warn("%s: could not chunkify: %s", _filename, err)
 					return

@@ -26,6 +26,7 @@ require (
 )
 
 require (
+	github.com/PlakarLabs/go-cdc-chunkers v0.0.1 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/emersion/go-sasl v0.0.0-20220912192320-0145f2c60ead // indirect
 	github.com/golang/snappy v0.0.4 // indirect

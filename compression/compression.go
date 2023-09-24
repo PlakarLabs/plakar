@@ -19,10 +19,18 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
 )
 
-func Deflate(buf []byte) []byte {
+func Deflate(name string, buf []byte) ([]byte, error) {
+	if name == "gzip" {
+		return DeflateGzip(buf), nil
+	}
+	return nil, fmt.Errorf("unsupported compression method %q", name)
+}
+
+func DeflateGzip(buf []byte) []byte {
 	var b bytes.Buffer
 	w := gzip.NewWriter(&b)
 	w.Write(buf)
@@ -30,7 +38,14 @@ func Deflate(buf []byte) []byte {
 	return b.Bytes()
 }
 
-func Inflate(buf []byte) ([]byte, error) {
+func Inflate(name string, buf []byte) ([]byte, error) {
+	if name == "gzip" {
+		return InflateGzip(buf)
+	}
+	return nil, fmt.Errorf("unsupported compression method %q", name)
+}
+
+func InflateGzip(buf []byte) ([]byte, error) {
 	w, err := gzip.NewReader(bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err

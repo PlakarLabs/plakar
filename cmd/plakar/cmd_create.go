@@ -44,7 +44,7 @@ func cmd_create(ctx Plakar, args []string) int {
 	if opt_nocompression {
 		repositoryConfig.Compression = ""
 	} else {
-		repositoryConfig.Compression = "gzip"
+		repositoryConfig.Compression = "lz4"
 	}
 
 	//repositoryConfig.Hashing = "sha256"

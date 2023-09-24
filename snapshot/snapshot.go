@@ -185,7 +185,7 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*metadata.M
 	}
 
 	if repository.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(buffer)
+		tmp, err := compression.Inflate(repository.Configuration().Compression, buffer)
 		if err != nil {
 			return nil, false, err
 		}
@@ -246,7 +246,7 @@ func GetIndex(repository *storage.Repository, indexID uuid.UUID) (*index.Index, 
 	}
 
 	if repository.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(buffer)
+		tmp, err := compression.Inflate(repository.Configuration().Compression, buffer)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -310,7 +310,7 @@ func GetFilesystem(repository *storage.Repository, indexID uuid.UUID) (*vfs.File
 	}
 
 	if repository.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(buffer)
+		tmp, err := compression.Inflate(repository.Configuration().Compression, buffer)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -345,8 +345,12 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) 
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
+	var err error
 	if snapshot.repository.Configuration().Compression != "" {
-		buffer = compression.Deflate(buffer)
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if secret != nil {
@@ -357,7 +361,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) 
 		buffer = tmp
 	}
 
-	err := snapshot.repository.PutChunk(checksum, buffer)
+	err = snapshot.repository.PutChunk(checksum, buffer)
 	if err != nil {
 		return 0, err
 	}
@@ -380,7 +384,10 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) (int, error) {
 
 	buffer := data
 	if snapshot.repository.Configuration().Compression != "" {
-		buffer = compression.Deflate(buffer)
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if secret != nil {
@@ -408,9 +415,12 @@ func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
-
+	var err error
 	if snapshot.repository.Configuration().Compression != "" {
-		buffer = compression.Deflate(buffer)
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if secret != nil {
@@ -425,7 +435,7 @@ func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
 		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
-	err := snapshot.transaction.PutMetadata(buffer)
+	err = snapshot.transaction.PutMetadata(buffer)
 	if err != nil {
 		return 0, err
 	}
@@ -444,9 +454,12 @@ func (snapshot *Snapshot) PutIndex(data []byte) (int, error) {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
-
+	var err error
 	if snapshot.repository.Configuration().Compression != "" {
-		buffer = compression.Deflate(buffer)
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if secret != nil {
@@ -461,7 +474,7 @@ func (snapshot *Snapshot) PutIndex(data []byte) (int, error) {
 		cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
-	err := snapshot.transaction.PutIndex(buffer)
+	err = snapshot.transaction.PutIndex(buffer)
 	if err != nil {
 		return 0, err
 	}
@@ -479,9 +492,12 @@ func (snapshot *Snapshot) PutFilesystem(data []byte) (int, error) {
 	secret := snapshot.repository.GetSecret()
 
 	buffer := data
-
+	var err error
 	if snapshot.repository.Configuration().Compression != "" {
-		buffer = compression.Deflate(buffer)
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if secret != nil {
@@ -496,7 +512,7 @@ func (snapshot *Snapshot) PutFilesystem(data []byte) (int, error) {
 		cache.PutFilesystem(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
-	err := snapshot.transaction.PutFilesystem(buffer)
+	err = snapshot.transaction.PutFilesystem(buffer)
 	if err != nil {
 		return 0, err
 	}
@@ -524,7 +540,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}
 
 	if snapshot.repository.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(buffer)
+		tmp, err := compression.Inflate(snapshot.repository.Configuration().Compression, buffer)
 		if err != nil {
 			return nil, err
 		}
@@ -567,7 +583,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*objects.Object, error) 
 	}
 
 	if snapshot.repository.Configuration().Compression != "" {
-		tmp, err := compression.Inflate(buffer)
+		tmp, err := compression.Inflate(snapshot.repository.Configuration().Compression, buffer)
 		if err != nil {
 			return nil, err
 		}

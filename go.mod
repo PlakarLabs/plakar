@@ -3,7 +3,7 @@ module github.com/poolpOrg/plakar
 go 1.18
 
 require (
-	github.com/PlakarLabs/go-fastcdc v0.4.0
+	github.com/PlakarLabs/go-cdc-chunkers v0.0.1
 	github.com/alecthomas/chroma v0.10.0
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be
 	github.com/denisbrodbeck/machineid v1.0.1
@@ -17,16 +17,17 @@ require (
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/minio/minio-go/v7 v7.0.61
+	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
+	github.com/zeebo/blake3 v0.2.3
 	golang.org/x/crypto v0.12.0
 	golang.org/x/term v0.11.0
 )
 
 require (
-	github.com/PlakarLabs/go-cdc-chunkers v0.0.1 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/emersion/go-sasl v0.0.0-20220912192320-0145f2c60ead // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -44,11 +45,9 @@ require (
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/zeebo/blake3 v0.2.3 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
-	lukechampine.com/blake3 v1.2.1 // indirect
 )

@@ -21,13 +21,26 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+
+	"github.com/pierrec/lz4/v4"
 )
 
 func Deflate(name string, buf []byte) ([]byte, error) {
 	if name == "gzip" {
 		return DeflateGzip(buf), nil
 	}
+	if name == "lz4" {
+		return DeflateLZ4(buf), nil
+	}
 	return nil, fmt.Errorf("unsupported compression method %q", name)
+}
+
+func DeflateLZ4(buf []byte) []byte {
+	var b bytes.Buffer
+	w := lz4.NewWriter(&b)
+	w.Write(buf)
+	w.Close()
+	return b.Bytes()
 }
 
 func DeflateGzip(buf []byte) []byte {
@@ -42,7 +55,20 @@ func Inflate(name string, buf []byte) ([]byte, error) {
 	if name == "gzip" {
 		return InflateGzip(buf)
 	}
+	if name == "lz4" {
+		return InflateLZ4(buf)
+	}
 	return nil, fmt.Errorf("unsupported compression method %q", name)
+}
+
+func InflateLZ4(buf []byte) ([]byte, error) {
+	w := lz4.NewReader(bytes.NewBuffer(buf))
+
+	data, err := io.ReadAll(w)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func InflateGzip(buf []byte) ([]byte, error) {

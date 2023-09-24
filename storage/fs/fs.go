@@ -115,7 +115,11 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 		return err
 	}
 
-	_, err = f.Write(compression.Deflate(jconfig))
+	compressedConfig, err := compression.Deflate("lz4", jconfig)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(compressedConfig)
 	if err != nil {
 		return err
 	}
@@ -137,7 +141,7 @@ func (repository *FSRepository) Open(location string) error {
 		return err
 	}
 
-	jconfig, err := compression.Inflate(compressed)
+	jconfig, err := compression.Inflate("lz4", compressed)
 	if err != nil {
 		return err
 	}

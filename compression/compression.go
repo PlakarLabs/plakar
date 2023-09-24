@@ -19,10 +19,31 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io"
+
+	"github.com/pierrec/lz4/v4"
 )
 
-func Deflate(buf []byte) []byte {
+func Deflate(method string, buf []byte) ([]byte, error) {
+	if method == "gzip" {
+		return DeflateGzip(buf), nil
+	}
+	if method == "lz4" {
+		return DeflateLZ4(buf), nil
+	}
+	return nil, fmt.Errorf("unknown compression method: %s", method)
+}
+
+func DeflateLZ4(buf []byte) []byte {
+	var b bytes.Buffer
+	w := lz4.NewWriter(&b)
+	w.Write(buf)
+	w.Close()
+	return b.Bytes()
+}
+
+func DeflateGzip(buf []byte) []byte {
 	var b bytes.Buffer
 	w := gzip.NewWriter(&b)
 	w.Write(buf)
@@ -30,7 +51,26 @@ func Deflate(buf []byte) []byte {
 	return b.Bytes()
 }
 
-func Inflate(buf []byte) ([]byte, error) {
+func Inflate(method string, buf []byte) ([]byte, error) {
+	if method == "gzip" {
+		return InflateGzip(buf)
+	}
+	if method == "lz4" {
+		return InflateLZ4(buf)
+	}
+	return nil, fmt.Errorf("unknown compression method: %s", method)
+}
+
+func InflateLZ4(buf []byte) ([]byte, error) {
+	w := lz4.NewReader(bytes.NewBuffer(buf))
+	data, err := io.ReadAll(w)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func InflateGzip(buf []byte) ([]byte, error) {
 	w, err := gzip.NewReader(bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err

@@ -49,7 +49,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 		data = tmp
 	}
 
-	data, err = compression.Inflate(snapshot.repository.Configuration().Compression, data)
+	data, err = compression.Inflate(data)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +92,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 		return err
 	}
 
-	jobject, err = compression.Deflate(snapshot.repository.Configuration().Compression, jobject)
-	if err != nil {
-		return err
-	}
+	jobject = compression.Deflate(jobject)
 	if snapshot.repository.Configuration().Encryption != "" {
 		tmp, err := encryption.Encrypt(secret, jobject)
 		if err != nil {

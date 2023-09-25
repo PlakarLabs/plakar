@@ -31,10 +31,14 @@ import (
 func cmd_create(ctx Plakar, args []string) int {
 	var opt_noencryption bool
 	var opt_nocompression bool
+	var opt_hashing string
+	var opt_compression string
 
 	flags := flag.NewFlagSet("init", flag.ExitOnError)
 	flags.BoolVar(&opt_noencryption, "no-encryption", false, "disable transparent encryption")
 	flags.BoolVar(&opt_nocompression, "no-compression", false, "disable transparent compression")
+	flags.StringVar(&opt_hashing, "hashing", "sha256", "swap the hashing function")
+	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
 	flags.Parse(args)
 
 	repositoryConfig := storage.RepositoryConfig{}
@@ -44,11 +48,10 @@ func cmd_create(ctx Plakar, args []string) int {
 	if opt_nocompression {
 		repositoryConfig.Compression = ""
 	} else {
-		repositoryConfig.Compression = "lz4"
+		repositoryConfig.Compression = opt_compression
 	}
 
-	//repositoryConfig.Hashing = "sha256"
-	repositoryConfig.Hashing = "blake3"
+	repositoryConfig.Hashing = opt_hashing
 
 	if !opt_noencryption {
 		var passphrase []byte

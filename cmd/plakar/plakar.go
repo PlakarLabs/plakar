@@ -16,6 +16,7 @@ import (
 	"github.com/denisbrodbeck/machineid"
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/cache"
+	"github.com/poolpOrg/plakar/config"
 	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/helpers"
 	"github.com/poolpOrg/plakar/logger"
@@ -40,7 +41,8 @@ type Plakar struct {
 	CommandLine string
 	MachineID   string
 
-	Cache *cache.Cache
+	Cache  *cache.Cache
+	Config *config.ConfigAPI
 
 	KeyFromFile string
 }
@@ -90,10 +92,12 @@ func entryPoint() int {
 	opt_usernameDefault := opt_userDefault.Username
 	opt_repositoryDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
 	opt_cacheDefault := path.Join(opt_userDefault.HomeDir, ".plakar-cache")
+	opt_configDefault := path.Join(opt_userDefault.HomeDir, ".plakarconfig")
 
 	// command line overrides
 	var opt_cpuCount int
 	var opt_cachedir string
+	var opt_configfile string
 	var opt_username string
 	var opt_hostname string
 	var opt_cpuProfile string
@@ -105,6 +109,7 @@ func entryPoint() int {
 	var opt_profiling bool
 	var opt_keyfile string
 
+	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
 	flag.StringVar(&opt_username, "username", opt_usernameDefault, "default username")
@@ -158,6 +163,7 @@ func entryPoint() int {
 	ctx.CommandLine = strings.Join(os.Args, " ")
 	ctx.MachineID = opt_machineIdDefault
 	ctx.KeyFromFile = secretFromKeyfile
+	ctx.Config = config.NewConfigAPI(opt_configfile)
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a command must be provided\n", flag.CommandLine.Name())
@@ -195,6 +201,10 @@ func entryPoint() int {
 
 	if command == "stdio" {
 		return cmd_stdio(ctx, args)
+	}
+
+	if command == "config" {
+		return cmd_config(ctx, args)
 	}
 
 	if !opt_nocache {

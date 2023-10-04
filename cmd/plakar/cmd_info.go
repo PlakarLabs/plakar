@@ -34,31 +34,31 @@ type JSONChunk struct {
 }
 
 type JSONObject struct {
-	Chunks      []uint64
-	ContentType uint64
+	Chunks      []uint32
+	ContentType uint32
 }
 
 type JSONIndex struct {
 
 	// Pathnames -> Object checksum
-	Pathnames map[string]uint64
+	Pathnames map[string]uint32
 
-	ContentTypes map[string]uint64
+	ContentTypes map[string]uint32
 
 	// Object checksum -> Object
-	Objects map[uint64]*JSONObject
+	Objects map[uint32]*JSONObject
 
 	// Chunk checksum -> Chunk
-	Chunks map[uint64]*JSONChunk
+	Chunks map[uint32]*JSONChunk
 
 	// Chunk checksum -> Object checksums
-	ChunkToObjects map[uint64][]uint64
+	ChunkToObjects map[uint32][]uint32
 
 	// Object checksum -> Filenames
-	ObjectToPathnames map[uint64][]uint64
+	ObjectToPathnames map[uint32][]uint32
 
 	// Content Type -> Object checksums
-	ContentTypeToObjects map[uint64][]uint64
+	ContentTypeToObjects map[uint32][]uint32
 }
 
 func init() {
@@ -103,13 +103,13 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		for _, index := range indexes {
 			jindex := JSONIndex{}
-			jindex.Pathnames = make(map[string]uint64)
-			jindex.ContentTypes = make(map[string]uint64)
-			jindex.Objects = make(map[uint64]*JSONObject)
-			jindex.Chunks = make(map[uint64]*JSONChunk)
-			jindex.ChunkToObjects = make(map[uint64][]uint64)
-			jindex.ObjectToPathnames = make(map[uint64][]uint64)
-			jindex.ContentTypeToObjects = make(map[uint64][]uint64)
+			jindex.Pathnames = make(map[string]uint32)
+			jindex.ContentTypes = make(map[string]uint32)
+			jindex.Objects = make(map[uint32]*JSONObject)
+			jindex.Chunks = make(map[uint32]*JSONChunk)
+			jindex.ChunkToObjects = make(map[uint32][]uint32)
+			jindex.ObjectToPathnames = make(map[uint32][]uint32)
+			jindex.ContentTypeToObjects = make(map[uint32][]uint32)
 
 			for pathname, checksumID := range index.Pathnames {
 				jindex.Pathnames[pathname] = checksumID
@@ -121,7 +121,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 			for checksumID, object := range index.Objects {
 				jobject := &JSONObject{
-					Chunks:      make([]uint64, 0),
+					Chunks:      make([]uint32, 0),
 					ContentType: object.ContentType,
 				}
 
@@ -141,19 +141,21 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 				jindex.Chunks[checksumID] = jchunk
 			}
 
-			for checksum, objects := range index.ChunkToObjects {
-				jindex.ChunkToObjects[checksum] = make([]uint64, 0)
-				for _, objChecksum := range objects {
-					jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
+			/*
+				for checksum, objects := range index.ChunkToObjects {
+					jindex.ChunkToObjects[checksum] = make([]uint32, 0)
+					for _, objChecksum := range objects {
+						jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
+					}
 				}
-			}
+			*/
 
 			for checksumID, pathnames := range index.ObjectToPathnames {
 				jindex.ObjectToPathnames[checksumID] = pathnames
 			}
 
 			for contentType, objects := range index.ContentTypeToObjects {
-				jindex.ContentTypeToObjects[contentType] = make([]uint64, 0)
+				jindex.ContentTypeToObjects[contentType] = make([]uint32, 0)
 				for _, objChecksum := range objects {
 					jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], objChecksum)
 				}

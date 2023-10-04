@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"runtime"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/poolpOrg/plakar/logger"
@@ -70,7 +72,14 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	if flags.NArg() == 0 {
 		err = snap.Push(dir, opt_progress)
 	} else if flags.NArg() == 1 {
-		err = snap.Push(flags.Arg(0), opt_progress)
+		var cleanPath string
+
+		if !strings.HasPrefix(flags.Arg(0), "/") {
+			cleanPath = path.Clean(dir + "/" + flags.Arg(0))
+		} else {
+			cleanPath = path.Clean(flags.Arg(0))
+		}
+		err = snap.Push(cleanPath, opt_progress)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

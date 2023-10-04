@@ -22,10 +22,12 @@ type IndexChunk struct {
 
 type Index struct {
 	muChecksums      sync.Mutex
+	checksumID       uint32
 	Checksums        map[[32]byte]uint32
 	checksumsInverse map[uint32][32]byte
 
 	muPathnames      sync.Mutex
+	pathnameID       uint32
 	Pathnames        map[string]uint32
 	pathnamesInverse map[uint32]string
 
@@ -48,6 +50,7 @@ type Index struct {
 
 	// Content Type -> Object checksums
 	muContentTypeToObjects sync.Mutex
+	contentTypeID          uint32
 	ContentTypeToObjects   map[uint32][]uint32
 }
 
@@ -111,9 +114,9 @@ func (index *Index) addChecksum(checksum [32]byte) {
 	defer index.muChecksums.Unlock()
 
 	if _, exists := index.Checksums[checksum]; !exists {
-		checksumID := uint32(len(index.Checksums))
-		index.Checksums[checksum] = checksumID
-		index.checksumsInverse[checksumID] = checksum
+		index.Checksums[checksum] = index.checksumID
+		index.checksumsInverse[index.checksumID] = checksum
+		index.checksumID++
 	}
 }
 
@@ -139,9 +142,9 @@ func (index *Index) addPathname(pathname string) {
 	defer index.muPathnames.Unlock()
 
 	if _, exists := index.Pathnames[pathname]; !exists {
-		pathnameID := uint32(len(index.Pathnames))
-		index.Pathnames[pathname] = pathnameID
-		index.pathnamesInverse[pathnameID] = pathname
+		index.Pathnames[pathname] = index.pathnameID
+		index.pathnamesInverse[index.pathnameID] = pathname
+		index.pathnameID++
 	}
 }
 
@@ -153,23 +156,15 @@ func (index *Index) getPathnameID(pathname string) (uint32, bool) {
 	return pathnameID, exists
 }
 
-func (index *Index) getPathname(pathnameID uint32) (string, bool) {
-	index.muPathnames.Lock()
-	defer index.muPathnames.Unlock()
-
-	pathname, exists := index.pathnamesInverse[pathnameID]
-	return pathname, exists
-}
-
 // content types
 func (index *Index) addContentType(contentType string) {
 	index.muContentType.Lock()
 	defer index.muContentType.Unlock()
 
 	if _, exists := index.ContentTypes[contentType]; !exists {
-		contentTypeID := uint32(len(index.ContentTypes))
-		index.ContentTypes[contentType] = contentTypeID
-		index.contentTypesInverse[contentTypeID] = contentType
+		index.ContentTypes[contentType] = index.contentTypeID
+		index.contentTypesInverse[index.contentTypeID] = contentType
+		index.contentTypeID++
 	}
 }
 

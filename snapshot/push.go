@@ -79,7 +79,7 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	firstChunk := true
-	cdcOffset := 0
+	cdcOffset := uint64(0)
 	for {
 		cdcChunk, err := chk.Next()
 		if err == io.EOF {
@@ -107,10 +107,10 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 
 		chunk := objects.Chunk{}
 		chunk.Checksum = t32
-		chunk.Start = uint(cdcOffset)
+		chunk.Start = cdcOffset
 		chunk.Length = uint(len(cdcChunk))
 		object.Chunks = append(object.Chunks, chunk.Checksum)
-		cdcOffset += len(cdcChunk)
+		cdcOffset += uint64(len(cdcChunk))
 
 		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
 		if indexChunk == nil {

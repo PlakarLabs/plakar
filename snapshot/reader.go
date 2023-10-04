@@ -44,14 +44,14 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		// compute how much we can read from this one
-		endOffset := chunkInfo.Start + chunkInfo.Length
-		available := endOffset - uint(reader.offset)
+		endOffset := chunkInfo.Start + uint64(chunkInfo.Length)
+		available := endOffset - uint64(reader.offset)
 
 		// find beginning and ending offsets in current chunk
-		beg := chunkInfo.Length - available
+		beg := uint64(chunkInfo.Length) - available
 		end := beg + available
-		if available >= uint(readSize) {
-			end = beg + uint(readSize)
+		if available >= uint64(readSize) {
+			end = beg + uint64(readSize)
 		}
 
 		nbytes, err := reader.obuf.Write(data[beg:end])

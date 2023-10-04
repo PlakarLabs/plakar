@@ -29,7 +29,7 @@ import (
 )
 
 type JSONChunk struct {
-	Start  uint
+	Start  uint64
 	Length uint
 }
 

@@ -253,6 +253,8 @@ func info_plakar(repository *storage.Repository) int {
 		fmt.Println("Compression:", "no")
 	}
 
+	fmt.Println("Hashing:", repository.Configuration().Hashing)
+
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)
 	totalIndexSize := uint64(0)

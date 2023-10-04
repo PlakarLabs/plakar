@@ -194,6 +194,14 @@ func entryPoint() int {
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
+	if strings.HasPrefix(ctx.Repository, "@") {
+		if location, err := ctx.Config.GetRepositoryParameter(ctx.Repository[1:], "location"); err != nil {
+			log.Fatalf("%s: unknown repository alias: %s", flag.CommandLine.Name(), ctx.Repository)
+		} else {
+			ctx.Repository = location
+		}
+	}
+
 	// cmd_create must be ran after workdir.New() but before other commands
 	if command == "create" {
 		return cmd_create(ctx, args)

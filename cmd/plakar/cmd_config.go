@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 )
 
@@ -48,12 +49,13 @@ func cmd_config(ctx Plakar, args []string) int {
 
 	if subcommand == "repository" {
 		switch len(parameters) {
-		case 0:
-			api.ListRepositoryParameters()
-		case 1:
-			api.GetRepositoryParameter(parameters[0])
 		case 2:
-			api.GetSpecificRepositoryParameter(parameters[0], parameters[1])
+			value, err := api.GetRepositoryParameter(parameters[0], parameters[1])
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(parameters[1], "=", value)
+
 		case 3:
 			err := api.SetRepositoryParameter(parameters[0], parameters[1], parameters[2])
 			if err != nil {

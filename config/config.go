@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -20,7 +19,6 @@ type ConfigAPI struct {
 }
 
 func NewConfigAPI(filePath string) *ConfigAPI {
-	fmt.Println(filePath)
 	return &ConfigAPI{
 		configFilePath: filePath,
 		config: Configuration{
@@ -31,7 +29,6 @@ func NewConfigAPI(filePath string) *ConfigAPI {
 }
 
 func (c *ConfigAPI) loadConfig() error {
-	fmt.Println("loading", c.configFilePath)
 	data, err := os.ReadFile(c.configFilePath)
 	if err != nil {
 		return err
@@ -44,8 +41,7 @@ func (c *ConfigAPI) saveConfig() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("saving to", c.configFilePath)
-	return ioutil.WriteFile(c.configFilePath, data, os.ModePerm)
+	return os.WriteFile(c.configFilePath, data, os.ModePerm)
 }
 
 func (c *ConfigAPI) ListGlobalParameters() error {
@@ -58,16 +54,15 @@ func (c *ConfigAPI) ListGlobalParameters() error {
 	return nil
 }
 
-func (c *ConfigAPI) GetGlobalParameter(key string) error {
+func (c *ConfigAPI) GetGlobalParameter(key string) (string, error) {
 	if err := c.loadConfig(); err != nil {
-		return err
+		return "", err
 	}
 	value, exists := c.config.Global[key]
 	if !exists {
-		return errors.New("parameter not found")
+		return "", errors.New("parameter not found")
 	}
-	fmt.Printf("%s: %s\n", key, value)
-	return nil
+	return value, nil
 }
 
 func (c *ConfigAPI) SetGlobalParameter(key string, value string) error {
@@ -78,47 +73,19 @@ func (c *ConfigAPI) SetGlobalParameter(key string, value string) error {
 	return c.saveConfig()
 }
 
-func (c *ConfigAPI) ListRepositoryParameters() error {
+func (c *ConfigAPI) GetRepositoryParameter(repo string, key string) (string, error) {
 	if err := c.loadConfig(); err != nil {
-		return err
-	}
-	for repo, params := range c.config.Repositories {
-		fmt.Println("Repository:", repo)
-		for key, value := range params {
-			fmt.Printf("  %s: %s\n", key, value)
-		}
-	}
-	return nil
-}
-
-func (c *ConfigAPI) GetRepositoryParameter(repo string) error {
-	if err := c.loadConfig(); err != nil {
-		return err
+		return "", err
 	}
 	params, exists := c.config.Repositories[repo]
 	if !exists {
-		return errors.New("repository not found")
-	}
-	for key, value := range params {
-		fmt.Printf("%s: %s\n", key, value)
-	}
-	return nil
-}
-
-func (c *ConfigAPI) GetSpecificRepositoryParameter(repo string, key string) error {
-	if err := c.loadConfig(); err != nil {
-		return err
-	}
-	params, exists := c.config.Repositories[repo]
-	if !exists {
-		return errors.New("repository not found")
+		return "", errors.New("repository not found")
 	}
 	value, exists := params[key]
 	if !exists {
-		return errors.New("parameter not found")
+		return "", errors.New("parameter not found")
 	}
-	fmt.Printf("%s: %s\n", key, value)
-	return nil
+	return value, nil
 }
 
 func (c *ConfigAPI) SetRepositoryParameter(repo string, key string, value string) error {

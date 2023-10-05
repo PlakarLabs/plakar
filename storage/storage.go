@@ -702,7 +702,29 @@ func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 		profiler.RecordEvent("storage.tx.PutMetadata", time.Since(t0))
 		logger.Trace("storage", "%s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
-	return transaction.repository.PutMetadata(transaction.GetUuid(), data)
+	repository := transaction.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	return len(buffer), transaction.backend.PutMetadata(buffer)
 }
 
 func (transaction *Transaction) PutIndex(data []byte) (int, error) {
@@ -711,7 +733,29 @@ func (transaction *Transaction) PutIndex(data []byte) (int, error) {
 		profiler.RecordEvent("storage.tx.PutIndex", time.Since(t0))
 		logger.Trace("storage", "%s.PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
-	return transaction.repository.PutIndex(transaction.GetUuid(), data)
+	repository := transaction.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	return len(buffer), transaction.backend.PutIndex(buffer)
 }
 
 func (transaction *Transaction) PutFilesystem(data []byte) (int, error) {
@@ -720,7 +764,29 @@ func (transaction *Transaction) PutFilesystem(data []byte) (int, error) {
 		profiler.RecordEvent("storage.tx.PutFilesystem", time.Since(t0))
 		logger.Trace("storage", "%s.PutFilesystem() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
-	return transaction.repository.PutFilesystem(transaction.GetUuid(), data)
+	repository := transaction.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	return len(buffer), transaction.backend.PutFilesystem(buffer)
 }
 
 func (transaction *Transaction) Commit() error {

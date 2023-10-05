@@ -47,14 +47,14 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 	object.ContentType = cachedObject.ContentType
 
 	for offset, _ := range object.Chunks {
-		chunk := cachedObject.Chunks[offset]
-		exists, err := snapshot.CheckChunk(chunk.Checksum)
-		if err != nil {
-			return nil, err
-		}
-		if !exists {
-			return nil, nil
-		}
+		//		chunk := cachedObject.Chunks[offset]
+		//		exists, err := snapshot.CheckChunk(chunk.Checksum)
+		//		if err != nil {
+		//			return nil, err
+		//		}
+		//		if !exists {
+		//			return nil, nil
+		//		}
 		snapshot.Index.AddChunk(cachedObject.Chunks[offset])
 	}
 	return &object, nil
@@ -208,6 +208,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 				// errchan <- err
 			}
 
+			exists = false
 			if object != nil {
 				exists, err = snapshot.CheckObject(object.Checksum)
 				if err != nil {
@@ -242,7 +243,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 					atomic.AddUint64(&snapshot.Metadata.ObjectsTransferSize, uint64(nbytes))
 				}
 			}
-
 			snapshot.Index.AddObject(object)
 
 			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)

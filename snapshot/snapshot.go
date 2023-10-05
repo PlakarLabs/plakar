@@ -353,7 +353,7 @@ func (snapshot *Snapshot) PutFilesystem(data []byte) (int, error) {
 	logger.Trace("snapshot", "%s: PutFilesystem()", snapshot.Metadata.GetIndexShortID())
 
 	if cache != nil {
-		cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), data)
+		cache.PutFilesystem(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), data)
 	}
 
 	return snapshot.transaction.PutFilesystem(data)

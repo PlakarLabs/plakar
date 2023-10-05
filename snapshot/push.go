@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -245,8 +244,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			}
 
 			snapshot.Index.AddObject(object)
-			//snapshot.Index.LinkPathnameToObject()
-			fmt.Println("@@@@@@@", snapshot.Filesystem.GetPathnameID(_filename))
 			pathnameID := snapshot.Filesystem.GetPathnameID(_filename)
 			snapshot.Index.LinkPathnameToObject(pathnameID, object)
 			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))

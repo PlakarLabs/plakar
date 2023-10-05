@@ -106,6 +106,12 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 }
 
 func NewFilesystemFromScan(directory string) (*Filesystem, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.NewFilesystemFromScan", time.Since(t0))
+		logger.Trace("vfs", "NewFilesystemFromScan(): %s", time.Since(t0))
+	}()
+
 	imp, err := importer.NewImporter(directory)
 	if err != nil {
 		return nil, err

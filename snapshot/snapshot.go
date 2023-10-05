@@ -460,3 +460,7 @@ func (snapshot *Snapshot) Commit() error {
 	logger.Trace("snapshot", "%s: Commit()", snapshot.Metadata.GetIndexShortID())
 	return snapshot.transaction.Commit()
 }
+
+func (snapshot *Snapshot) NewReader(pathname string) (*storage.Reader, error) {
+	return snapshot.repository.NewReader(snapshot.Index, pathname)
+}

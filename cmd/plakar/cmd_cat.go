@@ -56,7 +56,7 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		rd, err := repository.NewReader(index, pathname)
 		if err != nil {
-			logger.Error("### %s: %s: %s", flags.Name(), pathname, err)
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}

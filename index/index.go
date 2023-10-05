@@ -27,6 +27,9 @@ type Index struct {
 	Checksums        map[[32]byte]uint32
 	checksumsInverse map[uint32][32]byte
 
+	muPathnames sync.Mutex
+	Pathnames   map[[32]byte]uint64
+
 	muContentType       sync.Mutex
 	ContentTypes        map[string]uint32
 	contentTypesInverse map[uint32]string
@@ -54,6 +57,8 @@ func NewIndex() *Index {
 	return &Index{
 		Checksums:        make(map[[32]byte]uint32),
 		checksumsInverse: make(map[uint32][32]byte),
+
+		Pathnames: make(map[[32]byte]uint64),
 
 		ContentTypes:        make(map[string]uint32),
 		contentTypesInverse: make(map[uint32]string),
@@ -278,6 +283,17 @@ func (index *Index) AddObject(object *objects.Object) {
 	index.Objects[objectChecksumID] = IndexObject{
 		Chunks:      chunks,
 		ContentType: contentTypeID,
+	}
+}
+
+func (index *Index) RecordPathnameChecksum(pathnameChecksum []byte, pathnameID uint64) {
+	index.muPathnames.Lock()
+	defer index.muPathnames.Unlock()
+
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+	if _, exists := index.Pathnames[key]; !exists {
+		index.Pathnames[key] = pathnameID
 	}
 }
 

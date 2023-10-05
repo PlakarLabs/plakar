@@ -244,7 +244,12 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			}
 
 			snapshot.Index.AddObject(object)
+
+			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+			hasher.Write([]byte(_filename))
+			pathnameChecksum := hasher.Sum(nil)
 			pathnameID := snapshot.Filesystem.GetPathnameID(_filename)
+			snapshot.Index.RecordPathnameChecksum(pathnameChecksum, pathnameID)
 			snapshot.Index.LinkPathnameToObject(pathnameID, object)
 			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)

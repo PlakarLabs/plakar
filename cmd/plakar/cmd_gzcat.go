@@ -39,23 +39,23 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	indexes, err := getIndexes(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snapshot := range snapshots {
+	for offset, snapIndex := range indexes {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.GetIndexShortID())
+			logger.Error("%s: missing filename for snapshot", flags.Name())
 			errors++
 			continue
 		}
 
-		rd, err := repository.NewReader(snapshot.Index, pathname)
+		rd, err := repository.NewReader(snapIndex, pathname)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

@@ -96,7 +96,8 @@ func (reader *Reader) Close() error {
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
-	object := snapshot.Index.LookupObjectForPathname(pathname)
+	pathnameID := snapshot.Filesystem.GetPathnameID(pathname)
+	object := snapshot.Index.LookupObjectForPathname(pathnameID)
 	if object == nil {
 		return nil, os.ErrNotExist
 	}

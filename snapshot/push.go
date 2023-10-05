@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -244,7 +245,10 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			}
 
 			snapshot.Index.AddObject(object)
-			snapshot.Index.LinkPathnameToObject(_filename, object)
+			//snapshot.Index.LinkPathnameToObject()
+			fmt.Println("@@@@@@@", snapshot.Filesystem.GetPathnameID(_filename))
+			pathnameID := snapshot.Filesystem.GetPathnameID(_filename)
+			snapshot.Index.LinkPathnameToObject(pathnameID, object)
 			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)
 	}
@@ -279,7 +283,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 		snapshot.Metadata.FileType[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 	}
 
-	for _, key := range snapshot.Index.ListPathnames() {
+	for _, key := range snapshot.Filesystem.ListStat() {
 		extension := strings.ToLower(filepath.Ext(key))
 		if extension == "" {
 			extension = "none"
@@ -301,7 +305,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	}
 
 	snapshot.Metadata.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	snapshot.Metadata.PathnamesCount = uint64(len(snapshot.Index.ListPathnames()))
+	snapshot.Metadata.PathnamesCount = uint64(len(snapshot.Filesystem.ListStat()))
 
 	snapshot.Metadata.CreationDuration = time.Since(t0)
 

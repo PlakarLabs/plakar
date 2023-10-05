@@ -1,7 +1,6 @@
 package index
 
 import (
-	"path/filepath"
 	"sync"
 
 	"github.com/poolpOrg/plakar/objects"
@@ -26,18 +25,13 @@ type Index struct {
 	Checksums        map[[32]byte]uint32
 	checksumsInverse map[uint32][32]byte
 
-	muPathnames      sync.Mutex
-	pathnameID       uint32
-	Pathnames        map[string]uint32
-	pathnamesInverse map[uint32]string
-
 	muContentType       sync.Mutex
 	ContentTypes        map[string]uint32
 	contentTypesInverse map[uint32]string
 
 	muPathnameToObject sync.Mutex
-	PathnameToObject   map[uint32]uint32
-	ObjectToPathnames  map[uint32][]uint32
+	PathnameToObject   map[uint64]uint32
+	ObjectToPathnames  map[uint32][]uint64
 
 	// Object checksum -> Object
 	muObjects sync.Mutex
@@ -59,14 +53,11 @@ func NewIndex() *Index {
 		Checksums:        make(map[[32]byte]uint32),
 		checksumsInverse: make(map[uint32][32]byte),
 
-		Pathnames:        make(map[string]uint32),
-		pathnamesInverse: make(map[uint32]string),
-
 		ContentTypes:        make(map[string]uint32),
 		contentTypesInverse: make(map[uint32]string),
 
-		PathnameToObject:  make(map[uint32]uint32),
-		ObjectToPathnames: make(map[uint32][]uint32),
+		PathnameToObject:  make(map[uint64]uint32),
+		ObjectToPathnames: make(map[uint32][]uint64),
 
 		Objects:        make(map[uint32]IndexObject),
 		Chunks:         make(map[uint32]IndexChunk),
@@ -85,11 +76,6 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 	index.checksumsInverse = make(map[uint32][32]byte)
 	for checksum, checksumID := range index.Checksums {
 		index.checksumsInverse[checksumID] = checksum
-	}
-
-	index.pathnamesInverse = make(map[uint32]string)
-	for pathname, pathnameID := range index.Pathnames {
-		index.pathnamesInverse[pathnameID] = pathname
 	}
 
 	index.contentTypesInverse = make(map[uint32]string)
@@ -134,26 +120,6 @@ func (index *Index) IdToChecksum(checksumID uint32) ([32]byte, bool) {
 
 	checksum, exists := index.checksumsInverse[checksumID]
 	return checksum, exists
-}
-
-// pathnames
-func (index *Index) addPathname(pathname string) {
-	index.muPathnames.Lock()
-	defer index.muPathnames.Unlock()
-
-	if _, exists := index.Pathnames[pathname]; !exists {
-		index.Pathnames[pathname] = index.pathnameID
-		index.pathnamesInverse[index.pathnameID] = pathname
-		index.pathnameID++
-	}
-}
-
-func (index *Index) getPathnameID(pathname string) (uint32, bool) {
-	index.muPathnames.Lock()
-	defer index.muPathnames.Unlock()
-
-	pathnameID, exists := index.Pathnames[pathname]
-	return pathnameID, exists
 }
 
 // content types
@@ -235,17 +201,6 @@ func (index *Index) ListChunks() [][32]byte {
 	return ret
 }
 
-func (index *Index) ListPathnames() []string {
-	index.muPathnames.Lock()
-	defer index.muPathnames.Unlock()
-
-	ret := make([]string, 0)
-	for pathname := range index.Pathnames {
-		ret = append(ret, pathname)
-	}
-	return ret
-}
-
 func (index *Index) ListContentTypes() []string {
 	index.muContentType.Lock()
 	defer index.muContentType.Unlock()
@@ -313,17 +268,9 @@ func (index *Index) AddObject(object *objects.Object) {
 	}
 }
 
-func (index *Index) LinkPathnameToObject(pathname string, object *objects.Object) {
+func (index *Index) LinkPathnameToObject(pathnameID uint64, object *objects.Object) {
 	index.muPathnameToObject.Lock()
 	defer index.muPathnameToObject.Unlock()
-
-	pathname = filepath.Clean(pathname)
-	index.addPathname(pathname)
-
-	pathnameID, exists := index.getPathnameID(pathname)
-	if !exists {
-		panic("LinkPathnameToObject: corrupted index: could not find pathname")
-	}
 
 	checksumID, exists := index.ChecksumToId(object.Checksum)
 	if !exists {
@@ -332,7 +279,7 @@ func (index *Index) LinkPathnameToObject(pathname string, object *objects.Object
 
 	index.PathnameToObject[pathnameID] = checksumID
 	if _, exists := index.ObjectToPathnames[checksumID]; !exists {
-		index.ObjectToPathnames[checksumID] = make([]uint32, 0)
+		index.ObjectToPathnames[checksumID] = make([]uint64, 0)
 	}
 	index.ObjectToPathnames[checksumID] = append(index.ObjectToPathnames[checksumID], pathnameID)
 }
@@ -392,15 +339,9 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 	}
 }
 
-func (index *Index) LookupObjectForPathname(pathname string) *objects.Object {
+func (index *Index) LookupObjectForPathname(pathnameID uint64) *objects.Object {
 	index.muPathnameToObject.Lock()
 	defer index.muPathnameToObject.Unlock()
-
-	// should implement an "exists" version ?
-	pathnameID, exists := index.getPathnameID(filepath.Clean(pathname))
-	if !exists {
-		return nil
-	}
 
 	checksumID, exists := index.PathnameToObject[pathnameID]
 	if !exists {

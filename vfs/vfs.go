@@ -46,6 +46,7 @@ type Filesystem struct {
 	Inodes   map[string]FileInfo
 
 	muPathnames      sync.Mutex
+	pathnameID       uint64
 	Pathnames        map[string]uint64
 	pathnamesInverse map[uint64]string
 
@@ -116,7 +117,6 @@ func NewFilesystemFromScan(directory string) (*Filesystem, error) {
 		if stat, ok := msg.Stat.(FileInfo); !ok {
 			return nil, fmt.Errorf("received invalid stat type")
 		} else {
-
 			if pathname != "/" {
 				atoms := strings.Split(pathname, "/")
 				for i := 0; i < len(atoms)-1; i++ {
@@ -446,9 +446,9 @@ func (filesystem *Filesystem) addPathname(pathname string) uint64 {
 	defer filesystem.muPathnames.Unlock()
 
 	if pathnameId, exists := filesystem.Pathnames[pathname]; !exists {
-		pathnameId := uint64(len(filesystem.Pathnames))
-		filesystem.Pathnames[pathname] = pathnameId
-		filesystem.pathnamesInverse[pathnameId] = pathname
+		filesystem.Pathnames[pathname] = filesystem.pathnameID
+		filesystem.pathnamesInverse[filesystem.pathnameID] = pathname
+		filesystem.pathnameID++
 		return pathnameId
 	} else {
 		return pathnameId

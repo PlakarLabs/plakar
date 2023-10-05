@@ -124,7 +124,8 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			}
 			dest = filepath.Clean(dest)
 
-			object := snapshot.Index.LookupObjectForPathname(file)
+			pathnameID := snapshot.Filesystem.GetPathnameID(file)
+			object := snapshot.Index.LookupObjectForPathname(pathnameID)
 			if object == nil {
 				logger.Warn("skipping %s", rel)
 				return

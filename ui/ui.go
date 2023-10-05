@@ -165,7 +165,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
 	ss.Files = uint64(len(snapshot.Filesystem.ListFiles()))
 	ss.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	ss.Pathnames = uint64(len(snapshot.Index.ListPathnames()))
+	ss.Pathnames = uint64(len(snapshot.Filesystem.ListStat()))
 	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
 	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
 	return ss
@@ -354,7 +354,8 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	object := snap.Index.LookupObjectForPathname(path)
+	pathnameID := snap.Filesystem.GetPathnameID(path)
+	object := snap.Index.LookupObjectForPathname(pathnameID)
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -427,7 +428,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	object := snap.Index.LookupObjectForPathname(path)
+	pathnameID := snap.Filesystem.GetPathnameID(path)
+	object := snap.Index.LookupObjectForPathname(pathnameID)
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -557,9 +559,10 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		for _, file := range snap.Index.ListPathnames() {
+		for _, file := range snap.Filesystem.ListStat() {
 			if strings.Contains(file, q) {
-				object := snap.Index.LookupObjectForPathname(file)
+				pathnameID := snap.Filesystem.GetPathnameID(file)
+				object := snap.Index.LookupObjectForPathname(pathnameID)
 				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
 					continue
 				}

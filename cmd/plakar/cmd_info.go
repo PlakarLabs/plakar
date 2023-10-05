@@ -103,17 +103,12 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		for _, index := range indexes {
 			jindex := JSONIndex{}
-			jindex.Pathnames = make(map[string]uint32)
 			jindex.ContentTypes = make(map[string]uint32)
 			jindex.Objects = make(map[uint32]*JSONObject)
 			jindex.Chunks = make(map[uint32]*JSONChunk)
 			jindex.ChunkToObjects = make(map[uint32][]uint32)
 			jindex.ObjectToPathnames = make(map[uint32][]uint32)
 			jindex.ContentTypeToObjects = make(map[uint32][]uint32)
-
-			for pathname, checksumID := range index.Pathnames {
-				jindex.Pathnames[pathname] = checksumID
-			}
 
 			for pathname, checksumID := range index.ContentTypes {
 				jindex.ContentTypes[pathname] = checksumID
@@ -141,18 +136,16 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 				jindex.Chunks[checksumID] = jchunk
 			}
 
-			/*
-				for checksum, objects := range index.ChunkToObjects {
-					jindex.ChunkToObjects[checksum] = make([]uint32, 0)
-					for _, objChecksum := range objects {
-						jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
-					}
+			for checksum, objects := range index.ChunkToObjects {
+				jindex.ChunkToObjects[checksum] = make([]uint32, 0)
+				for _, objChecksum := range objects {
+					jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
 				}
-			*/
-
-			for checksumID, pathnames := range index.ObjectToPathnames {
-				jindex.ObjectToPathnames[checksumID] = pathnames
 			}
+
+			//for checksumID, pathnames := range index.ObjectToPathnames {
+			//	jindex.ObjectToPathnames[checksumID] = pathnames
+			//}
 
 			for contentType, objects := range index.ContentTypeToObjects {
 				jindex.ContentTypeToObjects[contentType] = make([]uint32, 0)
@@ -208,24 +201,24 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
 			fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
 
-			fmt.Printf("Objects: %d\n", metadata.ObjectsCount)
-			fmt.Printf("ObjectsTransferCount: %d\n", metadata.ObjectsTransferCount)
-			fmt.Printf("ObjectsTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
+			fmt.Printf("Objects.Count: %d\n", metadata.ObjectsCount)
+			fmt.Printf("Objects.TransferCount: %d\n", metadata.ObjectsTransferCount)
+			fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
 
-			fmt.Printf("Chunks: %d\n", metadata.ChunksCount)
-			fmt.Printf("ChunksSize: %d\n", metadata.ChunksSize)
-			fmt.Printf("ChunksTransferCount: %d\n", metadata.ChunksTransferCount)
-			fmt.Printf("ChunksTransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
+			fmt.Printf("Chunks.Count: %d\n", metadata.ChunksCount)
+			fmt.Printf("Chunks.Size: %d\n", metadata.ChunksSize)
+			fmt.Printf("Chunks,TransferCount: %d\n", metadata.ChunksTransferCount)
+			fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
 
-			fmt.Printf("SnapshotSize: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
+			fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
-			fmt.Printf("MappingIndexChecksum: %064x\n", metadata.IndexChecksum)
-			fmt.Printf("MappingIndexDiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexDiskSize), metadata.IndexDiskSize)
-			fmt.Printf("MappingIndexMemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexMemorySize), metadata.IndexMemorySize)
+			fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
+			fmt.Printf("Index.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexDiskSize), metadata.IndexDiskSize)
+			fmt.Printf("Index.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexMemorySize), metadata.IndexMemorySize)
 
-			fmt.Printf("FilesystemIndexChecksum: %064x\n", metadata.FilesystemChecksum)
-			fmt.Printf("FilesystemIndexDiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemDiskSize), metadata.FilesystemDiskSize)
-			fmt.Printf("FilesystemIndexMemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemMemorySize), metadata.FilesystemMemorySize)
+			fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
+			fmt.Printf("VFS.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemDiskSize), metadata.FilesystemDiskSize)
+			fmt.Printf("VFS.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemMemorySize), metadata.FilesystemMemorySize)
 
 		}
 	}

@@ -72,7 +72,8 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 }
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool, showProgress bool) (bool, error) {
-	object := snapshot.Index.LookupObjectForPathname(resource)
+	pathnameID := snapshot.Filesystem.GetPathnameID(resource)
+	object := snapshot.Index.LookupObjectForPathname(pathnameID)
 	if object == nil {
 		logger.Warn("%s: no such file %s", snapshot.Metadata.GetIndexShortID(), resource)
 		return false, nil
@@ -197,7 +198,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 		}()
 	}
 	for _, file := range snapshot.Filesystem.ListFiles() {
-		object := snapshot.Index.LookupObjectForPathname(file)
+		pathnameID := snapshot.Filesystem.GetPathnameID(file)
+		object := snapshot.Index.LookupObjectForPathname(pathnameID)
 		if object == nil {
 			logger.Warn("%s: unlisted object for file %s", snapshot.Metadata.GetIndexShortID(), file)
 			ret = false

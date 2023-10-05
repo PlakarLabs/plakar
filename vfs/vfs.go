@@ -30,7 +30,7 @@ import (
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/vfs/importer"
-	"github.com/ugorji/go/codec"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type FilesystemNode struct {
@@ -83,10 +83,8 @@ func (filesystem *Filesystem) Serialize() ([]byte, error) {
 		logger.Trace("vfs", "Serialize(): %s", time.Since(t0))
 	}()
 
-	var h codec.MsgpackHandle
-	var serialized []byte
-	enc := codec.NewEncoderBytes(&serialized, &h)
-	if err := enc.Encode(filesystem); err != nil {
+	serialized, err := msgpack.Marshal(filesystem)
+	if err != nil {
 		return nil, err
 	}
 	return serialized, nil
@@ -99,11 +97,8 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 		logger.Trace("vfs", "NewFilesystemFromBytes(): %s", time.Since(t0))
 	}()
 
-	var h codec.MsgpackHandle
 	var filesystem Filesystem
-	enc := codec.NewDecoderBytes(serialized, &h)
-	err := enc.Decode(&filesystem)
-	if err != nil {
+	if err := msgpack.Unmarshal(serialized, &filesystem); err != nil {
 		return nil, err
 	}
 	filesystem.reindex()

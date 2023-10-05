@@ -223,6 +223,11 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 		return err
 	}
 
+	_, err = statement.Exec("Hashing", config.Hashing)
+	if err != nil {
+		return err
+	}
+
 	_, err = statement.Exec("CreationTime", config.CreationTime)
 	if err != nil {
 		return err
@@ -246,6 +251,12 @@ func (repository *DatabaseRepository) Open(location string) error {
 	if err != nil {
 		return err
 	}
+
+	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Hashing'`).Scan(&repositoryConfig.Hashing)
+	if err != nil {
+		return err
+	}
+
 	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&repositoryConfig.Encryption)
 	if err != nil {
 		return err

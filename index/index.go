@@ -6,11 +6,12 @@ import (
 
 	"github.com/poolpOrg/plakar/objects"
 	"github.com/poolpOrg/plakar/profiler"
+	"github.com/ugorji/go/codec"
 
 	"github.com/poolpOrg/plakar/logger"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
+// codecgen -o values.generated.go index.go
 type IndexObject struct {
 	Chunks      []uint32
 	ContentType uint32
@@ -76,8 +77,11 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 		logger.Trace("index", "NewIndexFromBytes(...): %s", time.Since(t0))
 	}()
 
+	var h codec.MsgpackHandle
 	var index Index
-	if err := msgpack.Unmarshal(serialized, &index); err != nil {
+	enc := codec.NewDecoderBytes(serialized, &h)
+	err := enc.Decode(&index)
+	if err != nil {
 		return nil, err
 	}
 
@@ -100,8 +104,10 @@ func (index *Index) Serialize() ([]byte, error) {
 		logger.Trace("index", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(index)
-	if err != nil {
+	var h codec.MsgpackHandle
+	var serialized []byte
+	enc := codec.NewEncoderBytes(&serialized, &h)
+	if err := enc.Encode(index); err != nil {
 		return nil, err
 	}
 	return serialized, nil

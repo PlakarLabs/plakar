@@ -24,9 +24,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iafan/cwalk"
 	"github.com/poolpOrg/plakar/logger"
+	"github.com/poolpOrg/plakar/profiler"
 	"github.com/poolpOrg/plakar/vfs/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -74,6 +76,12 @@ func NewFilesystem() *Filesystem {
 }
 
 func (filesystem *Filesystem) Serialize() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.Serialize", time.Since(t0))
+		logger.Trace("vfs", "Serialize(): %s", time.Since(t0))
+	}()
+
 	serialized, err := msgpack.Marshal(filesystem)
 	if err != nil {
 		return nil, err
@@ -82,6 +90,12 @@ func (filesystem *Filesystem) Serialize() ([]byte, error) {
 }
 
 func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.NewFilesystemFromBytes", time.Since(t0))
+		logger.Trace("vfs", "NewFilesystemFromBytes(): %s", time.Since(t0))
+	}()
+
 	var filesystem Filesystem
 	if err := msgpack.Unmarshal(serialized, &filesystem); err != nil {
 		return nil, err

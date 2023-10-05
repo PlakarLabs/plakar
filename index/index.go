@@ -3,8 +3,10 @@ package index
 import (
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/poolpOrg/plakar/objects"
+	"github.com/poolpOrg/plakar/profiler"
 
 	"github.com/poolpOrg/plakar/logger"
 	"github.com/vmihailenco/msgpack/v5"
@@ -74,6 +76,11 @@ func NewIndex() *Index {
 }
 
 func NewIndexFromBytes(serialized []byte) (*Index, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("index.NewIndexFromBytes", time.Since(t0))
+		logger.Trace("index", "NewIndexFromBytes(): %s", time.Since(t0))
+	}()
 	var index Index
 	if err := msgpack.Unmarshal(serialized, &index); err != nil {
 		return nil, err
@@ -98,6 +105,11 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 }
 
 func (index *Index) Serialize() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("index.Serialize", time.Since(t0))
+		logger.Trace("index", "Serialize(): %s", time.Since(t0))
+	}()
 	serialized, err := msgpack.Marshal(index)
 	if err != nil {
 		return nil, err

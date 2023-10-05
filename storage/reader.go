@@ -1,16 +1,19 @@
-package snapshot
+package storage
 
 import (
 	"bytes"
 	"io"
 	"os"
+	"path"
 
+	"github.com/poolpOrg/plakar/encryption"
 	"github.com/poolpOrg/plakar/index"
 	"github.com/poolpOrg/plakar/objects"
 )
 
 type Reader struct {
-	snapshot     *Snapshot
+	repository *Repository
+	//index        *index.Index
 	object       *objects.Object
 	objectOffset int
 	obuf         *bytes.Buffer
@@ -38,7 +41,7 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		// we have data to read from this chunk, fetch content
-		data, err := reader.snapshot.GetChunk(reader.object.Chunks[chunkOffset])
+		data, err := reader.repository.GetChunk(reader.object.Chunks[chunkOffset])
 		if err != nil {
 			return -1, err
 		}
@@ -95,9 +98,17 @@ func (reader *Reader) Close() error {
 	return nil
 }
 
-func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
-	pathnameID := snapshot.Filesystem.GetPathnameID(pathname)
-	object := snapshot.Index.LookupObjectForPathname(pathnameID)
+func (repository *Repository) NewReader(rdIndex *index.Index, pathname string) (*Reader, error) {
+	pathname = path.Clean(pathname)
+
+	hasher := encryption.GetHasher(repository.Configuration().Hashing)
+	hasher.Write([]byte(pathname))
+	pathnameHash := hasher.Sum(nil)
+
+	var key [32]byte
+	copy(key[:], pathnameHash[:32])
+
+	object := rdIndex.LookupObjectForPathnameHash(key)
 	if object == nil {
 		return nil, os.ErrNotExist
 	}
@@ -105,15 +116,15 @@ func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 	chunks := make([]index.IndexChunk, 0)
 	size := int64(0)
 	for _, chunkChecksum := range object.Chunks {
-		chunkID, exists := snapshot.Index.ChecksumToId(chunkChecksum)
+		chunkID, exists := rdIndex.ChecksumToId(chunkChecksum)
 		if !exists {
 			return nil, os.ErrNotExist
 		}
-		chunk := snapshot.Index.Chunks[chunkID]
+		chunk := rdIndex.Chunks[chunkID]
 
 		chunks = append(chunks, chunk)
 		size += int64(chunk.Length)
 	}
 
-	return &Reader{snapshot: snapshot, object: object, chunks: chunks, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
+	return &Reader{repository: repository, object: object, chunks: chunks, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
 }

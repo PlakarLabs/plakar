@@ -70,7 +70,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		err = cloneRepository.PutMetadata(indexID, metadataBytes)
+		_, err = cloneRepository.PutMetadata(indexID, metadataBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
 			return 1
@@ -81,7 +81,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		err = cloneRepository.PutIndex(indexID, indexBytes)
+		_, err = cloneRepository.PutIndex(indexID, indexBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
@@ -92,7 +92,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
+		_, err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
@@ -112,7 +112,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 					fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
 					return 1
 				}
-				err = cloneRepository.PutChunk(chunkID, data)
+				_, err = cloneRepository.PutChunk(chunkID, data)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", cloneRepositoryName, err)
 					return 1
@@ -130,7 +130,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 					fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
 					return 1
 				}
-				err = cloneRepository.PutObject(objectID, data)
+				_, err = cloneRepository.PutObject(objectID, data)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
 					return 1

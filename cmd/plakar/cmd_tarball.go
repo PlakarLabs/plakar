@@ -102,7 +102,7 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 				continue
 			}
 
-			rd, err := snapshot.NewReader(file)
+			rd, err := repository.NewReader(snapshot.Index, file)
 			if err != nil {
 				logger.Error("could not find file %s", file)
 				continue

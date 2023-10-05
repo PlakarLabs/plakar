@@ -37,7 +37,8 @@ type ReqStorePutMetadata struct {
 }
 
 type ResStorePutMetadata struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqStorePutIndex struct {
@@ -46,7 +47,8 @@ type ReqStorePutIndex struct {
 }
 
 type ResStorePutIndex struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqStorePutFilesystem struct {
@@ -55,7 +57,8 @@ type ReqStorePutFilesystem struct {
 }
 
 type ResStorePutFilesystem struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqGetChunks struct {
@@ -197,7 +200,8 @@ type ReqPutChunk struct {
 }
 
 type ResPutChunk struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqPutObject struct {
@@ -207,7 +211,8 @@ type ReqPutObject struct {
 }
 
 type ResPutObject struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqPutMetadata struct {
@@ -216,7 +221,8 @@ type ReqPutMetadata struct {
 }
 
 type ResPutMetadata struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqPutIndex struct {
@@ -225,7 +231,8 @@ type ReqPutIndex struct {
 }
 
 type ResPutIndex struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqPutFilesystem struct {
@@ -234,7 +241,8 @@ type ReqPutFilesystem struct {
 }
 
 type ResPutFilesystem struct {
-	Err error
+	NBytes int
+	Err    error
 }
 
 type ReqCommit struct {

@@ -41,7 +41,7 @@ type JSONObject struct {
 type JSONIndex struct {
 
 	// Pathnames -> Object checksum
-	Pathnames map[string]uint32
+	Pathnames map[uint32]uint64
 
 	ContentTypes map[string]uint32
 
@@ -104,6 +104,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, index := range indexes {
 			jindex := JSONIndex{}
 			jindex.ContentTypes = make(map[string]uint32)
+			jindex.Pathnames = make(map[uint32]uint64)
 			jindex.Objects = make(map[uint32]*JSONObject)
 			jindex.Chunks = make(map[uint32]*JSONChunk)
 			jindex.ChunkToObjects = make(map[uint32][]uint32)
@@ -112,6 +113,10 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 			for pathname, checksumID := range index.ContentTypes {
 				jindex.ContentTypes[pathname] = checksumID
+			}
+
+			for checksumID, pathnameID := range index.Pathnames {
+				jindex.Pathnames[checksumID] = pathnameID
 			}
 
 			for checksumID, object := range index.Objects {

@@ -203,7 +203,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	}
 
 	buf1 := make([]byte, 0)
-	rd1, err := snapshot1.NewReader(filename1)
+	rd1, err := snapshot1.Repository().NewReader(snapshot1.Index, filename1)
 	if err == nil {
 		buf1, err = io.ReadAll(rd1)
 		if err != nil {
@@ -212,7 +212,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	}
 
 	buf2 := make([]byte, 0)
-	rd2, err := snapshot2.NewReader(filename2)
+	rd2, err := snapshot2.Repository().NewReader(snapshot2.Index, filename2)
 	if err == nil {
 		buf2, err = io.ReadAll(rd2)
 		if err != nil {

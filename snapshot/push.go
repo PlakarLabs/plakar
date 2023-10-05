@@ -249,7 +249,11 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			hasher.Write([]byte(_filename))
 			pathnameChecksum := hasher.Sum(nil)
 			pathnameID := snapshot.Filesystem.GetPathnameID(_filename)
-			snapshot.Index.RecordPathnameChecksum(pathnameChecksum, pathnameID)
+
+			key := [32]byte{}
+			copy(key[:], pathnameChecksum)
+
+			snapshot.Index.RecordPathnameChecksum(key, pathnameID)
 			snapshot.Index.LinkPathnameToObject(pathnameID, object)
 			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)

@@ -70,7 +70,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		if enableFastChecksum {
 			fmt.Printf("%064x %s\n", object.Checksum, pathname)
 		} else {
-			rd, err := snapshot.NewReader(pathname)
+			rd, err := repository.NewReader(snapshot.Index, pathname)
 			if err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++

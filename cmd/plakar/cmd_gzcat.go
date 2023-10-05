@@ -55,7 +55,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		rd, err := snapshot.NewReader(pathname)
+		rd, err := repository.NewReader(snapshot.Index, pathname)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

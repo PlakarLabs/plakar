@@ -636,7 +636,14 @@ func Ui(repository *storage.Repository, spawn bool) error {
 	}
 	templates[t.Name()] = t
 
-	port := rand.Uint32() % 0xffff
+	var port uint16
+	for {
+		port = uint16(rand.Uint32() % 0xffff)
+		if port >= 1024 {
+			break
+		}
+	}
+
 	url := fmt.Sprintf("http://localhost:%d", port)
 
 	fmt.Println("lauching browser UI pointing at", url)

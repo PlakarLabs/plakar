@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -96,6 +97,7 @@ var backends map[string]func() RepositoryBackend = make(map[string]func() Reposi
 type Repository struct {
 	backend RepositoryBackend
 
+	Location    string
 	Username    string
 	Hostname    string
 	CommandLine string
@@ -148,18 +150,32 @@ func New(location string) (*Repository, error) {
 			backendName = "s3"
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
-
 		} else {
-			return nil, fmt.Errorf("unsupported plakar protocol")
+			if strings.Contains(location, "://") {
+				return nil, fmt.Errorf("unsupported plakar protocol")
+			} else {
+				backendName = "fs"
+			}
 		}
 	} else {
 		backendName = "fs"
+	}
+
+	if backendName == "fs" && !strings.HasPrefix(location, "/") {
+		if !strings.HasPrefix(location, "fs://") {
+			tmp, err := filepath.Abs(location)
+			if err != nil {
+				return nil, err
+			}
+			location = tmp
+		}
 	}
 
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
 		repository := &Repository{}
+		repository.Location = location
 		repository.backend = backend()
 		return repository, nil
 	}

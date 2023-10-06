@@ -105,7 +105,7 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	return &filesystem, nil
 }
 
-func NewFilesystemFromScan(directory string) (*Filesystem, error) {
+func NewFilesystemFromScan(repository string, directory string) (*Filesystem, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.NewFilesystemFromScan", time.Since(t0))
@@ -134,6 +134,10 @@ func NewFilesystemFromScan(directory string) (*Filesystem, error) {
 
 	for msg := range schan {
 		pathname := filepath.Clean(msg.Pathname)
+		if pathname == repository || strings.HasPrefix(pathname, repository+"/") {
+			continue
+		}
+
 		if stat, ok := msg.Stat.(FileInfo); !ok {
 			return nil, fmt.Errorf("received invalid stat type")
 		} else {

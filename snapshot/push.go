@@ -160,7 +160,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 	snapshot.Metadata.ScannedDirectories = make([]string, 0)
 
-	fs, err := vfs.NewFilesystemFromScan(scanDir)
+	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir)
 	if err != nil {
 		logger.Warn("%s", err)
 	}

@@ -118,7 +118,6 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 			if err != nil {
 				return nil, err
 			}
-
 			if !exists {
 				nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
 				if err != nil {
@@ -210,10 +209,14 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 			exists = false
 			if object != nil {
-				exists, err = snapshot.CheckObject(object.Checksum)
-				if err != nil {
-					logger.Warn("%s: failed to check object existence: %s", _filename, err)
-					return
+				if snapshot.Index.LookupObject(object.Checksum) != nil {
+					exists = true
+				} else {
+					exists, err = snapshot.CheckObject(object.Checksum)
+					if err != nil {
+						logger.Warn("%s: failed to check object existence: %s", _filename, err)
+						return
+					}
 				}
 			}
 
@@ -228,19 +231,21 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 					snapshot.PutCachedObject(_filename, *object, *fileinfo)
 				}
 
-				exists, err = snapshot.CheckObject(object.Checksum)
-				if err != nil {
-					logger.Warn("%s: failed to check object existence: %s", _filename, err)
-					return
-				}
-				if !exists {
-					nbytes, err := snapshot.PutObject(object)
+				if snapshot.Index.LookupObject(object.Checksum) == nil {
+					exists, err = snapshot.CheckObject(object.Checksum)
 					if err != nil {
-						logger.Warn("%s: failed to store object: %s", _filename, err)
+						logger.Warn("%s: failed to check object existence: %s", _filename, err)
 						return
 					}
-					atomic.AddUint64(&snapshot.Metadata.ObjectsTransferCount, uint64(1))
-					atomic.AddUint64(&snapshot.Metadata.ObjectsTransferSize, uint64(nbytes))
+					if !exists {
+						nbytes, err := snapshot.PutObject(object)
+						if err != nil {
+							logger.Warn("%s: failed to store object: %s", _filename, err)
+							return
+						}
+						atomic.AddUint64(&snapshot.Metadata.ObjectsTransferCount, uint64(1))
+						atomic.AddUint64(&snapshot.Metadata.ObjectsTransferSize, uint64(nbytes))
+					}
 				}
 			}
 			snapshot.Index.AddObject(object)

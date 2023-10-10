@@ -3,7 +3,7 @@ module github.com/poolpOrg/plakar
 go 1.18
 
 require (
-	github.com/PlakarLabs/go-cdc-chunkers v0.0.1
+	github.com/PlakarLabs/go-cdc-chunkers v0.0.4
 	github.com/alecthomas/chroma v0.10.0
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be
 	github.com/denisbrodbeck/machineid v1.0.1
@@ -25,6 +25,7 @@ require (
 	github.com/zeebo/blake3 v0.2.3
 	golang.org/x/crypto v0.12.0
 	golang.org/x/term v0.11.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -49,6 +50,5 @@ require (
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )

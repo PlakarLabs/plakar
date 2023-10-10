@@ -71,7 +71,11 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
-	chk, err := chunkers.NewChunker("fastcdc", rd)
+	chk, err := chunkers.NewChunker("fastcdc", rd, &chunkers.ChunkerOpts{
+		MinSize:    256 << 10,
+		NormalSize: 512 << 10,
+		MaxSize:    1024 << 10,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -82,53 +86,58 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	cdcOffset := uint64(0)
 	for {
 		cdcChunk, err := chk.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return nil, err
 		}
-		if firstChunk {
-			if object.ContentType == "" {
-				object.ContentType = mimetype.Detect(cdcChunk).String()
+
+		if cdcChunk != nil {
+			if firstChunk {
+				if object.ContentType == "" {
+					object.ContentType = mimetype.Detect(cdcChunk).String()
+				}
+				firstChunk = false
 			}
-			firstChunk = false
-		}
 
-		objectHasher.Write(cdcChunk)
+			objectHasher.Write(cdcChunk)
 
-		if !firstChunk {
-			chunkHasher.Reset()
-		}
-		chunkHasher.Write(cdcChunk)
-
-		var t32 [32]byte
-		copy(t32[:], chunkHasher.Sum(nil))
-
-		chunk := objects.Chunk{}
-		chunk.Checksum = t32
-		chunk.Start = cdcOffset
-		chunk.Length = uint(len(cdcChunk))
-		object.Chunks = append(object.Chunks, chunk.Checksum)
-		cdcOffset += uint64(len(cdcChunk))
-
-		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
-		if indexChunk == nil {
-			exists, err := snapshot.CheckChunk(chunk.Checksum)
-			if err != nil {
-				return nil, err
+			if !firstChunk {
+				chunkHasher.Reset()
 			}
-			if !exists {
-				nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
+			chunkHasher.Write(cdcChunk)
+
+			var t32 [32]byte
+			copy(t32[:], chunkHasher.Sum(nil))
+
+			chunk := objects.Chunk{}
+			chunk.Checksum = t32
+			chunk.Start = cdcOffset
+			chunk.Length = uint(len(cdcChunk))
+			object.Chunks = append(object.Chunks, chunk.Checksum)
+			cdcOffset += uint64(len(cdcChunk))
+
+			indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
+			if indexChunk == nil {
+				exists, err := snapshot.CheckChunk(chunk.Checksum)
 				if err != nil {
 					return nil, err
 				}
-				atomic.AddUint64(&snapshot.Metadata.ChunksTransferCount, uint64(1))
-				atomic.AddUint64(&snapshot.Metadata.ChunksTransferSize, uint64(nbytes))
+				if !exists {
+					nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
+					if err != nil {
+						return nil, err
+					}
+					atomic.AddUint64(&snapshot.Metadata.ChunksTransferCount, uint64(1))
+					atomic.AddUint64(&snapshot.Metadata.ChunksTransferSize, uint64(nbytes))
 
+				}
+				snapshot.Index.AddChunk(&chunk)
 			}
-			snapshot.Index.AddChunk(&chunk)
 		}
+
+		if err == io.EOF {
+			break
+		}
+
 	}
 	var t32 [32]byte
 	copy(t32[:], objectHasher.Sum(nil))

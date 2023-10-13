@@ -25,7 +25,6 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	defer func() {
 		profiler.RecordEvent("snapshot.GetCachedObject", time.Since(t0))
 	}()
-	//secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 
 	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
@@ -39,26 +38,11 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	}
 	logger.Trace("snapshot", "%s: cache.GetPath(%s): OK", snapshot.Metadata.GetIndexShortID(), pathname)
 
-	/*
-		if snapshot.repository.Configuration().Encryption != "" {
-			tmp, err := encryption.Decrypt(secret, data)
-			if err != nil {
-				return nil, err
-			}
-			data = tmp
-		}
-
-		data, err = compression.Inflate(snapshot.repository.Configuration().Compression, data)
-		if err != nil {
-			return nil, err
-		}
-	*/
 	cacheObject := CachedObject{}
 	err = msgpack.Unmarshal(data, &cacheObject)
 	if err != nil {
 		return nil, err
 	}
-	//	cacheObject.Info.path = pathname
 	return &cacheObject, nil
 }
 
@@ -67,7 +51,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	defer func() {
 		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))
 	}()
-	//	secret := snapshot.repository.GetSecret()
 	cache := snapshot.repository.GetCache()
 
 	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
@@ -90,21 +73,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	if err != nil {
 		return err
 	}
-
-	/*
-		jobject, err = compression.Deflate(snapshot.repository.Configuration().Compression, jobject)
-		if err != nil {
-			return err
-		}
-
-		if snapshot.repository.Configuration().Encryption != "" {
-			tmp, err := encryption.Encrypt(secret, jobject)
-			if err != nil {
-				return err
-			}
-			jobject = tmp
-		}
-	*/
 
 	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Metadata.GetIndexShortID(), pathname)
 	cache.PutPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath, jobject)

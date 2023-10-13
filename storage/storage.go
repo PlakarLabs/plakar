@@ -56,10 +56,6 @@ type RepositoryBackend interface {
 	GetIndexes() ([]uuid.UUID, error)
 	GetMetadata(indexID uuid.UUID) ([]byte, error)
 	PutMetadata(indexID uuid.UUID, data []byte) error
-	//GetIndex(indexID uuid.UUID) ([]byte, error)
-	//PutIndex(indexID uuid.UUID, data []byte) error
-	//GetFilesystem(indexID uuid.UUID) ([]byte, error)
-	//PutFilesystem(indexID uuid.UUID, data []byte) error
 	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
 
@@ -87,8 +83,6 @@ type TransactionBackend interface {
 	PutChunk(checksum [32]byte, data []byte) error
 
 	PutMetadata(data []byte) error
-	//PutIndex(data []byte) error
-	//PutFilesystem(data []byte) error
 	PutBlob(checksum [32]byte, data []byte) error
 
 	Commit() error
@@ -347,79 +341,6 @@ func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	return buffer, nil
 }
 
-/*
-	func (repository *Repository) GetIndex(indexID uuid.UUID) ([]byte, error) {
-		t0 := time.Now()
-		defer func() {
-			profiler.RecordEvent("storage.GetIndex", time.Since(t0))
-			logger.Trace("storage", "GetIndex(%s): %s", indexID, time.Since(t0))
-		}()
-
-		data, err := repository.backend.GetIndex(indexID)
-		if err != nil {
-			return nil, err
-		}
-
-		buffer := data
-
-		secret := repository.GetSecret()
-		compressionMethod := repository.Configuration().Compression
-
-		if secret != nil {
-			tmp, err := encryption.Decrypt(secret, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-
-		if compressionMethod != "" {
-			tmp, err := compression.Inflate(compressionMethod, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-
-		return buffer, nil
-	}
-
-	func (repository *Repository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
-		t0 := time.Now()
-		defer func() {
-			profiler.RecordEvent("storage.GetFilesystem", time.Since(t0))
-			logger.Trace("storage", "GetFilesystem(%s): %s", indexID, time.Since(t0))
-		}()
-
-		data, err := repository.backend.GetFilesystem(indexID)
-		if err != nil {
-			return nil, err
-		}
-
-		buffer := data
-
-		secret := repository.GetSecret()
-		compressionMethod := repository.Configuration().Compression
-
-		if secret != nil {
-			tmp, err := encryption.Decrypt(secret, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-
-		if compressionMethod != "" {
-			tmp, err := compression.Inflate(compressionMethod, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-
-		return buffer, nil
-	}
-*/
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -485,68 +406,6 @@ func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, 
 
 	return len(buffer), repository.backend.PutMetadata(indexID, buffer)
 }
-
-/*
-func (repository *Repository) PutIndex(indexID uuid.UUID, data []byte) (int, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutIndex", time.Since(t0))
-		logger.Trace("storage", "PutIndex(%s): %s", indexID, time.Since(t0))
-	}()
-
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	return len(buffer), repository.backend.PutIndex(indexID, buffer)
-}
-
-func (repository *Repository) PutFilesystem(indexID uuid.UUID, data []byte) (int, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutFilesystem", time.Since(t0))
-		logger.Trace("storage", "PutFilesystem(%s): %s", indexID, time.Since(t0))
-	}()
-
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	return len(buffer), repository.backend.PutFilesystem(indexID, buffer)
-}
-*/
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	t0 := time.Now()
@@ -815,69 +674,6 @@ func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 	return len(buffer), transaction.backend.PutMetadata(buffer)
 }
 
-/*
-	func (transaction *Transaction) PutIndex(data []byte) (int, error) {
-		t0 := time.Now()
-		defer func() {
-			profiler.RecordEvent("storage.tx.PutIndex", time.Since(t0))
-			logger.Trace("storage", "%s.PutIndex() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
-		}()
-		repository := transaction.repository
-
-		buffer := data
-		secret := repository.GetSecret()
-		compressionMethod := repository.Configuration().Compression
-
-		if compressionMethod != "" {
-			tmp, err := compression.Deflate(compressionMethod, buffer)
-			if err != nil {
-				return 0, err
-			}
-			buffer = tmp
-		}
-
-		if secret != nil {
-			tmp, err := encryption.Encrypt(secret, buffer)
-			if err != nil {
-				return 0, err
-			}
-			buffer = tmp
-		}
-
-		return len(buffer), transaction.backend.PutIndex(buffer)
-	}
-
-	func (transaction *Transaction) PutFilesystem(data []byte) (int, error) {
-		t0 := time.Now()
-		defer func() {
-			profiler.RecordEvent("storage.tx.PutFilesystem", time.Since(t0))
-			logger.Trace("storage", "%s.PutFilesystem() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
-		}()
-		repository := transaction.repository
-
-		buffer := data
-		secret := repository.GetSecret()
-		compressionMethod := repository.Configuration().Compression
-
-		if compressionMethod != "" {
-			tmp, err := compression.Deflate(compressionMethod, buffer)
-			if err != nil {
-				return 0, err
-			}
-			buffer = tmp
-		}
-
-		if secret != nil {
-			tmp, err := encryption.Encrypt(secret, buffer)
-			if err != nil {
-				return 0, err
-			}
-			buffer = tmp
-		}
-
-		return len(buffer), transaction.backend.PutFilesystem(buffer)
-	}
-*/
 func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	t0 := time.Now()
 	defer func() {

@@ -136,19 +136,9 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
-		indexUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
-		indexBlob	BLOB
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS filesystems (
-		filesystemUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
-		filesystemBlob	BLOB
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS blobs (
+		blobChecksum	VARCHAR(36) NOT NULL PRIMARY KEY,
+		blobData		BLOB
 	);`)
 	if err != nil {
 		return err
@@ -320,29 +310,14 @@ func (repository *DatabaseRepository) PutMetadata(indexID uuid.UUID, data []byte
 	return nil
 }
 
-func (repository *DatabaseRepository) PutIndex(indexID uuid.UUID, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
+func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO blobs (blobChecksum, blobData) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(indexID, data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repository *DatabaseRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	_, err = statement.Exec(indexID, data)
+	_, err = statement.Exec(checksum, data)
 	if err != nil {
 		return err
 	}
@@ -431,18 +406,9 @@ func (repository *DatabaseRepository) GetMetadata(indexID uuid.UUID) ([]byte, er
 	return data, nil
 }
 
-func (repository *DatabaseRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
+func (repository *DatabaseRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT indexBlob FROM indexes WHERE indexUuid=?`, indexID).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *DatabaseRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT filesystemBlob FROM filesystems WHERE filesystemUuid=?`, indexID).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT blobData FROM blobs WHERE blobChecksum=?`, checksum).Scan(&data)
 	if err != nil {
 		return nil, err
 	}

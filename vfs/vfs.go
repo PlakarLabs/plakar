@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -61,7 +62,9 @@ type Filesystem struct {
 	muSymlinks sync.Mutex
 	Symlinks   map[string]string
 
-	totalSize uint64
+	nFiles       uint64
+	nDirectories uint64
+	totalSize    uint64
 }
 
 func NewFilesystem() *Filesystem {
@@ -72,6 +75,8 @@ func NewFilesystem() *Filesystem {
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem.Symlinks = make(map[string]string)
+	filesystem.nFiles = 0
+	filesystem.nDirectories = 0
 	filesystem.totalSize = 0
 	return filesystem
 }
@@ -215,6 +220,17 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 	filesystem.muStat.Lock()
 	filesystem.statInfo[pathname] = fileinfo
 	filesystem.muStat.Unlock()
+
+	if fileinfo.Mode().IsRegular() {
+		atomic.AddUint64(&filesystem.nFiles, uint64(1))
+		return
+	}
+
+	if fileinfo.Mode().IsDir() {
+		atomic.AddUint64(&filesystem.nDirectories, uint64(1))
+		return
+	}
+
 }
 
 func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []string) error {
@@ -494,10 +510,15 @@ func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
 }
 
 func (filesystem *Filesystem) Size() uint64 {
-	filesystem.muInodes.Lock()
-	defer filesystem.muInodes.Unlock()
-
 	return filesystem.totalSize
+}
+
+func (filesystem *Filesystem) NFiles() uint64 {
+	return filesystem.nFiles
+}
+
+func (filesystem *Filesystem) NDirectories() uint64 {
+	return filesystem.nDirectories
 }
 
 func (filesystem *Filesystem) ImporterBegin(location string) error {

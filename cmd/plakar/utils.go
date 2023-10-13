@@ -234,7 +234,6 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 	if err != nil {
 		return nil, err
 	}
-
 	result := make([]*vfs.Filesystem, 0)
 
 	// no prefixes, this is a full fetch
@@ -263,6 +262,17 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
+		found := false
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(snapshotUuid.String(), prefix) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			continue
+		}
+
 		metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
 		if err != nil {
 			return nil, err

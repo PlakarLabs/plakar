@@ -165,7 +165,17 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
+
+				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+
+				var indexChecksum32 [32]byte
+				copy(indexChecksum32[:], md.IndexChecksum[:])
+
+				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -218,7 +228,16 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				index, _, err := snapshot.GetIndex(repository, snapshotUuid)
+
+				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				if err != nil {
+					return nil, err
+				}
+
+				var indexChecksum32 [32]byte
+				copy(indexChecksum32[:], md.IndexChecksum[:])
+
+				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
 					return nil, err
 				}
@@ -244,7 +263,17 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				filesystem, _, err := snapshot.GetFilesystem(repository, snapshotUuid)
+
+				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+
+				var filesystemChecksum32 [32]byte
+				copy(filesystemChecksum32[:], md.FilesystemChecksum[:])
+
+				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -308,7 +337,15 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				filesystem, _, err := snapshot.GetFilesystem(repository, snapshotUuid)
+				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				if err != nil {
+					return nil, err
+				}
+
+				var filesystemChecksum32 [32]byte
+				copy(filesystemChecksum32[:], md.FilesystemChecksum[:])
+
+				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {
 					return nil, err
 				}
@@ -404,20 +441,6 @@ func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	})
 	return snapshots
 }
-
-/*
-func checkSnapshotsArgs(snapshots []string) {
-	for i := 0; i < len(snapshots); i++ {
-		prefix, _ := parseSnapshotID(snapshots[i])
-		res := findSnapshotByPrefix(snapshots, prefix)
-		if len(res) == 0 {
-			log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), prefix)
-		} else if len(res) > 1 {
-			log.Fatalf("%s: snapshot ID is ambigous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, len(res))
-		}
-	}
-}
-*/
 
 func arrayContains(a []string, x string) bool {
 	for _, n := range a {

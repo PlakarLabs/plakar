@@ -93,6 +93,7 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	}
 	os.MkdirAll(fmt.Sprintf("%s/chunks", repository.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/objects", repository.root), 0700)
+	os.MkdirAll(fmt.Sprintf("%s/blobs", repository.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/transactions", repository.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/snapshots", repository.root), 0700)
 	os.MkdirAll(fmt.Sprintf("%s/purge", repository.root), 0700)
@@ -100,6 +101,7 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	for i := 0; i < 256; i++ {
 		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", repository.root, i), 0700)
 		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", repository.root, i), 0700)
+		os.MkdirAll(fmt.Sprintf("%s/blobs/%02x", repository.root, i), 0700)
 		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", repository.root, i), 0700)
 		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", repository.root, i), 0700)
 	}
@@ -231,6 +233,15 @@ func (repository *FSRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error)
 	return data, nil
 }
 
+func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
+	data, err := ioutil.ReadFile(repository.PathBlob(checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
 func (repository *FSRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
 	os.Mkdir(repository.PathIndexBucket(indexID), 0700)
 	os.Mkdir(repository.PathIndex(indexID), 0700)
@@ -270,6 +281,22 @@ func (repository *FSRepository) PutFilesystem(indexID uuid.UUID, data []byte) er
 	os.Mkdir(repository.PathIndex(indexID), 0700)
 
 	f, err := os.Create(fmt.Sprintf("%s/FILESYSTEM", repository.PathIndex(indexID)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
+	os.Mkdir(repository.PathBlobBucket(checksum), 0700)
+
+	f, err := os.Create(repository.PathBlob(checksum))
 	if err != nil {
 		return err
 	}
@@ -541,58 +568,6 @@ func (repository *FSRepository) Close() error {
 	return nil
 }
 
-/*
-	func (repository *FSRepository) Tidy() {
-		wg := sync.WaitGroup{}
-		concurrency := make(chan bool, runtime.NumCPU()*2+1)
-		cwalk.Walk(repository.PathObjects(), func(path string, f os.FileInfo, err error) error {
-			if err != nil {
-				log.Fatal(err)
-			}
-			object := fmt.Sprintf("%s/%s", repository.PathObjects(), path)
-			if filepath.Clean(object) == filepath.Clean(repository.PathObjects()) {
-				return nil
-			}
-			if !f.IsDir() {
-				concurrency <- true
-				wg.Add(1)
-				go func(object string) {
-					defer func() { <-concurrency }()
-					defer func() { wg.Done() }()
-					if f.Sys().(*syscall.Stat_t).Nlink == 1 {
-						os.Remove(object)
-					}
-				}(object)
-			}
-			return nil
-		})
-		wg.Wait()
-
-		cwalk.Walk(repository.PathChunks(), func(path string, f os.FileInfo, err error) error {
-			if err != nil {
-				log.Fatal(err)
-			}
-			chunk := fmt.Sprintf("%s/%s", repository.PathChunks(), path)
-			if filepath.Clean(chunk) == filepath.Clean(repository.PathChunks()) {
-				return nil
-			}
-
-			if !f.IsDir() {
-				concurrency <- true
-				wg.Add(1)
-				go func(chunk string) {
-					defer func() { <-concurrency }()
-					defer func() { wg.Done() }()
-					if f.Sys().(*syscall.Stat_t).Nlink == 1 {
-						os.Remove(chunk)
-					}
-				}(chunk)
-			}
-			return nil
-		})
-		wg.Wait()
-	}
-*/
 func (transaction *FSTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }

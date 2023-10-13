@@ -76,27 +76,31 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			return 1
 		}
 
-		indexBytes, err := sourceRepository.GetIndex(indexID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-		_, err = cloneRepository.PutIndex(indexID, indexBytes)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
-			return 1
-		}
+		/*
+			indexBytes, err := sourceRepository.GetIndex(indexID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
+				return 1
+			}
+			_, err = cloneRepository.PutIndex(indexID, indexBytes)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
+				return 1
+			}
 
-		filesystemBytes, err := sourceRepository.GetFilesystem(indexID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-		_, err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
-			return 1
-		}
+			filesystemBytes, err := sourceRepository.GetFilesystem(indexID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
+				return 1
+			}
+			_, err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
+				return 1
+			}
+		*/
+
+		// XXX - NEED TO SYNC blobs !!!
 
 		sourceSnapshot, err := snapshot.Load(sourceRepository, indexID)
 		if err != nil {

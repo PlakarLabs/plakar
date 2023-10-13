@@ -378,28 +378,16 @@ func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) 
 	return result.Payload.(network.ResStorePutMetadata).Err
 }
 
-func (repository *ClientRepository) PutIndex(indexID uuid.UUID, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutIndex", network.ReqStorePutIndex{
-		IndexID: indexID,
-		Data:    data,
+func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqStorePutIndex", network.ReqStorePutBlob{
+		Checksum: checksum,
+		Data:     data,
 	})
 	if err != nil {
 		return err
 	}
 
-	return result.Payload.(network.ResStorePutIndex).Err
-}
-
-func (repository *ClientRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutFilesystem", network.ReqStorePutFilesystem{
-		IndexID: indexID,
-		Data:    data,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResStorePutFilesystem).Err
+	return result.Payload.(network.ResStorePutBlob).Err
 }
 
 func (repository *ClientRepository) GetChunks() ([][32]byte, error) {
@@ -431,26 +419,15 @@ func (repository *ClientRepository) GetMetadata(indexID uuid.UUID) ([]byte, erro
 	return result.Payload.(network.ResGetMetadata).Data, result.Payload.(network.ResGetMetadata).Err
 }
 
-func (repository *ClientRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetIndex", network.ReqGetIndex{
-		Uuid: indexID,
+func (repository *ClientRepository) GetBlob(checksum [32]byte) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetBlob", network.ReqGetBlob{
+		Checksum: checksum,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
-}
-
-func (repository *ClientRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetFilesystem", network.ReqGetFilesystem{
-		Uuid: indexID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetFilesystem).Data, result.Payload.(network.ResGetFilesystem).Err
+	return result.Payload.(network.ResGetBlob).Data, result.Payload.(network.ResGetBlob).Err
 }
 
 func (repository *ClientRepository) GetObject(checksum [32]byte) ([]byte, error) {
@@ -582,32 +559,6 @@ func (transaction *ClientTransaction) PutMetadata(data []byte) error {
 	}
 
 	return result.Payload.(network.ResPutMetadata).Err
-}
-
-func (transaction *ClientTransaction) PutIndex(data []byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqPutIndex", network.ReqPutIndex{
-		Transaction: transaction.GetUuid(),
-		Data:        data,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResPutIndex).Err
-}
-
-func (transaction *ClientTransaction) PutFilesystem(data []byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqPutFilesystem", network.ReqPutFilesystem{
-		Transaction: transaction.GetUuid(),
-		Data:        data,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResPutFilesystem).Err
 }
 
 func (transaction *ClientTransaction) Commit() error {

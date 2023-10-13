@@ -41,22 +41,12 @@ type ResStorePutMetadata struct {
 	Err    error
 }
 
-type ReqStorePutIndex struct {
-	IndexID uuid.UUID
-	Data    []byte
+type ReqStorePutBlob struct {
+	Checksum [32]byte
+	Data     []byte
 }
 
-type ResStorePutIndex struct {
-	NBytes int
-	Err    error
-}
-
-type ReqStorePutFilesystem struct {
-	IndexID uuid.UUID
-	Data    []byte
-}
-
-type ResStorePutFilesystem struct {
+type ResStorePutBlob struct {
 	NBytes int
 	Err    error
 }
@@ -94,20 +84,11 @@ type ResGetMetadata struct {
 	Err  error
 }
 
-type ReqGetIndex struct {
-	Uuid uuid.UUID
+type ReqGetBlob struct {
+	Checksum [32]byte
 }
 
-type ResGetIndex struct {
-	Data []byte
-	Err  error
-}
-
-type ReqGetFilesystem struct {
-	Uuid uuid.UUID
-}
-
-type ResGetFilesystem struct {
+type ResGetBlob struct {
 	Data []byte
 	Err  error
 }
@@ -225,26 +206,6 @@ type ResPutMetadata struct {
 	Err    error
 }
 
-type ReqPutIndex struct {
-	Transaction uuid.UUID
-	Data        []byte
-}
-
-type ResPutIndex struct {
-	NBytes int
-	Err    error
-}
-
-type ReqPutFilesystem struct {
-	Transaction uuid.UUID
-	Data        []byte
-}
-
-type ResPutFilesystem struct {
-	NBytes int
-	Err    error
-}
-
 type ReqCommit struct {
 	Transaction uuid.UUID
 }
@@ -304,11 +265,8 @@ func ProtocolRegister() {
 	gob.Register(ReqStorePutMetadata{})
 	gob.Register(ResStorePutMetadata{})
 
-	gob.Register(ReqStorePutIndex{})
-	gob.Register(ResStorePutIndex{})
-
-	gob.Register(ReqStorePutFilesystem{})
-	gob.Register(ResStorePutFilesystem{})
+	gob.Register(ReqStorePutBlob{})
+	gob.Register(ResStorePutBlob{})
 
 	gob.Register(ReqGetChunks{})
 	gob.Register(ResGetChunks{})
@@ -319,11 +277,8 @@ func ProtocolRegister() {
 	gob.Register(ReqGetMetadata{})
 	gob.Register(ResGetMetadata{})
 
-	gob.Register(ReqGetIndex{})
-	gob.Register(ResGetIndex{})
-
-	gob.Register(ReqGetFilesystem{})
-	gob.Register(ResGetFilesystem{})
+	gob.Register(ReqGetBlob{})
+	gob.Register(ResGetBlob{})
 
 	gob.Register(ReqGetObject{})
 	gob.Register(ResGetObject{})
@@ -360,12 +315,6 @@ func ProtocolRegister() {
 
 	gob.Register(ReqPutMetadata{})
 	gob.Register(ResPutMetadata{})
-
-	gob.Register(ReqPutIndex{})
-	gob.Register(ResPutIndex{})
-
-	gob.Register(ReqPutFilesystem{})
-	gob.Register(ResPutFilesystem{})
 
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})

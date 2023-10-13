@@ -107,9 +107,17 @@ func (fs *plakarFS) getMetadata(snapshotID uuid.UUID) (*metadata.Metadata, error
 func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
-		filesystem, _, err := snapshot.GetFilesystem(fs.repository, snapshotID)
+		metadata, _, err := snapshot.GetMetadata(fs.repository, snapshotID)
 		if err != nil {
-			return filesystem, err
+			return nil, err
+		}
+
+		var filesystemChecksum32 [32]byte
+		copy(filesystemChecksum32[:], metadata.FilesystemChecksum[:])
+
+		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
+		if err != nil {
+			return nil, err
 		}
 		fs.fsCache.Store(snapshotID, filesystem)
 		return filesystem, err

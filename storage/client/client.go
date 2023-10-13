@@ -25,13 +25,13 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/network"
-	"github.com/poolpOrg/plakar/storage"
 
 	"sync"
 
-	"github.com/poolpOrg/plakar/cache"
+	"github.com/PlakarLabs/plakar/cache"
 )
 
 type ClientRepository struct {

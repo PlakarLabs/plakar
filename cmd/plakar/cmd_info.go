@@ -23,9 +23,9 @@ import (
 	"log"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/storage"
 )
 
 type JSONChunk struct {

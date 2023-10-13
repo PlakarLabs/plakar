@@ -20,7 +20,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
 const VERSION = "0.2.5"

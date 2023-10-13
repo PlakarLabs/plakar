@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {

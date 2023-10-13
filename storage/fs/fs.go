@@ -26,10 +26,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/compression"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/google/uuid"

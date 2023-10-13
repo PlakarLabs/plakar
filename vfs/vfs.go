@@ -26,10 +26,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/vfs/importer"
 	"github.com/iafan/cwalk"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/profiler"
-	"github.com/poolpOrg/plakar/vfs/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

@@ -6,9 +6,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/index"
-	"github.com/poolpOrg/plakar/objects"
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/index"
+	"github.com/PlakarLabs/plakar/objects"
 )
 
 type Reader struct {

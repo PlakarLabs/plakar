@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/profiler"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/profiler"
 
 	"github.com/syndtr/goleveldb/leveldb"
 )

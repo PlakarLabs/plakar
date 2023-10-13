@@ -25,10 +25,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {

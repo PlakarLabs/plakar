@@ -3,10 +3,10 @@ package metadata
 import (
 	"time"
 
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/profiler"
-	"github.com/poolpOrg/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

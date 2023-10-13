@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/vfs/importer"
 	"github.com/iafan/cwalk"
-	"github.com/poolpOrg/plakar/vfs"
-	"github.com/poolpOrg/plakar/vfs/importer"
 )
 
 type FSImporter struct {

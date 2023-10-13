@@ -20,8 +20,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {

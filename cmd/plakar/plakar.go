@@ -13,24 +13,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/config"
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/config"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/profiler"
-	"github.com/poolpOrg/plakar/storage"
 
-	_ "github.com/poolpOrg/plakar/storage/client"
-	_ "github.com/poolpOrg/plakar/storage/database"
-	_ "github.com/poolpOrg/plakar/storage/fs"
-	_ "github.com/poolpOrg/plakar/storage/s3"
+	_ "github.com/PlakarLabs/plakar/storage/client"
+	_ "github.com/PlakarLabs/plakar/storage/database"
+	_ "github.com/PlakarLabs/plakar/storage/fs"
+	_ "github.com/PlakarLabs/plakar/storage/s3"
 
-	_ "github.com/poolpOrg/plakar/vfs/importer/fs"
-	_ "github.com/poolpOrg/plakar/vfs/importer/imap"
-	_ "github.com/poolpOrg/plakar/vfs/importer/s3"
+	_ "github.com/PlakarLabs/plakar/vfs/importer/fs"
+	_ "github.com/PlakarLabs/plakar/vfs/importer/imap"
+	_ "github.com/PlakarLabs/plakar/vfs/importer/s3"
 )
 
 type Plakar struct {

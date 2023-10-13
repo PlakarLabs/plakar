@@ -27,12 +27,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/compression"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/profiler"
 )
 
 const VERSION string = "0.2.1"

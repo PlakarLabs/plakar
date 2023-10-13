@@ -21,9 +21,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {

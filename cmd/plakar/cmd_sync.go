@@ -22,12 +22,12 @@ import (
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
 )
 
 func init() {

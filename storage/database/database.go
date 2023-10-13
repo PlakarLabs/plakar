@@ -24,10 +24,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/cache"
-	"github.com/poolpOrg/plakar/network"
-	"github.com/poolpOrg/plakar/storage"
 
 	_ "github.com/mattn/go-sqlite3"
 )

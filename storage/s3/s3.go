@@ -26,9 +26,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/network"
-	"github.com/poolpOrg/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"sync"
@@ -36,7 +36,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"github.com/poolpOrg/plakar/cache"
+	"github.com/PlakarLabs/plakar/cache"
 )
 
 type S3Repository struct {

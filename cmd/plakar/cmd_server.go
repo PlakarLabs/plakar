@@ -19,8 +19,8 @@ package main
 import (
 	"flag"
 
-	"github.com/poolpOrg/plakar/network"
-	"github.com/poolpOrg/plakar/storage"
+	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {

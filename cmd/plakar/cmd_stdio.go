@@ -19,7 +19,7 @@ package main
 import (
 	"flag"
 
-	"github.com/poolpOrg/plakar/network"
+	"github.com/PlakarLabs/plakar/network"
 )
 
 func cmd_stdio(ctx Plakar, args []string) int {

@@ -28,10 +28,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/vfs/importer"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	"github.com/poolpOrg/plakar/vfs"
-	"github.com/poolpOrg/plakar/vfs/importer"
 )
 
 type IMAPImporter struct {

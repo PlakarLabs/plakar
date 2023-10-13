@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"hash"
 
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/progress"
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/progress"
 )
 
 func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.Hash, fast bool) (bool, error) {

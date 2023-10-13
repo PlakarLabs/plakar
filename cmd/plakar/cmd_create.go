@@ -22,10 +22,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/storage"
 )
 
 func cmd_create(ctx Plakar, args []string) int {

@@ -1,4 +1,4 @@
-module github.com/poolpOrg/plakar
+module github.com/PlakarLabs/plakar
 
 go 1.18
 

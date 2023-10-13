@@ -6,14 +6,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/metadata"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
-	"github.com/poolpOrg/plakar/metadata"
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/vfs"
 )
 
 var inodeMutex sync.Mutex

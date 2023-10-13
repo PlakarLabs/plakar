@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/poolpOrg/plakar/compression"
-	"github.com/poolpOrg/plakar/encryption"
-	"github.com/poolpOrg/plakar/logger"
-	"github.com/poolpOrg/plakar/objects"
-	"github.com/poolpOrg/plakar/profiler"
-	"github.com/poolpOrg/plakar/vfs"
+	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

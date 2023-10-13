@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/ui"
+	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/ui"
 )
 
 func init() {

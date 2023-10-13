@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/index"
+	"github.com/PlakarLabs/plakar/metadata"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
-	"github.com/poolpOrg/plakar/index"
-	"github.com/poolpOrg/plakar/metadata"
-	"github.com/poolpOrg/plakar/snapshot"
-	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/vfs"
 )
 
 func parseSnapshotID(id string) (string, string) {

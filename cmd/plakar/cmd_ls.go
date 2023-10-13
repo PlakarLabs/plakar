@@ -28,10 +28,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
-	"github.com/poolpOrg/plakar/helpers"
-	"github.com/poolpOrg/plakar/storage"
-	"github.com/poolpOrg/plakar/vfs"
 )
 
 func init() {

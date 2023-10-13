@@ -207,25 +207,7 @@ func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
 }
 
 func (repository *FSRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/METADATA", repository.PathIndex(indexID)))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (repository *FSRepository) GetIndex(indexID uuid.UUID) ([]byte, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/INDEX", repository.PathIndex(indexID)))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (repository *FSRepository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("%s/FILESYSTEM", repository.PathIndex(indexID)))
+	data, err := ioutil.ReadFile(repository.PathIndex(indexID))
 	if err != nil {
 		return nil, err
 	}
@@ -244,43 +226,8 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 
 func (repository *FSRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
 	os.Mkdir(repository.PathIndexBucket(indexID), 0700)
-	os.Mkdir(repository.PathIndex(indexID), 0700)
 
-	f, err := os.Create(fmt.Sprintf("%s/METADATA", repository.PathIndex(indexID)))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *FSRepository) PutIndex(indexID uuid.UUID, data []byte) error {
-	os.Mkdir(repository.PathIndexBucket(indexID), 0700)
-	os.Mkdir(repository.PathIndex(indexID), 0700)
-
-	f, err := os.Create(fmt.Sprintf("%s/INDEX", repository.PathIndex(indexID)))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *FSRepository) PutFilesystem(indexID uuid.UUID, data []byte) error {
-	os.Mkdir(repository.PathIndexBucket(indexID), 0700)
-	os.Mkdir(repository.PathIndex(indexID), 0700)
-
-	f, err := os.Create(fmt.Sprintf("%s/FILESYSTEM", repository.PathIndex(indexID)))
+	f, err := os.Create(repository.PathIndex(indexID))
 	if err != nil {
 		return err
 	}
@@ -576,41 +523,10 @@ func (transaction *FSTransaction) prepare() {
 	os.MkdirAll(transaction.repository.root, 0700)
 	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.repository.PathTransactions(),
 		transaction.Uuid.String()[0:2]), 0700)
-	os.MkdirAll(transaction.Path(), 0700)
 }
 
 func (transaction *FSTransaction) PutMetadata(data []byte) error {
-	f, err := os.Create(fmt.Sprintf("%s/METADATA", transaction.Path()))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (transaction *FSTransaction) PutIndex(data []byte) error {
-	f, err := os.Create(fmt.Sprintf("%s/INDEX", transaction.Path()))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (transaction *FSTransaction) PutFilesystem(data []byte) error {
-	f, err := os.Create(fmt.Sprintf("%s/FILESYSTEM", transaction.Path()))
+	f, err := os.Create(transaction.Path())
 	if err != nil {
 		return err
 	}

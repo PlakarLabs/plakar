@@ -1,9 +1,10 @@
 {{template "base" .}}
 
-{{define "title"}}{{.Snapshot.Metadata.IndexID}}{{end}}
+{{define "title"}}{{slice .Snapshot.Metadata.IndexID.String 0 8}}{{end}}
 
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
+    {{$ObjectChecksum:=.ObjectChecksum}}
     {{$Object:=.Object}}
     {{$Chunks:=.Chunks}}
     {{$Info:=.Info}}
@@ -11,7 +12,7 @@
     {{$Navigation:=.Navigation}}
     {{$NavigationLinks:=.NavigationLinks}}
 
-    <h1><a href="/snapshot/{{$Snapshot.Metadata.IndexID}}:/">{{slice $Snapshot.Metadata.IndexID  0 8}}</a></h1>
+    <h1><a href="/snapshot/{{$Snapshot.Metadata.IndexID}}:/">{{slice $Snapshot.Metadata.IndexID.String  0 8}}</a></h1>
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         {{range $atom := $Navigation }}
@@ -25,11 +26,11 @@
     <div class="accordion" id="accordionMetadata">
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingOne">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
                 Informations
             </button>
             </h2>
-            <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionMetadata">
+            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionMetadata">
                 <div class="accordion-body">
                     <table class="table table-striped">
                         <thead>
@@ -41,7 +42,7 @@
                         <tbody>
                             <tr>
                                 <td>Checksum</td>
-                                <td>{{$Object.Checksum}}</td>
+                                <td>{{$ObjectChecksum}}</td>
                             </tr>
                             <tr>
                                 <td>Content-Type</td>
@@ -93,7 +94,7 @@
                 Structure
             </button>
             </h2>
-            <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionStructure">
+            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionStructure">
                 <div class="accordion-body">
                     <table class="table table-striped">
                         <thead>

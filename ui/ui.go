@@ -390,6 +390,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(object.ContentType, "audio/") ||
 		strings.HasPrefix(object.ContentType, "video/") ||
 		object.ContentType == "application/pdf" ||
+		object.ContentType == "application/javascript" ||
 		object.ContentType == "application/x-tex" {
 		enableViewer = true
 	}
@@ -397,6 +398,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
 		Object          *objects.Object
+		ObjectChecksum  string
 		Chunks          []*objects.Chunk
 		Info            *vfs.FileInfo
 		Root            string
@@ -404,7 +406,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		Navigation      []string
 		NavigationLinks map[string]string
 		EnableViewer    bool
-	}{snap, object, chunks, info, root, path, nav, navLinks, enableViewer}
+	}{snap, object, fmt.Sprintf("%016x", object.Checksum), chunks, info, root, path, nav, navLinks, enableViewer}
 	templates["object"].Execute(w, ctx)
 }
 
@@ -545,6 +547,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	files := make([]struct {
 		Snapshot string
 		Date     string
+		Mime     string
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
@@ -563,21 +566,24 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(file, q) {
 				pathnameID := snap.Filesystem.GetPathnameID(file)
 				object := snap.Index.LookupObjectForPathname(pathnameID)
-				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
-					continue
-				}
-				if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
-					continue
-				}
-				if ext != "" && filepath.Ext(file) != ext {
-					continue
-				}
+				if object != nil {
+					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
+						continue
+					}
+					if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
+						continue
+					}
+					if ext != "" && filepath.Ext(file) != ext {
+						continue
+					}
 
-				files = append(files, struct {
-					Snapshot string
-					Date     string
-					Path     string
-				}{snap.Metadata.IndexID.String(), snap.Metadata.CreationTime.String(), file})
+					files = append(files, struct {
+						Snapshot string
+						Date     string
+						Mime     string
+						Path     string
+					}{snap.Metadata.IndexID.String(), snap.Metadata.CreationTime.String(), object.ContentType, file})
+				}
 			}
 		}
 	}
@@ -598,6 +604,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Files []struct {
 			Snapshot string
 			Date     string
+			Mime     string
 			Path     string
 		}
 	}{q, directories, files}

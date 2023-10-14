@@ -33,6 +33,7 @@
             <tr>
                 <td><a href="/snapshot/{{$directory.Snapshot}}:/">{{slice $directory.Snapshot 0 8}}</a></td>
                 <td>{{$directory.Date}}</td>
+                <td>{{$directory}}</td>
                 <td><a href="/snapshot/{{$directory.Snapshot}}:{{$directory.Path}}/">{{$directory.Path}}/</a></td>
             </tr>
             {{end}}
@@ -47,6 +48,7 @@
             <tr>
                 <th scope="col">Snapshot</th>
                 <th scope="col">Date</th>
+                <th scope="col">Type</th>
                 <th scope="col">Path</th>
             </tr>
         </thead>
@@ -55,6 +57,7 @@
             <tr>
                 <td><a href="/snapshot/{{$file.Snapshot}}:/">{{slice $file.Snapshot  0 8}}</a></td>
                 <td>{{$file.Date}}</td>
+                <td>{{$file.Mime}}</td>
                 <td><a href="/snapshot/{{$file.Snapshot}}:{{$file.Path}}">{{$file.Path}}</a></td>
             </tr>
             {{end}}

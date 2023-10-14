@@ -14,7 +14,7 @@
     {{$SymlinksResolve:=.SymlinksResolve}}
     {{$Others:=.Others}}
 
-    <h1><a href="/snapshot/{{$Snapshot.Metadata.IndexID}}:/">{{slice $Snapshot.Metadata.IndexID  0 8}}</a></h1>
+    <h1><a href="/snapshot/{{$Snapshot.Metadata.IndexID}}:/">{{slice $Snapshot.Metadata.IndexID.String  0 8}}</a></h1>
     <b>{{$Snapshot.Metadata.Username }}@{{$Snapshot.Metadata.Hostname }}</b>,
     <i>{{$Snapshot.Metadata.CreationTime }}</i>
 

@@ -577,7 +577,7 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, er
 		}
 		buffer = tmp
 	}
-	return len(buffer), repository.backend.PutObject(checksum, data)
+	return len(buffer), repository.backend.PutObject(checksum, buffer)
 }
 
 func (repository *Repository) DeleteObject(checksum [32]byte) error {

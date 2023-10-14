@@ -18,11 +18,8 @@ type Cache struct {
 	mu_metadatas sync.Mutex
 	metadatas    map[string][]byte
 
-	mu_indexes sync.Mutex
-	indexes    map[string][]byte
-
-	mu_filesystems sync.Mutex
-	filesystems    map[string][]byte
+	mu_blobs sync.Mutex
+	blobs    map[string][]byte
 
 	mu_pathnames sync.Mutex
 	pathnames    map[string][]byte
@@ -54,8 +51,7 @@ func New(cacheDir string) *Cache {
 	cache := &Cache{}
 	cache.db = db
 	cache.metadatas = make(map[string][]byte)
-	cache.indexes = make(map[string][]byte)
-	cache.filesystems = make(map[string][]byte)
+	cache.blobs = make(map[string][]byte)
 	cache.pathnames = make(map[string][]byte)
 	cache.objects = make(map[string][]byte)
 
@@ -80,36 +76,18 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 	return nil
 }
 
-func (cache *Cache) PutIndex(RepositoryUuid string, Uuid string, data []byte) error {
+func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("cache.PutIndex", time.Since(t0))
+		profiler.RecordEvent("cache.PutBlob", time.Since(t0))
 	}()
 
-	logger.Trace("cache", "%s: PutIndex()", Uuid)
-	key := fmt.Sprintf("Index:%s:%s", RepositoryUuid, Uuid)
+	logger.Trace("cache", "%s: PutBlob(%016x)", RepositoryUuid, checksum)
+	key := fmt.Sprintf("Blob:%s:%016x", RepositoryUuid, checksum)
 
-	cache.mu_indexes.Lock()
-	cache.indexes[key] = data
-	cache.mu_indexes.Unlock()
-
-	cache.db.Put([]byte(key), data, nil)
-
-	return nil
-}
-
-func (cache *Cache) PutFilesystem(RepositoryUuid string, Uuid string, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("cache.PutFilesystem", time.Since(t0))
-	}()
-
-	logger.Trace("cache", "%s: PutFilesystem()", Uuid)
-	key := fmt.Sprintf("Filesystem:%s:%s", RepositoryUuid, Uuid)
-
-	cache.mu_filesystems.Lock()
-	cache.filesystems[key] = data
-	cache.mu_filesystems.Unlock()
+	cache.mu_blobs.Lock()
+	cache.blobs[key] = data
+	cache.mu_blobs.Unlock()
 
 	cache.db.Put([]byte(key), data, nil)
 
@@ -140,16 +118,16 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 	return data, nil
 }
 
-func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error) {
+func (cache *Cache) GetBlob(RepositoryUuid string, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
 	}()
-	logger.Trace("cache", "%s: GetIndex()", Uuid)
-	key := fmt.Sprintf("Index:%s:%s", RepositoryUuid, Uuid)
-	cache.mu_indexes.Lock()
-	ret, exists := cache.indexes[key]
-	cache.mu_indexes.Unlock()
+	logger.Trace("cache", "%016x: GetIndex()", checksum)
+	key := fmt.Sprintf("Index:%s:%016x", RepositoryUuid, checksum)
+	cache.mu_blobs.Lock()
+	ret, exists := cache.blobs[key]
+	cache.mu_blobs.Unlock()
 	if exists {
 		return ret, nil
 	}
@@ -157,29 +135,6 @@ func (cache *Cache) GetIndex(RepositoryUuid string, Uuid string) ([]byte, error)
 	var data []byte
 	data, err := cache.db.Get([]byte(key), nil)
 
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (cache *Cache) GetFilesystem(RepositoryUuid string, Uuid string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("cache.GetFilesystem", time.Since(t0))
-	}()
-	logger.Trace("cache", "%s: GetFilesystem()", Uuid)
-
-	key := fmt.Sprintf("Filesystem:%s:%s", RepositoryUuid, Uuid)
-	cache.mu_filesystems.Lock()
-	ret, exists := cache.filesystems[key]
-	cache.mu_filesystems.Unlock()
-	if exists {
-		return ret, nil
-	}
-
-	var data []byte
-	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err
 	}

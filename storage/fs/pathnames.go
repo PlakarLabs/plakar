@@ -34,6 +34,10 @@ func (repository *FSRepository) PathObjects() string {
 	return fmt.Sprintf("%s/objects", repository.root)
 }
 
+func (repository *FSRepository) PathBlobs() string {
+	return fmt.Sprintf("%s/blobs", repository.root)
+}
+
 func (repository *FSRepository) PathTransactions() string {
 	return fmt.Sprintf("%s/transactions", repository.root)
 }
@@ -50,6 +54,10 @@ func (repository *FSRepository) PathObjectBucket(checksum [32]byte) string {
 	return fmt.Sprintf("%s/objects/%02x", repository.root, checksum[0])
 }
 
+func (repository *FSRepository) PathBlobBucket(checksum [32]byte) string {
+	return fmt.Sprintf("%s/blobs/%02x", repository.root, checksum[0])
+}
+
 func (repository *FSRepository) PathIndexBucket(indexID uuid.UUID) string {
 	return fmt.Sprintf("%s/snapshots/%s", repository.root, indexID.String()[:2])
 }
@@ -60,6 +68,10 @@ func (repository *FSRepository) PathChunk(checksum [32]byte) string {
 
 func (repository *FSRepository) PathObject(checksum [32]byte) string {
 	return fmt.Sprintf("%s/%064x", repository.PathObjectBucket(checksum), checksum)
+}
+
+func (repository *FSRepository) PathBlob(checksum [32]byte) string {
+	return fmt.Sprintf("%s/%064x", repository.PathBlobBucket(checksum), checksum)
 }
 
 func (repository *FSRepository) PathIndex(indexID uuid.UUID) string {

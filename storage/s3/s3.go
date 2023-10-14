@@ -207,16 +207,8 @@ func (repository *S3Repository) PutMetadata(indexID uuid.UUID, data []byte) erro
 	return nil
 }
 
-func (repository *S3Repository) PutIndex(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *S3Repository) PutFilesystem(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *S3Repository) PutBlob(checksum [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB:%016x", checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -269,30 +261,8 @@ func (repository *S3Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	return dataBytes, nil
 }
 
-func (repository *S3Repository) GetIndex(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", indexID.String()), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes := make([]byte, stat.Size)
-	_, err = object.Read(dataBytes)
-	if err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
-	}
-	object.Close()
-
-	return dataBytes, nil
-}
-
-func (repository *S3Repository) GetFilesystem(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", indexID.String()), minio.GetObjectOptions{})
+func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB:%016x", checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}

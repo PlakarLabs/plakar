@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/metadata"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -76,23 +77,33 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			return 1
 		}
 
-		indexBytes, err := sourceRepository.GetIndex(indexID)
+		md, err := metadata.NewMetadataFromBytes(metadataBytes)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
+			return 1
+		}
+
+		var indexChecksum32 [32]byte
+		copy(indexChecksum32[:], md.IndexChecksum[:])
+		indexBytes, err := sourceRepository.GetBlob(indexChecksum32)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		_, err = cloneRepository.PutIndex(indexID, indexBytes)
+		_, err = cloneRepository.PutBlob(indexChecksum32, indexBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
 		}
 
-		filesystemBytes, err := sourceRepository.GetFilesystem(indexID)
+		var filesystemChecksum32 [32]byte
+		copy(filesystemChecksum32[:], md.FilesystemChecksum[:])
+		filesystemBytes, err := sourceRepository.GetBlob(filesystemChecksum32)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		_, err = cloneRepository.PutFilesystem(indexID, filesystemBytes)
+		_, err = cloneRepository.PutBlob(filesystemChecksum32, filesystemBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1

@@ -110,7 +110,6 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 
 			chunk := objects.Chunk{}
 			chunk.Checksum = t32
-			chunk.Start = cdcOffset
 			chunk.Length = uint32(len(cdcChunk))
 			object.Chunks = append(object.Chunks, chunk.Checksum)
 			cdcOffset += uint64(len(cdcChunk))

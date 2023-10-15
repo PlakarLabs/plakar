@@ -29,7 +29,6 @@ import (
 )
 
 type JSONChunk struct {
-	Start  uint64
 	Length uint32
 }
 
@@ -134,7 +133,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 			for checksumID, chunk := range index.Chunks {
 				jchunk := &JSONChunk{
-					Start:  chunk.Start,
 					Length: chunk.Length,
 				}
 

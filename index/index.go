@@ -17,7 +17,6 @@ type IndexObject struct {
 }
 
 type IndexChunk struct {
-	Start  uint64
 	Length uint32
 }
 
@@ -248,7 +247,6 @@ func (index *Index) AddChunk(chunk *objects.Chunk) {
 	}
 
 	index.Chunks[checksumID] = IndexChunk{
-		Start:  chunk.Start,
 		Length: chunk.Length,
 	}
 }
@@ -332,7 +330,6 @@ func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {
 	} else {
 		return &objects.Chunk{
 			Checksum: checksum,
-			Start:    chunk.Start,
 			Length:   chunk.Length,
 		}
 	}

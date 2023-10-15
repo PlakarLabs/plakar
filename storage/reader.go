@@ -14,9 +14,9 @@ import (
 type Reader struct {
 	repository *Repository
 	//index        *index.Index
-	object       *objects.Object
-	objectOffset int
-	obuf         *bytes.Buffer
+	object *objects.Object
+	//objectOffset int
+	obuf *bytes.Buffer
 
 	chunks []index.IndexChunk
 	offset int64
@@ -28,15 +28,16 @@ func (reader *Reader) GetContentType() string {
 }
 
 func (reader *Reader) Read(buf []byte) (int, error) {
-
 	if reader.offset == reader.size {
 		return 0, io.EOF
 	}
 
 	readSize := uint(len(buf))
+	chunkStart := int64(0)
 	for chunkOffset, chunkInfo := range reader.chunks {
 		// reader offset is past this chunk, skip
-		if reader.offset > int64(chunkInfo.Start)+int64(chunkInfo.Length) {
+		if reader.offset > chunkStart+int64(chunkInfo.Length) {
+			chunkStart += int64(chunkInfo.Length)
 			continue
 		}
 
@@ -47,14 +48,15 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		// compute how much we can read from this one
-		endOffset := chunkInfo.Start + uint64(chunkInfo.Length)
-		available := endOffset - uint64(reader.offset)
+		endOffset := chunkStart + int64(chunkInfo.Length)
+		available := endOffset - int64(reader.offset)
+		chunkStart += int64(chunkInfo.Length)
 
 		// find beginning and ending offsets in current chunk
-		beg := uint64(chunkInfo.Length) - available
+		beg := int64(chunkInfo.Length) - available
 		end := beg + available
-		if available >= uint64(readSize) {
-			end = beg + uint64(readSize)
+		if available >= int64(readSize) {
+			end = beg + int64(readSize)
 		}
 
 		nbytes, err := reader.obuf.Write(data[beg:end])

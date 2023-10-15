@@ -118,13 +118,12 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 				jindex.Pathnames[checksumID] = pathnameID
 			}
 
-			for checksumID, object := range index.Objects {
+			for checksumID, objectChunks := range index.Objects {
 				jobject := &JSONObject{
-					Chunks:      make([]uint32, 0),
-					ContentType: object.ContentType,
+					Chunks: make([]uint32, 0),
 				}
 
-				for _, chunkChecksum := range object.Chunks {
+				for _, chunkChecksum := range objectChunks {
 					jobject.Chunks = append(jobject.Chunks, chunkChecksum)
 				}
 

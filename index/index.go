@@ -11,11 +11,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type IndexObject struct {
-	Chunks      []uint32
-	ContentType uint32
-}
-
 type Index struct {
 	muChecksums      sync.Mutex
 	checksumID       uint32
@@ -34,8 +29,9 @@ type Index struct {
 	ObjectToPathnames  map[uint32][]uint64
 
 	// Object checksum -> Object
-	muObjects sync.Mutex
-	Objects   map[uint32]IndexObject
+	muObjects           sync.Mutex
+	Objects             map[uint32][]uint32
+	ObjectToContentType map[uint32]uint32
 
 	// Chunk checksum -> Chunk
 	muChunks       sync.Mutex
@@ -61,7 +57,9 @@ func NewIndex() *Index {
 		PathnameToObject:  make(map[uint64]uint32),
 		ObjectToPathnames: make(map[uint32][]uint64),
 
-		Objects:        make(map[uint32]IndexObject),
+		Objects:             make(map[uint32][]uint32),
+		ObjectToContentType: make(map[uint32]uint32),
+
 		Chunks:         make(map[uint32]uint32),
 		ChunkToObjects: make(map[uint32][]uint32),
 
@@ -276,10 +274,8 @@ func (index *Index) AddObject(object *objects.Object) {
 		chunks = append(chunks, chunkChecksumID)
 	}
 
-	index.Objects[objectChecksumID] = IndexObject{
-		Chunks:      chunks,
-		ContentType: contentTypeID,
-	}
+	index.Objects[objectChecksumID] = chunks
+	index.ObjectToContentType[objectChecksumID] = contentTypeID
 }
 
 func (index *Index) RecordPathnameChecksum(pathnameChecksum [32]byte, pathnameID uint64) {
@@ -338,13 +334,18 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 		return nil
 	}
 
-	object, exists := index.Objects[checksumID]
+	objectChunks, exists := index.Objects[checksumID]
 	if !exists {
 		return nil
 	}
 
+	contentType, exists := index.ObjectToContentType[checksumID]
+	if !exists {
+		panic("LookupObject: corrupted index: could not find content type")
+	}
+
 	chunks := make([][32]byte, 0)
-	for _, checksumID := range object.Chunks {
+	for _, checksumID := range objectChunks {
 		checksum, exists := index.IdToChecksum(checksumID)
 		if !exists {
 			panic("LookupObject: corrupted index: could not find chunk checksum")
@@ -352,7 +353,7 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 		chunks = append(chunks, checksum)
 	}
 
-	contentTypeID, exists := index.getContentType(object.ContentType)
+	contentTypeID, exists := index.getContentType(contentType)
 	if !exists {
 		panic("LookupObject: corrupted index: could not find content type")
 	}

@@ -100,7 +100,6 @@
                         <thead>
                             <tr>
                                 <th scope="col">Chunk</th>
-                                <th scope="col">Offset</th>
                                 <th scope="col">Length</th>
                             </tr>
                         </thead>
@@ -108,7 +107,6 @@
                             {{range $chunk := $Chunks}} 
                             <tr>
                                 <td>{{$chunk.Checksum}}</td>
-                                <td>{{$chunk.Start}}</td>
                                 <td>{{$chunk.Length}}</td>
                             </tr>
                             {{end}}

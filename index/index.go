@@ -16,10 +16,6 @@ type IndexObject struct {
 	ContentType uint32
 }
 
-type IndexChunk struct {
-	Length uint32
-}
-
 type Index struct {
 	muChecksums      sync.Mutex
 	checksumID       uint32
@@ -43,7 +39,7 @@ type Index struct {
 
 	// Chunk checksum -> Chunk
 	muChunks       sync.Mutex
-	Chunks         map[uint32]IndexChunk
+	Chunks         map[uint32]uint32
 	ChunkToObjects map[uint32][]uint32
 
 	// Content Type -> Object checksums
@@ -66,7 +62,7 @@ func NewIndex() *Index {
 		ObjectToPathnames: make(map[uint32][]uint64),
 
 		Objects:        make(map[uint32]IndexObject),
-		Chunks:         make(map[uint32]IndexChunk),
+		Chunks:         make(map[uint32]uint32),
 		ChunkToObjects: make(map[uint32][]uint32),
 
 		ContentTypeToObjects: make(map[uint32][]uint32),
@@ -246,9 +242,7 @@ func (index *Index) AddChunk(chunk *objects.Chunk) {
 		panic("AddChunk: corrupted index")
 	}
 
-	index.Chunks[checksumID] = IndexChunk{
-		Length: chunk.Length,
-	}
+	index.Chunks[checksumID] = chunk.Length
 }
 
 func (index *Index) AddObject(object *objects.Object) {
@@ -325,12 +319,12 @@ func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {
 		return nil
 	}
 
-	if chunk, ok := index.Chunks[checksumID]; !ok {
+	if chunkLength, ok := index.Chunks[checksumID]; !ok {
 		return nil
 	} else {
 		return &objects.Chunk{
 			Checksum: checksum,
-			Length:   chunk.Length,
+			Length:   chunkLength,
 		}
 	}
 }

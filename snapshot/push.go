@@ -280,8 +280,8 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	snapshot.Metadata.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
 	snapshot.Metadata.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
 
-	for _, chunk := range snapshot.Index.Chunks {
-		atomic.AddUint64(&snapshot.Metadata.ChunksSize, uint64(chunk.Length))
+	for _, chunkLength := range snapshot.Index.Chunks {
+		atomic.AddUint64(&snapshot.Metadata.ChunksSize, uint64(chunkLength))
 	}
 
 	for _, key := range snapshot.Index.ListContentTypes() {

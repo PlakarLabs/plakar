@@ -131,9 +131,9 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 				jindex.Objects[checksumID] = jobject
 			}
 
-			for checksumID, chunk := range index.Chunks {
+			for checksumID, chunkLength := range index.Chunks {
 				jchunk := &JSONChunk{
-					Length: chunk.Length,
+					Length: chunkLength,
 				}
 
 				jindex.Chunks[checksumID] = jchunk

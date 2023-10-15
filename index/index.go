@@ -18,7 +18,7 @@ type IndexObject struct {
 
 type IndexChunk struct {
 	Start  uint64
-	Length uint
+	Length uint32
 }
 
 type Index struct {

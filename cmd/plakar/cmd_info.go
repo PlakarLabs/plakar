@@ -30,7 +30,7 @@ import (
 
 type JSONChunk struct {
 	Start  uint64
-	Length uint
+	Length uint32
 }
 
 type JSONObject struct {

@@ -21,6 +21,7 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
+	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 
 	_ "github.com/PlakarLabs/plakar/storage/client"
@@ -108,6 +109,7 @@ func entryPoint() int {
 	var opt_verbose bool
 	var opt_profiling bool
 	var opt_keyfile string
+	var opt_memstats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
@@ -122,7 +124,25 @@ func entryPoint() int {
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
+	flag.IntVar(&opt_memstats, "memstats", 0, "display memory statistics")
 	flag.Parse()
+
+	if opt_memstats != 0 {
+		go func() {
+			for {
+				//snapshot.Status()
+
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				fmt.Printf("[memstats] alloc = %s, total_alloc = %s, sys = %s, num_gc = %d\n",
+					humanize.Bytes(m.Alloc),
+					humanize.Bytes(m.TotalAlloc),
+					humanize.Bytes(m.Sys),
+					m.NumGC)
+				time.Sleep(time.Duration(opt_memstats) * time.Second)
+			}
+		}()
+	}
 
 	// setup from default + override
 	if opt_cpuCount > runtime.NumCPU() {

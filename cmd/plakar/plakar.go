@@ -110,6 +110,7 @@ func entryPoint() int {
 	var opt_profiling bool
 	var opt_keyfile string
 	var opt_memstats int
+	var opt_storage_parallelism int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
@@ -125,6 +126,7 @@ func entryPoint() int {
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.IntVar(&opt_memstats, "memstats", 0, "display memory statistics")
+	flag.IntVar(&opt_storage_parallelism, "storage-parallelism", runtime.NumCPU()*8+1, "display memory statistics")
 	flag.Parse()
 
 	if opt_memstats != 0 {
@@ -245,6 +247,7 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
 	}
+	repository.SetParallelism(opt_storage_parallelism)
 
 	var secret []byte
 	if repository.Configuration().Encryption != "" {

@@ -26,6 +26,10 @@ type Snapshot struct {
 	Metadata   *metadata.Metadata
 	Index      *index.Index
 	Filesystem *vfs.Filesystem
+
+	concurrentObjects    int64
+	concurrentChunks     int64
+	concurrentChunksSize int64
 }
 
 func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {

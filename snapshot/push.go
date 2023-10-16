@@ -67,6 +67,9 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	}
 	defer rd.Close()
 
+	atomic.AddInt64(&snapshot.concurrentObjects, 1)
+	defer atomic.AddInt64(&snapshot.concurrentObjects, -1)
+
 	object := &objects.Object{}
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
@@ -91,6 +94,9 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 		}
 
 		if cdcChunk != nil {
+			atomic.AddInt64(&snapshot.concurrentChunks, 1)
+			atomic.AddInt64(&snapshot.concurrentChunksSize, int64(len(cdcChunk)))
+
 			if firstChunk {
 				if object.ContentType == "" {
 					object.ContentType = mimetype.Detect(cdcChunk).String()
@@ -118,11 +124,13 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 			if indexChunk == nil {
 				exists, err := snapshot.CheckChunk(chunk.Checksum)
 				if err != nil {
+					atomic.AddInt64(&snapshot.concurrentObjects, -1)
 					return nil, err
 				}
 				if !exists {
 					nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
 					if err != nil {
+						atomic.AddInt64(&snapshot.concurrentObjects, -1)
 						return nil, err
 					}
 					atomic.AddUint64(&snapshot.Metadata.ChunksTransferCount, uint64(1))
@@ -131,6 +139,8 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 				}
 				snapshot.Index.AddChunk(&chunk)
 			}
+			atomic.AddInt64(&snapshot.concurrentChunksSize, -int64(len(cdcChunk)))
+			atomic.AddInt64(&snapshot.concurrentChunks, -1)
 		}
 
 		if err == io.EOF {
@@ -146,6 +156,25 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 }
 
 func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
+	/*
+		done := make(chan bool, 1)
+		go func() {
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					fmt.Printf("push: concurrent files: %d, concurrent chunks: %d, chunks_size: %s\n",
+						atomic.LoadInt64(&snapshot.concurrentObjects),
+						atomic.LoadInt64(&snapshot.concurrentChunks),
+						humanize.Bytes(uint64(atomic.LoadInt64(&snapshot.concurrentChunksSize))))
+				case <-done:
+					return
+				}
+			}
+		}()
+		defer func() { done <- true }()
+	*/
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}

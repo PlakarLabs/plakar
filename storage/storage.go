@@ -185,9 +185,9 @@ func New(location string) (*Repository, error) {
 		repository.Location = location
 		repository.backend = backend()
 		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
-		repository.wChan = make(chan bool, runtime.NumCPU())
-		repository.rChan = make(chan bool, runtime.NumCPU())
-		repository.sChan = make(chan bool, runtime.NumCPU())
+		repository.wChan = make(chan bool, runtime.NumCPU()*8+1)
+		repository.rChan = make(chan bool, runtime.NumCPU()*8+1)
+		repository.sChan = make(chan bool, runtime.NumCPU()*8+1)
 
 		return repository, nil
 	}

@@ -294,23 +294,6 @@ func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-/*
-	func (repository *FSRepository) GetObjectRefCount(checksum [32]byte) (uint64, error) {
-		st, err := os.Stat(repository.PathObject(checksum))
-		if err != nil {
-			return 0, err
-		}
-		return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
-	}
-
-	func (repository *FSRepository) GetChunkRefCount(checksum [32]byte) (uint64, error) {
-		st, err := os.Stat(repository.PathChunk(checksum))
-		if err != nil {
-			return 0, err
-		}
-		return uint64(st.Sys().(*syscall.Stat_t).Nlink - 1), nil
-	}
-*/
 func (repository *FSRepository) GetObjectSize(checksum [32]byte) (uint64, error) {
 	st, err := os.Stat(repository.PathObject(checksum))
 	if err != nil {

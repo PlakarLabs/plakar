@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/PlakarLabs/plakar/vfs"
@@ -49,6 +50,11 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 		atoms := strings.Split(directory, string(os.PathSeparator))
 		for i := 0; i < len(atoms)-1; i++ {
 			path := filepath.Clean(fmt.Sprintf("%s%s", string(os.PathSeparator), strings.Join(atoms[0:i+1], string(os.PathSeparator))))
+
+			if runtime.GOOS == "windows" {
+				path = path[1:]
+			}
+
 			f, err := os.Stat(path)
 			if err != nil {
 				cerr <- err

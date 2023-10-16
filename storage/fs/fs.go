@@ -321,14 +321,21 @@ func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error 
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+
+	name := f.Name()
+
+	err = f.Close()
 	if err != nil {
 		return err
 	}
 
-	err = os.Rename(f.Name(), repository.PathObject(checksum))
+	err = os.Rename(name, repository.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -349,19 +356,27 @@ func (repository *FSRepository) PutObjectSafe(checksum [32]byte, data []byte, li
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	_, err = f.Write(data)
 	if err != nil {
+		f.Close()
 		return err
 	}
 
 	err = os.Link(f.Name(), link)
 	if err != nil {
+		f.Close()
 		return err
 	}
 
-	err = os.Rename(f.Name(), repository.PathObject(checksum))
+	name := f.Name()
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(name, repository.PathObject(checksum))
 	if err != nil {
 		return err
 	}
@@ -414,14 +429,21 @@ func (repository *FSRepository) PutChunk(checksum [32]byte, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+
+	name := f.Name()
+
+	err = f.Close()
 	if err != nil {
 		return err
 	}
 
-	err = os.Rename(f.Name(), repository.PathChunk(checksum))
+	err = os.Rename(name, repository.PathChunk(checksum))
 	if err != nil {
 		return err
 	}
@@ -442,19 +464,27 @@ func (repository *FSRepository) PutChunkSafe(checksum [32]byte, data []byte, lin
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	_, err = f.Write(data)
 	if err != nil {
+		f.Close()
 		return err
 	}
 
 	err = os.Link(f.Name(), link)
 	if err != nil {
+		f.Close()
 		return err
 	}
 
-	err = os.Rename(f.Name(), repository.PathChunk(checksum))
+	name := f.Name()
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(name, repository.PathChunk(checksum))
 	if err != nil {
 		return err
 	}

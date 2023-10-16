@@ -209,7 +209,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			return err
 		}
 	}
-	snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, scanDir)
+	snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, filepath.ToSlash(scanDir))
 
 	close(c)
 
@@ -222,6 +222,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			}
 		}()
 	}
+
 	for _, filename := range snapshot.Filesystem.ListFiles() {
 		maxConcurrency <- true
 		wg.Add(1)

@@ -139,7 +139,7 @@ func NewFilesystemFromScan(repository string, directory string) (*Filesystem, er
 
 	for msg := range schan {
 		pathname := filepath.Clean(msg.Pathname)
-		if pathname == repository || strings.HasPrefix(pathname, repository+"/") {
+		if pathname == repository || strings.HasPrefix(filepath.ToSlash(pathname), filepath.ToSlash(repository)+"/") {
 			continue
 		}
 
@@ -149,13 +149,14 @@ func NewFilesystemFromScan(repository string, directory string) (*Filesystem, er
 			if pathname != "/" {
 				atoms := strings.Split(pathname, "/")
 				for i := 0; i < len(atoms)-1; i++ {
-					path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
+					path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
+					path = filepath.ToSlash(path)
 					if _, found := fs.LookupInodeForDirectory(path); !found {
 						return nil, err
 					}
 				}
 			}
-
+			pathname = filepath.ToSlash(pathname)
 			fs.buildTree(pathname, &stat)
 
 			/*
@@ -194,6 +195,8 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 	inodeKey := filesystem.addInode(*fileinfo)
 
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
+
 	filesystem.addPathname(pathname)
 
 	p := filesystem.Root
@@ -235,6 +238,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 
 func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []string) error {
 	directory = filepath.Clean(directory)
+
 	for _, scanned := range filesystem.scannedDirectories {
 		if scanned == directory {
 			return nil
@@ -246,7 +250,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 
 	atoms := strings.Split(directory, "/")
 	for i := len(atoms) - 1; i != 0; i-- {
-		path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i], "/")))
+		path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
 		f, err := os.Stat(path)
 		if err != nil {
 			return err
@@ -262,7 +266,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 		}
 
 		for _, skipPath := range skip {
-			if strings.HasPrefix(fmt.Sprintf("%s/%s", directory, path), skipPath) {
+			if strings.HasPrefix(filepath.Join(directory, path), skipPath) {
 				return nil
 			}
 		}
@@ -307,6 +311,7 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 
 func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
 
 	p := filesystem.Root
 	if pathname == "/" {
@@ -332,6 +337,7 @@ func (filesystem *Filesystem) LookupInode(pathname string) (*FileInfo, bool) {
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
 	fileinfo, exists := filesystem.statInfo[pathname]
 	return fileinfo, exists
 }
@@ -341,6 +347,7 @@ func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bo
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
 	fileinfo, exists := filesystem.statInfo[pathname]
 	if !exists || !fileinfo.Mode().IsRegular() {
 		return nil, false
@@ -353,6 +360,7 @@ func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInf
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
 	fileinfo, exists := filesystem.statInfo[pathname]
 	if !exists || !fileinfo.Mode().IsDir() {
 		return nil, false
@@ -362,6 +370,7 @@ func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInf
 
 func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) {
 	pathname = filepath.Clean(pathname)
+	pathname = filepath.ToSlash(pathname)
 	parent, err := filesystem.Lookup(pathname)
 	if err != nil {
 		return nil, os.ErrNotExist

@@ -184,7 +184,7 @@ func New(location string) (*Repository, error) {
 		repository := &Repository{}
 		repository.Location = location
 		repository.backend = backend()
-		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
+		//		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
 		repository.wChan = make(chan bool, runtime.NumCPU()*8+1)
 		repository.rChan = make(chan bool, runtime.NumCPU()*8+1)
 		repository.sChan = make(chan bool, runtime.NumCPU()*8+1)
@@ -224,15 +224,15 @@ func (repository *Repository) SetStatParallelism(parallelism int) {
 func (repository *Repository) wLock() {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.rLock", time.Since(t0))
-		logger.Trace("storage", "rLock -> %d : %s", len(repository.wChan), time.Since(t0))
+		profiler.RecordEvent("storage.wLock", time.Since(t0))
+		logger.Trace("storage", "wLock -> %d : %s", len(repository.wChan), time.Since(t0))
 	}()
-	repository.maxParallelism <- true
+	//	repository.maxParallelism <- true
 	repository.wChan <- true
 }
 func (repository *Repository) wUnlock() {
 	<-repository.wChan
-	<-repository.maxParallelism
+	// <-repository.maxParallelism
 }
 
 func (repository *Repository) rLock() {
@@ -241,26 +241,26 @@ func (repository *Repository) rLock() {
 		profiler.RecordEvent("storage.rLock", time.Since(t0))
 		logger.Trace("storage", "rLock -> %d : %s", len(repository.rChan), time.Since(t0))
 	}()
-	repository.maxParallelism <- true
+	//	repository.maxParallelism <- true
 	repository.rChan <- true
 }
 func (repository *Repository) rUnlock() {
 	<-repository.rChan
-	<-repository.maxParallelism
+	// <-repository.maxParallelism
 }
 
 func (repository *Repository) sLock() {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.rLock", time.Since(t0))
-		logger.Trace("storage", "rLock -> %d : %s", len(repository.sChan), time.Since(t0))
+		profiler.RecordEvent("storage.sLock", time.Since(t0))
+		logger.Trace("storage", "sLock -> %d : %s", len(repository.sChan), time.Since(t0))
 	}()
-	repository.maxParallelism <- true
+	//	repository.maxParallelism <- true
 	repository.sChan <- true
 }
 func (repository *Repository) sUnlock() {
 	<-repository.sChan
-	<-repository.maxParallelism
+	// <-repository.maxParallelism
 }
 
 func Open(location string) (*Repository, error) {

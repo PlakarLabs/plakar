@@ -187,9 +187,9 @@ func fiToDiff(fi vfs.FileInfo) string {
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
 	pathnameID1 := snapshot1.Filesystem.GetPathnameID(filename1)
-	pathnameID2 := snapshot1.Filesystem.GetPathnameID(filename2)
+	pathnameID2 := snapshot2.Filesystem.GetPathnameID(filename2)
 	object1 := snapshot1.Index.LookupObjectForPathname(pathnameID1)
-	object2 := snapshot1.Index.LookupObjectForPathname(pathnameID2)
+	object2 := snapshot2.Index.LookupObjectForPathname(pathnameID2)
 
 	// file does not exist in either snapshot
 	if object1 == nil && object2 == nil {

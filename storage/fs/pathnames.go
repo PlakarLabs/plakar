@@ -18,67 +18,67 @@ package fs
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/google/uuid"
 )
 
 func (repository *FSRepository) PathPurge() string {
-	return fmt.Sprintf("%s/purge", repository.root)
+	return filepath.Join(repository.root, "purge")
 }
 
 func (repository *FSRepository) PathChunks() string {
-	return fmt.Sprintf("%s/chunks", repository.root)
+	return filepath.Join(repository.root, "chunks")
 }
 
 func (repository *FSRepository) PathObjects() string {
-	return fmt.Sprintf("%s/objects", repository.root)
+	return filepath.Join(repository.root, "objects")
 }
 
 func (repository *FSRepository) PathBlobs() string {
-	return fmt.Sprintf("%s/blobs", repository.root)
+	return filepath.Join(repository.root, "blobs")
 }
 
 func (repository *FSRepository) PathTransactions() string {
-	return fmt.Sprintf("%s/transactions", repository.root)
+	return filepath.Join(repository.root, "transactions")
 }
 
 func (repository *FSRepository) PathIndexes() string {
-	return fmt.Sprintf("%s/snapshots", repository.root)
+	return filepath.Join(repository.root, "snapshots")
 }
 
 func (repository *FSRepository) PathChunkBucket(checksum [32]byte) string {
-	return fmt.Sprintf("%s/chunks/%02x", repository.root, checksum[0])
+	return filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *FSRepository) PathObjectBucket(checksum [32]byte) string {
-	return fmt.Sprintf("%s/objects/%02x", repository.root, checksum[0])
+	return filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *FSRepository) PathBlobBucket(checksum [32]byte) string {
-	return fmt.Sprintf("%s/blobs/%02x", repository.root, checksum[0])
+	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *FSRepository) PathIndexBucket(indexID uuid.UUID) string {
-	return fmt.Sprintf("%s/snapshots/%s", repository.root, indexID.String()[:2])
+	return filepath.Join(repository.root, "snapshots", indexID.String()[:2])
 }
 
 func (repository *FSRepository) PathChunk(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", repository.PathChunkBucket(checksum), checksum)
+	return filepath.Join(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *FSRepository) PathObject(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", repository.PathObjectBucket(checksum), checksum)
+	return filepath.Join(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *FSRepository) PathBlob(checksum [32]byte) string {
-	return fmt.Sprintf("%s/%064x", repository.PathBlobBucket(checksum), checksum)
+	return filepath.Join(repository.PathBlobBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *FSRepository) PathIndex(indexID uuid.UUID) string {
-	return fmt.Sprintf("%s/%s", repository.PathIndexBucket(indexID), indexID)
+	return filepath.Join(repository.PathIndexBucket(indexID), indexID.String())
 }
 
 func (transaction *FSTransaction) Path() string {
-	return fmt.Sprintf("%s/%s/%s", transaction.repository.PathTransactions(),
-		transaction.Uuid.String()[:2], transaction.Uuid.String())
+	return filepath.Join(transaction.repository.PathTransactions(), transaction.Uuid.String()[:2], transaction.Uuid.String())
 }

@@ -154,26 +154,6 @@ type ResTransaction struct {
 	Err  error
 }
 
-type ReqReferenceChunks struct {
-	Transaction uuid.UUID
-	Keys        [][32]byte
-}
-
-type ResReferenceChunks struct {
-	Exists []bool
-	Err    error
-}
-
-type ReqReferenceObjects struct {
-	Transaction uuid.UUID
-	Keys        [][32]byte
-}
-
-type ResReferenceObjects struct {
-	Exists []bool
-	Err    error
-}
-
 type ReqPutChunk struct {
 	Transaction uuid.UUID
 	Checksum    [32]byte
@@ -212,42 +192,6 @@ type ReqCommit struct {
 
 type ResCommit struct {
 	Err error
-}
-
-type ReqGetChunkRefCount struct {
-	Checksum [32]byte
-}
-
-type ResGetChunkRefCount struct {
-	RefCount uint64
-	Err      error
-}
-
-type ReqGetObjectRefCount struct {
-	Checksum [32]byte
-}
-
-type ResGetObjectRefCount struct {
-	RefCount uint64
-	Err      error
-}
-
-type ReqGetObjectSize struct {
-	Checksum [32]byte
-}
-
-type ResGetObjectSize struct {
-	Size uint64
-	Err  error
-}
-
-type ReqGetChunkSize struct {
-	Checksum [32]byte
-}
-
-type ResGetChunkSize struct {
-	Size uint64
-	Err  error
 }
 
 func ProtocolRegister() {
@@ -301,12 +245,6 @@ func ProtocolRegister() {
 	gob.Register(ReqTransaction{})
 	gob.Register(ResTransaction{})
 
-	gob.Register(ReqReferenceChunks{})
-	gob.Register(ResReferenceChunks{})
-
-	gob.Register(ReqReferenceObjects{})
-	gob.Register(ResReferenceObjects{})
-
 	gob.Register(ReqPutChunk{})
 	gob.Register(ResPutChunk{})
 
@@ -318,16 +256,4 @@ func ProtocolRegister() {
 
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})
-
-	gob.Register(ReqGetChunkRefCount{})
-	gob.Register(ResGetChunkRefCount{})
-
-	gob.Register(ReqGetObjectRefCount{})
-	gob.Register(ResGetObjectRefCount{})
-
-	gob.Register(ReqGetChunkSize{})
-	gob.Register(ResGetChunkSize{})
-
-	gob.Register(ReqGetObjectSize{})
-	gob.Register(ResGetObjectSize{})
 }

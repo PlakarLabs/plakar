@@ -166,33 +166,6 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunksReferences (
-		indexUuid		VARCHAR(36) NOT NULL,
-		chunkChecksum	VARCHAR(64) NOT NULL,
-
-		FOREIGN KEY (chunkChecksum)
-			REFERENCES chunks (chunkChecksum)
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objectsReferences (
-		indexUuid		VARCHAR(36) NOT NULL,
-		objectChecksum	VARCHAR(64) NOT NULL,
-
-		FOREIGN KEY (objectChecksum)
-			REFERENCES objects (objectChecksum)
-
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
 	statement, err = repository.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
 	defer statement.Close()
 	if err != nil {

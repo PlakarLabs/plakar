@@ -283,33 +283,33 @@ func entryPoint() int {
 					wbytesAvg := wbytes / uint64(elapsedSeconds)
 
 					runtime.ReadMemStats(&m)
-					fmt.Printf("memory: alloc=%s, total_alloc=%s, sys=%s, num_gc=%d\n",
+					fmt.Printf("[stats] memory = alloc: %s, total_alloc: %s, sys: %s, num_gc: %d\n",
 						humanize.Bytes(m.Alloc),
 						humanize.Bytes(m.TotalAlloc),
 						humanize.Bytes(m.Sys),
 						m.NumGC)
 
-					fmt.Printf("storage: read=%s, write: %s\n",
-						humanize.Bytes(rbytesAvg),
-						humanize.Bytes(wbytesAvg))
+					fmt.Printf("[stats] storage = read: %s / %s, write: %s / %s\n",
+						humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
+						humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
 				case <-done:
+					elapsedSeconds := time.Since(t0).Seconds()
+
 					rbytes := repository.GetRBytes()
 					wbytes := repository.GetWBytes()
+					rbytesAvg := rbytes / uint64(elapsedSeconds)
+					wbytesAvg := wbytes / uint64(elapsedSeconds)
 
 					runtime.ReadMemStats(&m)
-					fmt.Printf("memory: alloc = %s, total_alloc = %s, sys = %s, num_gc = %d\n",
+					fmt.Printf("[stats] memory = alloc: %s, total_alloc: %s, sys: %s, num_gc: %d\n",
 						humanize.Bytes(m.Alloc),
 						humanize.Bytes(m.TotalAlloc),
 						humanize.Bytes(m.Sys),
 						m.NumGC)
-					fmt.Printf("memory: total_alloc=%s, sys=%s, num_gc=%d\n",
-						humanize.Bytes(m.TotalAlloc),
-						humanize.Bytes(m.Sys),
-						m.NumGC)
 
-					fmt.Printf("storage: total_read=%s, total_write=%s\n",
-						humanize.Bytes(rbytes),
-						humanize.Bytes(wbytes))
+					fmt.Printf("[stats] storage = read: %s / %s, write: %s / %s\n",
+						humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
+						humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
 					return
 				}
 			}

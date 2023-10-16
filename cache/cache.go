@@ -3,7 +3,6 @@ package cache
 import (
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -14,18 +13,6 @@ import (
 
 type Cache struct {
 	db *leveldb.DB
-
-	mu_metadatas sync.Mutex
-	metadatas    map[string][]byte
-
-	mu_blobs sync.Mutex
-	blobs    map[string][]byte
-
-	mu_pathnames sync.Mutex
-	pathnames    map[string][]byte
-
-	mu_objects sync.Mutex
-	objects    map[string][]byte
 }
 
 func Create(localdir string) error {
@@ -48,14 +35,9 @@ func New(cacheDir string) *Cache {
 		return nil
 	}
 
-	cache := &Cache{}
-	cache.db = db
-	cache.metadatas = make(map[string][]byte)
-	cache.blobs = make(map[string][]byte)
-	cache.pathnames = make(map[string][]byte)
-	cache.objects = make(map[string][]byte)
-
-	return cache
+	return &Cache{
+		db: db,
+	}
 }
 
 func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
@@ -67,13 +49,7 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
 	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 
-	cache.mu_metadatas.Lock()
-	cache.metadatas[key] = data
-	cache.mu_metadatas.Unlock()
-
-	cache.db.Put([]byte(key), data, nil)
-
-	return nil
+	return cache.db.Put([]byte(key), data, nil)
 }
 
 func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byte) error {
@@ -83,15 +59,9 @@ func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byt
 	}()
 
 	logger.Trace("cache", "%s: PutBlob(%016x)", RepositoryUuid, checksum)
+
 	key := fmt.Sprintf("Blob:%s:%016x", RepositoryUuid, checksum)
-
-	cache.mu_blobs.Lock()
-	cache.blobs[key] = data
-	cache.mu_blobs.Unlock()
-
-	cache.db.Put([]byte(key), data, nil)
-
-	return nil
+	return cache.db.Put([]byte(key), data, nil)
 }
 
 func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
@@ -101,17 +71,9 @@ func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, err
 	}()
 	logger.Trace("cache", "%s: GetMetadata()", Uuid)
 
-	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
-	cache.mu_metadatas.Lock()
-	ret, exists := cache.metadatas[key]
-	cache.mu_metadatas.Unlock()
-	if exists {
-		return ret, nil
-	}
-
 	var data []byte
+	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 	data, err := cache.db.Get([]byte(key), nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -124,17 +86,10 @@ func (cache *Cache) GetBlob(RepositoryUuid string, checksum [32]byte) ([]byte, e
 		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
 	}()
 	logger.Trace("cache", "%016x: GetIndex()", checksum)
-	key := fmt.Sprintf("Index:%s:%016x", RepositoryUuid, checksum)
-	cache.mu_blobs.Lock()
-	ret, exists := cache.blobs[key]
-	cache.mu_blobs.Unlock()
-	if exists {
-		return ret, nil
-	}
 
 	var data []byte
+	key := fmt.Sprintf("Index:%s:%016x", RepositoryUuid, checksum)
 	data, err := cache.db.Get([]byte(key), nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -147,15 +102,9 @@ func (cache *Cache) PutPath(RepositoryUuid string, checksum string, data []byte)
 		profiler.RecordEvent("cache.PutPath", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutPath()", RepositoryUuid)
+
 	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
-
-	cache.mu_pathnames.Lock()
-	cache.pathnames[key] = data
-	cache.mu_pathnames.Unlock()
-
-	cache.db.Put([]byte(key), data, nil)
-
-	return nil
+	return cache.db.Put([]byte(key), data, nil)
 }
 
 func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, error) {
@@ -165,15 +114,8 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 	}()
 	logger.Trace("cache", "%s: GetPath()", RepositoryUuid)
 
-	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
-	cache.mu_pathnames.Lock()
-	ret, exists := cache.pathnames[key]
-	cache.mu_pathnames.Unlock()
-	if exists {
-		return ret, nil
-	}
-
 	var data []byte
+	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
 	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err
@@ -187,15 +129,9 @@ func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byt
 		profiler.RecordEvent("cache.PutObject", time.Since(t0))
 	}()
 	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
+
 	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
-
-	cache.mu_objects.Lock()
-	cache.objects[key] = data
-	cache.mu_objects.Unlock()
-
-	cache.db.Put([]byte(key), data, nil)
-
-	return nil
+	return cache.db.Put([]byte(key), data, nil)
 }
 
 func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, error) {
@@ -205,15 +141,8 @@ func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, e
 	}()
 	logger.Trace("cache", "%s: GetObject()", RepositoryUuid)
 
-	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
-	cache.mu_objects.Lock()
-	ret, exists := cache.objects[key]
-	cache.mu_objects.Unlock()
-	if exists {
-		return ret, nil
-	}
-
 	var data []byte
+	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
 	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err

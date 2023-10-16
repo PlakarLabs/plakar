@@ -86,7 +86,11 @@ func NewImporter(location string) (*Importer, error) {
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
 		} else {
-			return nil, fmt.Errorf("unsupported importer method")
+			if strings.Contains(location, "://") {
+				return nil, fmt.Errorf("unsupported importer protocol")
+			} else {
+				backendName = "fs"
+			}
 		}
 	} else {
 		backendName = "fs"

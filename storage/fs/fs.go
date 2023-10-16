@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -90,22 +91,24 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	if err != nil {
 		return err
 	}
-	os.MkdirAll(fmt.Sprintf("%s/chunks", repository.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/objects", repository.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/blobs", repository.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/transactions", repository.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/snapshots", repository.root), 0700)
-	os.MkdirAll(fmt.Sprintf("%s/purge", repository.root), 0700)
+
+	os.MkdirAll(filepath.Join(repository.root, "chunks"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "objects"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "transactions"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
-		os.MkdirAll(fmt.Sprintf("%s/chunks/%02x", repository.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/objects/%02x", repository.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/blobs/%02x", repository.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/transactions/%02x", repository.root, i), 0700)
-		os.MkdirAll(fmt.Sprintf("%s/snapshots/%02x", repository.root, i), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
-	f, err := os.Create(fmt.Sprintf("%s/CONFIG", repository.root))
+	configPath := filepath.Join(repository.root, "CONFIG")
+	f, err := os.Create(configPath)
 	if err != nil {
 		return err
 	}
@@ -138,7 +141,8 @@ func (repository *FSRepository) Open(location string) error {
 
 	repository.root = location
 
-	compressed, err := ioutil.ReadFile(fmt.Sprintf("%s/CONFIG", repository.root))
+	configPath := filepath.Join(repository.root, "CONFIG")
+	compressed, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
@@ -190,7 +194,8 @@ func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
 	}
 
 	for _, bucket := range buckets {
-		indexes, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathIndexes(), bucket.Name()))
+		pathBuckets := filepath.Join(repository.PathIndexes(), bucket.Name())
+		indexes, err := ioutil.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
@@ -206,7 +211,7 @@ func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
 }
 
 func (repository *FSRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
-	data, err := ioutil.ReadFile(repository.PathIndex(indexID))
+	data, err := os.ReadFile(repository.PathIndex(indexID))
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +220,7 @@ func (repository *FSRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 }
 
 func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
-	data, err := ioutil.ReadFile(repository.PathBlob(checksum))
+	data, err := os.ReadFile(repository.PathBlob(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +269,8 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 	}
 
 	for _, bucket := range buckets {
-		objects, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathObjects(), bucket.Name()))
+		pathBuckets := filepath.Join(repository.PathObjects(), bucket.Name())
+		objects, err := ioutil.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
@@ -286,7 +292,7 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 }
 
 func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
-	data, err := ioutil.ReadFile(repository.PathObject(checksum))
+	data, err := os.ReadFile(repository.PathObject(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +378,8 @@ func (repository *FSRepository) GetChunks() ([][32]byte, error) {
 	}
 
 	for _, bucket := range buckets {
-		chunks, err := ioutil.ReadDir(fmt.Sprintf("%s/%s", repository.PathChunks(), bucket.Name()))
+		pathBuckets := filepath.Join(repository.PathChunks(), bucket.Name())
+		chunks, err := ioutil.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
@@ -394,7 +401,7 @@ func (repository *FSRepository) GetChunks() ([][32]byte, error) {
 }
 
 func (repository *FSRepository) GetChunk(checksum [32]byte) ([]byte, error) {
-	data, err := ioutil.ReadFile(repository.PathChunk(checksum))
+	data, err := os.ReadFile(repository.PathChunk(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -473,7 +480,7 @@ func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
 }
 
 func (repository *FSRepository) Purge(indexID uuid.UUID) error {
-	dest := fmt.Sprintf("%s/%s", repository.PathPurge(), indexID)
+	dest := filepath.Join(repository.PathPurge(), indexID.String())
 	err := os.Rename(repository.PathIndex(indexID), dest)
 	if err != nil {
 		return err
@@ -504,7 +511,7 @@ func (transaction *FSTransaction) GetUuid() uuid.UUID {
 
 func (transaction *FSTransaction) prepare() {
 	os.MkdirAll(transaction.repository.root, 0700)
-	os.MkdirAll(fmt.Sprintf("%s/%s", transaction.repository.PathTransactions(),
+	os.MkdirAll(filepath.Join(transaction.repository.PathTransactions(),
 		transaction.Uuid.String()[0:2]), 0700)
 }
 

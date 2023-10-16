@@ -109,7 +109,7 @@ func entryPoint() int {
 	var opt_verbose bool
 	var opt_profiling bool
 	var opt_keyfile string
-	var opt_memstats int
+	var opt_stats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
@@ -124,25 +124,8 @@ func entryPoint() int {
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
-	flag.IntVar(&opt_memstats, "memstats", 0, "display memory statistics")
+	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
-
-	if opt_memstats != 0 {
-		go func() {
-			for {
-				//snapshot.Status()
-
-				var m runtime.MemStats
-				runtime.ReadMemStats(&m)
-				fmt.Printf("[memstats] alloc = %s, total_alloc = %s, sys = %s, num_gc = %d\n",
-					humanize.Bytes(m.Alloc),
-					humanize.Bytes(m.TotalAlloc),
-					humanize.Bytes(m.Sys),
-					m.NumGC)
-				time.Sleep(time.Duration(opt_memstats) * time.Second)
-			}
-		}()
-	}
 
 	// setup from default + override
 	if opt_cpuCount > runtime.NumCPU() {
@@ -281,10 +264,64 @@ func entryPoint() int {
 	repository.SetCommandLine(ctx.CommandLine)
 	repository.SetMachineID(ctx.MachineID)
 
+	done := make(chan bool)
+	if opt_stats > 0 {
+		go func() {
+			t0 := time.Now()
+			ticker := time.NewTicker(time.Duration(opt_stats) * time.Second)
+			defer ticker.Stop()
+
+			var m runtime.MemStats
+			for {
+				select {
+				case <-ticker.C:
+					elapsedSeconds := time.Since(t0).Seconds()
+
+					rbytes := repository.GetRBytes()
+					wbytes := repository.GetWBytes()
+					rbytesAvg := rbytes / uint64(elapsedSeconds)
+					wbytesAvg := wbytes / uint64(elapsedSeconds)
+
+					runtime.ReadMemStats(&m)
+					fmt.Printf("memory: alloc=%s, total_alloc=%s, sys=%s, num_gc=%d\n",
+						humanize.Bytes(m.Alloc),
+						humanize.Bytes(m.TotalAlloc),
+						humanize.Bytes(m.Sys),
+						m.NumGC)
+
+					fmt.Printf("storage: read=%s, write: %s\n",
+						humanize.Bytes(rbytesAvg),
+						humanize.Bytes(wbytesAvg))
+				case <-done:
+					rbytes := repository.GetRBytes()
+					wbytes := repository.GetWBytes()
+
+					runtime.ReadMemStats(&m)
+					fmt.Printf("memory: alloc = %s, total_alloc = %s, sys = %s, num_gc = %d\n",
+						humanize.Bytes(m.Alloc),
+						humanize.Bytes(m.TotalAlloc),
+						humanize.Bytes(m.Sys),
+						m.NumGC)
+					fmt.Printf("memory: total_alloc=%s, sys=%s, num_gc=%d\n",
+						humanize.Bytes(m.TotalAlloc),
+						humanize.Bytes(m.Sys),
+						m.NumGC)
+
+					fmt.Printf("storage: total_read=%s, total_write=%s\n",
+						humanize.Bytes(rbytes),
+						humanize.Bytes(wbytes))
+					return
+				}
+			}
+		}()
+	}
+
 	// commands below all operate on an open repository
 	t0 := time.Now()
 	status, err := executeCommand(ctx, repository, command, args)
 	t1 := time.Since(t0)
+
+	done <- true
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)

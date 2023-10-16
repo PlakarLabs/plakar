@@ -332,6 +332,5 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	if err != nil {
 		logger.Warn("could not commit snapshot: %s", err)
 	}
-
 	return err
 }

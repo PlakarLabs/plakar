@@ -64,6 +64,8 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
+	cloneRepository.SetSecret(sourceRepository.GetSecret())
+
 	// XXX - this can be parallelized
 	for _, indexID := range indexes {
 		metadataBytes, err := sourceRepository.GetMetadata(indexID)

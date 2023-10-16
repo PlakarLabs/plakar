@@ -231,6 +231,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 
 				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
 				if err != nil {
+					fmt.Println("###1")
 					return nil, err
 				}
 
@@ -239,6 +240,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 
 				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
+					fmt.Println("###2")
 					return nil, err
 				}
 				result = append(result, index)

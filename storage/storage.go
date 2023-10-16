@@ -232,6 +232,7 @@ func (repository *Repository) wLock() {
 }
 func (repository *Repository) wUnlock() {
 	<-repository.wChan
+	logger.Trace("storage", "wUnlock -> %d", len(repository.wChan))
 	// <-repository.maxParallelism
 }
 
@@ -246,6 +247,7 @@ func (repository *Repository) rLock() {
 }
 func (repository *Repository) rUnlock() {
 	<-repository.rChan
+	logger.Trace("storage", "rUnlock -> %d", len(repository.rChan))
 	// <-repository.maxParallelism
 }
 
@@ -260,6 +262,7 @@ func (repository *Repository) sLock() {
 }
 func (repository *Repository) sUnlock() {
 	<-repository.sChan
+	logger.Trace("storage", "sUnlock -> %d", len(repository.sChan))
 	// <-repository.maxParallelism
 }
 

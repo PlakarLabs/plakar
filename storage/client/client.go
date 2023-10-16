@@ -379,14 +379,13 @@ func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) 
 }
 
 func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutIndex", network.ReqStorePutBlob{
+	result, err := repository.sendRequest("ReqStorePutBlob", network.ReqStorePutBlob{
 		Checksum: checksum,
 		Data:     data,
 	})
 	if err != nil {
 		return err
 	}
-
 	return result.Payload.(network.ResStorePutBlob).Err
 }
 

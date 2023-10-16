@@ -69,14 +69,17 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			var dest string
 
 			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
-			rel := path.Clean(fmt.Sprintf("./%s", directory))
+			rel := path.Clean(filepath.Join(".", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
-				dest = fmt.Sprintf("%s/%s", root, directory[len(dpattern):])
+				dest = filepath.Join(root, directory[len(dpattern):])
 			} else {
-				dest = fmt.Sprintf("%s/%s", root, directory)
+				dest = filepath.Join(root, directory)
 			}
 
 			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+
+			dest = filepath.FromSlash(dest)
+
 			os.MkdirAll(dest, 0700)
 			os.Chmod(dest, fi.Mode())
 			os.Chown(dest, int(fi.Uid()), int(fi.Gid()))
@@ -116,11 +119,11 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			var dest string
 
 			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
-			rel := path.Clean(fmt.Sprintf("./%s", file))
+			rel := path.Clean(filepath.Join(".", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
-				dest = fmt.Sprintf("%s/%s", root, file[len(dpattern):])
+				dest = filepath.Join(root, file[len(dpattern):])
 			} else {
-				dest = fmt.Sprintf("%s/%s", root, file)
+				dest = filepath.Join(root, file)
 			}
 			dest = filepath.Clean(dest)
 
@@ -132,6 +135,8 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			}
 
 			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+
+			dest = filepath.FromSlash(dest)
 
 			f, err := os.Create(dest)
 			if err != nil {
@@ -181,9 +186,10 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			if err := os.Chmod(dest, fi.Mode()); err != nil {
 				logger.Warn("chmod failure: %s: %s", dest, err)
 			}
-			// XXX - do not attempt to chown if not root
 			if err := os.Chown(dest, int(fi.Uid()), int(fi.Gid())); err != nil {
-				logger.Warn("chown failure: %s: %s", dest, err)
+				if err == os.ErrPermission {
+					logger.Warn("chown failure: %s: %s", dest, err)
+				}
 			}
 			filesCount++
 		}(filename)

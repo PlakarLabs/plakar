@@ -61,7 +61,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 }
 
 func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
-	rd, err := snapshot.Filesystem.ImporterOpen(pathname)
+	rd, err := snapshot.Filesystem.ImporterOpen(filepath.FromSlash(pathname))
 	if err != nil {
 		return nil, err
 	}

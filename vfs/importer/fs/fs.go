@@ -45,10 +45,10 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
 	go func() {
-		directory := filepath.ToSlash(filepath.Clean(p.config))
+		directory := filepath.Clean(p.config)
 		atoms := strings.Split(directory, "/")
 		for i := 0; i < len(atoms)-1; i++ {
-			path := filepath.FromSlash(filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i+1], "/"))))
+			path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i+1], "/")))
 			f, err := os.Stat(path)
 			if err != nil {
 				cerr <- err
@@ -64,7 +64,7 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 				cerr <- err
 				return nil
 			}
-			pathname := filepath.ToSlash(filepath.Join(directory, path))
+			pathname := fmt.Sprintf("%s/%s", directory, path)
 
 			fileinfo := vfs.FileInfoFromStat(f)
 			c <- importer.ImporterRecord{Pathname: pathname, Stat: fileinfo}

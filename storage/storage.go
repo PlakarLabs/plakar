@@ -183,13 +183,6 @@ func New(location string) (*Repository, error) {
 	} else {
 		repository := &Repository{}
 		repository.Location = location
-		if backendName == "fs" {
-			if strings.HasPrefix(location, "fs://") {
-				repository.Location = location[5:]
-			}
-			repository.Location = filepath.FromSlash(repository.Location)
-		}
-
 		repository.backend = backend()
 		//		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
 		repository.wChan = make(chan bool, runtime.NumCPU()*8+1)

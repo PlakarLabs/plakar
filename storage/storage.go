@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
@@ -105,6 +106,8 @@ type Repository struct {
 	Key   []byte
 
 	maxParallelism chan bool
+	wBytes         uint64
+	rBytes         uint64
 }
 
 type Transaction struct {
@@ -241,6 +244,14 @@ func Create(location string, configuration RepositoryConfig) (*Repository, error
 	return repository, nil
 }
 
+func (repository *Repository) GetRBytes() uint64 {
+	return atomic.LoadUint64(&repository.rBytes)
+}
+
+func (repository *Repository) GetWBytes() uint64 {
+	return atomic.LoadUint64(&repository.wBytes)
+}
+
 func (repository *Repository) GetCache() *cache.Cache {
 	return repository.Cache
 }
@@ -350,6 +361,7 @@ func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	}
 
 	buffer := data
+	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
 
 	secret := repository.GetSecret()
 	compressionMethod := repository.Configuration().Compression
@@ -389,6 +401,7 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	}
 
 	buffer := data
+	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
 
 	secret := repository.GetSecret()
 	compressionMethod := repository.Configuration().Compression
@@ -442,6 +455,7 @@ func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, 
 		buffer = tmp
 	}
 
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), repository.backend.PutMetadata(indexID, buffer)
 }
 
@@ -475,6 +489,7 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, erro
 		buffer = tmp
 	}
 
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), repository.backend.PutBlob(checksum, buffer)
 }
 
@@ -506,6 +521,7 @@ func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 	}
 
 	buffer := data
+	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
 
 	secret := repository.GetSecret()
 	compressionMethod := repository.Configuration().Compression
@@ -558,6 +574,8 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, er
 		}
 		buffer = tmp
 	}
+
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), repository.backend.PutObject(checksum, buffer)
 }
 
@@ -601,6 +619,7 @@ func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 	}
 
 	buffer := data
+	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
 
 	secret := repository.GetSecret()
 	compressionMethod := repository.Configuration().Compression
@@ -653,6 +672,7 @@ func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, err
 		buffer = tmp
 	}
 
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), repository.backend.PutChunk(checksum, buffer)
 }
 
@@ -752,6 +772,7 @@ func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 		buffer = tmp
 	}
 
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), transaction.backend.PutMetadata(buffer)
 }
 
@@ -787,6 +808,7 @@ func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, er
 		buffer = tmp
 	}
 
+	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
 	return len(buffer), repository.backend.PutBlob(checksum, buffer)
 }
 

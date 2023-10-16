@@ -109,7 +109,6 @@ func entryPoint() int {
 	var opt_verbose bool
 	var opt_profiling bool
 	var opt_keyfile string
-	var opt_storage_parallelism int
 	var opt_stats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
@@ -125,7 +124,6 @@ func entryPoint() int {
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
-	flag.IntVar(&opt_storage_parallelism, "storage-parallelism", runtime.NumCPU()*8+1, "display memory statistics")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
 
@@ -230,7 +228,6 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
 	}
-	repository.SetParallelism(opt_storage_parallelism)
 
 	var secret []byte
 	if repository.Configuration().Encryption != "" {
@@ -267,7 +264,7 @@ func entryPoint() int {
 	repository.SetCommandLine(ctx.CommandLine)
 	repository.SetMachineID(ctx.MachineID)
 
-	done := make(chan bool)
+	done := make(chan bool, 1)
 	if opt_stats > 0 {
 		go func() {
 			t0 := time.Now()
@@ -296,23 +293,6 @@ func entryPoint() int {
 						humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
 						humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
 				case <-done:
-					elapsedSeconds := time.Since(t0).Seconds()
-
-					rbytes := repository.GetRBytes()
-					wbytes := repository.GetWBytes()
-					rbytesAvg := rbytes / uint64(elapsedSeconds)
-					wbytesAvg := wbytes / uint64(elapsedSeconds)
-
-					runtime.ReadMemStats(&m)
-					fmt.Printf("[stats] memory = alloc: %s, total_alloc: %s, sys: %s, num_gc: %d\n",
-						humanize.Bytes(m.Alloc),
-						humanize.Bytes(m.TotalAlloc),
-						humanize.Bytes(m.Sys),
-						m.NumGC)
-
-					fmt.Printf("[stats] storage = read: %s / %s, write: %s / %s\n",
-						humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
-						humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
 					return
 				}
 			}
@@ -323,7 +303,6 @@ func entryPoint() int {
 	t0 := time.Now()
 	status, err := executeCommand(ctx, repository, command, args)
 	t1 := time.Since(t0)
-
 	done <- true
 
 	if err != nil {

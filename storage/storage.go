@@ -105,9 +105,13 @@ type Repository struct {
 	Cache *cache.Cache
 	Key   []byte
 
+	wBytes uint64
+	rBytes uint64
+
+	wChan          chan bool
+	rChan          chan bool
+	sChan          chan bool
 	maxParallelism chan bool
-	wBytes         uint64
-	rBytes         uint64
 }
 
 type Transaction struct {
@@ -181,26 +185,81 @@ func New(location string) (*Repository, error) {
 		repository.Location = location
 		repository.backend = backend()
 		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
+		repository.wChan = make(chan bool, runtime.NumCPU())
+		repository.rChan = make(chan bool, runtime.NumCPU())
+		repository.sChan = make(chan bool, runtime.NumCPU())
+
 		return repository, nil
 	}
 }
 
-func (repository *Repository) SetParallelism(parallelism int) {
+func (repository *Repository) SetMaxParallelism(parallelism int) {
 	if parallelism == 0 || parallelism == cap(repository.maxParallelism) {
 		return
 	}
 	repository.maxParallelism = make(chan bool, parallelism)
 }
 
-func (repository *Repository) parallelLock() {
+func (repository *Repository) SetReadParallelism(parallelism int) {
+	if parallelism == 0 || parallelism == cap(repository.rChan) {
+		return
+	}
+	repository.rChan = make(chan bool, parallelism)
+}
+
+func (repository *Repository) SetWriteParallelism(parallelism int) {
+	if parallelism == 0 || parallelism == cap(repository.wChan) {
+		return
+	}
+	repository.wChan = make(chan bool, parallelism)
+}
+
+func (repository *Repository) SetStatParallelism(parallelism int) {
+	if parallelism == 0 || parallelism == cap(repository.sChan) {
+		return
+	}
+	repository.sChan = make(chan bool, parallelism)
+}
+
+func (repository *Repository) wLock() {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.parallelLock", time.Since(t0))
-		logger.Trace("storage", "parallelLock -> %d : %s", len(repository.maxParallelism), time.Since(t0))
+		profiler.RecordEvent("storage.rLock", time.Since(t0))
+		logger.Trace("storage", "rLock -> %d : %s", len(repository.wChan), time.Since(t0))
 	}()
 	repository.maxParallelism <- true
+	repository.wChan <- true
 }
-func (repository *Repository) parallelUnlock() {
+func (repository *Repository) wUnlock() {
+	<-repository.wChan
+	<-repository.maxParallelism
+}
+
+func (repository *Repository) rLock() {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.rLock", time.Since(t0))
+		logger.Trace("storage", "rLock -> %d : %s", len(repository.rChan), time.Since(t0))
+	}()
+	repository.maxParallelism <- true
+	repository.rChan <- true
+}
+func (repository *Repository) rUnlock() {
+	<-repository.rChan
+	<-repository.maxParallelism
+}
+
+func (repository *Repository) sLock() {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.rLock", time.Since(t0))
+		logger.Trace("storage", "rLock -> %d : %s", len(repository.sChan), time.Since(t0))
+	}()
+	repository.maxParallelism <- true
+	repository.sChan <- true
+}
+func (repository *Repository) sUnlock() {
+	<-repository.sChan
 	<-repository.maxParallelism
 }
 
@@ -314,9 +373,6 @@ func (repository *Repository) Configuration() RepositoryConfig {
 }
 
 func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
-
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.Transaction", time.Since(t0))
@@ -334,8 +390,8 @@ func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, erro
 }
 
 func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -346,8 +402,8 @@ func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
 }
 
 func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -386,8 +442,8 @@ func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 }
 
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -426,8 +482,8 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -460,8 +516,8 @@ func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, 
 }
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -494,8 +550,8 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, erro
 }
 
 func (repository *Repository) GetObjects() ([][32]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -506,8 +562,8 @@ func (repository *Repository) GetObjects() ([][32]byte, error) {
 }
 
 func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -546,8 +602,8 @@ func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -580,8 +636,8 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, er
 }
 
 func (repository *Repository) DeleteObject(checksum [32]byte) error {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -592,8 +648,8 @@ func (repository *Repository) DeleteObject(checksum [32]byte) error {
 }
 
 func (repository *Repository) GetChunks() ([][32]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -604,8 +660,8 @@ func (repository *Repository) GetChunks() ([][32]byte, error) {
 }
 
 func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.rLock()
+	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -644,8 +700,8 @@ func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -677,8 +733,8 @@ func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, err
 }
 
 func (repository *Repository) DeleteChunk(checksum [32]byte) error {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -689,8 +745,8 @@ func (repository *Repository) DeleteChunk(checksum [32]byte) error {
 }
 
 func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -701,8 +757,8 @@ func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
 }
 
 func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -713,8 +769,8 @@ func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
 }
 
 func (repository *Repository) Purge(indexID uuid.UUID) error {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -725,9 +781,6 @@ func (repository *Repository) Purge(indexID uuid.UUID) error {
 }
 
 func (repository *Repository) Close() error {
-	repository.parallelLock()
-	defer repository.parallelUnlock()
-
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.Close", time.Since(t0))
@@ -743,8 +796,8 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 	repository := transaction.repository
 
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -779,8 +832,8 @@ func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	repository := transaction.repository
 
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -815,8 +868,8 @@ func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, er
 func (transaction *Transaction) Commit() error {
 	repository := transaction.repository
 
-	repository.parallelLock()
-	defer repository.parallelUnlock()
+	repository.sLock()
+	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {

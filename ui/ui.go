@@ -391,6 +391,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		strings.HasPrefix(object.ContentType, "video/") ||
 		object.ContentType == "application/pdf" ||
 		object.ContentType == "application/javascript" ||
+		object.ContentType == "application/x-sql" ||
 		object.ContentType == "application/x-tex" {
 		enableViewer = true
 	}

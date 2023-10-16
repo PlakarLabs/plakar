@@ -46,9 +46,9 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	cerr := make(chan error)
 	go func() {
 		directory := filepath.Clean(p.config)
-		atoms := strings.Split(directory, "/")
+		atoms := strings.Split(directory, string(os.PathSeparator))
 		for i := 0; i < len(atoms)-1; i++ {
-			path := filepath.Clean(fmt.Sprintf("/%s", strings.Join(atoms[0:i+1], "/")))
+			path := filepath.Clean(fmt.Sprintf("%s%s", string(os.PathSeparator), strings.Join(atoms[0:i+1], string(os.PathSeparator))))
 			f, err := os.Stat(path)
 			if err != nil {
 				cerr <- err
@@ -56,7 +56,7 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 				return
 			}
 			fileinfo := vfs.FileInfoFromStat(f)
-			c <- importer.ImporterRecord{Pathname: path, Stat: fileinfo}
+			c <- importer.ImporterRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
 		}
 
 		err := cwalk.Walk(directory, func(path string, f os.FileInfo, err error) error {
@@ -64,10 +64,10 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 				cerr <- err
 				return nil
 			}
-			pathname := fmt.Sprintf("%s/%s", directory, path)
+			pathname := filepath.Join(directory, path)
 
 			fileinfo := vfs.FileInfoFromStat(f)
-			c <- importer.ImporterRecord{Pathname: pathname, Stat: fileinfo}
+			c <- importer.ImporterRecord{Pathname: filepath.ToSlash(pathname), Stat: fileinfo}
 
 			if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
 				lstat, err := os.Lstat(pathname)
@@ -85,7 +85,7 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 					}
 					_ = originFile
 
-					c <- importer.ImporterRecord{Pathname: pathname, Stat: lfileinfo}
+					c <- importer.ImporterRecord{Pathname: filepath.ToSlash(pathname), Stat: lfileinfo}
 
 					// need to figure out how to notidy fakefs
 					// that a pathname actually link to another

@@ -1,5 +1,5 @@
-//go:build !windows
-// +build !windows
+//go:build windows
+// +build windows
 
 /*
  * Copyright (c) 2023 Gilles Chehade <gilles@poolp.org>
@@ -79,17 +79,38 @@ func (f FileInfo) Sys() any {
 	return nil
 }
 
+/*
+	func FileInfoFromStat(stat os.FileInfo) FileInfo {
+		return FileInfo{
+			Lname:    stat.Name(),
+			Lsize:    stat.Size(),
+			Lmode:    stat.Mode(),
+			LmodTime: stat.ModTime(),
+			Ldev:     uint64(stat.Sys().(*syscall.Stat_t).Dev),
+			Lino:     uint64(stat.Sys().(*syscall.Stat_t).Ino),
+			Luid:     uint64(stat.Sys().(*syscall.Stat_t).Uid),
+			Lgid:     uint64(stat.Sys().(*syscall.Stat_t).Gid),
+		}
+	}
+*/
 func FileInfoFromStat(stat os.FileInfo) FileInfo {
-	return FileInfo{
+	fi := FileInfo{
 		Lname:    stat.Name(),
 		Lsize:    stat.Size(),
 		Lmode:    stat.Mode(),
 		LmodTime: stat.ModTime(),
-		Ldev:     uint64(stat.Sys().(*syscall.Stat_t).Dev),
-		Lino:     uint64(stat.Sys().(*syscall.Stat_t).Ino),
-		Luid:     uint64(stat.Sys().(*syscall.Stat_t).Uid),
-		Lgid:     uint64(stat.Sys().(*syscall.Stat_t).Gid),
 	}
+
+	// Check the underlying system and use type assertions accordingly
+	switch sys := stat.Sys().(type) {
+	case *syscall.Stat_t: // Unix
+		fi.Ldev = uint64(sys.Dev)
+		fi.Lino = uint64(sys.Ino)
+		fi.Luid = uint64(sys.Uid)
+		fi.Lgid = uint64(sys.Gid)
+	}
+
+	return fi
 }
 
 func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, dev uint64, ino uint64, uid uint64, gid uint64) FileInfo {

@@ -181,6 +181,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 			if err := os.Chmod(dest, fi.Mode()); err != nil {
 				logger.Warn("chmod failure: %s: %s", dest, err)
 			}
+			// XXX - do not attempt to chown if not root
 			if err := os.Chown(dest, int(fi.Uid()), int(fi.Gid())); err != nil {
 				logger.Warn("chown failure: %s: %s", dest, err)
 			}

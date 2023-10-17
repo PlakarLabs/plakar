@@ -309,7 +309,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.ENOENT
 	}
 
-	rd, err := fs.repository.NewReader(snap.Index, inode.path[37:])
+	rd, err := snap.NewReader(inode.path[37:])
 	if err != nil {
 		return fuse.EIO
 	}

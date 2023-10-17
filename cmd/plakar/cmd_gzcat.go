@@ -39,14 +39,14 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	indexes, err := getIndexes(repository, flags.Args())
+	snapshots, err := getSnapshots(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snapIndex := range indexes {
+	for offset, snapshot := range snapshots {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
@@ -55,7 +55,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
-		rd, err := repository.NewReader(snapIndex, pathname)
+		rd, err := snapshot.NewReader(pathname)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

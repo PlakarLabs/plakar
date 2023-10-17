@@ -657,14 +657,12 @@ func Ui(repository *storage.Repository, spawn bool) error {
 	fmt.Println("lauching browser UI pointing at", url)
 	if spawn {
 		switch runtime.GOOS {
-		case "linux":
-			err = exec.Command("xdg-open", url).Start()
 		case "windows":
 			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 		case "darwin":
 			err = exec.Command("open", url).Start()
-		default:
-			err = fmt.Errorf("don't know how to spawn browser for platform %s", runtime.GOOS)
+		default: // "linux", "freebsd", "openbsd", "netbsd"
+			err = exec.Command("xdg-open", url).Start()
 		}
 		if err != nil {
 			return err

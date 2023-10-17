@@ -74,7 +74,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
-	if fi.Size() < 512<<10 {
+	if fi.Size() < 256<<10 {
 		var t32 [32]byte
 
 		buf, err := io.ReadAll(rd)
@@ -115,10 +115,10 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 		return object, nil
 	}
 
-	chk, err := chunkers.NewChunker("fastcdc", rd, &chunkers.ChunkerOpts{
-		MinSize:    512 << 10,
-		NormalSize: (1024 << 10),
-		MaxSize:    (1024 * 8) << 10,
+	chk, err := chunkers.NewChunker("ultracdc", rd, &chunkers.ChunkerOpts{
+		MinSize:    256 << 10,
+		NormalSize: (256 << 10) + (8 << 10),
+		MaxSize:    1024 << 10,
 	})
 	if err != nil {
 		return nil, err

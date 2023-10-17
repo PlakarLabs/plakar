@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
+ * Copyright (c) 2023 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,8 +17,7 @@
 package main
 
 import (
-	"archive/tar"
-	"compress/gzip"
+	"archive/zip"
 	"flag"
 	"fmt"
 	"io"
@@ -28,30 +27,23 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/helpers"
-	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
-	registerCommand("tarball", cmd_tarball)
+	registerCommand("zip", cmd_zip)
 }
+func cmd_zip(ctx Plakar, repository *storage.Repository, args []string) int {
+	var zipPath string
+	var zipRebase bool
 
-func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int {
-	var tarballPath string
-	var tarballRebase bool
-
-	flags := flag.NewFlagSet("tarball", flag.ExitOnError)
-	flags.StringVar(&tarballPath, "output", fmt.Sprintf("plakar-%s.tar.gz", time.Now().UTC().Format(time.RFC3339)), "tarball pathname")
-	flags.BoolVar(&tarballRebase, "rebase", false, "strip pathname when pulling")
+	flags := flag.NewFlagSet("zip", flag.ExitOnError)
+	flags.StringVar(&zipPath, "output", fmt.Sprintf("plakar-%s.zip", time.Now().UTC().Format(time.RFC3339)), "zip pathname")
+	flags.BoolVar(&zipRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
-	}
-
-	_, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	snapshots, err := getSnapshots(repository, flags.Args())
@@ -59,20 +51,14 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 		log.Fatal(err)
 	}
 
-	var gzipWriter *gzip.Writer
-	if tarballPath == "-" {
-		gzipWriter = gzip.NewWriter(os.Stdout)
-	} else {
-		fp, err := os.Create(tarballPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		gzipWriter = gzip.NewWriter(fp)
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		log.Fatal(err)
 	}
-	defer gzipWriter.Close()
+	defer zipFile.Close()
 
-	tarWriter := tar.NewWriter(gzipWriter)
-	defer tarWriter.Close()
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
 
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
@@ -86,32 +72,33 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 			}
 			info, _ := snapshot.Filesystem.LookupInode(file)
 			filepath := file
-			if tarballRebase {
+			if zipRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)
 			}
-			header := &tar.Header{
-				Name:    filepath,
-				Size:    info.Size(),
-				Mode:    int64(info.Mode()),
-				ModTime: info.ModTime(),
+			header, err := zip.FileInfoHeader(info)
+			if err != nil {
+				log.Printf("could not create header for file %s: %s", file, err)
+				continue
 			}
+			header.Name = filepath
+			header.Method = zip.Deflate
 
 			rd, err := snapshot.NewReader(file)
 			if err != nil {
-				logger.Error("could not find file %s", file)
+				log.Printf("could not find file %s", file)
 				continue
 			}
 
-			err = tarWriter.WriteHeader(header)
+			writer, err := zipWriter.CreateHeader(header)
 			if err != nil {
-				logger.Error("could not write header for file %s: %s", file, err)
+				log.Printf("could not create zip entry for file %s: %s", file, err)
 				rd.Close()
 				continue
 			}
 
-			_, err = io.Copy(tarWriter, rd)
+			_, err = io.Copy(writer, rd)
 			if err != nil {
-				logger.Error("could not write file %s: %s", file, err)
+				log.Printf("could not write file %s: %s", file, err)
 				rd.Close()
 				continue
 			}
@@ -119,8 +106,6 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 		}
 	}
 
-	if tarballPath != "-" {
-		logger.Info("created tarball %s", tarballPath)
-	}
+	log.Printf("created zip %s", zipPath)
 	return 0
 }

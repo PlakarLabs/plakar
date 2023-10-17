@@ -60,7 +60,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
+func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.Object, error) {
 	rd, err := snapshot.Filesystem.ImporterOpen(filepath.FromSlash(pathname))
 	if err != nil {
 		return nil, err
@@ -74,10 +74,51 @@ func chunkify(snapshot *Snapshot, pathname string) (*objects.Object, error) {
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
-	chk, err := chunkers.NewChunker("ultracdc", rd, &chunkers.ChunkerOpts{
-		MinSize:    256 << 10,
-		NormalSize: (256 << 10) + (8 << 10),
-		MaxSize:    1024 << 10,
+	if fi.Size() < 512<<10 {
+		var t32 [32]byte
+
+		buf, err := io.ReadAll(rd)
+		if err != nil {
+			return nil, err
+		}
+
+		if object.ContentType == "" {
+			object.ContentType = mimetype.Detect(buf).String()
+		}
+
+		objectHasher.Write(buf)
+		copy(t32[:], objectHasher.Sum(nil))
+		object.Checksum = t32
+
+		chunk := objects.Chunk{}
+		chunk.Checksum = t32
+		chunk.Length = uint32(len(buf))
+		object.Chunks = append(object.Chunks, chunk.Checksum)
+
+		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
+		if indexChunk == nil {
+			exists, err := snapshot.CheckChunk(chunk.Checksum)
+			if err != nil {
+				atomic.AddInt64(&snapshot.concurrentObjects, -1)
+				return nil, err
+			}
+			if !exists {
+				_, err := snapshot.PutChunk(chunk.Checksum, buf)
+				if err != nil {
+					atomic.AddInt64(&snapshot.concurrentObjects, -1)
+					return nil, err
+				}
+			}
+			snapshot.Index.AddChunk(&chunk)
+		}
+
+		return object, nil
+	}
+
+	chk, err := chunkers.NewChunker("fastcdc", rd, &chunkers.ChunkerOpts{
+		MinSize:    512 << 10,
+		NormalSize: (1024 << 10),
+		MaxSize:    (1024 * 8) << 10,
 	})
 	if err != nil {
 		return nil, err
@@ -260,7 +301,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 			// can't reuse object from cache, chunkify
 			if object == nil || !exists {
-				object, err = chunkify(snapshot, _filename)
+				object, err = chunkify(snapshot, _filename, fileinfo)
 				if err != nil {
 					logger.Warn("%s: could not chunkify: %s", _filename, err)
 					return

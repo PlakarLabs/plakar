@@ -310,8 +310,16 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 }
 
 func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.Lookup", time.Since(t0))
+		logger.Trace("vfs", "Lookup(%s): %s", pathname, time.Since(t0))
+	}()
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
+	if pathname == "." {
+		pathname = "/"
+	}
 
 	p := filesystem.Root
 	if pathname == "/" {
@@ -333,21 +341,39 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 }
 
 func (filesystem *Filesystem) LookupInode(pathname string) (*FileInfo, bool) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.LookupInode", time.Since(t0))
+		logger.Trace("vfs", "LookupInode(%s): %s", pathname, time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
+	if pathname == "." {
+		pathname = "/"
+	}
+
 	fileinfo, exists := filesystem.statInfo[pathname]
 	return fileinfo, exists
 }
 
 func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bool) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.LookupInodeForFile", time.Since(t0))
+		logger.Trace("vfs", "LookupInodeForFile(%s): %s", pathname, time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
+	if pathname == "." {
+		pathname = "/"
+	}
+
 	fileinfo, exists := filesystem.statInfo[pathname]
 	if !exists || !fileinfo.Mode().IsRegular() {
 		return nil, false
@@ -356,11 +382,20 @@ func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bo
 }
 
 func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInfo, bool) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.LookupInodeForDirectory", time.Since(t0))
+		logger.Trace("vfs", "LookupInodeForDirectory(%s): %s", pathname, time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
+	if pathname == "." {
+		pathname = "/"
+	}
+
 	fileinfo, exists := filesystem.statInfo[pathname]
 	if !exists || !fileinfo.Mode().IsDir() {
 		return nil, false
@@ -369,8 +404,17 @@ func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInf
 }
 
 func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.LookupChildren", time.Since(t0))
+		logger.Trace("vfs", "LookupChildren(%s): %s", pathname, time.Since(t0))
+	}()
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
+	if pathname == "." {
+		pathname = "/"
+	}
+
 	parent, err := filesystem.Lookup(pathname)
 	if err != nil {
 		return nil, os.ErrNotExist
@@ -396,6 +440,11 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 }
 
 func (filesystem *Filesystem) ListFiles() []string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ListFiles", time.Since(t0))
+		logger.Trace("vfs", "ListFiles(): %s", time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -409,6 +458,11 @@ func (filesystem *Filesystem) ListFiles() []string {
 }
 
 func (filesystem *Filesystem) ListDirectories() []string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ListDirectories", time.Since(t0))
+		logger.Trace("vfs", "ListDirectories(): %s", time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -422,6 +476,11 @@ func (filesystem *Filesystem) ListDirectories() []string {
 }
 
 func (filesystem *Filesystem) ListNonRegular() []string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ListNonRegular", time.Since(t0))
+		logger.Trace("vfs", "ListNonRegular(): %s", time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -435,6 +494,11 @@ func (filesystem *Filesystem) ListNonRegular() []string {
 }
 
 func (filesystem *Filesystem) ListStat() []string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ListStat", time.Since(t0))
+		logger.Trace("vfs", "ListStat(): %s", time.Since(t0))
+	}()
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 

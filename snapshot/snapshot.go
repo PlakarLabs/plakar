@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/index"
 	"github.com/PlakarLabs/plakar/logger"
@@ -189,6 +190,25 @@ func GetMetadata(repository *storage.Repository, indexID uuid.UUID) (*metadata.M
 		cache.PutMetadata(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
 	}
 
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, false, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, false, err
+		}
+		buffer = tmp
+	}
+
 	metadata, err := metadata.NewMetadataFromBytes(buffer)
 	if err != nil {
 		return nil, false, err
@@ -231,6 +251,25 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot", "cache.PutBlob(%016x)", checksum)
 		cache.PutBlob(repository.Configuration().RepositoryID.String(), checksum, buffer)
+	}
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
 	}
 
 	return buffer, nil
@@ -297,7 +336,28 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) 
 	}()
 
 	logger.Trace("snapshot", "%s: PutChunk(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
-	return snapshot.repository.PutChunk(checksum, data)
+
+	repository := snapshot.repository
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+	var err error
+	if compressionMethod != "" {
+		buffer, err = compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	return snapshot.repository.PutChunk(checksum, buffer)
 }
 
 func (snapshot *Snapshot) Repository() *storage.Repository {
@@ -315,7 +375,29 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return snapshot.repository.PutObject(object.Checksum, data)
+
+	repository := snapshot.repository
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	buffer := data
+	if compressionMethod != "" {
+		buffer, err = compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	return snapshot.repository.PutObject(object.Checksum, buffer)
 }
 
 func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
@@ -326,11 +408,33 @@ func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
 	cache := snapshot.repository.GetCache()
 	logger.Trace("snapshot", "%s: PutMetadata()", snapshot.Metadata.GetIndexShortID())
 
-	if cache != nil {
-		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), data)
+	repository := snapshot.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
 	}
 
-	return snapshot.transaction.PutMetadata(data)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil {
+		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
+	}
+
+	return len(buffer), snapshot.transaction.PutMetadata(buffer)
 }
 
 func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
@@ -341,11 +445,33 @@ func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	cache := snapshot.repository.GetCache()
 	logger.Trace("snapshot", "%s: PutBlob(%016x)", snapshot.Metadata.GetIndexShortID(), checksum)
 
-	if cache != nil {
-		cache.PutBlob(snapshot.repository.Configuration().RepositoryID.String(), checksum, data)
+	repository := snapshot.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
 	}
 
-	return snapshot.transaction.PutBlob(checksum, data)
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil {
+		cache.PutBlob(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
+	}
+
+	return len(buffer), snapshot.transaction.PutBlob(checksum, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
@@ -355,7 +481,33 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 
-	return snapshot.repository.GetChunk(checksum)
+	buffer, err := snapshot.repository.GetChunk(checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	repository := snapshot.repository
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	return buffer, nil
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
@@ -378,9 +530,30 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) (*objects.Object, error) 
 	}()
 	logger.Trace("snapshot", "%s: GetObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
 
+	repository := snapshot.repository
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
 	buffer, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
 	}
 
 	object := &objects.Object{}
@@ -457,6 +630,6 @@ func (snapshot *Snapshot) Commit() error {
 	return snapshot.transaction.Commit()
 }
 
-func (snapshot *Snapshot) NewReader(pathname string) (*storage.Reader, error) {
-	return snapshot.repository.NewReader(snapshot.Index, pathname)
+func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
+	return NewReader(snapshot, pathname)
 }

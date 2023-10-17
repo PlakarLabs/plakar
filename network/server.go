@@ -218,13 +218,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: PutMetadata()", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
-				nbytes, err := repository.PutMetadata(request.Payload.(ReqStorePutMetadata).IndexID, request.Payload.(ReqStorePutMetadata).Data)
+				err := repository.PutMetadata(request.Payload.(ReqStorePutMetadata).IndexID, request.Payload.(ReqStorePutMetadata).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResStorePutMetadata",
 					Payload: ResStorePutMetadata{
-						NBytes: nbytes,
-						Err:    err,
+						Err: err,
 					},
 				}
 				err = encoder.Encode(&result)
@@ -238,13 +237,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
-				nbytes, err := repository.PutBlob(request.Payload.(ReqStorePutBlob).Checksum, request.Payload.(ReqStorePutBlob).Data)
+				err := repository.PutBlob(request.Payload.(ReqStorePutBlob).Checksum, request.Payload.(ReqStorePutBlob).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResStorePutBlob",
 					Payload: ResStorePutBlob{
-						NBytes: nbytes,
-						Err:    err,
+						Err: err,
 					},
 				}
 				err = encoder.Encode(&result)
@@ -431,13 +429,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				logger.Trace("%s: PutMetadata()", clientUuid)
 				txUuid := request.Payload.(ReqPutMetadata).Transaction
 				tx := transactions[txUuid]
-				nbytes, err := tx.PutMetadata(request.Payload.(ReqPutMetadata).Data)
+				err := tx.PutMetadata(request.Payload.(ReqPutMetadata).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutMetadata",
 					Payload: ResPutMetadata{
-						NBytes: nbytes,
-						Err:    err,
+						Err: err,
 					},
 				}
 				err = encoder.Encode(&result)

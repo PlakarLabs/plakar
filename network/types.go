@@ -37,8 +37,7 @@ type ReqStorePutMetadata struct {
 }
 
 type ResStorePutMetadata struct {
-	NBytes int
-	Err    error
+	Err error
 }
 
 type ReqStorePutBlob struct {
@@ -47,8 +46,7 @@ type ReqStorePutBlob struct {
 }
 
 type ResStorePutBlob struct {
-	NBytes int
-	Err    error
+	Err error
 }
 
 type ReqGetChunks struct {
@@ -182,8 +180,7 @@ type ReqPutMetadata struct {
 }
 
 type ResPutMetadata struct {
-	NBytes int
-	Err    error
+	Err error
 }
 
 type ReqCommit struct {

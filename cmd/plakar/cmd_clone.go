@@ -73,7 +73,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		_, err = cloneRepository.PutMetadata(indexID, metadataBytes)
+		err = cloneRepository.PutMetadata(indexID, metadataBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
 			return 1
@@ -92,7 +92,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		_, err = cloneRepository.PutBlob(indexChecksum32, indexBytes)
+		err = cloneRepository.PutBlob(indexChecksum32, indexBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1
@@ -105,7 +105,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		_, err = cloneRepository.PutBlob(filesystemChecksum32, filesystemBytes)
+		err = cloneRepository.PutBlob(filesystemChecksum32, filesystemBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
 			return 1

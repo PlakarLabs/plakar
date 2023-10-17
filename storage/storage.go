@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
-	"github.com/PlakarLabs/plakar/compression"
-	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/google/uuid"
@@ -418,30 +416,9 @@ func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
 
-	buffer := data
-	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	return buffer, nil
+	return data, nil
 }
 
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
@@ -458,33 +435,11 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	buffer := data
-	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	return buffer, nil
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
 }
 
-func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, error) {
+func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
@@ -494,31 +449,11 @@ func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) (int, 
 		logger.Trace("storage", "PutMetadata(%s): %s", indexID, time.Since(t0))
 	}()
 
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), repository.backend.PutMetadata(indexID, buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutMetadata(indexID, data)
 }
 
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, error) {
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
@@ -527,29 +462,8 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) (int, erro
 		profiler.RecordEvent("storage.PutBlob", time.Since(t0))
 		logger.Trace("storage", "PutBlob(%016x): %s", checksum, time.Since(t0))
 	}()
-
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), repository.backend.PutBlob(checksum, buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutBlob(checksum, data)
 }
 
 func (repository *Repository) GetObjects() ([][32]byte, error) {
@@ -578,30 +492,8 @@ func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	buffer := data
-	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	return buffer, nil
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
 }
 
 func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, error) {
@@ -614,28 +506,8 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, er
 		logger.Trace("storage", "PutObject(%064x): %s", checksum, time.Since(t0))
 	}()
 
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	var err error
-	buffer := data
-	if compressionMethod != "" {
-		buffer, err = compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), repository.backend.PutObject(checksum, buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return len(data), repository.backend.PutObject(checksum, data)
 }
 
 func (repository *Repository) DeleteObject(checksum [32]byte) error {
@@ -676,30 +548,8 @@ func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	buffer := data
-	atomic.AddUint64(&repository.rBytes, uint64(len(buffer)))
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	return buffer, nil
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
 }
 
 func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, error) {
@@ -711,28 +561,8 @@ func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, err
 		profiler.RecordEvent("storage.PutChunk", time.Since(t0))
 		logger.Trace("storage", "PutChunk(%064x): %s", checksum, time.Since(t0))
 	}()
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-	buffer := data
-	var err error
-	if compressionMethod != "" {
-		buffer, err = compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), repository.backend.PutChunk(checksum, buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return len(data), repository.backend.PutChunk(checksum, data)
 }
 
 func (repository *Repository) DeleteChunk(checksum [32]byte) error {
@@ -796,7 +626,7 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.backend.GetUuid()
 }
 
-func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
+func (transaction *Transaction) PutMetadata(data []byte) error {
 	repository := transaction.repository
 
 	repository.wLock()
@@ -807,32 +637,11 @@ func (transaction *Transaction) PutMetadata(data []byte) (int, error) {
 		profiler.RecordEvent("storage.tx.PutMetadata", time.Since(t0))
 		logger.Trace("storage", "%s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
 	}()
-
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), transaction.backend.PutMetadata(buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return transaction.backend.PutMetadata(data)
 }
 
-func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, error) {
+func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 
 	repository.wLock()
@@ -844,28 +653,8 @@ func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) (int, er
 		logger.Trace("storage", "%s.PutBlob(%016x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
 	}()
 
-	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(buffer)))
-	return len(buffer), repository.backend.PutBlob(checksum, buffer)
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutBlob(checksum, data)
 }
 
 func (transaction *Transaction) Commit() error {

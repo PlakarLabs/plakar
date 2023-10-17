@@ -96,15 +96,15 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 				ModTime: info.ModTime(),
 			}
 
-			err = tarWriter.WriteHeader(header)
-			if err != nil {
-				logger.Error("could not write header for file %s", file)
-				continue
-			}
-
 			rd, err := snapshot.NewReader(file)
 			if err != nil {
 				logger.Error("could not find file %s", file)
+				continue
+			}
+
+			err = tarWriter.WriteHeader(header)
+			if err != nil {
+				logger.Error("could not write header for file %s: %s", file, err)
 				continue
 			}
 

@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -29,6 +31,7 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -45,8 +48,8 @@ type DatabaseRepository struct {
 
 	backend string
 
-	conn *sql.DB
-	mu   sync.Mutex
+	conn    *sql.DB
+	wrMutex sync.Mutex
 
 	Repository string
 
@@ -65,12 +68,22 @@ func init() {
 	storage.Register("database", NewDatabaseRepository)
 }
 
+/*
+func wrapDBError(err error) error {
+	var sqliteErr sqlite3.Error
+	if errors.As(err, &sqliteErr) {
+		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
+			return ErrDup
+		}
+	} else if errors.Is(err, sql.ErrNoRows) {
+		return ErrNoRecord
+	}
+	return err
+}
+*/
+
 func NewDatabaseRepository() storage.RepositoryBackend {
 	return &DatabaseRepository{}
-}
-
-func checksumToString(checksum [32]byte) string {
-	return fmt.Sprintf("%064x", checksum)
 }
 
 func stringToChecksum(checksum string) ([32]byte, error) {
@@ -101,10 +114,15 @@ func (repository *DatabaseRepository) connect(addr string) error {
 	repository.conn = conn
 
 	if repository.backend == "sqlite3" {
-		_, err = repository.conn.Exec("PRAGMA foreign_keys = ON")
+		_, err = repository.conn.Exec("PRAGMA journal_mode=WAL;")
 		if err != nil {
 			return nil
 		}
+		_, err = repository.conn.Exec("PRAGMA busy_timeout=2000;")
+		if err != nil {
+			return nil
+		}
+
 	}
 
 	return nil
@@ -117,8 +135,7 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	}
 
 	statement, err := repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
-		configKey	VARCHAR(32) NOT NULL PRIMARY KEY,
-		configValue	VARCHAR(64)
+		value	BLOB
 	);`)
 	if err != nil {
 		return err
@@ -126,9 +143,9 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS metadatas (
-		metadataUuid	VARCHAR(36) NOT NULL PRIMARY KEY,
-		metadataBlob	BLOB
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS snapshots (
+		snapshotId		VARCHAR(36) NOT NULL PRIMARY KEY,
+		snapshotBlob	BLOB
 	);`)
 	if err != nil {
 		return err
@@ -166,32 +183,18 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`INSERT INTO configuration(configKey, configValue) VALUES(?, ?)`)
+	jsonConfig, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	statement, err = repository.conn.Prepare(`INSERT INTO configuration(value) VALUES(?)`)
+	if err != nil {
+		return err
+	}
 	defer statement.Close()
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec("RepositoryID", config.RepositoryID)
-	if err != nil {
-		return err
-	}
 
-	_, err = statement.Exec("Compression", config.Compression)
-	if err != nil {
-		return err
-	}
-
-	_, err = statement.Exec("Encryption", config.Encryption)
-	if err != nil {
-		return err
-	}
-
-	_, err = statement.Exec("Hashing", config.Hashing)
-	if err != nil {
-		return err
-	}
-
-	_, err = statement.Exec("CreationTime", config.CreationTime)
+	_, err = statement.Exec(jsonConfig)
 	if err != nil {
 		return err
 	}
@@ -205,22 +208,15 @@ func (repository *DatabaseRepository) Open(location string) error {
 		return err
 	}
 
-	repositoryConfig := storage.RepositoryConfig{}
-	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='RepositoryID'`).Scan(&repositoryConfig.RepositoryID)
-	if err != nil {
-		return err
-	}
-	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Compression'`).Scan(&repositoryConfig.Compression)
+	var buffer []byte
+	var repositoryConfig storage.RepositoryConfig
+
+	err = repository.conn.QueryRow(`SELECT value FROM configuration`).Scan(&buffer)
 	if err != nil {
 		return err
 	}
 
-	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Hashing'`).Scan(&repositoryConfig.Hashing)
-	if err != nil {
-		return err
-	}
-
-	err = repository.conn.QueryRow(`SELECT configValue FROM configuration WHERE configKey='Encryption'`).Scan(&repositoryConfig.Encryption)
+	err = json.Unmarshal(buffer, &repositoryConfig)
 	if err != nil {
 		return err
 	}
@@ -250,7 +246,7 @@ func (repository *DatabaseRepository) Transaction(indexID uuid.UUID) (storage.Tr
 }
 
 func (repository *DatabaseRepository) GetSnapshots() ([]uuid.UUID, error) {
-	rows, err := repository.conn.Query("SELECT indexUuid FROM indexes")
+	rows, err := repository.conn.Query("SELECT snapshotId FROM snapshots")
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +271,9 @@ func (repository *DatabaseRepository) PutSnapshot(indexID uuid.UUID, data []byte
 	}
 	defer statement.Close()
 
+	repository.wrMutex.Lock()
 	_, err = statement.Exec(indexID, data)
+	repository.wrMutex.Unlock()
 	if err != nil {
 		return err
 	}
@@ -310,9 +308,17 @@ func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) er
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksum, data)
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:], data)
+	repository.wrMutex.Unlock()
 	if err != nil {
-		return err
+		if sqliteErr, ok := err.(sqlite3.Error); !ok {
+			return err
+		} else if !errors.As(err, &sqliteErr) {
+			return err
+		} else if !errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
+			return err
+		}
 	}
 
 	return nil
@@ -325,7 +331,9 @@ func (repository *DatabaseRepository) DeleteBlob(checksum [32]byte) error {
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum))
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:])
+	repository.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -341,10 +349,17 @@ func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) e
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum), data)
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:], data)
+	repository.wrMutex.Unlock()
 	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
+		if sqliteErr, ok := err.(sqlite3.Error); !ok {
+			return err
+		} else if !errors.As(err, &sqliteErr) {
+			return err
+		} else if !errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
+			return err
+		}
 	}
 
 	return nil
@@ -357,7 +372,9 @@ func (repository *DatabaseRepository) DeleteChunk(checksum [32]byte) error {
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum))
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:])
+	repository.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -373,10 +390,17 @@ func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum), []byte(""))
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:], []byte(""))
+	repository.wrMutex.Unlock()
 	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
+		if sqliteErr, ok := err.(sqlite3.Error); !ok {
+			return err
+		} else if !errors.As(err, &sqliteErr) {
+			return err
+		} else if !errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
+			return err
+		}
 	}
 
 	return nil
@@ -389,7 +413,9 @@ func (repository *DatabaseRepository) DeleteObject(checksum [32]byte) error {
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum))
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(checksum[:])
+	repository.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -412,8 +438,10 @@ func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		checksumDecoded, _ := stringToChecksum(checksum)
-		checksums = append(checksums, checksumDecoded)
+
+		var t32 [32]byte
+		copy(t32[:], checksum)
+		checksums = append(checksums, t32)
 	}
 	return checksums, nil
 }
@@ -432,15 +460,17 @@ func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		checksumDecoded, _ := stringToChecksum(checksum)
-		checksums = append(checksums, checksumDecoded)
+
+		var t32 [32]byte
+		copy(t32[:], checksum)
+		checksums = append(checksums, t32)
 	}
 	return checksums, nil
 }
 
 func (repository *DatabaseRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, indexID).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT snapshotBlob FROM snapshots WHERE snapshotId=?`, indexID).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +479,7 @@ func (repository *DatabaseRepository) GetSnapshot(indexID uuid.UUID) ([]byte, er
 
 func (repository *DatabaseRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT blobData FROM blobs WHERE blobChecksum=?`, checksum).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT blobData FROM blobs WHERE blobChecksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -458,7 +488,7 @@ func (repository *DatabaseRepository) GetBlob(checksum [32]byte) ([]byte, error)
 
 func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -467,7 +497,7 @@ func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, erro
 
 func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +506,7 @@ func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error
 
 func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksumToString(checksum)).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
@@ -485,7 +515,7 @@ func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, erro
 
 func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksumToString(checksum)).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return false, nil
 	}
@@ -506,46 +536,17 @@ func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *DatabaseTransaction) PutObject(checksum [32]byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	_, err = statement.Exec(checksumToString(checksum), []byte(""))
-	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
-	}
-
-	return nil
-}
-
-func (transaction *DatabaseTransaction) PutChunk(checksum [32]byte, data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	_, err = statement.Exec(checksumToString(checksum), data)
-	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
-	}
-
-	return nil
-}
-
 func (transaction *DatabaseTransaction) Commit(data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
+	statement, err := transaction.dbTx.Prepare(`INSERT INTO snapshots (snapshotId, snapshotBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
+	repository := transaction.repository
+	repository.wrMutex.Lock()
 	_, err = statement.Exec(transaction.GetUuid(), data)
+	repository.wrMutex.Unlock()
 	if err != nil {
 		return err
 	}

@@ -202,25 +202,6 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 }
 
 func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
-	/*
-		done := make(chan bool, 1)
-		go func() {
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					fmt.Printf("push: concurrent files: %d, concurrent chunks: %d, chunks_size: %s\n",
-						atomic.LoadInt64(&snapshot.concurrentObjects),
-						atomic.LoadInt64(&snapshot.concurrentChunks),
-						humanize.Bytes(uint64(atomic.LoadInt64(&snapshot.concurrentChunksSize))))
-				case <-done:
-					return
-				}
-			}
-		}()
-		defer func() { done <- true }()
-	*/
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}

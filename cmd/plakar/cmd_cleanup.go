@@ -33,6 +33,7 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 
 	chunks := make(map[[32]byte]bool)
 	objects := make(map[[32]byte]bool)
+	blobs := make(map[[32]byte]bool)
 
 	indexesList, err := repository.GetSnapshots()
 	if err != nil {
@@ -50,6 +51,13 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		for _, chunkID := range s.Index.ListChunks() {
 			chunks[chunkID] = true
 		}
+
+		var blobID [32]byte
+		copy(blobID[:], s.Metadata.IndexChecksum[:32])
+		blobs[blobID] = true
+
+		copy(blobID[:], s.Metadata.FilesystemChecksum[:32])
+		blobs[blobID] = true
 	}
 
 	objectList, err := repository.GetObjects()
@@ -58,6 +66,11 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 	}
 
 	chunkList, err := repository.GetChunks()
+	if err != nil {
+		return 1
+	}
+
+	blobList, err := repository.GetBlobs()
 	if err != nil {
 		return 1
 	}
@@ -71,6 +84,12 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 	for _, chunkID := range chunkList {
 		if _, exists := chunks[chunkID]; !exists {
 			repository.DeleteChunk(chunkID)
+		}
+	}
+
+	for _, blobID := range blobList {
+		if _, exists := blobs[blobID]; !exists {
+			repository.DeleteBlob(blobID)
 		}
 	}
 

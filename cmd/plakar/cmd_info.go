@@ -240,6 +240,7 @@ func info_plakar(repository *storage.Repository) int {
 
 	if repository.Configuration().Encryption != "" {
 		fmt.Println("Encryption:", repository.Configuration().Encryption)
+		fmt.Println("EncryptionKey:", repository.Configuration().EncryptionKey)
 	} else {
 		fmt.Println("Encryption:", "no")
 	}
@@ -251,6 +252,14 @@ func info_plakar(repository *storage.Repository) int {
 	}
 
 	fmt.Println("Hashing:", repository.Configuration().Hashing)
+
+	fmt.Println("Chunking:", repository.Configuration().Chunking)
+	fmt.Printf("ChunkingMin: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repository.Configuration().ChunkingMin)), repository.Configuration().ChunkingMin)
+	fmt.Printf("ChunkingNormal: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repository.Configuration().ChunkingNormal)), repository.Configuration().ChunkingNormal)
+	fmt.Printf("ChunkingMax: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repository.Configuration().ChunkingMax)), repository.Configuration().ChunkingMax)
 
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)

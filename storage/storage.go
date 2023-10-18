@@ -35,15 +35,25 @@ import (
 	"github.com/google/uuid"
 )
 
-const VERSION string = "0.2.1"
+const VERSION string = "0.3.0"
 
 type RepositoryConfig struct {
 	CreationTime time.Time
 	RepositoryID uuid.UUID
-	Version      string
-	Encryption   string
-	Compression  string
-	Hashing      string
+
+	Version string
+
+	Encryption    string
+	EncryptionKey string
+
+	Compression string
+
+	Hashing string
+
+	Chunking       string
+	ChunkingMin    int
+	ChunkingNormal int
+	ChunkingMax    int
 }
 
 type RepositoryBackend interface {
@@ -56,8 +66,12 @@ type RepositoryBackend interface {
 	GetSnapshots() ([]uuid.UUID, error)
 	GetSnapshot(indexID uuid.UUID) ([]byte, error)
 	PutSnapshot(indexID uuid.UUID, data []byte) error
+	DeleteSnapshot(indexID uuid.UUID) error
+
+	GetBlobs() ([][32]byte, error)
 	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
+	DeleteBlob(checksum [32]byte) error
 
 	GetObjects() ([][32]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
@@ -69,8 +83,6 @@ type RepositoryBackend interface {
 	CheckChunk(checksum [32]byte) (bool, error)
 	PutChunk(checksum [32]byte, data []byte) error
 	DeleteChunk(checksum [32]byte) error
-
-	Purge(indexID uuid.UUID) error
 
 	Close() error
 }
@@ -413,6 +425,18 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetBlobs", time.Since(t0))
+		logger.Trace("storage", "GetBlobs(): %s", time.Since(t0))
+	}()
+	return repository.backend.GetBlobs()
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	repository.rLock()
 	defer repository.rUnlock()
@@ -429,6 +453,17 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	}
 	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
 	return data, nil
+}
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	repository.sLock()
+	defer repository.sUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteBlob", time.Since(t0))
+		logger.Trace("storage", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteBlob(checksum)
 }
 
 func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
@@ -574,16 +609,16 @@ func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
 	return repository.backend.CheckChunk(checksum)
 }
 
-func (repository *Repository) Purge(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	repository.sLock()
 	defer repository.sUnlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.Purge", time.Since(t0))
-		logger.Trace("storage", "Purge(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.DeleteSnapshot", time.Since(t0))
+		logger.Trace("storage", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
-	return repository.backend.Purge(indexID)
+	return repository.backend.DeleteSnapshot(indexID)
 }
 
 func (repository *Repository) Close() error {

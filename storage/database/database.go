@@ -283,6 +283,26 @@ func (repository *DatabaseRepository) PutSnapshot(indexID uuid.UUID, data []byte
 	return nil
 }
 
+func (repository *DatabaseRepository) GetBlobs() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT blobChecksum FROM blobs")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checksums [][32]byte
+	for rows.Next() {
+		var checksum string
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		checksumDecoded, _ := stringToChecksum(checksum)
+		checksums = append(checksums, checksumDecoded)
+	}
+	return checksums, nil
+}
+
 func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO blobs (blobChecksum, blobData) VALUES(?, ?)`)
 	if err != nil {
@@ -292,6 +312,22 @@ func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) er
 
 	_, err = statement.Exec(checksum, data)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) DeleteBlob(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM blobs WHERE blobChecksum=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum))
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
 	}
 
@@ -456,7 +492,7 @@ func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error
 	return true, nil
 }
 
-func (repository *DatabaseRepository) Purge(indexID uuid.UUID) error {
+func (repository *DatabaseRepository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 

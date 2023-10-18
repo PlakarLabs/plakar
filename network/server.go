@@ -314,17 +314,17 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqPurge":
+		case "ReqDeleteSnapshot":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("%s: Purge(%s)", clientUuid, request.Payload.(ReqPurge).Uuid)
-				err := repository.Purge(request.Payload.(ReqPurge).Uuid)
+				logger.Trace("%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(ReqDeleteSnapshot).Uuid)
+				err := repository.DeleteSnapshot(request.Payload.(ReqDeleteSnapshot).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResPurge",
-					Payload: ResPurge{
+					Type: "ResDeleteSnapshot",
+					Payload: ResDeleteSnapshot{
 						Err: err,
 					},
 				}

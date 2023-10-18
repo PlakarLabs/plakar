@@ -201,6 +201,42 @@ func (repository *FSRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
+func (repository *FSRepository) GetBlobs() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
+
+	buckets, err := os.ReadDir(repository.PathIndexes())
+	if err != nil {
+		return ret, err
+	}
+
+	for _, bucket := range buckets {
+		if !bucket.IsDir() {
+			continue
+		}
+		pathBuckets := filepath.Join(repository.PathBlobs(), bucket.Name())
+		blobs, err := os.ReadDir(pathBuckets)
+		if err != nil {
+			return ret, err
+		}
+		for _, blob := range blobs {
+			if blob.IsDir() {
+				continue
+			}
+			t, err := hex.DecodeString(blob.Name())
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
+		}
+	}
+	return ret, nil
+}
+
 func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathBlob(checksum))
 	if err != nil {
@@ -208,6 +244,14 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func (repository *FSRepository) DeleteBlob(checksum [32]byte) error {
+	err := os.Remove(repository.PathBlob(checksum))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (repository *FSRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
@@ -389,7 +433,7 @@ func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
 
 }
 
-func (repository *FSRepository) Purge(indexID uuid.UUID) error {
+func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
 	dest := filepath.Join(repository.PathPurge(), indexID.String())
 	err := os.Rename(repository.PathIndex(indexID), dest)
 	if err != nil {

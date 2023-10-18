@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -194,7 +195,6 @@ func (repository *S3Repository) GetSnapshots() ([]uuid.UUID, error) {
 			ret = append(ret, uuid.MustParse(object.Key[12:]))
 		}
 	}
-
 	return ret, nil
 }
 
@@ -228,6 +228,28 @@ func (repository *S3Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return dataBytes, nil
 }
 
+func (repository *S3Repository) GetBlobs() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
+		Prefix:    "BLOB/",
+		Recursive: true,
+	}) {
+		if strings.HasPrefix(object.Key, "BLOB/") && len(object.Key) >= 8 {
+			t, err := hex.DecodeString(object.Key[8:])
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
+		}
+	}
+	return ret, nil
+}
+
 func (repository *S3Repository) PutBlob(checksum [32]byte, data []byte) error {
 	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
@@ -256,6 +278,14 @@ func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	object.Close()
 
 	return dataBytes, nil
+}
+
+func (repository *S3Repository) DeleteBlob(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (repository *S3Repository) GetChunks() ([][32]byte, error) {
@@ -410,17 +440,11 @@ func (repository *S3Repository) DeleteChunk(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *S3Repository) Purge(indexID uuid.UUID) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
+func (repository *S3Repository) DeleteSnapshot(indexID uuid.UUID) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
-
-	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

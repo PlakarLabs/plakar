@@ -98,7 +98,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 				continue
 			}
 
-			secret, err := encryption.DeriveSecret(passphrase, dstRepository.Configuration().Encryption)
+			secret, err := encryption.DeriveSecret(passphrase, dstRepository.Configuration().EncryptionKey)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue

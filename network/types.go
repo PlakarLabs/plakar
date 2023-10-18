@@ -49,6 +49,14 @@ type ResStorePutBlob struct {
 	Err error
 }
 
+type ReqGetBlobs struct {
+}
+
+type ResGetBlobs struct {
+	Chunks [][32]byte
+	Err    error
+}
+
 type ReqGetChunks struct {
 }
 
@@ -91,6 +99,14 @@ type ResGetBlob struct {
 	Err  error
 }
 
+type ReqDeleteBlob struct {
+	Checksum [32]byte
+	Data     []byte
+}
+type ResDeleteBlob struct {
+	Err error
+}
+
 type ReqGetChunk struct {
 	Checksum [32]byte
 }
@@ -118,11 +134,11 @@ type ResCheckChunk struct {
 	Err    error
 }
 
-type ReqPurge struct {
+type ReqDeleteSnapshot struct {
 	Uuid uuid.UUID
 }
 
-type ResPurge struct {
+type ResDeleteSnapshot struct {
 	Err error
 }
 
@@ -226,8 +242,14 @@ func ProtocolRegister() {
 	gob.Register(ReqGetSnapshot{})
 	gob.Register(ResGetSnapshot{})
 
+	gob.Register(ReqGetBlobs{})
+	gob.Register(ResGetBlobs{})
+
 	gob.Register(ReqGetBlob{})
 	gob.Register(ResGetBlob{})
+
+	gob.Register(ReqDeleteBlob{})
+	gob.Register(ResDeleteBlob{})
 
 	gob.Register(ReqGetChunk{})
 	gob.Register(ResGetChunk{})
@@ -238,8 +260,8 @@ func ProtocolRegister() {
 	gob.Register(ReqCheckChunk{})
 	gob.Register(ResCheckChunk{})
 
-	gob.Register(ReqPurge{})
-	gob.Register(ResPurge{})
+	gob.Register(ReqDeleteSnapshot{})
+	gob.Register(ResDeleteSnapshot{})
 
 	gob.Register(ReqClose{})
 	gob.Register(ResClose{})

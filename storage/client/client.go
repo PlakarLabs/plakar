@@ -378,6 +378,15 @@ func (repository *ClientRepository) PutSnapshot(indexID uuid.UUID, data []byte) 
 	return result.Payload.(network.ResStorePutSnapshot).Err
 }
 
+func (repository *ClientRepository) GetBlobs() ([][32]byte, error) {
+	result, err := repository.sendRequest("ReqGetBlobs", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Payload.(network.ResGetBlobs).Chunks, result.Payload.(network.ResGetBlobs).Err
+}
+
 func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) error {
 	result, err := repository.sendRequest("ReqStorePutBlob", network.ReqStorePutBlob{
 		Checksum: checksum,
@@ -387,6 +396,16 @@ func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) erro
 		return err
 	}
 	return result.Payload.(network.ResStorePutBlob).Err
+}
+
+func (repository *ClientRepository) DeleteBlob(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeleteBlob", network.ReqDeleteBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeleteBlob).Err
 }
 
 func (repository *ClientRepository) GetChunks() ([][32]byte, error) {
@@ -502,15 +521,15 @@ func (repository *ClientRepository) DeleteObject(checksum [32]byte) error {
 	return result.Payload.(network.ResDeleteObject).Err
 }
 
-func (repository *ClientRepository) Purge(indexID uuid.UUID) error {
-	result, err := repository.sendRequest("ReqPurge", network.ReqPurge{
+func (repository *ClientRepository) DeleteSnapshot(indexID uuid.UUID) error {
+	result, err := repository.sendRequest("ReqDeleteSnapshot", network.ReqDeleteSnapshot{
 		Uuid: indexID,
 	})
 	if err != nil {
 		return err
 	}
 
-	return result.Payload.(network.ResPurge).Err
+	return result.Payload.(network.ResDeleteSnapshot).Err
 }
 
 func (repository *ClientRepository) Close() error {

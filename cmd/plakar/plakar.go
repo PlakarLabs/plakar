@@ -239,7 +239,7 @@ func entryPoint() int {
 					continue
 				}
 
-				secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().Encryption)
+				secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					continue
@@ -248,7 +248,7 @@ func entryPoint() int {
 				break
 			}
 		} else {
-			secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().Encryption)
+			secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().EncryptionKey)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				os.Exit(1)

@@ -422,3 +422,42 @@ func (index *Index) LookupObjectsForContentType(contentType string) [][32]byte {
 		return ret
 	}
 }
+
+func (index *Index) GetObject(checksum [32]byte) *objects.Object {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	checksumID, exists := index.ChecksumToId(checksum)
+	if !exists {
+		return nil
+	}
+
+	objectChunks, exists := index.Objects[checksumID]
+	if !exists {
+		return nil
+	}
+
+	chunks := make([][32]byte, 0)
+	for _, checksumID := range objectChunks {
+		checksum, exists := index.IdToChecksum(checksumID)
+		if !exists {
+			panic("GetObject: corrupted index: could not find chunk checksum")
+		}
+		chunks = append(chunks, checksum)
+	}
+
+	var contentType string
+	contentTypeID, exists := index.ObjectToContentType[checksumID]
+	if exists {
+		contentType, exists = index.getContentType(contentTypeID)
+		if !exists {
+			panic("GetObject: corrupted index: could not find content type")
+		}
+	}
+
+	return &objects.Object{
+		Checksum:    checksum,
+		Chunks:      chunks,
+		ContentType: contentType,
+	}
+}

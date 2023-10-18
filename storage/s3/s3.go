@@ -377,8 +377,8 @@ func (repository *S3Repository) CheckChunk(checksum [32]byte) (bool, error) {
 	return true, nil
 }
 
-func (repository *S3Repository) PutObject(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT:%064x", checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *S3Repository) PutObject(checksum [32]byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT:%064x", checksum), bytes.NewReader([]byte("")), int64(0), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (transaction *S3Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *S3Transaction) PutObject(checksum [32]byte, data []byte) error {
+func (transaction *S3Transaction) PutObject(checksum [32]byte) error {
 	fmt.Println("tx.PutObject")
 	return nil
 }

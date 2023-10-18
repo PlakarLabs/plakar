@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
@@ -42,7 +41,6 @@ type FSRepository struct {
 
 	Repository string
 	root       string
-	dirty      bool
 
 	storage.RepositoryBackend
 }
@@ -50,19 +48,7 @@ type FSRepository struct {
 type FSTransaction struct {
 	Uuid       uuid.UUID
 	repository FSRepository
-	prepared   bool
-
-	chunksMutex  sync.Mutex
-	objectsMutex sync.Mutex
-
-	chunks  map[[32]byte]bool
-	objects map[[32]byte]bool
-
-	muChunkBucket sync.Mutex
-	chunkBucket   map[string]bool
-
-	muObjectBucket sync.Mutex
-	objectBucket   map[string]bool
+	//prepared   bool
 
 	storage.TransactionBackend
 }
@@ -100,11 +86,13 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
-		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
+		for j := 0; j < 256; j++ {
+			os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
+			os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
+			os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
+			os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
+			os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
+		}
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")
@@ -168,41 +156,36 @@ func (repository *FSRepository) Configuration() storage.RepositoryConfig {
 }
 
 func (repository *FSRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	// XXX - keep a map of current transactions
-
 	tx := &FSTransaction{}
 	tx.Uuid = indexID
 	tx.repository = *repository
-	tx.prepared = false
-
-	tx.chunks = make(map[[32]byte]bool)
-	tx.objects = make(map[[32]byte]bool)
-	tx.chunkBucket = make(map[string]bool)
-	tx.objectBucket = make(map[string]bool)
-
-	tx.prepare()
-
 	return tx, nil
 }
 
 func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
 
-	buckets, err := ioutil.ReadDir(repository.PathIndexes())
+	buckets, err := os.ReadDir(repository.PathIndexes())
 	if err != nil {
-		return ret, nil
+		return ret, err
 	}
 
 	for _, bucket := range buckets {
+		if !bucket.IsDir() {
+			continue
+		}
 		pathBuckets := filepath.Join(repository.PathIndexes(), bucket.Name())
-		indexes, err := ioutil.ReadDir(pathBuckets)
+		indexes, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
 		for _, index := range indexes {
+			if index.IsDir() {
+				continue
+			}
 			indexID, err := uuid.Parse(index.Name())
 			if err != nil {
-				return ret, nil
+				return ret, err
 			}
 			ret = append(ret, indexID)
 		}
@@ -229,8 +212,6 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *FSRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
-	os.Mkdir(repository.PathIndexBucket(indexID), 0700)
-
 	f, err := os.Create(repository.PathIndex(indexID))
 	if err != nil {
 		return err
@@ -245,8 +226,6 @@ func (repository *FSRepository) PutMetadata(indexID uuid.UUID, data []byte) erro
 }
 
 func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
-	os.Mkdir(repository.PathBlobBucket(checksum), 0700)
-
 	f, err := os.Create(repository.PathBlob(checksum))
 	if err != nil {
 		return err
@@ -261,21 +240,28 @@ func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
 }
 
 func (repository *FSRepository) GetObjects() ([][32]byte, error) {
+	fmt.Println("FOOBAR")
 	ret := make([][32]byte, 0)
 
-	buckets, err := ioutil.ReadDir(repository.PathObjects())
+	buckets, err := os.ReadDir(repository.PathObjects())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, bucket := range buckets {
+		if !bucket.IsDir() {
+			continue
+		}
 		pathBuckets := filepath.Join(repository.PathObjects(), bucket.Name())
-		objects, err := ioutil.ReadDir(pathBuckets)
+		objects, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
 
 		for _, object := range objects {
+			if object.IsDir() {
+				continue
+			}
 			t, err := hex.DecodeString(object.Name())
 			if err != nil {
 				return nil, err
@@ -316,30 +302,12 @@ func (repository *FSRepository) GetChunkSize(checksum [32]byte) (uint64, error) 
 	return uint64(st.Size()), nil
 }
 
-func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error {
-	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
+func (repository *FSRepository) PutObject(checksum [32]byte) error {
+	file, err := os.Create(repository.PathObject(checksum))
 	if err != nil {
 		return err
 	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathObject(checksum))
-	if err != nil {
-		return err
-	}
-
+	file.Close()
 	return nil
 }
 
@@ -348,39 +316,6 @@ func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (repository *FSRepository) PutObjectSafe(checksum [32]byte, data []byte, link string) error {
-	f, err := ioutil.TempFile(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	err = os.Link(f.Name(), link)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathObject(checksum))
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -425,7 +360,7 @@ func (repository *FSRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *FSRepository) PutChunk(checksum [32]byte, data []byte) error {
-	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x.*", checksum))
+	f, err := os.CreateTemp(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x.*", checksum))
 	if err != nil {
 		return err
 	}
@@ -459,39 +394,6 @@ func (repository *FSRepository) DeleteChunk(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *FSRepository) PutChunkSafe(checksum [32]byte, data []byte, link string) error {
-	f, err := ioutil.TempFile(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x.*", checksum))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	err = os.Link(f.Name(), link)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathChunk(checksum))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (repository *FSRepository) CheckObject(checksum [32]byte) (bool, error) {
 	fileinfo, err := os.Stat(repository.PathObject(checksum))
 	if os.IsNotExist(err) {
@@ -520,29 +422,15 @@ func (repository *FSRepository) Purge(indexID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-
-	repository.dirty = true
-
 	return nil
 }
 
 func (repository *FSRepository) Close() error {
-	// XXX - rollback all pending transactions so they don't linger
-	if repository.dirty {
-		//repository.Tidy()
-		repository.dirty = false
-	}
 	return nil
 }
 
 func (transaction *FSTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
-}
-
-func (transaction *FSTransaction) prepare() {
-	os.MkdirAll(transaction.repository.root, 0700)
-	os.MkdirAll(filepath.Join(transaction.repository.PathTransactions(),
-		transaction.Uuid.String()[0:2]), 0700)
 }
 
 func (transaction *FSTransaction) PutMetadata(data []byte) error {
@@ -561,6 +449,5 @@ func (transaction *FSTransaction) PutMetadata(data []byte) error {
 }
 
 func (transaction *FSTransaction) Commit() error {
-	transaction.repository.dirty = false
 	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
 }

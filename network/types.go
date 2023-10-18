@@ -166,12 +166,10 @@ type ResPutChunk struct {
 type ReqPutObject struct {
 	Transaction uuid.UUID
 	Checksum    [32]byte
-	Data        []byte
 }
 
 type ResPutObject struct {
-	NBytes int
-	Err    error
+	Err error
 }
 
 type ReqPutMetadata struct {

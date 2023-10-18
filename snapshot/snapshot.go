@@ -15,7 +15,6 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Snapshot struct {
@@ -364,40 +363,13 @@ func (snapshot *Snapshot) Repository() *storage.Repository {
 	return snapshot.repository
 }
 
-func (snapshot *Snapshot) PutObject(object *objects.Object) (int, error) {
+func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Metadata.GetIndexShortID(), object.Checksum)
-
-	data, err := msgpack.Marshal(object)
-	if err != nil {
-		return 0, err
-	}
-
-	repository := snapshot.repository
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	buffer := data
-	if compressionMethod != "" {
-		buffer, err = compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return 0, err
-		}
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return 0, err
-		}
-		buffer = tmp
-	}
-
-	return snapshot.repository.PutObject(object.Checksum, buffer)
+	return snapshot.repository.PutObject(object.Checksum)
 }
 
 func (snapshot *Snapshot) PutMetadata(data []byte) (int, error) {
@@ -521,44 +493,6 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
 		return false, err
 	}
 	return exists, nil
-}
-
-func (snapshot *Snapshot) GetObject(checksum [32]byte) (*objects.Object, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetObject", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%s: GetObject(%064x)", snapshot.Metadata.GetIndexShortID(), checksum)
-
-	repository := snapshot.repository
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	buffer, err := snapshot.repository.GetObject(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	object := &objects.Object{}
-	err = msgpack.Unmarshal(buffer, &object)
-	return object, err
 }
 
 func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {

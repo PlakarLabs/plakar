@@ -314,14 +314,14 @@ func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) e
 	return nil
 }
 
-func (repository *DatabaseRepository) PutObject(checksum [32]byte, data []byte) error {
+func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum), data)
+	_, err = statement.Exec(checksumToString(checksum), []byte(""))
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -438,14 +438,14 @@ func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *DatabaseTransaction) PutObject(checksum [32]byte, data []byte) error {
+func (transaction *DatabaseTransaction) PutObject(checksum [32]byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(checksumToString(checksum), data)
+	_, err = statement.Exec(checksumToString(checksum), []byte(""))
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err

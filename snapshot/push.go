@@ -317,13 +317,12 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 						return
 					}
 					if !exists {
-						nbytes, err := snapshot.PutObject(object)
+						err := snapshot.PutObject(object)
 						if err != nil {
 							logger.Warn("%s: failed to store object: %s", _filename, err)
 							return
 						}
 						atomic.AddUint64(&snapshot.Metadata.ObjectsTransferCount, uint64(1))
-						atomic.AddUint64(&snapshot.Metadata.ObjectsTransferSize, uint64(nbytes))
 					}
 				}
 			}

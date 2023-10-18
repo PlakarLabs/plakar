@@ -43,9 +43,8 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 			return false, nil
 		}
 	} else {
-		tmp, err := snapshot.GetObject(checksum)
-		if err != nil {
-			logger.Warn("%s: could not fetch object %064x: %s", snapshot.Metadata.GetIndexShortID(), checksum, err)
+		tmp := snapshot.Index.GetObject(checksum)
+		if tmp != nil {
 			return false, nil
 		}
 		object = tmp
@@ -154,13 +153,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 				continue
 			}
 		} else {
-			object, err := snapshot.GetObject(checksum)
-			if err != nil {
-				logger.Warn("%s: missing object %064x: %s", snapshot.Metadata.GetIndexShortID(), checksum, err)
-				ret = false
-				continue
-			}
-
+			object := snapshot.Index.GetObject(checksum)
 			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
 				indexChunk := snapshot.Index.LookupChunk(chunkChecksum)

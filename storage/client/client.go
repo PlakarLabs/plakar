@@ -471,10 +471,9 @@ func (repository *ClientRepository) CheckChunk(checksum [32]byte) (bool, error) 
 	return result.Payload.(network.ResCheckChunk).Exists, result.Payload.(network.ResCheckChunk).Err
 }
 
-func (repository *ClientRepository) PutObject(checksum [32]byte, data []byte) error {
+func (repository *ClientRepository) PutObject(checksum [32]byte) error {
 	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
 		Checksum: checksum,
-		Data:     data,
 	})
 	if err != nil {
 		return err
@@ -520,12 +519,11 @@ func (transaction *ClientTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *ClientTransaction) PutObject(checksum [32]byte, data []byte) error {
+func (transaction *ClientTransaction) PutObject(checksum [32]byte) error {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
 		Transaction: transaction.GetUuid(),
 		Checksum:    checksum,
-		Data:        data,
 	})
 	if err != nil {
 		return err

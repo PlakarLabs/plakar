@@ -62,7 +62,7 @@ type RepositoryBackend interface {
 	GetObjects() ([][32]byte, error)
 	GetObject(checksum [32]byte) ([]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
-	PutObject(checksum [32]byte, data []byte) error
+	PutObject(checksum [32]byte) error
 	DeleteObject(checksum [32]byte) error
 
 	GetChunks() ([][32]byte, error)
@@ -79,7 +79,7 @@ type RepositoryBackend interface {
 type TransactionBackend interface {
 	GetUuid() uuid.UUID
 
-	PutObject(checksum [32]byte, data []byte) error
+	PutObject(checksum [32]byte) error
 	PutChunk(checksum [32]byte, data []byte) error
 
 	PutMetadata(data []byte) error
@@ -496,7 +496,7 @@ func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, error) {
+func (repository *Repository) PutObject(checksum [32]byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
@@ -506,8 +506,7 @@ func (repository *Repository) PutObject(checksum [32]byte, data []byte) (int, er
 		logger.Trace("storage", "PutObject(%064x): %s", checksum, time.Since(t0))
 	}()
 
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return len(data), repository.backend.PutObject(checksum, data)
+	return repository.backend.PutObject(checksum)
 }
 
 func (repository *Repository) DeleteObject(checksum [32]byte) error {

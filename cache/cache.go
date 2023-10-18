@@ -40,15 +40,31 @@ func New(cacheDir string) *Cache {
 	}
 }
 
-func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte) error {
+func (cache *Cache) PutSnapshot(RepositoryUuid string, Uuid string, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("cache.PutMetadata", time.Since(t0))
+		profiler.RecordEvent("cache.PutSnapshot", time.Since(t0))
 	}()
-	logger.Trace("cache", "%s: PutMetadata()", Uuid)
+	logger.Trace("cache", "%s: PutSnapshot()", Uuid)
 
-	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
+	key := fmt.Sprintf("Snapshot:%s:%s", RepositoryUuid, Uuid)
 	return cache.db.Put([]byte(key), data, nil)
+}
+
+func (cache *Cache) GetSnapshot(RepositoryUuid string, Uuid string) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("cache.GetSnapshot", time.Since(t0))
+	}()
+	logger.Trace("cache", "%s: GetSnapshot()", Uuid)
+
+	var data []byte
+	key := fmt.Sprintf("Snapshot:%s:%s", RepositoryUuid, Uuid)
+	data, err := cache.db.Get([]byte(key), nil)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byte) error {
@@ -61,22 +77,6 @@ func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byt
 
 	key := fmt.Sprintf("Blob:%s:%016x", RepositoryUuid, checksum)
 	return cache.db.Put([]byte(key), data, nil)
-}
-
-func (cache *Cache) GetMetadata(RepositoryUuid string, Uuid string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("cache.GetMetadata", time.Since(t0))
-	}()
-	logger.Trace("cache", "%s: GetMetadata()", Uuid)
-
-	var data []byte
-	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
-	data, err := cache.db.Get([]byte(key), nil)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
 
 func (cache *Cache) GetBlob(RepositoryUuid string, checksum [32]byte) ([]byte, error) {

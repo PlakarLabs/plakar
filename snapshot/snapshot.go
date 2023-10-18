@@ -165,7 +165,7 @@ func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*metadata.M
 	cacheMiss := false
 	if cache != nil {
 		logger.Trace("snapshot", "cache.GetSnapshot(%s)", indexID)
-		tmp, err := cache.GetMetadata(repository.Configuration().RepositoryID.String(), indexID.String())
+		tmp, err := cache.GetSnapshot(repository.Configuration().RepositoryID.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot", "repository.GetSnapshot(%s)", indexID)
@@ -186,7 +186,7 @@ func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*metadata.M
 
 	if cache != nil && cacheMiss {
 		logger.Trace("snapshot", "cache.PutSnapshot(%s)", indexID)
-		cache.PutMetadata(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
+		cache.PutSnapshot(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
 	}
 
 	secret := repository.GetSecret()
@@ -403,7 +403,7 @@ func (snapshot *Snapshot) prepareMetadata(data []byte) ([]byte, error) {
 	}
 
 	if cache != nil {
-		cache.PutMetadata(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
+		cache.PutSnapshot(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Metadata.GetIndexID().String(), buffer)
 	}
 
 	return buffer, nil

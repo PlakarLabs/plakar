@@ -173,16 +173,16 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqGetMetadata":
+		case "ReqGetSnapshot":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetMetadata).Uuid)
-				data, err := repository.GetMetadata(request.Payload.(ReqGetMetadata).Uuid)
+				logger.Trace("%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetSnapshot).Uuid)
+				data, err := repository.GetSnapshot(request.Payload.(ReqGetSnapshot).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResGetMetadata",
-					Payload: ResGetMetadata{
+					Type: "ResGetSnapshot",
+					Payload: ResGetSnapshot{
 						Data: data,
 						Err:  err,
 					},
@@ -213,16 +213,16 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqStorePutMetadata":
+		case "ReqStorePutSnapshot":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutMetadata()", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
-				err := repository.PutMetadata(request.Payload.(ReqStorePutMetadata).IndexID, request.Payload.(ReqStorePutMetadata).Data)
+				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
+				err := repository.PutSnapshot(request.Payload.(ReqStorePutSnapshot).IndexID, request.Payload.(ReqStorePutSnapshot).Data)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResStorePutMetadata",
-					Payload: ResStorePutMetadata{
+					Type: "ResStorePutSnapshot",
+					Payload: ResStorePutSnapshot{
 						Err: err,
 					},
 				}
@@ -441,27 +441,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqPutMetadata":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: PutMetadata()", clientUuid)
-				txUuid := request.Payload.(ReqPutMetadata).Transaction
-				tx := transactions[txUuid]
-				err := tx.PutMetadata(request.Payload.(ReqPutMetadata).Data)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResPutMetadata",
-					Payload: ResPutMetadata{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqCommit":
 			wg.Add(1)
 			go func() {
@@ -469,8 +448,9 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 
 				logger.Trace("%s: Commit()", clientUuid)
 				txUuid := request.Payload.(ReqCommit).Transaction
+				data := request.Payload.(ReqCommit).Data
 				tx := transactions[txUuid]
-				err := tx.Commit()
+				err := tx.Commit(data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResCommit",

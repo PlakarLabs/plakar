@@ -71,12 +71,12 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		go func(indexID uuid.UUID) {
 			defer wg.Done()
 
-			metadataBytes, err := sourceRepository.GetMetadata(indexID)
+			metadataBytes, err := sourceRepository.GetSnapshot(indexID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
 				return
 			}
-			err = cloneRepository.PutMetadata(indexID, metadataBytes)
+			err = cloneRepository.PutSnapshot(indexID, metadataBytes)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
 				return

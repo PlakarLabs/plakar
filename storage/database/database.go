@@ -268,7 +268,7 @@ func (repository *DatabaseRepository) GetSnapshots() ([]uuid.UUID, error) {
 	return indexes, nil
 }
 
-func (repository *DatabaseRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
+func (repository *DatabaseRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -402,7 +402,7 @@ func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *DatabaseRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
+func (repository *DatabaseRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT metadataBlob FROM metadatas WHERE metadataUuid=?`, indexID).Scan(&data)
 	if err != nil {
@@ -502,7 +502,7 @@ func (transaction *DatabaseTransaction) PutChunk(checksum [32]byte, data []byte)
 	return nil
 }
 
-func (transaction *DatabaseTransaction) PutMetadata(data []byte) error {
+func (transaction *DatabaseTransaction) Commit(data []byte) error {
 	statement, err := transaction.dbTx.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -514,39 +514,5 @@ func (transaction *DatabaseTransaction) PutMetadata(data []byte) error {
 		return err
 	}
 
-	return nil
-}
-
-func (transaction *DatabaseTransaction) PutIndex(data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO indexes (indexUuid, indexBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	_, err = statement.Exec(transaction.GetUuid(), data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (transaction *DatabaseTransaction) PutFilesystem(data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO filesystems (filesystemUuid, filesystemBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	_, err = statement.Exec(transaction.GetUuid(), data)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (transaction *DatabaseTransaction) Commit() error {
 	return transaction.dbTx.Commit()
 }

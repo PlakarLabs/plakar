@@ -192,7 +192,7 @@ func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
+func (repository *FSRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathIndex(indexID))
 	if err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
+func (repository *FSRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	f, err := os.Create(repository.PathIndex(indexID))
 	if err != nil {
 		return err
@@ -411,7 +411,7 @@ func (transaction *FSTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *FSTransaction) PutMetadata(data []byte) error {
+func (transaction *FSTransaction) Commit(data []byte) error {
 	f, err := os.Create(transaction.Path())
 	if err != nil {
 		return err
@@ -423,9 +423,5 @@ func (transaction *FSTransaction) PutMetadata(data []byte) error {
 		return err
 	}
 
-	return nil
-}
-
-func (transaction *FSTransaction) Commit() error {
 	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
 }

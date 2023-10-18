@@ -85,7 +85,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadat
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -106,7 +106,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadat
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +141,7 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadat
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -169,7 +169,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 
-				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -196,7 +196,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +232,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
 
-				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					fmt.Println("###1")
 					return nil, err
@@ -269,7 +269,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 
-				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -307,7 +307,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 			continue
 		}
 
-		metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -342,7 +342,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				md, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -394,7 +394,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetMetadata(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}

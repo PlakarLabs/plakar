@@ -366,8 +366,8 @@ func (repository *ClientRepository) GetSnapshots() ([]uuid.UUID, error) {
 	return result.Payload.(network.ResGetSnapshots).Snapshots, result.Payload.(network.ResGetSnapshots).Err
 }
 
-func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutMetadata", network.ReqStorePutMetadata{
+func (repository *ClientRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqStorePutSnapshot", network.ReqStorePutSnapshot{
 		IndexID: indexID,
 		Data:    data,
 	})
@@ -375,7 +375,7 @@ func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) 
 		return err
 	}
 
-	return result.Payload.(network.ResStorePutMetadata).Err
+	return result.Payload.(network.ResStorePutSnapshot).Err
 }
 
 func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) error {
@@ -407,15 +407,15 @@ func (repository *ClientRepository) GetObjects() ([][32]byte, error) {
 	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
 }
 
-func (repository *ClientRepository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetMetadata", network.ReqGetMetadata{
+func (repository *ClientRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetSnapshot", network.ReqGetSnapshot{
 		Uuid: indexID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Payload.(network.ResGetMetadata).Data, result.Payload.(network.ResGetMetadata).Err
+	return result.Payload.(network.ResGetSnapshot).Data, result.Payload.(network.ResGetSnapshot).Err
 }
 
 func (repository *ClientRepository) GetBlob(checksum [32]byte) ([]byte, error) {
@@ -554,23 +554,11 @@ func (transaction *ClientTransaction) PutChunk(checksum [32]byte, data []byte) e
 	return result.Payload.(network.ResPutChunk).Err
 }
 
-func (transaction *ClientTransaction) PutMetadata(data []byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqPutMetadata", network.ReqPutMetadata{
-		Transaction: transaction.GetUuid(),
-		Data:        data,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResPutMetadata).Err
-}
-
-func (transaction *ClientTransaction) Commit() error {
+func (transaction *ClientTransaction) Commit(data []byte) error {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
 		Transaction: transaction.GetUuid(),
+		Data:        data,
 	})
 	if err != nil {
 		return err

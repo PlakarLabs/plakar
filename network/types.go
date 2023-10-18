@@ -31,12 +31,12 @@ type ResOpen struct {
 	Err              error
 }
 
-type ReqStorePutMetadata struct {
+type ReqStorePutSnapshot struct {
 	IndexID uuid.UUID
 	Data    []byte
 }
 
-type ResStorePutMetadata struct {
+type ResStorePutSnapshot struct {
 	Err error
 }
 
@@ -73,11 +73,11 @@ type ResGetSnapshots struct {
 	Err       error
 }
 
-type ReqGetMetadata struct {
+type ReqGetSnapshot struct {
 	Uuid uuid.UUID
 }
 
-type ResGetMetadata struct {
+type ResGetSnapshot struct {
 	Data []byte
 	Err  error
 }
@@ -179,6 +179,7 @@ type ResDeleteObject struct {
 	Err error
 }
 
+/*
 type ReqPutMetadata struct {
 	Transaction uuid.UUID
 	Data        []byte
@@ -187,9 +188,11 @@ type ReqPutMetadata struct {
 type ResPutMetadata struct {
 	Err error
 }
+*/
 
 type ReqCommit struct {
 	Transaction uuid.UUID
+	Data        []byte
 }
 
 type ResCommit struct {
@@ -208,8 +211,8 @@ func ProtocolRegister() {
 	gob.Register(ReqGetSnapshots{})
 	gob.Register(ResGetSnapshots{})
 
-	gob.Register(ReqStorePutMetadata{})
-	gob.Register(ResStorePutMetadata{})
+	gob.Register(ReqStorePutSnapshot{})
+	gob.Register(ResStorePutSnapshot{})
 
 	gob.Register(ReqStorePutBlob{})
 	gob.Register(ResStorePutBlob{})
@@ -220,8 +223,8 @@ func ProtocolRegister() {
 	gob.Register(ReqGetObjects{})
 	gob.Register(ResGetObjects{})
 
-	gob.Register(ReqGetMetadata{})
-	gob.Register(ResGetMetadata{})
+	gob.Register(ReqGetSnapshot{})
+	gob.Register(ResGetSnapshot{})
 
 	gob.Register(ReqGetBlob{})
 	gob.Register(ResGetBlob{})
@@ -252,9 +255,6 @@ func ProtocolRegister() {
 
 	gob.Register(ReqPutObject{})
 	gob.Register(ResPutObject{})
-
-	gob.Register(ReqPutMetadata{})
-	gob.Register(ResPutMetadata{})
 
 	gob.Register(ReqCommit{})
 	gob.Register(ResCommit{})

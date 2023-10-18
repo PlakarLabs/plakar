@@ -54,8 +54,8 @@ type RepositoryBackend interface {
 	Transaction(indexID uuid.UUID) (TransactionBackend, error)
 
 	GetSnapshots() ([]uuid.UUID, error)
-	GetMetadata(indexID uuid.UUID) ([]byte, error)
-	PutMetadata(indexID uuid.UUID, data []byte) error
+	GetSnapshot(indexID uuid.UUID) ([]byte, error)
+	PutSnapshot(indexID uuid.UUID, data []byte) error
 	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
 
@@ -77,10 +77,7 @@ type RepositoryBackend interface {
 
 type TransactionBackend interface {
 	GetUuid() uuid.UUID
-
-	PutMetadata(data []byte) error
-
-	Commit() error
+	Commit(data []byte) error
 }
 
 var muBackends sync.Mutex
@@ -397,17 +394,17 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	return repository.backend.GetSnapshots()
 }
 
-func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	repository.rLock()
 	defer repository.rUnlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetMetadata", time.Since(t0))
-		logger.Trace("storage", "GetMetadata(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.GetSnapshot", time.Since(t0))
+		logger.Trace("storage", "GetSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 
-	data, err := repository.backend.GetMetadata(indexID)
+	data, err := repository.backend.GetSnapshot(indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -434,18 +431,18 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.PutMetadata", time.Since(t0))
-		logger.Trace("storage", "PutMetadata(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("storage.PutSnapshot", time.Since(t0))
+		logger.Trace("storage", "PutSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return repository.backend.PutMetadata(indexID, data)
+	return repository.backend.PutSnapshot(indexID, data)
 }
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
@@ -602,21 +599,6 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.backend.GetUuid()
 }
 
-func (transaction *Transaction) PutMetadata(data []byte) error {
-	repository := transaction.repository
-
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.tx.PutMetadata", time.Since(t0))
-		logger.Trace("storage", "%s.PutMetadata() <- %d bytes: %s", transaction.GetUuid(), len(data), time.Since(t0))
-	}()
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return transaction.backend.PutMetadata(data)
-}
-
 func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) error {
 	repository := transaction.repository
 
@@ -633,16 +615,17 @@ func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) error {
 	return repository.backend.PutBlob(checksum, data)
 }
 
-func (transaction *Transaction) Commit() error {
+func (transaction *Transaction) Commit(data []byte) error {
 	repository := transaction.repository
-
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.wLock()
+	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.tx.Commit", time.Since(t0))
 		logger.Trace("storage", "%s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
 	}()
-	return transaction.backend.Commit()
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+
+	return transaction.backend.Commit(data)
 }

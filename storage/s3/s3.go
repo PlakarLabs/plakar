@@ -57,15 +57,11 @@ type S3Repository struct {
 
 	minioClient *minio.Client
 	bucketName  string
-
-	storage.RepositoryBackend
 }
 
 type S3Transaction struct {
 	Uuid       uuid.UUID
 	repository *S3Repository
-
-	storage.TransactionBackend
 }
 
 func init() {
@@ -188,31 +184,78 @@ func (repository *S3Repository) Transaction(indexID uuid.UUID) (storage.Transact
 	return tx, nil
 }
 
-func (repository *S3Repository) GetIndexes() ([]uuid.UUID, error) {
+func (repository *S3Repository) GetSnapshots() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
-	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{}) {
-		if strings.HasPrefix(object.Key, "SNAPSHOT:") {
-			ret = append(ret, uuid.MustParse(object.Key[9:]))
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
+		Prefix:    "SNAPSHOT/",
+		Recursive: true,
+	}) {
+		if strings.HasPrefix(object.Key, "SNAPSHOT/") && len(object.Key) >= 12 {
+			ret = append(ret, uuid.MustParse(object.Key[12:]))
 		}
 	}
 
 	return ret, nil
 }
 
-func (repository *S3Repository) PutMetadata(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *S3Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func (repository *S3Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	stat, err := object.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, stat.Size)
+	_, err = object.Read(dataBytes)
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
+	}
+	object.Close()
+
+	return dataBytes, nil
+}
+
 func (repository *S3Repository) PutBlob(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB:%016x", checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	stat, err := object.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, stat.Size)
+	_, err = object.Read(dataBytes)
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
+	}
+	object.Close()
+
+	return dataBytes, nil
 }
 
 func (repository *S3Repository) GetChunks() ([][32]byte, error) {
@@ -239,52 +282,9 @@ func (repository *S3Repository) GetObjects() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *S3Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", indexID.String()), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes := make([]byte, stat.Size)
-	_, err = object.Read(dataBytes)
-	if err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
-	}
-	object.Close()
-
-	return dataBytes, nil
-}
-
-func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB:%016x", checksum), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes := make([]byte, stat.Size)
-	_, err = object.Read(dataBytes)
-	if err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
-	}
-	object.Close()
-
-	return dataBytes, nil
-}
-
+/*
 func (repository *S3Repository) GetObject(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT:%064x", checksum), minio.GetObjectOptions{})
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -304,9 +304,10 @@ func (repository *S3Repository) GetObject(checksum [32]byte) ([]byte, error) {
 
 	return dataBytes, nil
 }
+*/
 
 func (repository *S3Repository) GetChunk(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK:%064x", checksum), minio.GetObjectOptions{})
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +337,7 @@ func (repository *S3Repository) CheckObject(checksum [32]byte) (bool, error) {
 		return false, nil
 	}
 
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT:%064x", checksum), minio.GetObjectOptions{})
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -361,7 +362,7 @@ func (repository *S3Repository) CheckChunk(checksum [32]byte) (bool, error) {
 		return false, nil
 	}
 
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK:%064x", checksum), minio.GetObjectOptions{})
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -378,7 +379,15 @@ func (repository *S3Repository) CheckChunk(checksum [32]byte) (bool, error) {
 }
 
 func (repository *S3Repository) PutObject(checksum [32]byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT:%064x", checksum), bytes.NewReader([]byte("")), int64(0), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), bytes.NewReader([]byte("")), int64(0), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *S3Repository) DeleteObject(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -386,7 +395,15 @@ func (repository *S3Repository) PutObject(checksum [32]byte) error {
 }
 
 func (repository *S3Repository) PutChunk(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK:%064x", checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *S3Repository) DeleteChunk(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -399,17 +416,7 @@ func (repository *S3Repository) Purge(indexID uuid.UUID) error {
 		return err
 	}
 
-	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", indexID.String()), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-
-	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", indexID.String()), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-
-	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", indexID.String()), minio.RemoveObjectOptions{})
+	err = repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", indexID.String()), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -427,46 +434,9 @@ func (transaction *S3Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *S3Transaction) PutObject(checksum [32]byte) error {
-	fmt.Println("tx.PutObject")
-	return nil
-}
-
-func (transaction *S3Transaction) PutChunk(checksum [32]byte, data []byte) error {
-	fmt.Println("tx.PutChunk")
-	return nil
-}
-
-func (transaction *S3Transaction) PutMetadata(data []byte) error {
+func (transaction *S3Transaction) Commit(data []byte) error {
 	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("METADATA:%s", transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (transaction *S3Transaction) PutIndex(data []byte) error {
-	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("INDEX:%s", transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (transaction *S3Transaction) PutFilesystem(data []byte) error {
-	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("FILESYSTEM:%s", transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (transaction *S3Transaction) Commit() error {
-	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT:%s", transaction.Uuid.String()), bytes.NewReader([]byte("")), int64(0), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", transaction.Uuid.String()[0:2], transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}

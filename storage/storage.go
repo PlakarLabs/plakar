@@ -53,14 +53,13 @@ type RepositoryBackend interface {
 
 	Transaction(indexID uuid.UUID) (TransactionBackend, error)
 
-	GetIndexes() ([]uuid.UUID, error)
+	GetSnapshots() ([]uuid.UUID, error)
 	GetMetadata(indexID uuid.UUID) ([]byte, error)
 	PutMetadata(indexID uuid.UUID, data []byte) error
 	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
 
 	GetObjects() ([][32]byte, error)
-	GetObject(checksum [32]byte) ([]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
 	PutObject(checksum [32]byte) error
 	DeleteObject(checksum [32]byte) error
@@ -79,11 +78,7 @@ type RepositoryBackend interface {
 type TransactionBackend interface {
 	GetUuid() uuid.UUID
 
-	PutObject(checksum [32]byte) error
-	PutChunk(checksum [32]byte, data []byte) error
-
 	PutMetadata(data []byte) error
-	PutBlob(checksum [32]byte, data []byte) error
 
 	Commit() error
 }
@@ -390,7 +385,7 @@ func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, erro
 	return wrapperTx, nil
 }
 
-func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	repository.rLock()
 	defer repository.rUnlock()
 
@@ -399,7 +394,7 @@ func (repository *Repository) GetIndexes() ([]uuid.UUID, error) {
 		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
 		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
 	}()
-	return repository.backend.GetIndexes()
+	return repository.backend.GetSnapshots()
 }
 
 func (repository *Repository) GetMetadata(indexID uuid.UUID) ([]byte, error) {
@@ -476,24 +471,6 @@ func (repository *Repository) GetObjects() ([][32]byte, error) {
 		logger.Trace("storage", "GetObjects(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetObjects()
-}
-
-func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetObject", time.Since(t0))
-		logger.Trace("storage", "GetObject(%064x): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := repository.backend.GetObject(checksum)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
-	return data, nil
 }
 
 func (repository *Repository) PutObject(checksum [32]byte) error {

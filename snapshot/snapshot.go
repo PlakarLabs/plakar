@@ -325,7 +325,7 @@ func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.List", time.Since(t0))
 	}()
-	return repository.GetIndexes()
+	return repository.GetSnapshots()
 }
 
 func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) {

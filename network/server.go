@@ -113,18 +113,18 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqGetIndexes":
+		case "ReqGetSnapshots":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				logger.Trace("%s: GetIndexes", clientUuid)
-				indexes, err := repository.GetIndexes()
+				snapshots, err := repository.GetSnapshots()
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndexes",
-					Payload: ResGetIndexes{
-						Indexes: indexes,
-						Err:     err,
+					Payload: ResGetSnapshots{
+						Snapshots: snapshots,
+						Err:       err,
 					},
 				}
 				err = encoder.Encode(&result)
@@ -243,26 +243,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					Type: "ResStorePutBlob",
 					Payload: ResStorePutBlob{
 						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetObject":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetObject(%s)", clientUuid, request.Payload.(ReqGetObject).Checksum)
-				data, err := repository.GetObject(request.Payload.(ReqGetObject).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetObject",
-					Payload: ResGetObject{
-						Data: data,
-						Err:  err,
 					},
 				}
 				err = encoder.Encode(&result)
@@ -399,6 +379,26 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqDeleteChunk":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("%s: DeleteChunk(%s)", clientUuid, request.Payload.(ReqDeleteChunk).Checksum)
+				err := repository.DeleteChunk(request.Payload.(ReqDeleteChunk).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResDeleteChunk",
+					Payload: ResDeleteChunk{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqPutObject":
 			wg.Add(1)
 			go func() {
@@ -412,6 +412,26 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					Uuid: request.Uuid,
 					Type: "ResPutObject",
 					Payload: ResPutObject{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqDeleteObject":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("%s: DeleteObject(%s)", clientUuid, request.Payload.(ReqDeleteObject).Checksum)
+				err := repository.DeleteObject(request.Payload.(ReqDeleteObject).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResDeleteObject",
+					Payload: ResDeleteObject{
 						Err: err,
 					},
 				}

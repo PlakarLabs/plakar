@@ -50,14 +50,14 @@ type ClientRepository struct {
 	notifications chan network.Request
 	//maxConcurrentRequest chan bool
 
-	storage.RepositoryBackend
+	// storage.RepositoryBackend
 }
 
 type ClientTransaction struct {
 	Uuid       uuid.UUID
 	repository *ClientRepository
 
-	storage.TransactionBackend
+	// storage.TransactionBackend
 }
 
 func init() {
@@ -357,13 +357,13 @@ func (repository *ClientRepository) Transaction(indexID uuid.UUID) (storage.Tran
 	return tx, nil
 }
 
-func (repository *ClientRepository) GetIndexes() ([]uuid.UUID, error) {
-	result, err := repository.sendRequest("ReqGetIndexes", nil)
+func (repository *ClientRepository) GetSnapshots() ([]uuid.UUID, error) {
+	result, err := repository.sendRequest("ReqGetSnapshots", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return result.Payload.(network.ResGetIndexes).Indexes, result.Payload.(network.ResGetIndexes).Err
+	return result.Payload.(network.ResGetSnapshots).Snapshots, result.Payload.(network.ResGetSnapshots).Err
 }
 
 func (repository *ClientRepository) PutMetadata(indexID uuid.UUID, data []byte) error {
@@ -429,17 +429,6 @@ func (repository *ClientRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return result.Payload.(network.ResGetBlob).Data, result.Payload.(network.ResGetBlob).Err
 }
 
-func (repository *ClientRepository) GetObject(checksum [32]byte) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetObject", network.ReqGetObject{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetObject).Data, result.Payload.(network.ResGetObject).Err
-}
-
 func (repository *ClientRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetChunk", network.ReqGetChunk{
 		Checksum: checksum,
@@ -491,6 +480,26 @@ func (repository *ClientRepository) PutChunk(checksum [32]byte, data []byte) err
 		return err
 	}
 	return result.Payload.(network.ResPutChunk).Err
+}
+
+func (repository *ClientRepository) DeleteChunk(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeleteChunk", network.ReqDeleteChunk{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeleteChunk).Err
+}
+
+func (repository *ClientRepository) DeleteObject(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeleteObject", network.ReqDeleteObject{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeleteObject).Err
 }
 
 func (repository *ClientRepository) Purge(indexID uuid.UUID) error {

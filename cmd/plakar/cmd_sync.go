@@ -84,7 +84,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 	var muObjectChecksum sync.Mutex
 	objectChecksum := make(map[[32]byte]bool)
 
-	sourceIndexes, err := srcRepository.GetIndexes()
+	sourceIndexes, err := srcRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1
@@ -108,7 +108,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		}
 	}
 
-	destIndexes, err := dstRepository.GetIndexes()
+	destIndexes, err := dstRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1

@@ -50,7 +50,7 @@ type DatabaseRepository struct {
 
 	Repository string
 
-	storage.RepositoryBackend
+	// storage.RepositoryBackend
 }
 
 type DatabaseTransaction struct {
@@ -58,7 +58,7 @@ type DatabaseTransaction struct {
 	repository *DatabaseRepository
 
 	dbTx *sql.Tx
-	storage.TransactionBackend
+	//storage.TransactionBackend
 }
 
 func init() {
@@ -249,7 +249,7 @@ func (repository *DatabaseRepository) Transaction(indexID uuid.UUID) (storage.Tr
 	return tx, nil
 }
 
-func (repository *DatabaseRepository) GetIndexes() ([]uuid.UUID, error) {
+func (repository *DatabaseRepository) GetSnapshots() ([]uuid.UUID, error) {
 	rows, err := repository.conn.Query("SELECT indexUuid FROM indexes")
 	if err != nil {
 		return nil, err
@@ -314,6 +314,22 @@ func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) e
 	return nil
 }
 
+func (repository *DatabaseRepository) DeleteChunk(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM chunks WHERE chunkChecksum=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum))
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
 func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
 	if err != nil {
@@ -322,6 +338,22 @@ func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
 	defer statement.Close()
 
 	_, err = statement.Exec(checksumToString(checksum), []byte(""))
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+
+	return nil
+}
+
+func (repository *DatabaseRepository) DeleteObject(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM objects WHERE objectChecksum=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(checksumToString(checksum))
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err

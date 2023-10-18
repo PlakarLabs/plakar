@@ -3,6 +3,7 @@ package cache
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -29,12 +30,11 @@ func New(cacheDir string) *Cache {
 		profiler.RecordEvent("cache.New", time.Since(t0))
 	}()
 
-	db, err := leveldb.OpenFile(fmt.Sprintf("%s/cache.db", cacheDir), nil)
+	db, err := leveldb.OpenFile(filepath.Join(cacheDir, "cache.db"), nil)
 	if err != nil {
 		logger.Warn("could not open cache, bypassing: %s", err)
 		return nil
 	}
-
 	return &Cache{
 		db: db,
 	}
@@ -45,10 +45,9 @@ func (cache *Cache) PutMetadata(RepositoryUuid string, Uuid string, data []byte)
 	defer func() {
 		profiler.RecordEvent("cache.PutMetadata", time.Since(t0))
 	}()
-
 	logger.Trace("cache", "%s: PutMetadata()", Uuid)
-	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 
+	key := fmt.Sprintf("Metadata:%s:%s", RepositoryUuid, Uuid)
 	return cache.db.Put([]byte(key), data, nil)
 }
 
@@ -116,33 +115,6 @@ func (cache *Cache) GetPath(RepositoryUuid string, checksum string) ([]byte, err
 
 	var data []byte
 	key := fmt.Sprintf("Path:%s:%s", RepositoryUuid, checksum)
-	data, err := cache.db.Get([]byte(key), nil)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (cache *Cache) PutObject(RepositoryUuid string, checksum string, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("cache.PutObject", time.Since(t0))
-	}()
-	logger.Trace("cache", "%s: PutObject()", RepositoryUuid)
-
-	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
-	return cache.db.Put([]byte(key), data, nil)
-}
-
-func (cache *Cache) GetObject(RepositoryUuid string, checksum string) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("cache.GetObject", time.Since(t0))
-	}()
-	logger.Trace("cache", "%s: GetObject()", RepositoryUuid)
-
-	var data []byte
-	key := fmt.Sprintf("Object:%s:%s", RepositoryUuid, checksum)
 	data, err := cache.db.Get([]byte(key), nil)
 	if err != nil {
 		return nil, err

@@ -34,7 +34,7 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 	chunks := make(map[[32]byte]bool)
 	objects := make(map[[32]byte]bool)
 
-	indexesList, err := repository.GetIndexes()
+	indexesList, err := repository.GetSnapshots()
 	if err != nil {
 		return 1
 	}

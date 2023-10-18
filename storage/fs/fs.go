@@ -19,7 +19,6 @@ package fs
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +41,7 @@ type FSRepository struct {
 	Repository string
 	root       string
 
-	storage.RepositoryBackend
+	//storage.RepositoryBackend
 }
 
 type FSTransaction struct {
@@ -50,7 +49,7 @@ type FSTransaction struct {
 	repository FSRepository
 	//prepared   bool
 
-	storage.TransactionBackend
+	//storage.TransactionBackend
 }
 
 func init() {
@@ -162,7 +161,7 @@ func (repository *FSRepository) Transaction(indexID uuid.UUID) (storage.Transact
 	return tx, nil
 }
 
-func (repository *FSRepository) GetIndexes() ([]uuid.UUID, error) {
+func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
 
 	buckets, err := os.ReadDir(repository.PathIndexes())
@@ -240,7 +239,6 @@ func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
 }
 
 func (repository *FSRepository) GetObjects() ([][32]byte, error) {
-	fmt.Println("FOOBAR")
 	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathObjects())
@@ -277,31 +275,6 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathObject(checksum))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (repository *FSRepository) GetObjectSize(checksum [32]byte) (uint64, error) {
-	st, err := os.Stat(repository.PathObject(checksum))
-	if err != nil {
-		return 0, err
-	}
-	return uint64(st.Size()), nil
-}
-
-func (repository *FSRepository) GetChunkSize(checksum [32]byte) (uint64, error) {
-	st, err := os.Stat(repository.PathChunk(checksum))
-	if err != nil {
-		return 0, err
-	}
-	return uint64(st.Size()), nil
-}
-
 func (repository *FSRepository) PutObject(checksum [32]byte) error {
 	file, err := os.Create(repository.PathObject(checksum))
 	if err != nil {
@@ -322,19 +295,25 @@ func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
 func (repository *FSRepository) GetChunks() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
-	buckets, err := ioutil.ReadDir(repository.PathChunks())
+	buckets, err := os.ReadDir(repository.PathChunks())
 	if err != nil {
 		return nil, err
 	}
 
 	for _, bucket := range buckets {
+		if !bucket.IsDir() {
+			continue // Skip non-directory entries
+		}
 		pathBuckets := filepath.Join(repository.PathChunks(), bucket.Name())
-		chunks, err := ioutil.ReadDir(pathBuckets)
+		chunks, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
 		}
 
 		for _, chunk := range chunks {
+			if chunk.IsDir() {
+				continue // Skip directory entries, assuming chunks are files
+			}
 			t, err := hex.DecodeString(chunk.Name())
 			if err != nil {
 				return nil, err
@@ -355,7 +334,6 @@ func (repository *FSRepository) GetChunk(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return data, nil
 }
 

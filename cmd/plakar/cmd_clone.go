@@ -52,7 +52,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 	var muObjectChecksum sync.Mutex
 	objectChecksum := make(map[[32]byte]bool)
 
-	indexes, err := sourceRepository.GetIndexes()
+	indexes, err := sourceRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1

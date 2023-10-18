@@ -64,23 +64,11 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	// XXX - this can be parallelized
 	wg := sync.WaitGroup{}
 	for _, _indexID := range indexes {
 		wg.Add(1)
 		go func(indexID uuid.UUID) {
 			defer wg.Done()
-
-			metadataBytes, err := sourceRepository.GetSnapshot(indexID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
-				return
-			}
-			err = cloneRepository.PutSnapshot(indexID, metadataBytes)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
-				return
-			}
 
 			sourceSnapshot, err := snapshot.Load(sourceRepository, indexID)
 			if err != nil {
@@ -114,35 +102,64 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 				return
 			}
 
-			for _, chunkID := range sourceSnapshot.Index.ListChunks() {
-				muChunkChecksum.Lock()
-				if _, exists := chunkChecksum[chunkID]; !exists {
-					data, err := sourceRepository.GetChunk(chunkID)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
-						return
+			wg2 := sync.WaitGroup{}
+			for _, _chunkID := range sourceSnapshot.Index.ListChunks() {
+				wg2.Add(1)
+				go func(chunkID [32]byte) {
+					defer wg2.Done()
+					muChunkChecksum.Lock()
+					_, exists := chunkChecksum[chunkID]
+					muChunkChecksum.Unlock()
+					if !exists {
+						data, err := sourceRepository.GetChunk(chunkID)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
+							return
+						}
+						_, err = cloneRepository.PutChunk(chunkID, data)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", cloneRepositoryName, err)
+							return
+						}
+						muChunkChecksum.Lock()
+						chunkChecksum[chunkID] = true
+						muChunkChecksum.Unlock()
 					}
-					_, err = cloneRepository.PutChunk(chunkID, data)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", cloneRepositoryName, err)
-						return
-					}
-					chunkChecksum[chunkID] = true
-				}
-				muChunkChecksum.Unlock()
+				}(_chunkID)
 			}
+			wg2.Wait()
 
-			for _, objectID := range sourceSnapshot.Index.ListObjects() {
-				muObjectChecksum.Lock()
-				if _, exists := objectChecksum[objectID]; !exists {
-					err = cloneRepository.PutObject(objectID)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
-						return
+			wg3 := sync.WaitGroup{}
+			for _, _objectID := range sourceSnapshot.Index.ListObjects() {
+				wg3.Add(1)
+				go func(objectID [32]byte) {
+					defer wg3.Done()
+					muObjectChecksum.Lock()
+					_, exists := objectChecksum[objectID]
+					muObjectChecksum.Unlock()
+					if !exists {
+						err = cloneRepository.PutObject(objectID)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
+							return
+						}
+						muObjectChecksum.Lock()
+						objectChecksum[objectID] = true
+						muObjectChecksum.Unlock()
 					}
-					objectChecksum[objectID] = true
-				}
-				muObjectChecksum.Unlock()
+				}(_objectID)
+			}
+			wg3.Wait()
+
+			metadataBytes, err := sourceRepository.GetSnapshot(indexID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
+				return
+			}
+			err = cloneRepository.PutSnapshot(indexID, metadataBytes)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
+				return
 			}
 		}(_indexID)
 	}

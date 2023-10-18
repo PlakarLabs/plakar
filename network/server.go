@@ -217,7 +217,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
+				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqStorePutSnapshot).IndexID)
 				err := repository.PutSnapshot(request.Payload.(ReqStorePutSnapshot).IndexID, request.Payload.(ReqStorePutSnapshot).Data)
 				result := Request{
 					Uuid: request.Uuid,

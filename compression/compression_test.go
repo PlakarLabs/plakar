@@ -17,17 +17,25 @@
 package compression
 
 import (
-	"fmt"
-	"math/rand"
+	"crypto/rand"
 	"testing"
 )
 
-func TestCompression(t *testing.T) {
+func TestCompressionGzip(t *testing.T) {
 	token := make([]byte, 65*1024)
 	rand.Read(token)
 	deflated, _ := Deflate("gzip", token)
-	fmt.Println(deflated)
 	inflated, err := Inflate("gzip", deflated)
+	if err != nil {
+		t.Errorf("Inflate(Deflate(%q)) != %q", inflated, token)
+	}
+}
+
+func TestCompressionLZ4(t *testing.T) {
+	token := make([]byte, 65*1024)
+	rand.Read(token)
+	deflated, _ := Deflate("lz4", token)
+	inflated, err := Inflate("lz4", deflated)
 	if err != nil {
 		t.Errorf("Inflate(Deflate(%q)) != %q", inflated, token)
 	}

@@ -115,10 +115,15 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 		return object, nil
 	}
 
-	chk, err := chunkers.NewChunker("ultracdc", rd, &chunkers.ChunkerOpts{
-		MinSize:    256 << 10,
-		NormalSize: (256 << 10) + (8 << 10),
-		MaxSize:    1024 << 10,
+	chunkingAlgorithm := snapshot.repository.Configuration().Chunking
+	chunkingMinSize := snapshot.repository.Configuration().ChunkingMin
+	chunkingNormalSize := snapshot.repository.Configuration().ChunkingNormal
+	chunkingMaxSize := snapshot.repository.Configuration().ChunkingMax
+
+	chk, err := chunkers.NewChunker(chunkingAlgorithm, rd, &chunkers.ChunkerOpts{
+		MinSize:    chunkingMinSize,
+		NormalSize: chunkingNormalSize,
+		MaxSize:    chunkingMaxSize,
 	})
 	if err != nil {
 		return nil, err

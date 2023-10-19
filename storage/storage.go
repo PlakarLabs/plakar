@@ -70,6 +70,11 @@ type RepositoryBackend interface {
 	PutSnapshot(indexID uuid.UUID, data []byte) error
 	DeleteSnapshot(indexID uuid.UUID) error
 
+	GetIndexes() ([][32]byte, error)
+	GetIndex(checksum [32]byte) ([]byte, error)
+	PutIndex(checksum [32]byte, data []byte) error
+	DeleteIndex(checksum [32]byte) error
+
 	GetBlobs() ([][32]byte, error)
 	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
@@ -482,6 +487,7 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return repository.backend.DeleteBlob(checksum)
 }
 
+/* snapshots  */
 func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
@@ -800,4 +806,46 @@ func (repository *Repository) CheckChunkMetadata(checksum [32]byte) (bool, error
 		logger.Trace("storage", "CheckChunkMetadata(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckChunkMetadata(checksum)
+}
+
+/* Indexes */
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
+		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
+	}()
+	return repository.backend.GetIndexes()
+}
+
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetIndex", time.Since(t0))
+		logger.Trace("storage", "GetIndex(%016x): %s", checksum, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetIndex(checksum)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
+}
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+	repository.sLock()
+	defer repository.sUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteIndex", time.Since(t0))
+		logger.Trace("storage", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteIndex(checksum)
 }

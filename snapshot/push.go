@@ -73,7 +73,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
-	if fi.Size() < 256<<10 {
+	if fi.Size() < int64(snapshot.repository.Configuration().ChunkingMin) {
 		var t32 [32]byte
 
 		buf, err := io.ReadAll(rd)

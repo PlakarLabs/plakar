@@ -39,6 +39,10 @@ func (repository *FSRepository) PathBlobs() string {
 	return filepath.Join(repository.root, "blobs")
 }
 
+func (repository *FSRepository) PathIndexes() string {
+	return filepath.Join(repository.root, "indexes")
+}
+
 func (repository *FSRepository) PathPackfiles() string {
 	return filepath.Join(repository.root, "packfiles")
 }
@@ -57,6 +61,10 @@ func (repository *FSRepository) PathObjectBucket(checksum [32]byte) string {
 
 func (repository *FSRepository) PathBlobBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
+}
+
+func (repository *FSRepository) PathIndexBucket(checksum [32]byte) string {
+	return filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *FSRepository) PathPackfileBucket(checksum [32]byte) string {
@@ -79,10 +87,14 @@ func (repository *FSRepository) PathBlob(checksum [32]byte) string {
 	return filepath.Join(repository.PathBlobBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
+func (repository *FSRepository) PathIndex(checksum [32]byte) string {
+	return filepath.Join(repository.PathIndexBucket(checksum), fmt.Sprintf("%064x", checksum))
+}
+
 func (repository *FSRepository) PathPackfile(checksum [32]byte) string {
 	return filepath.Join(repository.PathPackfileBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathIndex(indexID uuid.UUID) string {
+func (repository *FSRepository) PathSnapshot(indexID uuid.UUID) string {
 	return filepath.Join(repository.PathSnapshotBucket(indexID), indexID.String())
 }

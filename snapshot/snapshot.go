@@ -75,7 +75,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, err
 	}
 
-	if !bytes.Equal(verifyChecksum, hdr.IndexChecksum) {
+	if !bytes.Equal(verifyChecksum[:], hdr.IndexChecksum[:]) {
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
@@ -86,7 +86,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(verifyChecksum, hdr.FilesystemChecksum) {
+	if !bytes.Equal(verifyChecksum[:], hdr.FilesystemChecksum[:]) {
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
@@ -118,7 +118,7 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, err
 	}
 
-	if !bytes.Equal(verifyChecksum, hdr.IndexChecksum) {
+	if !bytes.Equal(verifyChecksum[:], hdr.IndexChecksum[:]) {
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
@@ -129,7 +129,7 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(verifyChecksum, hdr.FilesystemChecksum) {
+	if !bytes.Equal(verifyChecksum[:], hdr.FilesystemChecksum[:]) {
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
@@ -274,7 +274,7 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
-func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, []byte, error) {
+func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetIndex", time.Since(t0))
@@ -282,22 +282,25 @@ func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, 
 
 	buffer, err := GetBlob(repository, checksum)
 	if err != nil {
-		return nil, nil, err
+		return nil, [32]byte{}, err
 	}
 
 	index, err := index.NewIndexFromBytes(buffer)
 	if err != nil {
-		return nil, nil, err
+		return nil, [32]byte{}, err
 	}
 
 	indexHasher := encryption.GetHasher(repository.Configuration().Hashing)
 	indexHasher.Write(buffer)
 	verifyChecksum := indexHasher.Sum(nil)
 
-	return index, verifyChecksum[:], nil
+	verifyChecksum32 := [32]byte{}
+	copy(verifyChecksum32[:], verifyChecksum[:])
+
+	return index, verifyChecksum32, nil
 }
 
-func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.Filesystem, []byte, error) {
+func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.Filesystem, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
@@ -305,19 +308,21 @@ func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.File
 
 	buffer, err := GetBlob(repository, checksum)
 	if err != nil {
-		return nil, nil, err
+		return nil, [32]byte{}, err
 	}
 
 	filesystem, err := vfs.NewFilesystemFromBytes(buffer)
 	if err != nil {
-		return nil, nil, err
+		return nil, [32]byte{}, err
 	}
 
 	fsHasher := encryption.GetHasher(repository.Configuration().Hashing)
 	fsHasher.Write(buffer)
 	verifyChecksum := fsHasher.Sum(nil)
+	verifyChecksum32 := [32]byte{}
+	copy(verifyChecksum32[:], verifyChecksum[:])
 
-	return filesystem, verifyChecksum[:], nil
+	return filesystem, verifyChecksum32, nil
 }
 
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
@@ -527,7 +532,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	snapshot.Header.IndexChecksum = indexChecksum[:]
+	snapshot.Header.IndexChecksum = indexChecksum32
 	snapshot.Header.IndexMemorySize = uint64(len(serializedIndex))
 	snapshot.Header.IndexDiskSize = uint64(nbytes)
 
@@ -547,7 +552,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	snapshot.Header.FilesystemChecksum = filesystemChecksum[:]
+	snapshot.Header.FilesystemChecksum = filesystemChecksum32
 	snapshot.Header.FilesystemMemorySize = uint64(len(serializedFilesystem))
 	snapshot.Header.FilesystemDiskSize = uint64(nbytes)
 

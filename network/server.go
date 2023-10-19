@@ -407,7 +407,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
 				txUuid := request.Payload.(ReqPutObject).Transaction
 				_ = transactions[txUuid]
-				err := repository.PutObject(request.Payload.(ReqPutObject).Checksum)
+				err := repository.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
 				result := Request{
 					Uuid: request.Uuid,
 					Type: "ResPutObject",

@@ -86,8 +86,9 @@ type RepositoryBackend interface {
 	CheckChunkMetadata(checksum [32]byte) (bool, error)
 
 	GetObjects() ([][32]byte, error)
+	GetObject(checksum [32]byte) ([]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
-	PutObject(checksum [32]byte) error
+	PutObject(checksum [32]byte, data []byte) error
 	DeleteObject(checksum [32]byte) error
 
 	GetChunks() ([][32]byte, error)
@@ -520,7 +521,7 @@ func (repository *Repository) GetObjects() ([][32]byte, error) {
 	return repository.backend.GetObjects()
 }
 
-func (repository *Repository) PutObject(checksum [32]byte) error {
+func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
@@ -530,7 +531,7 @@ func (repository *Repository) PutObject(checksum [32]byte) error {
 		logger.Trace("storage", "PutObject(%064x): %s", checksum, time.Since(t0))
 	}()
 
-	return repository.backend.PutObject(checksum)
+	return repository.backend.PutObject(checksum, data)
 }
 
 func (repository *Repository) DeleteObject(checksum [32]byte) error {
@@ -568,6 +569,24 @@ func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 
 	data, err := repository.backend.GetChunk(checksum)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
+}
+
+func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetObject", time.Since(t0))
+		logger.Trace("storage", "GetObject(%064x): %s", checksum, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetObject(checksum)
 	if err != nil {
 		return nil, err
 	}

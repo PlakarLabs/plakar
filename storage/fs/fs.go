@@ -22,13 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/google/uuid"
@@ -39,8 +37,6 @@ type FSRepository struct {
 
 	Repository string
 	root       string
-
-	muObjectDB sync.Mutex
 }
 
 type FSTransaction struct {
@@ -73,20 +69,22 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 		return err
 	}
 
+	os.MkdirAll(filepath.Join(repository.root, "indexes"), 0700)
+
 	os.MkdirAll(filepath.Join(repository.root, "chunks"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "objects"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "transactions"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
+		os.MkdirAll(filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", i)), 0700)
+
 		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
@@ -382,18 +380,39 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) PutObject(checksum [32]byte) error {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-	db, err := leveldb.OpenFile(repository.PathObjectsIndex(), nil)
+func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error {
+	f, err := os.CreateTemp(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 
-	key := []byte(fmt.Sprintf("Object:%016x", checksum))
-	value := []byte{}
-	return db.Put(key, value, nil)
+	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+
+	name := f.Name()
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(name, repository.PathObject(checksum))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
+	data, err := os.ReadFile(repository.PathObject(checksum))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
@@ -485,17 +504,11 @@ func (repository *FSRepository) DeleteChunk(checksum [32]byte) error {
 }
 
 func (repository *FSRepository) CheckObject(checksum [32]byte) (bool, error) {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-
-	db, err := leveldb.OpenFile(repository.PathObjectsIndex(), nil)
-	if err != nil {
-		return false, err
+	fileinfo, err := os.Stat(repository.PathObject(checksum))
+	if os.IsNotExist(err) {
+		return false, nil
 	}
-	defer db.Close()
-
-	key := []byte(fmt.Sprintf("Object:%016x", checksum))
-	return db.Has(key, nil)
+	return fileinfo.Mode().IsRegular(), nil
 }
 
 func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
@@ -504,7 +517,6 @@ func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
 		return false, nil
 	}
 	return fileinfo.Mode().IsRegular(), nil
-
 }
 
 func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
@@ -526,66 +538,19 @@ func (repository *FSRepository) Close() error {
 }
 
 func (repository *FSRepository) PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
-	value := []byte(fmt.Sprintf("%016x", packfileChecksum))
-	return db.Put(key, value, nil)
+	return nil
 }
 
 func (repository *FSRepository) GetChunkMetadata(checksum [32]byte) ([32]byte, error) {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	defer db.Close()
-
-	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
-	value, err := db.Get(key, nil)
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	var decodedValue [32]byte
-	_, err = hex.Decode(decodedValue[:32], value[:])
-	if err != nil {
-		return [32]byte{}, err
-	}
-	return decodedValue, nil
+	return [32]byte{}, fmt.Errorf("not implemented")
 }
 
 func (repository *FSRepository) DeleteChunkMetadata(checksum [32]byte) error {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
-	return db.Delete(key, nil)
+	return nil
 }
 
 func (repository *FSRepository) CheckChunkMetadata(checksum [32]byte) (bool, error) {
-	repository.muObjectDB.Lock()
-	defer repository.muObjectDB.Unlock()
-	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
-	if err != nil {
-		return false, err
-	}
-	defer db.Close()
-
-	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
-	return db.Has(key, nil)
+	return false, fmt.Errorf("not implemented")
 }
 
 /**/
@@ -594,16 +559,28 @@ func (transaction *FSTransaction) GetUuid() uuid.UUID {
 }
 
 func (transaction *FSTransaction) Commit(data []byte) error {
-	f, err := os.Create(transaction.Path())
+	f, err := os.CreateTemp("", fmt.Sprintf("%s.*", transaction.Uuid))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	_, err = f.Write(data)
 	if err != nil {
+		f.Close()
 		return err
 	}
 
-	return os.Rename(transaction.Path(), transaction.repository.PathIndex(transaction.Uuid))
+	name := f.Name()
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(name, transaction.repository.PathIndex(transaction.Uuid))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

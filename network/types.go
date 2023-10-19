@@ -181,6 +181,7 @@ type ResDeleteChunk struct {
 type ReqPutObject struct {
 	Transaction uuid.UUID
 	Checksum    [32]byte
+	Data        []byte
 }
 
 type ResPutObject struct {

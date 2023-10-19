@@ -15,6 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Snapshot struct {
@@ -369,7 +370,35 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%s: PutObject(%064x)", snapshot.Header.GetIndexShortID(), object.Checksum)
-	return snapshot.repository.PutObject(object.Checksum)
+
+	data, err := msgpack.Marshal(object)
+	if err != nil {
+		return err
+	}
+
+	secret := snapshot.repository.GetSecret()
+
+	buffer := data
+	if snapshot.repository.Configuration().Compression != "" {
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return err
+		}
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	err = snapshot.repository.PutObject(object.Checksum, buffer)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (snapshot *Snapshot) prepareHeader(data []byte) ([]byte, error) {

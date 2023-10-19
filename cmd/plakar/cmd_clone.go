@@ -138,7 +138,12 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 					_, exists := objectChecksum[objectID]
 					muObjectChecksum.Unlock()
 					if !exists {
-						err = cloneRepository.PutObject(objectID)
+						data, err := sourceRepository.GetObject(objectID)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
+							return
+						}
+						err = cloneRepository.PutObject(objectID, data)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
 							return

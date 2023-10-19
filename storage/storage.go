@@ -54,6 +54,8 @@ type RepositoryConfig struct {
 	ChunkingMin    int
 	ChunkingNormal int
 	ChunkingMax    int
+
+	PackfileSize int
 }
 
 type RepositoryBackend interface {
@@ -77,6 +79,11 @@ type RepositoryBackend interface {
 	GetPackfile(checksum [32]byte) ([]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
 	DeletePackfile(checksum [32]byte) error
+
+	PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error
+	GetChunkMetadata(checksum [32]byte) ([32]byte, error)
+	DeleteChunkMetadata(checksum [32]byte) error
+	CheckChunkMetadata(checksum [32]byte) (bool, error)
 
 	GetObjects() ([][32]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
@@ -726,4 +733,52 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 		logger.Trace("storage", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.DeletePackfile(checksum)
+}
+
+func (repository *Repository) PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutChunkMetadata", time.Since(t0))
+		logger.Trace("storage", "PutChunkMetadata(%064x, %064x): %s", checksum, packfileChecksum, time.Since(t0))
+	}()
+	return repository.backend.PutChunkMetadata(checksum, packfileChecksum)
+}
+
+func (repository *Repository) GetChunkMetadata(checksum [32]byte) ([32]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetChunkMetadata", time.Since(t0))
+		logger.Trace("storage", "GetChunkMetadata(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.GetChunkMetadata(checksum)
+}
+
+func (repository *Repository) DeleteChunkMetadata(checksum [32]byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteChunkMetadata", time.Since(t0))
+		logger.Trace("storage", "DeleteChunkMetadata(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteChunkMetadata(checksum)
+}
+
+func (repository *Repository) CheckChunkMetadata(checksum [32]byte) (bool, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.CheckChunkMetadata", time.Since(t0))
+		logger.Trace("storage", "CheckChunkMetadata(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.CheckChunkMetadata(checksum)
 }

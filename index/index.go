@@ -28,10 +28,6 @@ type Index struct {
 	PathnameToObject   map[uint64]uint32
 	ObjectToPathnames  map[uint32][]uint64
 
-	// Packfiles
-	muPackfiles sync.Mutex
-	Packfiles   map[uint32][]uint32
-
 	// Object checksum -> Object
 	muObjects           sync.Mutex
 	Objects             map[uint32][]uint32
@@ -65,8 +61,9 @@ func NewIndex() *Index {
 		Objects:             make(map[uint32][]uint32),
 		ObjectToContentType: make(map[uint32]uint32),
 
-		Chunks:         make(map[uint32]uint32),
-		ChunkToObjects: make(map[uint32][]uint32),
+		Chunks:          make(map[uint32]uint32),
+		ChunkToObjects:  make(map[uint32][]uint32),
+		ChunkToPackfile: make(map[uint32]uint32),
 
 		ContentTypeToObjects: make(map[uint32][]uint32),
 	}
@@ -292,7 +289,6 @@ func (index *Index) RecordPathnameChecksum(pathnameChecksum [32]byte, pathnameID
 	if _, exists := index.Pathnames[checksumID]; !exists {
 		index.Pathnames[checksumID] = pathnameID
 	}
-
 }
 
 func (index *Index) LinkPathnameToObject(pathnameID uint64, object *objects.Object) {
@@ -465,4 +461,13 @@ func (index *Index) GetObject(checksum [32]byte) *objects.Object {
 		Chunks:      chunks,
 		ContentType: contentType,
 	}
+}
+
+func (index *Index) LinkChunkToPackfile(packfileChecksum [32]byte, chunkChecksum [32]byte) {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	packfileID := index.addChecksum(packfileChecksum)
+	chunkID := index.Checksums[chunkChecksum]
+	index.ChunkToPackfile[chunkID] = packfileID
 }

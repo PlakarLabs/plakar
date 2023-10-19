@@ -22,12 +22,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/google/uuid"
@@ -36,20 +37,15 @@ import (
 type FSRepository struct {
 	config storage.RepositoryConfig
 
-	Cache *cache.Cache
-
 	Repository string
 	root       string
 
-	//storage.RepositoryBackend
+	muObjectDB sync.Mutex
 }
 
 type FSTransaction struct {
 	Uuid       uuid.UUID
 	repository FSRepository
-	//prepared   bool
-
-	//storage.TransactionBackend
 }
 
 func init() {
@@ -164,7 +160,7 @@ func (repository *FSRepository) Transaction(indexID uuid.UUID) (storage.Transact
 func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
 
-	buckets, err := os.ReadDir(repository.PathIndexes())
+	buckets, err := os.ReadDir(repository.PathSnapshots())
 	if err != nil {
 		return ret, err
 	}
@@ -173,7 +169,7 @@ func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
 		if !bucket.IsDir() {
 			continue
 		}
-		pathBuckets := filepath.Join(repository.PathIndexes(), bucket.Name())
+		pathBuckets := filepath.Join(repository.PathSnapshots(), bucket.Name())
 		indexes, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
@@ -204,7 +200,7 @@ func (repository *FSRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 func (repository *FSRepository) GetBlobs() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
-	buckets, err := os.ReadDir(repository.PathIndexes())
+	buckets, err := os.ReadDir(repository.PathBlobs())
 	if err != nil {
 		return ret, err
 	}
@@ -387,12 +383,17 @@ func (repository *FSRepository) GetObjects() ([][32]byte, error) {
 }
 
 func (repository *FSRepository) PutObject(checksum [32]byte) error {
-	file, err := os.Create(repository.PathObject(checksum))
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+	db, err := leveldb.OpenFile(repository.PathObjectsIndex(), nil)
 	if err != nil {
 		return err
 	}
-	file.Close()
-	return nil
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Object:%016x", checksum))
+	value := []byte{}
+	return db.Put(key, value, nil)
 }
 
 func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
@@ -484,11 +485,17 @@ func (repository *FSRepository) DeleteChunk(checksum [32]byte) error {
 }
 
 func (repository *FSRepository) CheckObject(checksum [32]byte) (bool, error) {
-	fileinfo, err := os.Stat(repository.PathObject(checksum))
-	if os.IsNotExist(err) {
-		return false, nil
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+
+	db, err := leveldb.OpenFile(repository.PathObjectsIndex(), nil)
+	if err != nil {
+		return false, err
 	}
-	return fileinfo.Mode().IsRegular(), nil
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Object:%016x", checksum))
+	return db.Has(key, nil)
 }
 
 func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
@@ -518,6 +525,70 @@ func (repository *FSRepository) Close() error {
 	return nil
 }
 
+func (repository *FSRepository) PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error {
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
+	value := []byte(fmt.Sprintf("%016x", packfileChecksum))
+	return db.Put(key, value, nil)
+}
+
+func (repository *FSRepository) GetChunkMetadata(checksum [32]byte) ([32]byte, error) {
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
+	value, err := db.Get(key, nil)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	var decodedValue [32]byte
+	_, err = hex.Decode(decodedValue[:32], value[:])
+	if err != nil {
+		return [32]byte{}, err
+	}
+	return decodedValue, nil
+}
+
+func (repository *FSRepository) DeleteChunkMetadata(checksum [32]byte) error {
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
+	return db.Delete(key, nil)
+}
+
+func (repository *FSRepository) CheckChunkMetadata(checksum [32]byte) (bool, error) {
+	repository.muObjectDB.Lock()
+	defer repository.muObjectDB.Unlock()
+	db, err := leveldb.OpenFile(repository.PathPackfilesIndex(), nil)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	key := []byte(fmt.Sprintf("Chunk:%016x", checksum))
+	return db.Has(key, nil)
+}
+
+/**/
 func (transaction *FSTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }

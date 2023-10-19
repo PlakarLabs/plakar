@@ -128,3 +128,7 @@ func (p *PackFile) GetChunk(checksum [32]byte) ([]byte, bool) {
 		return p.Data[chunk.Offset : chunk.Offset+chunk.Length], true
 	}
 }
+
+func (p *PackFile) Size() uint32 {
+	return uint32(len(p.Data))
+}

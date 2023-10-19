@@ -12,10 +12,9 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/progress"
 )
 
-func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showProgress bool) {
+func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -39,17 +38,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 		}
 	}
 
-	var c chan int64
-	if showProgress {
-		c = progress.NewProgressCount("pull", "restoring directories", int64(len(snapshot.Filesystem.ListDirectories())))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
-
 	directoriesCount := 0
 	for _, directory := range snapshot.Filesystem.ListDirectories() {
 		if dpattern != "" {
@@ -64,7 +52,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 		go func(directory string) {
 			defer wg.Done()
 			defer func() { <-maxDirectoriesConcurrency }()
-			c <- 1
 
 			var dest string
 
@@ -87,17 +74,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 		}(directory)
 	}
 	wg.Wait()
-	close(c)
-
-	if showProgress {
-		c = progress.NewProgressCount("pull", "restoring files", int64(len(snapshot.Filesystem.ListFiles())))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 
 	filesCount := 0
 	var filesSize uint64 = 0
@@ -113,8 +89,6 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 		go func(file string) {
 			defer wg.Done()
 			defer func() { <-maxFilesConcurrency }()
-
-			c <- 1
 
 			var dest string
 
@@ -195,5 +169,4 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 		}(filename)
 	}
 	wg.Wait()
-	close(c)
 }

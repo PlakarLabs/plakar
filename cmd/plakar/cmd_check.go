@@ -50,7 +50,7 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
 
-		ok, err := snapshot.Check(pattern, enableFastCheck, opt_progress)
+		ok, err := snapshot.Check(pattern, enableFastCheck)
 		if err != nil {
 			logger.Warn("%s", err)
 		}

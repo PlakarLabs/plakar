@@ -61,7 +61,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 					if err != nil {
 						return 1
 					}
-					snap.Pull(pullPath, true, dir, opt_progress)
+					snap.Pull(pullPath, true, dir)
 					return 0
 				}
 			}
@@ -77,7 +77,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snap.Pull(pullPath, pullRebase, pattern, opt_progress)
+		snap.Pull(pullPath, pullRebase, pattern)
 	}
 
 	return 0

@@ -17,7 +17,6 @@ import (
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/progress"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
 )
@@ -201,7 +200,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
+func (snapshot *Snapshot) Push(scanDir string) error {
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}
@@ -209,17 +208,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	t0 := time.Now()
 
 	cache := snapshot.repository.Cache
-
-	var c chan int64
-	if showProgress {
-		c = progress.NewProgress("push", "scanning filesystem")
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 
 	snapshot.Header.ScannedDirectories = make([]string, 0)
 
@@ -238,18 +226,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 	}
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
-	close(c)
-
-	if showProgress {
-		c = progress.NewProgressBytes("push", "pushing snapshot", int64(snapshot.Filesystem.Size()))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
-
 	for _, filename := range snapshot.Filesystem.ListFiles() {
 		maxConcurrency <- true
 		wg.Add(1)
@@ -262,7 +238,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 				logger.Warn("%s: failed to find file informations", _filename)
 				return
 			}
-			c <- fileinfo.Size()
 			atomic.AddUint64(&snapshot.Header.ScanSize, uint64(fileinfo.Size()))
 
 			var object *objects.Object
@@ -328,7 +303,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 		}(filename)
 	}
 	wg.Wait()
-	close(c)
 	snapshot.Filesystem.ImporterEnd()
 
 	snapshot.Header.ChunksCount = uint64(len(snapshot.Index.ListChunks()))

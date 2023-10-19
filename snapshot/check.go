@@ -6,7 +6,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/progress"
 )
 
 func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.Hash, fast bool) (bool, error) {
@@ -70,7 +69,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 	return ret, nil
 }
 
-func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool, showProgress bool) (bool, error) {
+func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
 	pathnameID := snapshot.Filesystem.GetPathnameID(resource)
 	object := snapshot.Index.LookupObjectForPathname(pathnameID)
 	if object == nil {
@@ -85,19 +84,9 @@ func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool, showP
 	return ret, nil
 }
 
-func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, error) {
-	var c chan int64
+func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 
 	ret := true
-	if showProgress {
-		c = progress.NewProgressCount("check", "checking chunks", int64(len(snapshot.Index.ListChunks())))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 	for _, checksum := range snapshot.Index.ListChunks() {
 		if fast {
 			exists, err := snapshot.CheckChunk(checksum)
@@ -126,20 +115,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 				continue
 			}
 		}
-		c <- 1
-
 	}
-	close(c)
 
-	if showProgress {
-		c = progress.NewProgressCount("check", "checking objects", int64(len(snapshot.Index.ListObjects())))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 	for _, checksum := range snapshot.Index.ListObjects() {
 		if fast {
 			exists, err := snapshot.CheckObject(checksum)
@@ -177,19 +154,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 				continue
 			}
 		}
-		c <- 1
 	}
-	close(c)
 
-	if showProgress {
-		c = progress.NewProgressCount("check", "checking pathnames", int64(len(snapshot.Filesystem.ListFiles())))
-	} else {
-		c = make(chan int64)
-		go func() {
-			for _ = range c {
-			}
-		}()
-	}
 	for _, file := range snapshot.Filesystem.ListFiles() {
 		pathnameID := snapshot.Filesystem.GetPathnameID(file)
 		object := snapshot.Index.LookupObjectForPathname(pathnameID)
@@ -198,17 +164,14 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool, showProgress bool) (bool, 
 			ret = false
 			continue
 		}
-		c <- 1
-
 	}
-	close(c)
 	return ret, nil
 }
 
-func (snapshot *Snapshot) Check(resource string, fast bool, showProgress bool) (bool, error) {
+func (snapshot *Snapshot) Check(resource string, fast bool) (bool, error) {
 	if resource != "" && resource != "/" {
-		return snapshotCheckResource(snapshot, resource, fast, showProgress)
+		return snapshotCheckResource(snapshot, resource, fast)
 	} else {
-		return snapshotCheckFull(snapshot, fast, showProgress)
+		return snapshotCheckFull(snapshot, fast)
 	}
 }

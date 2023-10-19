@@ -157,6 +157,8 @@ func New(location string) (*Repository, error) {
 			backendName = "database"
 		} else if strings.HasPrefix(location, "s3://") {
 			backendName = "s3"
+		} else if strings.HasPrefix(location, "null://") {
+			backendName = "null"
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
 		} else {

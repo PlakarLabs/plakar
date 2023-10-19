@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -223,11 +224,13 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 	snapshot.Metadata.ScannedDirectories = make([]string, 0)
 
+	scanT0 := time.Now()
 	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir)
 	if err != nil {
 		logger.Warn("%s", err)
 	}
 	snapshot.Filesystem = fs
+	fmt.Println("snapshot scan: %s", time.Since(scanT0))
 
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)

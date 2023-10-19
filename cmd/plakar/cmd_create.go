@@ -33,14 +33,12 @@ func cmd_create(ctx Plakar, args []string) int {
 	var opt_nocompression bool
 	var opt_hashing string
 	var opt_compression string
-	var opt_chunking string
 
 	flags := flag.NewFlagSet("init", flag.ExitOnError)
 	flags.BoolVar(&opt_noencryption, "no-encryption", false, "disable transparent encryption")
 	flags.BoolVar(&opt_nocompression, "no-compression", false, "disable transparent compression")
 	flags.StringVar(&opt_hashing, "hashing", "sha256", "swap the hashing function")
 	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
-	flags.StringVar(&opt_chunking, "chunking", "fastcdc", "swap the chunking function")
 	flags.Parse(args)
 
 	repositoryConfig := storage.RepositoryConfig{}
@@ -54,10 +52,10 @@ func cmd_create(ctx Plakar, args []string) int {
 	}
 
 	repositoryConfig.Hashing = opt_hashing
-	repositoryConfig.Chunking = opt_chunking
-	repositoryConfig.ChunkingMin = 512 << 10
-	repositoryConfig.ChunkingNormal = 1024 << 10
-	repositoryConfig.ChunkingMax = 8192 << 10
+	repositoryConfig.Chunking = "ultracdc"
+	repositoryConfig.ChunkingMin = 2 << 10
+	repositoryConfig.ChunkingNormal = repositoryConfig.ChunkingMin + (8 << 10)
+	repositoryConfig.ChunkingMax = 64 << 10
 
 	if !opt_noencryption {
 		var passphrase []byte

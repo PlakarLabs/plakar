@@ -481,6 +481,7 @@ func (filesystem *Filesystem) ListNonRegular() []string {
 		profiler.RecordEvent("vfs.ListNonRegular", time.Since(t0))
 		logger.Trace("vfs", "ListNonRegular(): %s", time.Since(t0))
 	}()
+
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -499,6 +500,7 @@ func (filesystem *Filesystem) ListStat() []string {
 		profiler.RecordEvent("vfs.ListStat", time.Since(t0))
 		logger.Trace("vfs", "ListStat(): %s", time.Since(t0))
 	}()
+
 	filesystem.muStat.Lock()
 	defer filesystem.muStat.Unlock()
 
@@ -510,6 +512,12 @@ func (filesystem *Filesystem) ListStat() []string {
 }
 
 func (filesystem *Filesystem) _reindex(pathname string) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs._reindex", time.Since(t0))
+		logger.Trace("vfs", "_reindex(): %s", time.Since(t0))
+	}()
+
 	node, err := filesystem.Lookup(pathname)
 	if err != nil {
 		return
@@ -531,6 +539,12 @@ func (filesystem *Filesystem) _reindex(pathname string) {
 }
 
 func (filesystem *Filesystem) reindex() {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.reindex", time.Since(t0))
+		logger.Trace("vfs", "reindex(): %s", time.Since(t0))
+	}()
+
 	filesystem.muPathnames.Lock()
 	filesystem.pathnamesInverse = make(map[uint64]string)
 	for pathname, pathnameId := range filesystem.Pathnames {
@@ -546,6 +560,12 @@ func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
 	filesystem.muInodes.Lock()
 	defer filesystem.muInodes.Unlock()
 
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.addInode", time.Since(t0))
+		logger.Trace("vfs", "addInode(): %s", time.Since(t0))
+	}()
+
 	key := fmt.Sprintf("%d,%d", fileinfo.Dev(), fileinfo.Ino())
 	if _, exists := filesystem.Inodes[key]; !exists {
 		filesystem.Inodes[key] = fileinfo
@@ -557,6 +577,12 @@ func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
 func (filesystem *Filesystem) addPathname(pathname string) uint64 {
 	filesystem.muPathnames.Lock()
 	defer filesystem.muPathnames.Unlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.addPathname", time.Since(t0))
+		logger.Trace("vfs", "addPathname(): %s", time.Since(t0))
+	}()
 
 	if pathnameId, exists := filesystem.Pathnames[pathname]; !exists {
 		filesystem.Pathnames[pathname] = filesystem.pathnameID
@@ -572,6 +598,11 @@ func (filesystem *Filesystem) GetPathnameID(pathname string) uint64 {
 	filesystem.muPathnames.Lock()
 	defer filesystem.muPathnames.Unlock()
 
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.GetPathnameID", time.Since(t0))
+		logger.Trace("vfs", "GetPathnameID(): %s", time.Since(t0))
+	}()
 	return filesystem.Pathnames[pathname]
 }
 
@@ -579,29 +610,64 @@ func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
 	filesystem.muPathnames.Lock()
 	defer filesystem.muPathnames.Unlock()
 
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.GetPathname", time.Since(t0))
+		logger.Trace("vfs", "GetPathname(): %s", time.Since(t0))
+	}()
 	return filesystem.pathnamesInverse[pathnameId]
 }
 
 func (filesystem *Filesystem) Size() uint64 {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.Size", time.Since(t0))
+		logger.Trace("vfs", "Size(): %s", time.Since(t0))
+	}()
 	return filesystem.totalSize
 }
 
 func (filesystem *Filesystem) NFiles() uint64 {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.NDirectories", time.Since(t0))
+		logger.Trace("vfs", "NFiles(): %s", time.Since(t0))
+	}()
 	return filesystem.nFiles
 }
 
 func (filesystem *Filesystem) NDirectories() uint64 {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.NDirectories", time.Since(t0))
+		logger.Trace("vfs", "NDirectories(): %s", time.Since(t0))
+	}()
 	return filesystem.nDirectories
 }
 
 func (filesystem *Filesystem) ImporterBegin(location string) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ImporterBegin", time.Since(t0))
+		logger.Trace("vfs", "ImporterBegin(): %s", time.Since(t0))
+	}()
 	return filesystem.importer.Begin(location)
 }
 
 func (filesystem *Filesystem) ImporterEnd() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ImporterEnd", time.Since(t0))
+		logger.Trace("vfs", "ImporterEnd(): %s", time.Since(t0))
+	}()
 	return filesystem.importer.End()
 }
 
 func (filesystem *Filesystem) ImporterOpen(filename string) (io.ReadCloser, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.ImporterOpen", time.Since(t0))
+		logger.Trace("vfs", "ImporterOpen(): %s", time.Since(t0))
+	}()
 	return filesystem.importer.Open(filename)
 }

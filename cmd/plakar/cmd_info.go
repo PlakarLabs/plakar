@@ -80,7 +80,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	if opt_metadata {
-		metadatas, err := getMetadatas(repository, flags.Args())
+		metadatas, err := getHeaders(repository, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -180,7 +180,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	if !opt_metadata && !opt_index && !opt_filesystem {
-		metadatas, err := getMetadatas(repository, flags.Args())
+		metadatas, err := getHeaders(repository, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -228,7 +228,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 }
 
 func info_plakar(repository *storage.Repository) int {
-	metadatas, err := getMetadatas(repository, nil)
+	metadatas, err := getHeaders(repository, nil)
 	if err != nil {
 		logger.Warn("%s", err)
 		return 1

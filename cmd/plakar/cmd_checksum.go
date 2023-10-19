@@ -54,7 +54,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Metadata.GetIndexShortID())
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Header.GetIndexShortID())
 			errors++
 			continue
 		}

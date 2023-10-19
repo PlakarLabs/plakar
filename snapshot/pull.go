@@ -76,7 +76,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				dest = filepath.Join(root, directory)
 			}
 
-			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			dest = filepath.FromSlash(dest)
 
@@ -134,7 +134,7 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string, showPro
 				return
 			}
 
-			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Metadata.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			dest = filepath.FromSlash(dest)
 

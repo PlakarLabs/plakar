@@ -33,10 +33,10 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 
 	data, err := cache.GetPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath)
 	if err != nil {
-		logger.Trace("snapshot", "%s: cache.GetPath(%s): KO", snapshot.Metadata.GetIndexShortID(), pathname)
+		logger.Trace("snapshot", "%s: cache.GetPath(%s): KO", snapshot.Header.GetIndexShortID(), pathname)
 		return nil, err
 	}
-	logger.Trace("snapshot", "%s: cache.GetPath(%s): OK", snapshot.Metadata.GetIndexShortID(), pathname)
+	logger.Trace("snapshot", "%s: cache.GetPath(%s): OK", snapshot.Header.GetIndexShortID(), pathname)
 
 	cacheObject := CachedObject{}
 	err = msgpack.Unmarshal(data, &cacheObject)
@@ -74,7 +74,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 		return err
 	}
 
-	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Metadata.GetIndexShortID(), pathname)
+	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Header.GetIndexShortID(), pathname)
 	cache.PutPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath, jobject)
 	return nil
 }

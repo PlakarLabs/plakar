@@ -29,7 +29,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/index"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/snapshot/metadata"
+	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
@@ -69,13 +69,13 @@ func getSnapshotsList(repository *storage.Repository) ([]uuid.UUID, error) {
 	return snapshots, nil
 }
 
-func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadata.Metadata, error) {
+func getHeaders(repository *storage.Repository, prefixes []string) ([]*header.Header, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*metadata.Metadata, 0)
+	result := make([]*header.Header, 0)
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {
@@ -85,13 +85,13 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadat
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+				hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
 				mu.Lock()
-				result = append(result, metadata)
+				result = append(result, hdr)
 				mu.Unlock()
 			}(snapshotUuid)
 		}
@@ -106,17 +106,17 @@ func getMetadatas(repository *storage.Repository, prefixes []string) ([]*metadat
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+		hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
-		for _, tag := range metadata.Tags {
+		for _, tag := range hdr.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
 				tags[tag] = snapshotUuid
-				tagsTimestamp[tag] = metadata.CreationTime
-			} else if recordTime.Before(metadata.CreationTime) {
+				tagsTimestamp[tag] = hdr.CreationTime
+			} else if recordTime.Before(hdr.CreationTime) {
 				tags[tag] = snapshotUuid
-				tagsTimestamp[tag] = metadata.CreationTime
+				tagsTimestamp[tag] = hdr.CreationTime
 			}
 		}
 	}
@@ -442,7 +442,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 
 func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].Metadata.CreationTime.Before(snapshots[j].Metadata.CreationTime)
+		return snapshots[i].Header.CreationTime.Before(snapshots[j].Header.CreationTime)
 	})
 	return snapshots
 }

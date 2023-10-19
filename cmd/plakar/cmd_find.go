@@ -84,7 +84,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		snapshots = append(snapshots, snap)
 	}
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].Metadata.CreationTime.Before(snapshots[j].Metadata.CreationTime)
+		return snapshots[i].Header.CreationTime.Before(snapshots[j].Header.CreationTime)
 	})
 
 	for _, snap := range snapshots {
@@ -98,7 +98,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		})
 
 		for _, pathname := range files {
-			fmt.Printf("%s  %s %s\n", snap.Metadata.CreationTime.UTC().Format(time.RFC3339), snap.Metadata.GetIndexShortID(), pathname)
+			fmt.Printf("%s  %s %s\n", snap.Header.CreationTime.UTC().Format(time.RFC3339), snap.Header.GetIndexShortID(), pathname)
 		}
 	}
 

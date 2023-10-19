@@ -61,7 +61,7 @@ func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 }
 
 func list_snapshots(repository *storage.Repository, useUuid bool) {
-	metadatas, err := getMetadatas(repository, nil)
+	metadatas, err := getHeaders(repository, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}

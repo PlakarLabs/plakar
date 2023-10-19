@@ -33,7 +33,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/snapshot/metadata"
+	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
@@ -66,8 +66,7 @@ var searchTemplate string
 var templates map[string]*template.Template
 
 type SnapshotSummary struct {
-	Metadata *metadata.Metadata
-
+	Header      *header.Header
 	Roots       uint64
 	Directories uint64
 	Files       uint64
@@ -117,19 +116,19 @@ func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) 
 	wg.Wait()
 
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Metadata.CreationTime.Before(result[j].Metadata.CreationTime)
+		return result[i].Header.CreationTime.Before(result[j].Header.CreationTime)
 	})
 
 	return result, nil
 }
 
-func getMetadatas(repository *storage.Repository) ([]*metadata.Metadata, error) {
+func getHeaders(repository *storage.Repository) ([]*header.Header, error) {
 	snapshotsList, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*metadata.Metadata, 0)
+	result := make([]*header.Header, 0)
 
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
@@ -137,12 +136,12 @@ func getMetadatas(repository *storage.Repository) ([]*metadata.Metadata, error) 
 		wg.Add(1)
 		go func(snapshotUuid uuid.UUID) {
 			defer wg.Done()
-			metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+			hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 			if err != nil {
 				return
 			}
 			mu.Lock()
-			result = append(result, metadata)
+			result = append(result, hdr)
 			mu.Unlock()
 		}(snapshotUuid)
 	}
@@ -160,8 +159,8 @@ func (summary *SnapshotSummary) HumanSize() string {
 
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss := &SnapshotSummary{}
-	ss.Metadata = snapshot.Metadata
-	ss.Roots = uint64(len(snapshot.Metadata.ScannedDirectories))
+	ss.Header = snapshot.Header
+	ss.Roots = uint64(len(snapshot.Header.ScannedDirectories))
 	ss.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
 	ss.Files = uint64(len(snapshot.Filesystem.ListFiles()))
 	ss.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
@@ -173,7 +172,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 
 func viewRepository(w http.ResponseWriter, r *http.Request) {
 
-	metadatas, _ := getMetadatas(lrepository)
+	hdrs, _ := getHeaders(lrepository)
 
 	totalFiles := uint64(0)
 
@@ -185,26 +184,26 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 	typesPct := make(map[string]float64)
 	extensionsPct := make(map[string]float64)
 
-	res := make([]*metadata.Metadata, 0)
-	for _, metadata := range metadatas {
-		res = append(res, metadata)
-		totalFiles += metadata.FilesCount
+	res := make([]*header.Header, 0)
+	for _, hdr := range hdrs {
+		res = append(res, hdr)
+		totalFiles += hdr.FilesCount
 
-		for key, value := range metadata.FileKind {
+		for key, value := range hdr.FileKind {
 			if _, exists := kinds[key]; !exists {
 				kinds[key] = 0
 			}
 			kinds[key] += value
 		}
 
-		for key, value := range metadata.FileType {
+		for key, value := range hdr.FileType {
 			if _, exists := types[key]; !exists {
 				types[key] = 0
 			}
 			types[key] += value
 		}
 
-		for key, value := range metadata.FileExtension {
+		for key, value := range hdr.FileExtension {
 			if _, exists := extensions[key]; !exists {
 				extensions[key] = 0
 			}
@@ -226,7 +225,7 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Repository    storage.RepositoryConfig
-		Metadatas     []*metadata.Metadata
+		Headers       []*header.Header
 		MajorTypes    map[string]uint64
 		MimeTypes     map[string]uint64
 		Extensions    map[string]uint64
@@ -253,7 +252,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.IndexID.String() != id {
+	if lcache == nil || lcache.Header.IndexID.String() != id {
 		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -331,7 +330,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Metadata.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Header.ScannedDirectories, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }
@@ -342,7 +341,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.IndexID.String() != id {
+	if lcache == nil || lcache.Header.IndexID.String() != id {
 		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -419,7 +418,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	highlight := r.URL.Query().Get("highlight")
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Metadata.IndexID.String() != id {
+	if lcache == nil || lcache.Header.IndexID.String() != id {
 		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -537,7 +536,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		snapshotsList = append(snapshotsList, snapshot)
 	}
 	sort.Slice(snapshotsList, func(i, j int) bool {
-		return snapshotsList[i].Metadata.CreationTime.Before(snapshotsList[j].Metadata.CreationTime)
+		return snapshotsList[i].Header.CreationTime.Before(snapshotsList[j].Header.CreationTime)
 	})
 
 	directories := make([]struct {
@@ -559,7 +558,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Snapshot string
 						Date     string
 						Path     string
-					}{snap.Metadata.IndexID.String(), snap.Metadata.CreationTime.String(), directory})
+					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), directory})
 				}
 			}
 		}
@@ -583,7 +582,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Date     string
 						Mime     string
 						Path     string
-					}{snap.Metadata.IndexID.String(), snap.Metadata.CreationTime.String(), object.ContentType, file})
+					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), object.ContentType, file})
 				}
 			}
 		}

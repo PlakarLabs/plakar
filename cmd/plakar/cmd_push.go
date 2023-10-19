@@ -55,11 +55,11 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snap.Metadata.Hostname = ctx.Hostname
-	snap.Metadata.Username = ctx.Username
-	snap.Metadata.OperatingSystem = runtime.GOOS
-	snap.Metadata.MachineID = ctx.MachineID
-	snap.Metadata.CommandLine = ctx.CommandLine
+	snap.Header.Hostname = ctx.Hostname
+	snap.Header.Username = ctx.Username
+	snap.Header.OperatingSystem = runtime.GOOS
+	snap.Header.MachineID = ctx.MachineID
+	snap.Header.CommandLine = ctx.CommandLine
 
 	var tags []string
 	if opt_tags == "" {
@@ -67,7 +67,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	} else {
 		tags = []string{opt_tags}
 	}
-	snap.Metadata.Tags = tags
+	snap.Header.Tags = tags
 
 	if flags.NArg() == 0 {
 		err = snap.Push(dir, opt_progress)
@@ -89,6 +89,6 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Metadata.GetIndexShortID())
+	logger.Info("created snapshot %s", snap.Header.GetIndexShortID())
 	return 0
 }

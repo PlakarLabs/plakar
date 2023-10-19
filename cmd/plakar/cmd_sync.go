@@ -141,7 +141,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 
 			// rebuild a new snapshot w/ identical fs, but destination specific index and rebuilt metadata
 			// should share same UUID but take into account configuration differnces
-			copySnapshot.Metadata = sourceSnapshot.Metadata
+			copySnapshot.Header = sourceSnapshot.Header
 			copySnapshot.Filesystem = sourceSnapshot.Filesystem
 			copySnapshot.Index = sourceSnapshot.Index
 

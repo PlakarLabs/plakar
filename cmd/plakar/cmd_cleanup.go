@@ -53,10 +53,10 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		}
 
 		var blobID [32]byte
-		copy(blobID[:], s.Metadata.IndexChecksum[:32])
+		copy(blobID[:], s.Header.IndexChecksum[:32])
 		blobs[blobID] = true
 
-		copy(blobID[:], s.Metadata.FilesystemChecksum[:32])
+		copy(blobID[:], s.Header.FilesystemChecksum[:32])
 		blobs[blobID] = true
 	}
 

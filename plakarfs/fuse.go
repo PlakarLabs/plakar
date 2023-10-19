@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/snapshot/metadata"
+	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
@@ -45,8 +45,8 @@ type plakarFS struct {
 	inodeEntries *sync.Map
 	inode        *sync.Map
 
-	metadataCache *sync.Map
-	fsCache       *sync.Map
+	headerCache *sync.Map
+	fsCache     *sync.Map
 }
 
 func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server, error) {
@@ -57,8 +57,8 @@ func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server
 		inodeEntries: &sync.Map{},
 		inode:        &sync.Map{},
 
-		metadataCache: &sync.Map{},
-		fsCache:       &sync.Map{},
+		headerCache: &sync.Map{},
+		fsCache:     &sync.Map{},
 	}
 	fs.setInodeEntry(&inodeEntry{
 		name:     "/",
@@ -91,29 +91,29 @@ func (fs *plakarFS) getInode(pathname string) (fuseops.InodeID, bool) {
 	return entry.(fuseops.InodeID), true
 }
 
-func (fs *plakarFS) getMetadata(snapshotID uuid.UUID) (*metadata.Metadata, error) {
-	entry, exists := fs.metadataCache.Load(snapshotID)
+func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
+	entry, exists := fs.headerCache.Load(snapshotID)
 	if !exists {
 		md, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
 		if err != nil {
 			return md, err
 		}
-		fs.metadataCache.Store(snapshotID, md)
+		fs.headerCache.Store(snapshotID, md)
 		return md, err
 	}
-	return entry.(*metadata.Metadata), nil
+	return entry.(*header.Header), nil
 }
 
 func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
-		metadata, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
+		hdr, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
 		if err != nil {
 			return nil, err
 		}
 
 		var filesystemChecksum32 [32]byte
-		copy(filesystemChecksum32[:], metadata.FilesystemChecksum[:])
+		copy(filesystemChecksum32[:], hdr.FilesystemChecksum[:])
 
 		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
 		if err != nil {
@@ -142,7 +142,7 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	if inode.parentID == fuseops.RootInodeID {
 		// snapshots are right below root,
 		// they're a special case as there's no fileinfo for them.
-		metadata, err := fs.getMetadata(uuid.MustParse(inode.name))
+		metadata, err := fs.getHeader(uuid.MustParse(inode.name))
 		if err != nil {
 			return fuseops.InodeAttributes{}, fuse.EIO
 		}
@@ -196,19 +196,19 @@ func (fs *plakarFS) LookUpInode(
 			return fuse.ENOENT
 		}
 
-		metadata, err := fs.getMetadata(uuid.MustParse(op.Name))
+		hdr, err := fs.getHeader(uuid.MustParse(op.Name))
 		if err != nil {
 			return fuse.EIO
 		}
 
 		op.Entry.Child = inodeID
 		op.Entry.Attributes = fuseops.InodeAttributes{
-			Size:  metadata.ScanProcessedSize,
+			Size:  hdr.ScanProcessedSize,
 			Nlink: 1,
 			Mode:  0700 | os.ModeDir,
-			Ctime: metadata.CreationTime,
-			Atime: metadata.CreationTime,
-			Mtime: metadata.CreationTime,
+			Ctime: hdr.CreationTime,
+			Atime: hdr.CreationTime,
+			Mtime: hdr.CreationTime,
 		}
 		return nil
 	}

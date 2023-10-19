@@ -28,15 +28,20 @@ type Index struct {
 	PathnameToObject   map[uint64]uint32
 	ObjectToPathnames  map[uint32][]uint64
 
+	// Packfiles
+	muPackfiles sync.Mutex
+	Packfiles   map[uint32][]uint32
+
 	// Object checksum -> Object
 	muObjects           sync.Mutex
 	Objects             map[uint32][]uint32
 	ObjectToContentType map[uint32]uint32
 
 	// Chunk checksum -> Chunk
-	muChunks       sync.Mutex
-	Chunks         map[uint32]uint32
-	ChunkToObjects map[uint32][]uint32
+	muChunks        sync.Mutex
+	Chunks          map[uint32]uint32
+	ChunkToObjects  map[uint32][]uint32
+	ChunkToPackfile map[uint32]uint32
 
 	// Content Type -> Object checksums
 	muContentTypeToObjects sync.Mutex

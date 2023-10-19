@@ -24,11 +24,11 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 
-	//_ "github.com/PlakarLabs/plakar/storage/client"
-	//_ "github.com/PlakarLabs/plakar/storage/database"
-	_ "github.com/PlakarLabs/plakar/storage/fs"
-	//_ "github.com/PlakarLabs/plakar/storage/null"
-	//_ "github.com/PlakarLabs/plakar/storage/s3"
+	//_ "github.com/PlakarLabs/plakar/storage/backends/client"
+	//_ "github.com/PlakarLabs/plakar/storage/backends/database"
+	_ "github.com/PlakarLabs/plakar/storage/backends/fs"
+	//_ "github.com/PlakarLabs/plakar/storage/backends/null"
+	//_ "github.com/PlakarLabs/plakar/storage/backends/s3"
 
 	_ "github.com/PlakarLabs/plakar/vfs/importer/fs"
 	_ "github.com/PlakarLabs/plakar/vfs/importer/imap"

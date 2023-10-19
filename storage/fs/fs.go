@@ -85,13 +85,11 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
-		for j := 0; j < 256; j++ {
-			os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
-		}
+		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")

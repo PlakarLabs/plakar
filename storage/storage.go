@@ -591,7 +591,7 @@ func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetObject", time.Since(t0))
+		profiler.RecordEvent("storage.CheckObject", time.Since(t0))
 		logger.Trace("storage", "CheckObject(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.CheckObject(checksum)

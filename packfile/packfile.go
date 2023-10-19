@@ -1,22 +1,29 @@
 package packfile
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Chunk struct {
+	Offset uint32
+	Length uint32
+}
+
 type PackFile struct {
-	Chunks [][]byte
-	Index  map[[32]byte]uint32
-	size   uint32
+	Data  []byte
+	Index map[[32]byte]Chunk
 }
 
 func New() *PackFile {
 	return &PackFile{
-		Chunks: make([][]byte, 0),
+		Data:  make([]byte, 0),
+		Index: make(map[[32]byte]Chunk),
 	}
 }
 
@@ -27,14 +34,43 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 		logger.Trace("packfile", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
-	var p PackFile
-	if err := msgpack.Unmarshal(serialized, &p); err != nil {
+	var totalLength uint32
+	reader := bytes.NewReader(serialized)
+	if err := binary.Read(reader, binary.LittleEndian, &totalLength); err != nil {
 		return nil, err
 	}
-	for _, chunk := range p.Chunks {
-		p.size += uint32(len(chunk))
+
+	data := make([]byte, totalLength)
+	if err := binary.Read(reader, binary.LittleEndian, &data); err != nil {
+		return nil, err
 	}
-	return &p, nil
+
+	p := New()
+	p.Data = data
+	for reader.Len() > 0 {
+		var checksum [32]byte
+		var chunkOffset uint32
+		var chunkLength uint32
+		if err := binary.Read(reader, binary.LittleEndian, &checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(reader, binary.LittleEndian, &chunkOffset); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(reader, binary.LittleEndian, &chunkLength); err != nil {
+			return nil, err
+		}
+
+		if chunkOffset+chunkLength > totalLength {
+			return nil, fmt.Errorf("chunk offset + chunk length exceeds total length of packfile")
+		}
+
+		p.Index[checksum] = Chunk{
+			Offset: chunkOffset,
+			Length: chunkLength,
+		}
+	}
+	return p, nil
 }
 
 func (p *PackFile) Serialize() ([]byte, error) {
@@ -44,11 +80,26 @@ func (p *PackFile) Serialize() ([]byte, error) {
 		logger.Trace("packfile", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(p)
-	if err != nil {
+	var buffer bytes.Buffer
+	totalLength := uint32(len(p.Data))
+	if err := binary.Write(&buffer, binary.LittleEndian, totalLength); err != nil {
 		return nil, err
 	}
-	return serialized, nil
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
+		return nil, err
+	}
+	for checksum, chunk := range p.Index {
+		if err := binary.Write(&buffer, binary.LittleEndian, checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Offset); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Length); err != nil {
+			return nil, err
+		}
+	}
+	return buffer.Bytes(), nil
 }
 
 func (p *PackFile) AddChunk(checksum [32]byte, data []byte) {
@@ -59,12 +110,21 @@ func (p *PackFile) AddChunk(checksum [32]byte, data []byte) {
 	}()
 
 	if _, exists := p.Index[checksum]; !exists {
-		p.Index[checksum] = uint32(len(p.Chunks))
-		p.Chunks = append(p.Chunks, data)
-		p.size += uint32(len(data))
+		p.Index[checksum] = Chunk{uint32(len(p.Data)), uint32(len(data))}
+		p.Data = append(p.Data, data...)
 	}
 }
 
-func (p *PackFile) Size() uint32 {
-	return p.size
+func (p *PackFile) GetChunk(checksum [32]byte) ([]byte, bool) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.GetChunk", time.Since(t0))
+		logger.Trace("packfile", "GetChunk(...): %s", time.Since(t0))
+	}()
+
+	if chunk, exists := p.Index[checksum]; !exists {
+		return nil, false
+	} else {
+		return p.Data[chunk.Offset : chunk.Offset+chunk.Length], true
+	}
 }

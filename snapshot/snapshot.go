@@ -7,11 +7,11 @@ import (
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/index"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"

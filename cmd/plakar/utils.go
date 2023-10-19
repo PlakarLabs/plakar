@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/index"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"

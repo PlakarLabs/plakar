@@ -48,7 +48,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		metadatas, err := getMetadatas(repository, nil)
+		metadatas, err := getHeaders(repository, nil)
 		if err != nil {
 			log.Fatal(err)
 		}

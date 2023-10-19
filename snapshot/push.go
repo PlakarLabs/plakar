@@ -179,8 +179,8 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 						atomic.AddInt64(&snapshot.concurrentObjects, -1)
 						return nil, err
 					}
-					atomic.AddUint64(&snapshot.Metadata.ChunksTransferCount, uint64(1))
-					atomic.AddUint64(&snapshot.Metadata.ChunksTransferSize, uint64(nbytes))
+					atomic.AddUint64(&snapshot.Header.ChunksTransferCount, uint64(1))
+					atomic.AddUint64(&snapshot.Header.ChunksTransferSize, uint64(nbytes))
 
 				}
 				snapshot.Index.AddChunk(&chunk)
@@ -221,7 +221,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 		}()
 	}
 
-	snapshot.Metadata.ScannedDirectories = make([]string, 0)
+	snapshot.Header.ScannedDirectories = make([]string, 0)
 
 	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir)
 	if err != nil {
@@ -236,7 +236,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			return err
 		}
 	}
-	snapshot.Metadata.ScannedDirectories = append(snapshot.Metadata.ScannedDirectories, filepath.ToSlash(scanDir))
+	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
 	close(c)
 
@@ -263,7 +263,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 				return
 			}
 			c <- fileinfo.Size()
-			atomic.AddUint64(&snapshot.Metadata.ScanSize, uint64(fileinfo.Size()))
+			atomic.AddUint64(&snapshot.Header.ScanSize, uint64(fileinfo.Size()))
 
 			var object *objects.Object
 			object, err := pathnameCached(snapshot, *fileinfo, _filename)
@@ -308,7 +308,7 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 							logger.Warn("%s: failed to store object: %s", _filename, err)
 							return
 						}
-						atomic.AddUint64(&snapshot.Metadata.ObjectsTransferCount, uint64(1))
+						atomic.AddUint64(&snapshot.Header.ObjectsTransferCount, uint64(1))
 					}
 				}
 			}
@@ -324,20 +324,20 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 
 			snapshot.Index.RecordPathnameChecksum(key, pathnameID)
 			snapshot.Index.LinkPathnameToObject(pathnameID, object)
-			atomic.AddUint64(&snapshot.Metadata.ScanProcessedSize, uint64(fileinfo.Size()))
+			atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)
 	}
 	wg.Wait()
 	close(c)
 	snapshot.Filesystem.ImporterEnd()
 
-	snapshot.Metadata.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
-	snapshot.Metadata.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
-	snapshot.Metadata.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
-	snapshot.Metadata.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
+	snapshot.Header.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
+	snapshot.Header.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
+	snapshot.Header.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
+	snapshot.Header.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
 
 	for _, chunkLength := range snapshot.Index.Chunks {
-		atomic.AddUint64(&snapshot.Metadata.ChunksSize, uint64(chunkLength))
+		atomic.AddUint64(&snapshot.Header.ChunksSize, uint64(chunkLength))
 	}
 
 	for _, key := range snapshot.Index.ListContentTypes() {
@@ -347,15 +347,15 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 			objectType = "unknown"
 			objectKind = "unknown"
 		}
-		if _, exists := snapshot.Metadata.FileKind[objectKind]; !exists {
-			snapshot.Metadata.FileKind[objectKind] = 0
+		if _, exists := snapshot.Header.FileKind[objectKind]; !exists {
+			snapshot.Header.FileKind[objectKind] = 0
 		}
-		snapshot.Metadata.FileKind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Header.FileKind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 
-		if _, exists := snapshot.Metadata.FileType[objectType]; !exists {
-			snapshot.Metadata.FileType[objectType] = 0
+		if _, exists := snapshot.Header.FileType[objectType]; !exists {
+			snapshot.Header.FileType[objectType] = 0
 		}
-		snapshot.Metadata.FileType[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
 	}
 
 	for _, key := range snapshot.Filesystem.ListStat() {
@@ -363,26 +363,26 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 		if extension == "" {
 			extension = "none"
 		}
-		if _, exists := snapshot.Metadata.FileExtension[extension]; !exists {
-			snapshot.Metadata.FileExtension[extension] = 0
+		if _, exists := snapshot.Header.FileExtension[extension]; !exists {
+			snapshot.Header.FileExtension[extension] = 0
 		}
-		snapshot.Metadata.FileExtension[extension]++
+		snapshot.Header.FileExtension[extension]++
 	}
 
-	for key, value := range snapshot.Metadata.FileType {
-		snapshot.Metadata.FilePercentType[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Header.FileType {
+		snapshot.Header.FilePercentType[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
 	}
-	for key, value := range snapshot.Metadata.FileKind {
-		snapshot.Metadata.FilePercentKind[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Header.FileKind {
+		snapshot.Header.FilePercentKind[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
 	}
-	for key, value := range snapshot.Metadata.FileExtension {
-		snapshot.Metadata.FilePercentExtension[key] = math.Round((float64(value)/float64(snapshot.Metadata.FilesCount)*100)*100) / 100
+	for key, value := range snapshot.Header.FileExtension {
+		snapshot.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
 	}
 
-	snapshot.Metadata.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	snapshot.Metadata.PathnamesCount = uint64(len(snapshot.Filesystem.ListStat()))
+	snapshot.Header.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))
+	snapshot.Header.PathnamesCount = uint64(len(snapshot.Filesystem.ListStat()))
 
-	snapshot.Metadata.CreationDuration = time.Since(t0)
+	snapshot.Header.CreationDuration = time.Since(t0)
 
 	err = snapshot.Commit()
 	if err != nil {

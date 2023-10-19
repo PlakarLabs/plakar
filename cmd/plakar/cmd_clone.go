@@ -77,7 +77,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			var indexChecksum32 [32]byte
-			copy(indexChecksum32[:], sourceSnapshot.Metadata.IndexChecksum[:])
+			copy(indexChecksum32[:], sourceSnapshot.Header.IndexChecksum[:])
 			indexBytes, err := sourceRepository.GetBlob(indexChecksum32)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
@@ -90,7 +90,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			var filesystemChecksum32 [32]byte
-			copy(filesystemChecksum32[:], sourceSnapshot.Metadata.FilesystemChecksum[:])
+			copy(filesystemChecksum32[:], sourceSnapshot.Header.FilesystemChecksum[:])
 			filesystemBytes, err := sourceRepository.GetBlob(filesystemChecksum32)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)

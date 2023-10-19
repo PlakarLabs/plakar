@@ -1,4 +1,4 @@
-package metadata
+package header
 
 import (
 	"time"
@@ -10,7 +10,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Metadata struct {
+type Header struct {
 	IndexID          uuid.UUID
 	Version          string
 	CreationTime     time.Time
@@ -29,11 +29,11 @@ type Metadata struct {
 
 	ScannedDirectories []string
 
-	IndexChecksum   []byte
+	IndexChecksum   [32]byte
 	IndexDiskSize   uint64
 	IndexMemorySize uint64
 
-	FilesystemChecksum   []byte
+	FilesystemChecksum   [32]byte
 	FilesystemDiskSize   uint64
 	FilesystemMemorySize uint64
 
@@ -61,8 +61,8 @@ type Metadata struct {
 	FilePercentExtension map[string]float64
 }
 
-func NewMetadata(indexID uuid.UUID) *Metadata {
-	return &Metadata{
+func NewHeader(indexID uuid.UUID) *Header {
+	return &Header{
 		IndexID:      indexID,
 		CreationTime: time.Now(),
 		Version:      storage.VERSION,
@@ -82,29 +82,29 @@ func NewMetadata(indexID uuid.UUID) *Metadata {
 	}
 }
 
-func NewMetadataFromBytes(serialized []byte) (*Metadata, error) {
+func NewFromBytes(serialized []byte) (*Header, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("metadata.NewIndexFromBytes", time.Since(t0))
-		logger.Trace("metadata", "NewMetadataFromBytes(...): %s", time.Since(t0))
+		profiler.RecordEvent("header.NewIndexFromBytes", time.Since(t0))
+		logger.Trace("header", "NewMetadataFromBytes(...): %s", time.Since(t0))
 	}()
 
-	var metadata Metadata
-	if err := msgpack.Unmarshal(serialized, &metadata); err != nil {
+	var header Header
+	if err := msgpack.Unmarshal(serialized, &header); err != nil {
 		return nil, err
 	}
 
-	return &metadata, nil
+	return &header, nil
 }
 
-func (metadata *Metadata) Serialize() ([]byte, error) {
+func (h *Header) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("metadata.Serialize", time.Since(t0))
-		logger.Trace("metadata", "Serialize(): %s", time.Since(t0))
+		profiler.RecordEvent("header.Serialize", time.Since(t0))
+		logger.Trace("header", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(metadata)
+	serialized, err := msgpack.Marshal(h)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +112,10 @@ func (metadata *Metadata) Serialize() ([]byte, error) {
 	return serialized, nil
 }
 
-func (metadata *Metadata) GetIndexID() uuid.UUID {
-	return metadata.IndexID
+func (h *Header) GetIndexID() uuid.UUID {
+	return h.IndexID
 }
 
-func (metadata *Metadata) GetIndexShortID() string {
-	return metadata.IndexID.String()[:8]
+func (h *Header) GetIndexShortID() string {
+	return h.IndexID.String()[:8]
 }

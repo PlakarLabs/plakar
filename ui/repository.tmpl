@@ -4,7 +4,7 @@
 
 {{define "main"}}
     {{$Repository := .Repository}}
-    {{$Metadatas := .Metadatas}}
+    {{$Headers := .Headers}}
     {{$MajorTypes := .MajorTypes}}
     {{$MimeTypes := .MimeTypes}}
     {{$Extensions := .Extensions}}
@@ -21,7 +21,7 @@
         </form>
     </div>
 
-    {{if len $Metadatas }}
+    {{if len $Headers }}
             <ul class="nav nav-tabs" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#snapshots" type="button" role="tab" aria-controls="home" aria-selected="true">Snapshots</button>
@@ -53,15 +53,15 @@
                 </tr>
             </thead>
             <tbody>
-                {{range $metadata := $Metadatas}}
+                {{range $hdr := $Headers}}
                 <tr>
-                    <th scope="row"><a href="/snapshot/{{$metadata.IndexID}}:/">{{slice $metadata.IndexID.String  0 8}}</a></th>
-                    <td>{{$metadata.Username }}</td>
-                    <td>{{$metadata.Hostname }}</td>
-                    <td>{{$metadata.CreationTime }}</td>
-                    <td>{{$metadata.DirectoriesCount}}</td>
-                    <td>{{$metadata.FilesCount}}</td>
-                    <td>{{humanizeBytes $metadata.ScanProcessedSize}}</td>
+                    <th scope="row"><a href="/snapshot/{{$hdr.IndexID}}:/">{{slice $hdr.IndexID.String  0 8}}</a></th>
+                    <td>{{$hdr.Username }}</td>
+                    <td>{{$hdr.Hostname }}</td>
+                    <td>{{$hdr.CreationTime }}</td>
+                    <td>{{$hdr.DirectoriesCount}}</td>
+                    <td>{{$hdr.FilesCount}}</td>
+                    <td>{{humanizeBytes $hdr.ScanProcessedSize}}</td>
                 </tr>
                 {{end}}
             </tbody>

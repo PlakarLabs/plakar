@@ -44,7 +44,7 @@ func cmd_fork(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	for _, snap := range snapshots {
-		nsnap, err := snapshot.Fork(repository, snap.Metadata.IndexID)
+		nsnap, err := snapshot.Fork(repository, snap.Header.IndexID)
 		if err != nil {
 			log.Fatal(err)
 		}

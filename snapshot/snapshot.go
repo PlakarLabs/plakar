@@ -110,10 +110,8 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	if err != nil {
 		return nil, err
 	}
-	var indexChecksum32 [32]byte
-	copy(indexChecksum32[:], hdr.IndexChecksum[:])
 
-	index, verifyChecksum, err := GetIndex(repository, indexChecksum32)
+	index, verifyChecksum, err := GetIndex(repository, hdr.IndexChecksum)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +120,7 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
-	var filesystemChecksum32 [32]byte
-	copy(filesystemChecksum32[:], hdr.FilesystemChecksum[:])
-
-	filesystem, verifyChecksum, err := GetFilesystem(repository, filesystemChecksum32)
+	filesystem, verifyChecksum, err := GetFilesystem(repository, hdr.FilesystemChecksum)
 	if err != nil {
 		return nil, err
 	}

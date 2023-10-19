@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -230,7 +229,6 @@ func (snapshot *Snapshot) Push(scanDir string, showProgress bool) error {
 		logger.Warn("%s", err)
 	}
 	snapshot.Filesystem = fs
-	fmt.Println("snapshot scan: %s", time.Since(scanT0))
 
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)

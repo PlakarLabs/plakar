@@ -36,10 +36,8 @@ func init() {
 }
 
 func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
-	var opt_progress bool
 	var opt_tags string
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
-	flags.BoolVar(&opt_progress, "progress", false, "display progress bar")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.Parse(args)
 
@@ -70,7 +68,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	snap.Header.Tags = tags
 
 	if flags.NArg() == 0 {
-		err = snap.Push(dir, opt_progress)
+		err = snap.Push(dir)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -79,7 +77,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath, opt_progress)
+		err = snap.Push(cleanPath)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

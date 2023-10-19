@@ -30,11 +30,9 @@ func init() {
 
 func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 	var enableFastCheck bool
-	var opt_progress bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
 	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
-	flags.BoolVar(&opt_progress, "progress", false, "display progress bar")
 	flags.Parse(args)
 
 	snapshots, err := getSnapshots(repository, flags.Args())
@@ -50,7 +48,7 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
 
-		ok, err := snapshot.Check(pattern, enableFastCheck, opt_progress)
+		ok, err := snapshot.Check(pattern, enableFastCheck)
 		if err != nil {
 			logger.Warn("%s", err)
 		}

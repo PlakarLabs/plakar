@@ -80,18 +80,18 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	os.MkdirAll(filepath.Join(repository.root, "chunks"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "objects"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "transactions"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
-		for j := 0; j < 256; j++ {
-			os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
-			os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
-		}
+		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "transactions", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")
@@ -237,6 +237,42 @@ func (repository *FSRepository) GetBlobs() ([][32]byte, error) {
 	return ret, nil
 }
 
+func (repository *FSRepository) GetPackfiles() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
+
+	buckets, err := os.ReadDir(repository.PathPackfiles())
+	if err != nil {
+		return ret, err
+	}
+
+	for _, bucket := range buckets {
+		if !bucket.IsDir() {
+			continue
+		}
+		pathBuckets := filepath.Join(repository.PathPackfiles(), bucket.Name())
+		packfiles, err := os.ReadDir(pathBuckets)
+		if err != nil {
+			return ret, err
+		}
+		for _, packfile := range packfiles {
+			if packfile.IsDir() {
+				continue
+			}
+			t, err := hex.DecodeString(packfile.Name())
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
+		}
+	}
+	return ret, nil
+}
+
 func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathBlob(checksum))
 	if err != nil {
@@ -248,6 +284,23 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 
 func (repository *FSRepository) DeleteBlob(checksum [32]byte) error {
 	err := os.Remove(repository.PathBlob(checksum))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *FSRepository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	data, err := os.ReadFile(repository.PathPackfile(checksum))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (repository *FSRepository) DeletePackfile(checksum [32]byte) error {
+	err := os.Remove(repository.PathPackfile(checksum))
 	if err != nil {
 		return err
 	}
@@ -270,6 +323,20 @@ func (repository *FSRepository) PutSnapshot(indexID uuid.UUID, data []byte) erro
 
 func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathBlob(checksum))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *FSRepository) PutPackfile(checksum [32]byte, data []byte) error {
+	f, err := os.Create(repository.PathPackfile(checksum))
 	if err != nil {
 		return err
 	}

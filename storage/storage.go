@@ -73,6 +73,11 @@ type RepositoryBackend interface {
 	PutBlob(checksum [32]byte, data []byte) error
 	DeleteBlob(checksum [32]byte) error
 
+	GetPackfiles() ([][32]byte, error)
+	GetPackfile(checksum [32]byte) ([]byte, error)
+	PutPackfile(checksum [32]byte, data []byte) error
+	DeletePackfile(checksum [32]byte) error
+
 	GetObjects() ([][32]byte, error)
 	CheckObject(checksum [32]byte) (bool, error)
 	PutObject(checksum [32]byte) error
@@ -427,6 +432,7 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
+/* Blobs */
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	repository.rLock()
 	defer repository.rUnlock()
@@ -665,4 +671,59 @@ func (transaction *Transaction) Commit(data []byte) error {
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 
 	return transaction.backend.Commit(data)
+}
+
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetPackfiles", time.Since(t0))
+		logger.Trace("storage", "GetPackfiles(): %s", time.Since(t0))
+	}()
+	return repository.backend.GetPackfiles()
+}
+
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetPackfile", time.Since(t0))
+		logger.Trace("storage", "GetPackfile(%016x): %s", checksum, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetPackfile(checksum)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
+}
+
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutPackfile", time.Since(t0))
+		logger.Trace("storage", "PutPackfile(%016x): %s", checksum, time.Since(t0))
+	}()
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutPackfile(checksum, data)
+}
+
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+	repository.sLock()
+	defer repository.sUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeletePackfile", time.Since(t0))
+		logger.Trace("storage", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeletePackfile(checksum)
 }

@@ -31,9 +31,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/metadata"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"

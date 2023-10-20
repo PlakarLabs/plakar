@@ -87,7 +87,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
 				dirPath := request.Payload.(ReqOpen).Repository
 				if dirPath == "" {
 					dirPath = filepath.Join(homeDir, ".plakar")
@@ -117,11 +116,11 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: GetIndexes", clientUuid)
+				logger.Trace("%s: GetSnapshots", clientUuid)
 				snapshots, err := repository.GetSnapshots()
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResGetIndexes",
+					Type: "ResGetSnapshots",
 					Payload: ResGetSnapshots{
 						Snapshots: snapshots,
 						Err:       err,
@@ -173,16 +172,16 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqStorePutSnapshot":
+		case "ReqPutSnapshot":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqStorePutSnapshot).IndexID)
-				err := repository.PutSnapshot(request.Payload.(ReqStorePutSnapshot).IndexID, request.Payload.(ReqStorePutSnapshot).Data)
+				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqPutSnapshot).IndexID)
+				err := repository.PutSnapshot(request.Payload.(ReqPutSnapshot).IndexID, request.Payload.(ReqPutSnapshot).Data)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResStorePutSnapshot",
-					Payload: ResStorePutSnapshot{
+					Type: "ResPutSnapshot",
+					Payload: ResPutSnapshot{
 						Err: err,
 					},
 				}
@@ -192,16 +191,16 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqStorePutBlob":
+		case "ReqPutBlob":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqStorePutBlob).Checksum)
-				err := repository.PutBlob(request.Payload.(ReqStorePutBlob).Checksum, request.Payload.(ReqStorePutBlob).Data)
+				logger.Trace("%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqPutBlob).Checksum)
+				err := repository.PutBlob(request.Payload.(ReqPutBlob).Checksum, request.Payload.(ReqPutBlob).Data)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResStorePutBlob",
-					Payload: ResStorePutBlob{
+					Type: "ResPutBlob",
+					Payload: ResPutBlob{
 						Err: err,
 					},
 				}

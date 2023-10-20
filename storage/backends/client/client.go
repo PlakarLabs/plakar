@@ -34,7 +34,7 @@ import (
 	"github.com/PlakarLabs/plakar/cache"
 )
 
-type ClientRepository struct {
+type Repository struct {
 	config storage.RepositoryConfig
 
 	Cache *cache.Cache
@@ -53,23 +53,23 @@ type ClientRepository struct {
 	// storage.RepositoryBackend
 }
 
-type ClientTransaction struct {
+type Transaction struct {
 	Uuid       uuid.UUID
-	repository *ClientRepository
+	repository *Repository
 
 	// storage.TransactionBackend
 }
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("client", NewClientRepository)
+	storage.Register("client", NewRepository)
 }
 
-func NewClientRepository() storage.RepositoryBackend {
-	return &ClientRepository{}
+func NewRepository() storage.RepositoryBackend {
+	return &Repository{}
 }
 
-func (repository *ClientRepository) connect(location *url.URL) error {
+func (repository *Repository) connect(location *url.URL) error {
 	scheme := location.Scheme
 	switch scheme {
 	case "plakar":
@@ -94,7 +94,7 @@ func (repository *ClientRepository) connect(location *url.URL) error {
 	return nil
 }
 
-func (repository *ClientRepository) connectTCP(location *url.URL) error {
+func (repository *Repository) connectTCP(location *url.URL) error {
 	port := location.Port()
 	if port == "" {
 		port = "9876"
@@ -142,7 +142,7 @@ func (repository *ClientRepository) connectTCP(location *url.URL) error {
 	return err
 }
 
-func (repository *ClientRepository) connectStdio(location *url.URL) error {
+func (repository *Repository) connectStdio(location *url.URL) error {
 	subProcess := exec.Command("plakar", "-no-cache", "stdio")
 
 	stdin, err := subProcess.StdinPipe()
@@ -191,7 +191,7 @@ func (repository *ClientRepository) connectStdio(location *url.URL) error {
 	return nil
 }
 
-func (repository *ClientRepository) connectSSH(location *url.URL) error {
+func (repository *Repository) connectSSH(location *url.URL) error {
 	connectUrl := "ssh://"
 	if location.User != nil {
 		connectUrl += location.User.Username() + "@"
@@ -250,7 +250,7 @@ func (repository *ClientRepository) connectSSH(location *url.URL) error {
 	return nil
 }
 
-func (repository *ClientRepository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
+func (repository *Repository) sendRequest(Type string, Payload interface{}) (*network.Request, error) {
 	Uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -282,7 +282,7 @@ func (repository *ClientRepository) sendRequest(Type string, Payload interface{}
 	return &result, nil
 }
 
-func (repository *ClientRepository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
@@ -309,7 +309,7 @@ func (repository *ClientRepository) Create(location string, config storage.Repos
 	return nil
 }
 
-func (repository *ClientRepository) Open(location string) error {
+func (repository *Repository) Open(location string) error {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
@@ -335,11 +335,20 @@ func (repository *ClientRepository) Open(location string) error {
 	return nil
 }
 
-func (repository *ClientRepository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Close() error {
+	result, err := repository.sendRequest("ReqClose", nil)
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResClose).Err
+}
+
+func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *ClientRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
+func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 	result, err := repository.sendRequest("ReqTransaction", network.ReqTransaction{
 		Uuid: indexID,
 	})
@@ -351,177 +360,43 @@ func (repository *ClientRepository) Transaction(indexID uuid.UUID) (storage.Tran
 	if err != nil {
 		return nil, err
 	}
-	tx := &ClientTransaction{}
+	tx := &Transaction{}
 	tx.Uuid = Uuid
 	tx.repository = repository
 	return tx, nil
 }
 
-func (repository *ClientRepository) GetSnapshots() ([]uuid.UUID, error) {
+// snapshots
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	result, err := repository.sendRequest("ReqGetSnapshots", nil)
 	if err != nil {
 		return nil, err
 	}
-
 	return result.Payload.(network.ResGetSnapshots).Snapshots, result.Payload.(network.ResGetSnapshots).Err
 }
 
-func (repository *ClientRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutSnapshot", network.ReqStorePutSnapshot{
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqPutSnapshot", network.ReqPutSnapshot{
 		IndexID: indexID,
 		Data:    data,
 	})
 	if err != nil {
 		return err
 	}
-
-	return result.Payload.(network.ResStorePutSnapshot).Err
+	return result.Payload.(network.ResPutSnapshot).Err
 }
 
-func (repository *ClientRepository) GetBlobs() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetBlobs", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetBlobs).Chunks, result.Payload.(network.ResGetBlobs).Err
-}
-
-func (repository *ClientRepository) PutBlob(checksum [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqStorePutBlob", network.ReqStorePutBlob{
-		Checksum: checksum,
-		Data:     data,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResStorePutBlob).Err
-}
-
-func (repository *ClientRepository) DeleteBlob(checksum [32]byte) error {
-	result, err := repository.sendRequest("ReqDeleteBlob", network.ReqDeleteBlob{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResDeleteBlob).Err
-}
-
-func (repository *ClientRepository) GetChunks() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetChunks", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetChunks).Chunks, result.Payload.(network.ResGetChunks).Err
-}
-
-func (repository *ClientRepository) GetObjects() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetObjects", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetObjects).Objects, result.Payload.(network.ResGetObjects).Err
-}
-
-func (repository *ClientRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetSnapshot", network.ReqGetSnapshot{
 		Uuid: indexID,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	return result.Payload.(network.ResGetSnapshot).Data, result.Payload.(network.ResGetSnapshot).Err
 }
 
-func (repository *ClientRepository) GetBlob(checksum [32]byte) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetBlob", network.ReqGetBlob{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetBlob).Data, result.Payload.(network.ResGetBlob).Err
-}
-
-func (repository *ClientRepository) GetChunk(checksum [32]byte) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetChunk", network.ReqGetChunk{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Payload.(network.ResGetChunk).Data, result.Payload.(network.ResGetChunk).Err
-}
-
-func (repository *ClientRepository) CheckObject(checksum [32]byte) (bool, error) {
-	result, err := repository.sendRequest("ReqCheckObject", network.ReqCheckObject{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return false, err
-	}
-	return result.Payload.(network.ResCheckObject).Exists, result.Payload.(network.ResCheckObject).Err
-}
-
-func (repository *ClientRepository) CheckChunk(checksum [32]byte) (bool, error) {
-	result, err := repository.sendRequest("ReqCheckChunk", network.ReqCheckChunk{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return false, err
-	}
-	return result.Payload.(network.ResCheckChunk).Exists, result.Payload.(network.ResCheckChunk).Err
-}
-
-func (repository *ClientRepository) PutObject(checksum [32]byte) error {
-	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResPutObject).Err
-}
-
-func (repository *ClientRepository) PutChunk(checksum [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqPutChunk", network.ReqPutChunk{
-		Checksum: checksum,
-		Data:     data,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResPutChunk).Err
-}
-
-func (repository *ClientRepository) DeleteChunk(checksum [32]byte) error {
-	result, err := repository.sendRequest("ReqDeleteChunk", network.ReqDeleteChunk{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResDeleteChunk).Err
-}
-
-func (repository *ClientRepository) DeleteObject(checksum [32]byte) error {
-	result, err := repository.sendRequest("ReqDeleteObject", network.ReqDeleteObject{
-		Checksum: checksum,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResDeleteObject).Err
-}
-
-func (repository *ClientRepository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	result, err := repository.sendRequest("ReqDeleteSnapshot", network.ReqDeleteSnapshot{
 		Uuid: indexID,
 	})
@@ -532,48 +407,133 @@ func (repository *ClientRepository) DeleteSnapshot(indexID uuid.UUID) error {
 	return result.Payload.(network.ResDeleteSnapshot).Err
 }
 
-func (repository *ClientRepository) Close() error {
-	result, err := repository.sendRequest("ReqClose", nil)
+// blobs
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
+	result, err := repository.sendRequest("ReqGetBlobs", nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetBlobs).Chunks, result.Payload.(network.ResGetBlobs).Err
+}
+
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqPutBlob", network.ReqPutBlob{
+		Checksum: checksum,
+		Data:     data,
+	})
 	if err != nil {
 		return err
 	}
+	return result.Payload.(network.ResPutBlob).Err
+}
 
-	return result.Payload.(network.ResClose).Err
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetBlob", network.ReqGetBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetBlob).Data, result.Payload.(network.ResGetBlob).Err
+}
+
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeleteBlob", network.ReqDeleteBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeleteBlob).Err
+}
+
+// indexes
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
+	result, err := repository.sendRequest("ReqGetIndexes", nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetIndexes).Checksums, result.Payload.(network.ResGetIndexes).Err
+}
+
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqPutIndex", network.ReqPutIndex{
+		Checksum: checksum,
+		Data:     data,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResPutIndex).Err
+}
+
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetIndex", network.ReqGetIndex{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
+}
+
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeleteIndex", network.ReqDeleteIndex{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeleteIndex).Err
+}
+
+// packfiles
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+	result, err := repository.sendRequest("ReqGetPackfiles", nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetPackfiles).Checksums, result.Payload.(network.ResGetPackfiles).Err
+}
+
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+	result, err := repository.sendRequest("ReqPutPackfile", network.ReqPutPackfile{
+		Checksum: checksum,
+		Data:     data,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResPutPackfile).Err
+}
+
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetPackfile", network.ReqGetPackfile{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetPackfile).Data, result.Payload.(network.ResGetPackfile).Err
+}
+
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+	result, err := repository.sendRequest("ReqDeletePackfile", network.ReqDeletePackfile{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResDeletePackfile).Err
 }
 
 //////
 
-func (transaction *ClientTransaction) GetUuid() uuid.UUID {
+func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *ClientTransaction) PutObject(checksum [32]byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqPutObject", network.ReqPutObject{
-		Transaction: transaction.GetUuid(),
-		Checksum:    checksum,
-	})
-	if err != nil {
-		return err
-	}
-
-	return result.Payload.(network.ResPutObject).Err
-}
-
-func (transaction *ClientTransaction) PutChunk(checksum [32]byte, data []byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqPutChunk", network.ReqPutChunk{
-		Transaction: transaction.GetUuid(),
-		Checksum:    checksum,
-		Data:        data,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResPutChunk).Err
-}
-
-func (transaction *ClientTransaction) Commit(data []byte) error {
+func (transaction *Transaction) Commit(data []byte) error {
 	repository := transaction.repository
 	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
 		Transaction: transaction.GetUuid(),

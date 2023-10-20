@@ -31,21 +31,21 @@ type ResOpen struct {
 	Err              error
 }
 
-type ReqStorePutSnapshot struct {
+type ReqPutSnapshot struct {
 	IndexID uuid.UUID
 	Data    []byte
 }
 
-type ResStorePutSnapshot struct {
+type ResPutSnapshot struct {
 	Err error
 }
 
-type ReqStorePutBlob struct {
+type ReqPutBlob struct {
 	Checksum [32]byte
 	Data     []byte
 }
 
-type ResStorePutBlob struct {
+type ResPutBlob struct {
 	Err error
 }
 
@@ -216,6 +216,74 @@ type ResCommit struct {
 	Err error
 }
 
+// indexes
+type ReqGetIndexes struct {
+}
+
+type ResGetIndexes struct {
+	Checksums [][32]byte
+	Err       error
+}
+
+type ReqPutIndex struct {
+	Checksum [32]byte
+	Data     []byte
+}
+
+type ResPutIndex struct {
+	Err error
+}
+
+type ReqGetIndex struct {
+	Checksum [32]byte
+}
+
+type ResGetIndex struct {
+	Data []byte
+	Err  error
+}
+
+type ReqDeleteIndex struct {
+	Checksum [32]byte
+}
+type ResDeleteIndex struct {
+	Err error
+}
+
+// packfiles
+type ReqGetPackfiles struct {
+}
+
+type ResGetPackfiles struct {
+	Checksums [][32]byte
+	Err       error
+}
+
+type ReqPutPackfile struct {
+	Checksum [32]byte
+	Data     []byte
+}
+
+type ResPutPackfile struct {
+	Err error
+}
+
+type ReqGetPackfile struct {
+	Checksum [32]byte
+}
+
+type ResGetPackfile struct {
+	Data []byte
+	Err  error
+}
+
+type ReqDeletePackfile struct {
+	Checksum [32]byte
+}
+type ResDeletePackfile struct {
+	Err error
+}
+
 func ProtocolRegister() {
 	gob.Register(Request{})
 
@@ -225,26 +293,29 @@ func ProtocolRegister() {
 	gob.Register(ReqOpen{})
 	gob.Register(ResOpen{})
 
+	gob.Register(ReqCommit{})
+	gob.Register(ResCommit{})
+
+	gob.Register(ReqClose{})
+	gob.Register(ResClose{})
+
 	gob.Register(ReqGetSnapshots{})
 	gob.Register(ResGetSnapshots{})
 
-	gob.Register(ReqStorePutSnapshot{})
-	gob.Register(ResStorePutSnapshot{})
-
-	gob.Register(ReqStorePutBlob{})
-	gob.Register(ResStorePutBlob{})
-
-	gob.Register(ReqGetChunks{})
-	gob.Register(ResGetChunks{})
-
-	gob.Register(ReqGetObjects{})
-	gob.Register(ResGetObjects{})
+	gob.Register(ReqPutSnapshot{})
+	gob.Register(ResPutSnapshot{})
 
 	gob.Register(ReqGetSnapshot{})
 	gob.Register(ResGetSnapshot{})
 
+	gob.Register(ReqDeleteSnapshot{})
+	gob.Register(ResDeleteSnapshot{})
+
 	gob.Register(ReqGetBlobs{})
 	gob.Register(ResGetBlobs{})
+
+	gob.Register(ReqPutBlob{})
+	gob.Register(ResPutBlob{})
 
 	gob.Register(ReqGetBlob{})
 	gob.Register(ResGetBlob{})
@@ -252,20 +323,29 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteBlob{})
 	gob.Register(ResDeleteBlob{})
 
-	gob.Register(ReqGetChunk{})
-	gob.Register(ResGetChunk{})
+	gob.Register(ReqGetIndexes{})
+	gob.Register(ResGetIndexes{})
 
-	gob.Register(ReqCheckObject{})
-	gob.Register(ResCheckObject{})
+	gob.Register(ReqPutIndex{})
+	gob.Register(ResPutIndex{})
 
-	gob.Register(ReqCheckChunk{})
-	gob.Register(ResCheckChunk{})
+	gob.Register(ReqGetIndex{})
+	gob.Register(ResGetIndex{})
 
-	gob.Register(ReqDeleteSnapshot{})
-	gob.Register(ResDeleteSnapshot{})
+	gob.Register(ReqDeleteIndex{})
+	gob.Register(ResDeleteIndex{})
 
-	gob.Register(ReqClose{})
-	gob.Register(ResClose{})
+	gob.Register(ReqGetPackfiles{})
+	gob.Register(ResGetPackfiles{})
+
+	gob.Register(ReqPutPackfile{})
+	gob.Register(ResPutPackfile{})
+
+	gob.Register(ReqGetPackfile{})
+	gob.Register(ResGetPackfile{})
+
+	gob.Register(ReqDeletePackfile{})
+	gob.Register(ResDeletePackfile{})
 
 	gob.Register(ReqTransaction{})
 	gob.Register(ResTransaction{})
@@ -273,12 +353,4 @@ func ProtocolRegister() {
 	gob.Register(ReqPutChunk{})
 	gob.Register(ResPutChunk{})
 
-	gob.Register(ReqDeleteChunk{})
-	gob.Register(ResDeleteChunk{})
-
-	gob.Register(ReqPutObject{})
-	gob.Register(ResPutObject{})
-
-	gob.Register(ReqCommit{})
-	gob.Register(ResCommit{})
 }

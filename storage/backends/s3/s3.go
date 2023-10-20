@@ -19,7 +19,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -27,54 +26,38 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 
-	"sync"
-
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-
-	"github.com/PlakarLabs/plakar/cache"
 )
 
-type S3Repository struct {
-	config storage.RepositoryConfig
-
-	Cache *cache.Cache
-
-	encoder *gob.Encoder
-	decoder *gob.Decoder
-	mu      sync.Mutex
-
-	Repository string
-
-	inflightRequests map[uuid.UUID]chan network.Request
-	//registerInflight     chan inflight
-	notifications chan network.Request
-	//maxConcurrentRequest chan bool
-
+type Repository struct {
+	config      storage.RepositoryConfig
+	Repository  string
 	minioClient *minio.Client
 	bucketName  string
 }
 
-type S3Transaction struct {
+type Transaction struct {
 	Uuid       uuid.UUID
-	repository *S3Repository
+	repository *Repository
 }
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("s3", NewS3Repository)
+	storage.Register("s3", NewRepository)
 }
 
-func NewS3Repository() storage.RepositoryBackend {
-	return &S3Repository{}
+func NewRepository() storage.RepositoryBackend {
+	return &Repository{}
 }
 
-func (repository *S3Repository) connect(location *url.URL) error {
+func (repository *Repository) connect(location *url.URL) error {
 	endpoint := location.Host
 	accessKeyID := location.User.Username()
 	secretAccessKey, _ := location.User.Password()
@@ -93,7 +76,7 @@ func (repository *S3Repository) connect(location *url.URL) error {
 	return nil
 }
 
-func (repository *S3Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
@@ -115,7 +98,12 @@ func (repository *S3Repository) Create(location string, config storage.Repositor
 		return err
 	}
 
-	_, err = repository.minioClient.PutObject(context.Background(), repository.bucketName, "CONFIG", bytes.NewReader(jconfig), int64(len(jconfig)), minio.PutObjectOptions{})
+	compressedConfig, err := compression.Deflate("gzip", jconfig)
+	if err != nil {
+		return err
+	}
+
+	_, err = repository.minioClient.PutObject(context.Background(), repository.bucketName, "CONFIG", bytes.NewReader(compressedConfig), int64(len(compressedConfig)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -124,7 +112,7 @@ func (repository *S3Repository) Create(location string, config storage.Repositor
 	return nil
 }
 
-func (repository *S3Repository) Open(location string) error {
+func (repository *Repository) Open(location string) error {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
@@ -154,8 +142,8 @@ func (repository *S3Repository) Open(location string) error {
 		return err
 	}
 
-	configBytes := make([]byte, stat.Size)
-	_, err = object.Read(configBytes)
+	compressed := make([]byte, stat.Size)
+	_, err = object.Read(compressed)
 	if err != nil {
 		if err != io.EOF {
 			return err
@@ -163,8 +151,13 @@ func (repository *S3Repository) Open(location string) error {
 	}
 	object.Close()
 
+	jconfig, err := compression.Inflate("gzip", compressed)
+	if err != nil {
+		return err
+	}
+
 	var config storage.RepositoryConfig
-	err = msgpack.Unmarshal(configBytes, &config)
+	err = msgpack.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
 	}
@@ -174,40 +167,45 @@ func (repository *S3Repository) Open(location string) error {
 	return nil
 }
 
-func (repository *S3Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Close() error {
+	return nil
+}
+
+func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *S3Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	tx := &S3Transaction{}
+func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
+	tx := &Transaction{}
 	tx.Uuid = indexID
 	tx.repository = repository
 	return tx, nil
 }
 
-func (repository *S3Repository) GetSnapshots() ([]uuid.UUID, error) {
+// snapshots
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
 	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
-		Prefix:    "SNAPSHOT/",
+		Prefix:    "snapshots/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "SNAPSHOT/") && len(object.Key) >= 12 {
-			ret = append(ret, uuid.MustParse(object.Key[12:]))
+		if strings.HasPrefix(object.Key, "snapshots/") && len(object.Key) >= 13 {
+			ret = append(ret, uuid.MustParse(object.Key[13:]))
 		}
 	}
 	return ret, nil
 }
 
-func (repository *S3Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *S3Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), minio.GetObjectOptions{})
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +226,22 @@ func (repository *S3Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return dataBytes, nil
 }
 
-func (repository *S3Repository) GetBlobs() ([][32]byte, error) {
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// blobs
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
-		Prefix:    "BLOB/",
+		Prefix:    "blobs/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "BLOB/") && len(object.Key) >= 8 {
+		if strings.HasPrefix(object.Key, "blobs/") && len(object.Key) >= 8 {
 			t, err := hex.DecodeString(object.Key[8:])
 			if err != nil {
 				return nil, err
@@ -250,16 +257,16 @@ func (repository *S3Repository) GetBlobs() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *S3Repository) PutBlob(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("blobs/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("blobs/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -280,41 +287,108 @@ func (repository *S3Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return dataBytes, nil
 }
 
-func (repository *S3Repository) DeleteBlob(checksum [32]byte) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("BLOB/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("blobs/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *S3Repository) GetChunks() ([][32]byte, error) {
+// indexes
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
-	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{}) {
-		if strings.HasPrefix(object.Key, "CHUNK:") {
-			var key [32]byte
-			copy(key[:], object.Key[6:])
-			ret = append(ret, key)
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
+		Prefix:    "indexes/",
+		Recursive: true,
+	}) {
+		if strings.HasPrefix(object.Key, "indexes/") && len(object.Key) >= 11 {
+			t, err := hex.DecodeString(object.Key[11:])
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
 		}
 	}
 	return ret, nil
 }
 
-func (repository *S3Repository) GetObjects() ([][32]byte, error) {
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	stat, err := object.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, stat.Size)
+	_, err = object.Read(dataBytes)
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
+	}
+	object.Close()
+
+	return dataBytes, nil
+}
+
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// packfiles
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
-	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{}) {
-		if strings.HasPrefix(object.Key, "OBJECT:") {
-			var key [32]byte
-			copy(key[:], object.Key[7:])
-			ret = append(ret, key)
+	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
+		Prefix:    "packfiles/",
+		Recursive: true,
+	}) {
+		if strings.HasPrefix(object.Key, "packfiles/") && len(object.Key) >= 13 {
+			t, err := hex.DecodeString(object.Key[13:])
+			if err != nil {
+				return nil, err
+			}
+			if len(t) != 32 {
+				continue
+			}
+			var t32 [32]byte
+			copy(t32[:], t)
+			ret = append(ret, t32)
 		}
 	}
 	return ret, nil
 }
 
-/*
-func (repository *S3Repository) GetObject(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -334,133 +408,24 @@ func (repository *S3Repository) GetObject(checksum [32]byte) ([]byte, error) {
 
 	return dataBytes, nil
 }
-*/
 
-func (repository *S3Repository) GetChunk(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes := make([]byte, stat.Size)
-	_, err = object.Read(dataBytes)
-	if err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
-	}
-	object.Close()
-
-	return dataBytes, nil
-}
-
-func (repository *S3Repository) CheckObject(checksum [32]byte) (bool, error) {
-	exists, err := repository.minioClient.BucketExists(context.Background(), repository.bucketName)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
-	if err != nil {
-		return false, err
-	}
-	_, err = object.Stat()
-	if err != nil {
-		errResponse := minio.ToErrorResponse(err)
-		if errResponse.Code == "NoSuchKey" {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (repository *S3Repository) CheckChunk(checksum [32]byte) (bool, error) {
-	exists, err := repository.minioClient.BucketExists(context.Background(), repository.bucketName)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.GetObjectOptions{})
-	if err != nil {
-		return false, err
-	}
-	_, err = object.Stat()
-	if err != nil {
-		errResponse := minio.ToErrorResponse(err)
-		if errResponse.Code == "NoSuchKey" {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (repository *S3Repository) PutObject(checksum [32]byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), bytes.NewReader([]byte("")), int64(0), minio.PutObjectOptions{})
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (repository *S3Repository) DeleteObject(checksum [32]byte) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("OBJECT/%02x/%064x", checksum[0], checksum), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *S3Repository) PutChunk(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *S3Repository) DeleteChunk(checksum [32]byte) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("CHUNK/%02x/%064x", checksum[0], checksum), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *S3Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", indexID.String()[0:2], indexID.String()), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *S3Repository) Close() error {
 	return nil
 }
 
 //////
 
-func (transaction *S3Transaction) GetUuid() uuid.UUID {
+func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *S3Transaction) Commit(data []byte) error {
+func (transaction *Transaction) Commit(data []byte) error {
 	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("SNAPSHOT/%s/%s", transaction.Uuid.String()[0:2], transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", transaction.Uuid.String()[0:2], transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}

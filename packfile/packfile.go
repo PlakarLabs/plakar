@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -34,20 +35,32 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 		logger.Trace("packfile", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
-	var totalLength uint32
 	reader := bytes.NewReader(serialized)
+
+	var totalLength uint32
+	_, err := reader.Seek(-4, io.SeekEnd)
+	if err != nil {
+		return nil, err
+	}
 	if err := binary.Read(reader, binary.LittleEndian, &totalLength); err != nil {
 		return nil, err
 	}
 
+	_, err = reader.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
 	data := make([]byte, totalLength)
 	if err := binary.Read(reader, binary.LittleEndian, &data); err != nil {
 		return nil, err
 	}
 
+	// we won't read the totalLength again
+	remaining := reader.Len() - 4
+
 	p := New()
 	p.Data = data
-	for reader.Len() > 0 {
+	for remaining > 0 {
 		var checksum [32]byte
 		var chunkOffset uint32
 		var chunkLength uint32
@@ -69,6 +82,7 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 			Offset: chunkOffset,
 			Length: chunkLength,
 		}
+		remaining -= len(checksum) + 8
 	}
 	return p, nil
 }
@@ -81,10 +95,6 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	}()
 
 	var buffer bytes.Buffer
-	totalLength := uint32(len(p.Data))
-	if err := binary.Write(&buffer, binary.LittleEndian, totalLength); err != nil {
-		return nil, err
-	}
 	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
 		return nil, err
 	}
@@ -98,6 +108,10 @@ func (p *PackFile) Serialize() ([]byte, error) {
 		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Length); err != nil {
 			return nil, err
 		}
+	}
+	totalLength := uint32(len(p.Data))
+	if err := binary.Write(&buffer, binary.LittleEndian, totalLength); err != nil {
+		return nil, err
 	}
 	return buffer.Bytes(), nil
 }

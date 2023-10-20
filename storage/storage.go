@@ -115,11 +115,6 @@ type Repository struct {
 	maxParallelism chan bool
 }
 
-type Transaction struct {
-	indexID    uuid.UUID
-	repository *Repository
-}
-
 func Register(name string, backend func() RepositoryBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()

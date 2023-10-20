@@ -17,9 +17,7 @@
 package database
 
 import (
-	"context"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,7 +25,6 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/cache"
-	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 
@@ -35,13 +32,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type inflight struct {
-	Add  bool
-	Uuid string
-	Chan chan network.Request
-}
-
-type DatabaseRepository struct {
+type Repository struct {
 	config storage.RepositoryConfig
 
 	Cache *cache.Cache
@@ -56,36 +47,15 @@ type DatabaseRepository struct {
 	// storage.RepositoryBackend
 }
 
-type DatabaseTransaction struct {
-	Uuid       uuid.UUID
-	repository *DatabaseRepository
-
-	dbTx *sql.Tx
-	//storage.TransactionBackend
+func init() {
+	storage.Register("database", NewRepository)
 }
 
-func init() {
-	storage.Register("database", NewDatabaseRepository)
+func NewRepository() storage.RepositoryBackend {
+	return &Repository{}
 }
 
 /*
-func wrapDBError(err error) error {
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
-			return ErrDup
-		}
-	} else if errors.Is(err, sql.ErrNoRows) {
-		return ErrNoRecord
-	}
-	return err
-}
-*/
-
-func NewDatabaseRepository() storage.RepositoryBackend {
-	return &DatabaseRepository{}
-}
-
 func stringToChecksum(checksum string) ([32]byte, error) {
 	var checksumBytes [32]byte
 
@@ -97,8 +67,9 @@ func stringToChecksum(checksum string) ([32]byte, error) {
 	copy(checksumBytes[:], b)
 	return checksumBytes, nil
 }
+*/
 
-func (repository *DatabaseRepository) connect(addr string) error {
+func (repository *Repository) connect(addr string) error {
 	var connectionString string
 	if strings.HasPrefix(addr, "sqlite://") {
 		repository.backend = "sqlite3"
@@ -128,7 +99,7 @@ func (repository *DatabaseRepository) connect(addr string) error {
 	return nil
 }
 
-func (repository *DatabaseRepository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
 	err := repository.connect(location)
 	if err != nil {
 		return err
@@ -144,8 +115,8 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	statement.Exec()
 
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS snapshots (
-		snapshotId		VARCHAR(36) NOT NULL PRIMARY KEY,
-		snapshotBlob	BLOB
+		snapshotID	VARCHAR(36) NOT NULL PRIMARY KEY,
+		data		BLOB
 	);`)
 	if err != nil {
 		return err
@@ -154,8 +125,8 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	statement.Exec()
 
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS blobs (
-		blobChecksum	VARCHAR(36) NOT NULL PRIMARY KEY,
-		blobData		BLOB
+		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
+		data		BLOB
 	);`)
 	if err != nil {
 		return err
@@ -163,9 +134,9 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS objects (
-		objectChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
-		objectBlob		BLOB
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
+		data		BLOB
 	);`)
 	if err != nil {
 		return err
@@ -173,9 +144,9 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS chunks (
-		chunkChecksum	VARCHAR(64) NOT NULL PRIMARY KEY,
-		chunkBlob		BLOB
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS packfiles (
+		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
+		data		BLOB
 	);`)
 	if err != nil {
 		return err
@@ -202,7 +173,7 @@ func (repository *DatabaseRepository) Create(location string, config storage.Rep
 	return nil
 }
 
-func (repository *DatabaseRepository) Open(location string) error {
+func (repository *Repository) Open(location string) error {
 	err := repository.connect(location)
 	if err != nil {
 		return err
@@ -226,46 +197,12 @@ func (repository *DatabaseRepository) Open(location string) error {
 
 }
 
-func (repository *DatabaseRepository) Configuration() storage.RepositoryConfig {
-	return repository.config
+func (repository *Repository) Close() error {
+	return nil
 }
 
-func (repository *DatabaseRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-
-	dbTx, err := repository.conn.BeginTx(context.TODO(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	tx := &DatabaseTransaction{}
-	tx.dbTx = dbTx
-	tx.Uuid = indexID
-	tx.repository = repository
-
-	return tx, nil
-}
-
-func (repository *DatabaseRepository) GetSnapshots() ([]uuid.UUID, error) {
-	rows, err := repository.conn.Query("SELECT snapshotId FROM snapshots")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var indexes []uuid.UUID
-	for rows.Next() {
-		var indexUuid string
-		err = rows.Scan(&indexUuid)
-		if err != nil {
-			return nil, err
-		}
-		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
-	}
-	return indexes, nil
-}
-
-func (repository *DatabaseRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO metadatas (metadataUuid, metadataBlob) VALUES(?, ?)`)
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -281,28 +218,97 @@ func (repository *DatabaseRepository) PutSnapshot(indexID uuid.UUID, data []byte
 	return nil
 }
 
-func (repository *DatabaseRepository) GetBlobs() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT blobChecksum FROM blobs")
+func (repository *Repository) Configuration() storage.RepositoryConfig {
+	return repository.config
+}
+
+// snapshots
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
+	rows, err := repository.conn.Query("SELECT snapshotID FROM snapshots")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var checksums [][32]byte
+	indexes := make([]uuid.UUID, 0)
 	for rows.Next() {
-		var checksum string
+		var indexUuid string
+		err = rows.Scan(&indexUuid)
+		if err != nil {
+			return nil, err
+		}
+		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
+	}
+	return indexes, nil
+}
+
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(indexID, data)
+	repository.wrMutex.Unlock()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT data FROM snapshots WHERE snapshotID=?`, indexID).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM snapshots WHERE snapshotID=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	repository.wrMutex.Lock()
+	_, err = statement.Exec(indexID)
+	repository.wrMutex.Unlock()
+	if err != nil {
+		// if err is that it's already present, we should discard err and assume a concurrent write
+		return err
+	}
+	return nil
+}
+
+// blobs
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT checksum FROM blobs")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	checksums := make([][32]byte, 0)
+	for rows.Next() {
+		var checksum []byte
 		err = rows.Scan(&checksum)
 		if err != nil {
 			return nil, err
 		}
-		checksumDecoded, _ := stringToChecksum(checksum)
-		checksums = append(checksums, checksumDecoded)
+		var checksum32 [32]byte
+		copy(checksum32[:], checksum)
+		checksums = append(checksums, checksum32)
 	}
 	return checksums, nil
 }
 
-func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO blobs (blobChecksum, blobData) VALUES(?, ?)`)
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO blobs (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -324,8 +330,17 @@ func (repository *DatabaseRepository) PutBlob(checksum [32]byte, data []byte) er
 	return nil
 }
 
-func (repository *DatabaseRepository) DeleteBlob(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM blobs WHERE blobChecksum=?`)
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT data FROM blobs WHERE checksum=?`, checksum[:]).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM blobs WHERE checksum=?`)
 	if err != nil {
 		return err
 	}
@@ -342,8 +357,30 @@ func (repository *DatabaseRepository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO chunks (chunkChecksum, chunkBlob) VALUES(?, ?)`)
+// indexes
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT checksum FROM indexes")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	checksums := make([][32]byte, 0)
+	for rows.Next() {
+		var checksum []byte
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		var checksum32 [32]byte
+		copy(checksum32[:], checksum)
+		checksums = append(checksums, checksum32)
+	}
+	return checksums, nil
+}
+
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO indexes (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -365,8 +402,17 @@ func (repository *DatabaseRepository) PutChunk(checksum [32]byte, data []byte) e
 	return nil
 }
 
-func (repository *DatabaseRepository) DeleteChunk(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM chunks WHERE chunkChecksum=?`)
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT data FROM indexes WHERE checksum=?`, checksum[:]).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM indexes WHERE checksum=?`)
 	if err != nil {
 		return err
 	}
@@ -379,19 +425,40 @@ func (repository *DatabaseRepository) DeleteChunk(checksum [32]byte) error {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
 	}
-
 	return nil
 }
 
-func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO objects (objectChecksum, objectBlob) VALUES(?, ?)`)
+// packfiles
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+	rows, err := repository.conn.Query("SELECT checksum FROM packfiles")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	checksums := make([][32]byte, 0)
+	for rows.Next() {
+		var checksum []byte
+		err = rows.Scan(&checksum)
+		if err != nil {
+			return nil, err
+		}
+		var checksum32 [32]byte
+		copy(checksum32[:], checksum)
+		checksums = append(checksums, checksum32)
+	}
+	return checksums, nil
+}
+
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+	statement, err := repository.conn.Prepare(`INSERT INTO packfiles (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
 	repository.wrMutex.Lock()
-	_, err = statement.Exec(checksum[:], []byte(""))
+	_, err = statement.Exec(checksum[:], data)
 	repository.wrMutex.Unlock()
 	if err != nil {
 		if sqliteErr, ok := err.(sqlite3.Error); !ok {
@@ -406,8 +473,17 @@ func (repository *DatabaseRepository) PutObject(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *DatabaseRepository) DeleteObject(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM objects WHERE objectChecksum=?`)
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT data FROM packfiles WHERE checksum=?`, checksum[:]).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+	statement, err := repository.conn.Prepare(`DELETE FROM packfiles WHERE checksum=?`)
 	if err != nil {
 		return err
 	}
@@ -420,136 +496,5 @@ func (repository *DatabaseRepository) DeleteObject(checksum [32]byte) error {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
 	}
-
 	return nil
-}
-
-func (repository *DatabaseRepository) GetChunks() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT chunkChecksum FROM chunks")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checksums [][32]byte
-	for rows.Next() {
-		var checksum string
-		err = rows.Scan(&checksum)
-		if err != nil {
-			return nil, err
-		}
-
-		var t32 [32]byte
-		copy(t32[:], checksum)
-		checksums = append(checksums, t32)
-	}
-	return checksums, nil
-}
-
-func (repository *DatabaseRepository) GetObjects() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT objectChecksum FROM objects")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var checksums [][32]byte
-	for rows.Next() {
-		var checksum string
-		err = rows.Scan(&checksum)
-		if err != nil {
-			return nil, err
-		}
-
-		var t32 [32]byte
-		copy(t32[:], checksum)
-		checksums = append(checksums, t32)
-	}
-	return checksums, nil
-}
-
-func (repository *DatabaseRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT snapshotBlob FROM snapshots WHERE snapshotId=?`, indexID).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *DatabaseRepository) GetBlob(checksum [32]byte) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT blobData FROM blobs WHERE blobChecksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *DatabaseRepository) GetObject(checksum [32]byte) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectBlob FROM objects WHERE objectChecksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *DatabaseRepository) GetChunk(checksum [32]byte) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkBlob FROM chunks WHERE chunkChecksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *DatabaseRepository) CheckObject(checksum [32]byte) (bool, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT objectChecksum FROM objects WHERE objectChecksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-func (repository *DatabaseRepository) CheckChunk(checksum [32]byte) (bool, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT chunkChecksum FROM chunks WHERE chunkChecksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return false, nil
-	}
-	return true, nil
-}
-
-func (repository *DatabaseRepository) DeleteSnapshot(indexID uuid.UUID) error {
-	return nil
-}
-
-func (repository *DatabaseRepository) Close() error {
-	return nil
-}
-
-//////
-
-func (transaction *DatabaseTransaction) GetUuid() uuid.UUID {
-	return transaction.Uuid
-}
-
-func (transaction *DatabaseTransaction) Commit(data []byte) error {
-	statement, err := transaction.dbTx.Prepare(`INSERT INTO snapshots (snapshotId, snapshotBlob) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository := transaction.repository
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(transaction.GetUuid(), data)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		return err
-	}
-
-	return transaction.dbTx.Commit()
 }

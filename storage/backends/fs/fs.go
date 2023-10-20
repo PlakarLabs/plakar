@@ -71,20 +71,18 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 
 	os.MkdirAll(filepath.Join(repository.root, "indexes"), 0700)
 
-	os.MkdirAll(filepath.Join(repository.root, "chunks"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "objects"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
+
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
 		os.MkdirAll(filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", i)), 0700)
 
-		os.MkdirAll(filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
+
 		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 

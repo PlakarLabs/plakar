@@ -66,9 +66,6 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	}
 	defer rd.Close()
 
-	atomic.AddInt64(&snapshot.concurrentObjects, 1)
-	defer atomic.AddInt64(&snapshot.concurrentObjects, -1)
-
 	object := &objects.Object{}
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
 	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
@@ -96,23 +93,18 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 
 		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
 		if indexChunk == nil {
-			exists, err := snapshot.CheckChunk(chunk.Checksum)
-			if err != nil {
-				atomic.AddInt64(&snapshot.concurrentObjects, -1)
-				return nil, err
-			}
+			exists := snapshot.CheckChunk(chunk.Checksum)
 			if !exists {
-				_, err := snapshot.PutChunk(chunk.Checksum, buf)
+				err := snapshot.PutChunk(chunk.Checksum, buf)
 				if err != nil {
-					atomic.AddInt64(&snapshot.concurrentObjects, -1)
 					return nil, err
 				}
+
 			}
 			snapshot.Index.AddChunk(&chunk)
-
-			//XXX
-			snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
-			//fmt.Println(snapshot.RepositoryIndex.GetPackfileForChunk(chunk.Checksum))
+			// XXX - DEBUG
+			//			fmt.Println("SETTING PACKFILE FOR CHUNK")
+			//			snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
 
 		}
 
@@ -144,9 +136,6 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 		}
 
 		if cdcChunk != nil {
-			atomic.AddInt64(&snapshot.concurrentChunks, 1)
-			atomic.AddInt64(&snapshot.concurrentChunksSize, int64(len(cdcChunk)))
-
 			if firstChunk {
 				if object.ContentType == "" {
 					object.ContentType = mimetype.Detect(cdcChunk).String()
@@ -172,25 +161,18 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 
 			indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
 			if indexChunk == nil {
-				exists, err := snapshot.CheckChunk(chunk.Checksum)
-				if err != nil {
-					atomic.AddInt64(&snapshot.concurrentObjects, -1)
-					return nil, err
-				}
+				exists := snapshot.CheckChunk(chunk.Checksum)
 				if !exists {
-					nbytes, err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
+					//fmt.Println("COULD NOT SPOT CHUNK ?")
+					err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
 					if err != nil {
-						atomic.AddInt64(&snapshot.concurrentObjects, -1)
 						return nil, err
 					}
-					atomic.AddUint64(&snapshot.Header.ChunksTransferCount, uint64(1))
-					atomic.AddUint64(&snapshot.Header.ChunksTransferSize, uint64(nbytes))
-
+					//fmt.Println("SETTING PACKFILE FOR CHUNK")
+					snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
 				}
 				snapshot.Index.AddChunk(&chunk)
 			}
-			atomic.AddInt64(&snapshot.concurrentChunksSize, -int64(len(cdcChunk)))
-			atomic.AddInt64(&snapshot.concurrentChunks, -1)
 		}
 
 		if err == io.EOF {
@@ -254,15 +236,7 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 
 			exists = false
 			if object != nil {
-				if snapshot.Index.LookupObject(object.Checksum) != nil {
-					exists = true
-				} else {
-					exists, err = snapshot.CheckObject(object.Checksum)
-					if err != nil {
-						logger.Warn("%s: failed to check object existence: %s", _filename, err)
-						return
-					}
-				}
+				exists = snapshot.CheckObject(object.Checksum)
 			}
 
 			// can't reuse object from cache, chunkify
@@ -276,12 +250,8 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 					snapshot.PutCachedObject(_filename, *object, *fileinfo)
 				}
 
-				if snapshot.Index.LookupObject(object.Checksum) == nil {
-					exists, err = snapshot.CheckObject(object.Checksum)
-					if err != nil {
-						logger.Warn("%s: failed to check object existence: %s", _filename, err)
-						return
-					}
+				if !snapshot.Index.ObjectExists(object.Checksum) {
+					exists = snapshot.CheckObject(object.Checksum)
 					if !exists {
 						err := snapshot.PutObject(object)
 						if err != nil {

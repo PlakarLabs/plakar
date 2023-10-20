@@ -159,6 +159,18 @@ func (index *Index) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool)
 	}
 }
 
+func (index *Index) ChunkExists(chunkChecksum [32]byte) bool {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	chunkID := index.addChecksum(chunkChecksum)
+	if _, exists := index.Chunks[chunkID]; !exists {
+		return false
+	} else {
+		return true
+	}
+}
+
 func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte) {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
@@ -186,6 +198,18 @@ func (index *Index) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, boo
 			panic("packfile checksum not found")
 		}
 		return packfileChecksum, true
+	}
+}
+
+func (index *Index) ObjectExists(objectChecksum [32]byte) bool {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	objectID := index.addChecksum(objectChecksum)
+	if _, exists := index.Objects[objectID]; !exists {
+		return false
+	} else {
+		return true
 	}
 }
 

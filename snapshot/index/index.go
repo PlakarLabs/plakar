@@ -326,6 +326,10 @@ func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {
 	}
 }
 
+func (index *Index) ChunkExists(checksum [32]byte) bool {
+	return index.LookupChunk(checksum) != nil
+}
+
 func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
@@ -364,6 +368,10 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 		Chunks:      chunks,
 		ContentType: contentTypeID,
 	}
+}
+
+func (index *Index) ObjectExists(checksum [32]byte) bool {
+	return index.LookupObject(checksum) != nil
 }
 
 func (index *Index) LookupObjectForPathname(pathnameID uint64) *objects.Object {

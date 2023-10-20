@@ -10,11 +10,7 @@ import (
 
 func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.Hash, fast bool) (bool, error) {
 	if fast {
-		exists, err := snapshot.CheckChunk(chunkChecksum)
-		if err != nil {
-			return false, err
-		}
-		return exists, nil
+		return snapshot.CheckChunk(chunkChecksum), nil
 	}
 
 	data, err := snapshot.GetChunk(chunkChecksum)
@@ -33,11 +29,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 	}
 
 	if fast {
-		exists, err := snapshot.CheckObject(checksum)
-		if err != nil {
-			logger.Warn("%s: could not check object %064x: %s", snapshot.Header.GetIndexShortID(), checksum, err)
-			return false, nil
-		}
+		exists := snapshot.CheckObject(checksum)
 		if !exists {
 			return false, nil
 		}
@@ -88,12 +80,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	ret := true
 	for _, checksum := range snapshot.Index.ListChunks() {
 		if fast {
-			exists, err := snapshot.CheckChunk(checksum)
-			if err != nil {
-				logger.Warn("%s: missing chunk %064x", snapshot.Header.GetIndexShortID(), checksum)
-				ret = false
-				continue
-			}
+			exists := snapshot.CheckChunk(checksum)
 			if !exists {
 				ret = false
 				continue
@@ -118,12 +105,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 
 	for _, checksum := range snapshot.Index.ListObjects() {
 		if fast {
-			exists, err := snapshot.CheckObject(checksum)
-			if err != nil {
-				logger.Warn("%s: missing object %064x", snapshot.Header.GetIndexShortID(), checksum)
-				ret = false
-				continue
-			}
+			exists := snapshot.CheckObject(checksum)
 			if !exists {
 				ret = false
 				continue

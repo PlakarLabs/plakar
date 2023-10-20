@@ -9,6 +9,7 @@ import (
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
@@ -31,9 +32,17 @@ type Snapshot struct {
 
 	RepositoryIndex *storageIndex.Index
 
-	concurrentObjects    int64
-	concurrentChunks     int64
-	concurrentChunksSize int64
+	packerChan chan interface{}
+}
+
+type PackerChunkMsg struct {
+	Checksum [32]byte
+	Data     []byte
+}
+
+type PackerObjectMsg struct {
+	Checksum [32]byte
+	Data     []byte
 }
 
 func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
@@ -54,7 +63,86 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		Header:     header.NewHeader(indexID),
 		Index:      index.NewIndex(),
 		Filesystem: vfs.NewFilesystem(),
+
+		packerChan: make(chan interface{}),
 	}
+
+	go func() {
+		var pack *packfile.PackFile
+		var chunks map[[32]byte]struct{}
+		var objects map[[32]byte]struct{}
+
+		hasher := encryption.GetHasher(repository.Configuration().Hashing)
+
+		for msg := range snapshot.packerChan {
+			if pack == nil {
+				pack = packfile.New()
+				chunks = make(map[[32]byte]struct{})
+				objects = make(map[[32]byte]struct{})
+			}
+			switch msg := msg.(type) {
+			case *PackerObjectMsg:
+				pack.AddChunk(msg.Checksum, msg.Data)
+
+			case *PackerChunkMsg:
+				pack.AddChunk(msg.Checksum, msg.Data)
+
+			default:
+				panic("received data with unexpected type")
+			}
+
+			if pack.Size() > uint32(repository.Configuration().PackfileSize) {
+				serializedPackfile, err := pack.Serialize()
+				if err != nil {
+					panic("could not serialize pack file")
+				}
+				hasher.Write(serializedPackfile)
+				checksum := hasher.Sum(nil)
+				var checksum32 [32]byte
+				copy(checksum32[:], checksum[:])
+				err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
+				if err != nil {
+					panic("could not write pack file")
+				}
+				hasher.Reset()
+
+				for chunkChecksum := range chunks {
+					snapshot.RepositoryIndex.SetPackfileForChunk(checksum32, chunkChecksum)
+				}
+
+				for objectChecksum := range objects {
+					snapshot.RepositoryIndex.SetPackfileForObject(checksum32, objectChecksum)
+				}
+				pack = nil
+			}
+		}
+
+		if pack != nil {
+			serializedPackfile, err := pack.Serialize()
+			if err != nil {
+				panic("could not serialize pack file")
+			}
+			hasher.Write(serializedPackfile)
+			checksum := hasher.Sum(nil)
+			var checksum32 [32]byte
+			copy(checksum32[:], checksum[:])
+			err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
+			if err != nil {
+				panic("could not write pack file")
+			}
+			hasher.Reset()
+
+			for chunkChecksum := range chunks {
+				snapshot.RepositoryIndex.SetPackfileForChunk(checksum32, chunkChecksum)
+			}
+
+			for objectChecksum := range objects {
+				snapshot.RepositoryIndex.SetPackfileForObject(checksum32, objectChecksum)
+			}
+			pack = nil
+		}
+
+	}()
 
 	logger.Trace("snapshot", "%s: New()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
@@ -365,7 +453,7 @@ func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	return repository.GetSnapshots()
 }
 
-func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) {
+func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutChunk", time.Since(t0))
@@ -381,19 +469,20 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) (int, error) 
 	if compressionMethod != "" {
 		buffer, err = compression.Deflate(compressionMethod, buffer)
 		if err != nil {
-			return 0, err
+			return err
 		}
 	}
 
 	if secret != nil {
 		tmp, err := encryption.Encrypt(secret, buffer)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		buffer = tmp
 	}
 
-	return snapshot.repository.PutChunk(checksum, buffer)
+	snapshot.packerChan <- &PackerChunkMsg{Checksum: checksum, Data: buffer}
+	return nil
 }
 
 func (snapshot *Snapshot) Repository() *storage.Repository {
@@ -430,10 +519,7 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 		buffer = tmp
 	}
 
-	err = snapshot.repository.PutObject(object.Checksum, buffer)
-	if err != nil {
-		return err
-	}
+	snapshot.packerChan <- &PackerObjectMsg{Checksum: object.Checksum, Data: buffer}
 	return nil
 }
 
@@ -584,26 +670,32 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	return buffer, nil
 }
 
-func (snapshot *Snapshot) CheckChunk(checksum [32]byte) (bool, error) {
+func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckChunk", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-	exists, err := snapshot.repository.CheckChunk(checksum)
-	if err != nil {
-		return false, err
+
+	if snapshot.Index.ChunkExists(checksum) {
+		return true
+	} else {
+		return snapshot.RepositoryIndex.ChunkExists(checksum)
 	}
-	return exists, nil
 }
 
-func (snapshot *Snapshot) CheckObject(checksum [32]byte) (bool, error) {
+func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckObject", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-	return snapshot.repository.CheckObject(checksum)
+
+	if snapshot.Index.ObjectExists(checksum) {
+		return true
+	} else {
+		return snapshot.RepositoryIndex.ObjectExists(checksum)
+	}
 }
 
 func (snapshot *Snapshot) Commit() error {

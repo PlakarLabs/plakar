@@ -154,18 +154,14 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					_, exists := chunkChecksum[chunkID]
 					muChunkChecksum.Unlock()
 					if !exists {
-						exists, err := copySnapshot.CheckChunk(chunkID)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "%s: could not check chunk from repository: %s\n", ctx.Repository, err)
-							return
-						}
+						exists := copySnapshot.CheckChunk(chunkID)
 						if !exists {
 							data, err := sourceSnapshot.GetChunk(chunkID)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
 								return
 							}
-							_, err = copySnapshot.PutChunk(chunkID, data)
+							err = copySnapshot.PutChunk(chunkID, data)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", syncRepository, err)
 								return
@@ -189,11 +185,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					muObjectChecksum.Unlock()
 
 					if !exists {
-						exists, err := copySnapshot.CheckObject(objectID)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "%s: could not check object from repository: %s\n", ctx.Repository, err)
-							return
-						}
+						exists := copySnapshot.CheckObject(objectID)
 						if !exists {
 							object := sourceSnapshot.Index.GetObject(objectID)
 							err = copySnapshot.PutObject(object)

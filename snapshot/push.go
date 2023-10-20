@@ -45,15 +45,12 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 	}
 	object.ContentType = cachedObject.ContentType
 
-	for offset, _ := range object.Chunks {
-		//		chunk := cachedObject.Chunks[offset]
-		//		exists, err := snapshot.CheckChunk(chunk.Checksum)
-		//		if err != nil {
-		//			return nil, err
-		//		}
-		//		if !exists {
-		//			return nil, nil
-		//		}
+	for offset := range object.Chunks {
+		chunk := cachedObject.Chunks[offset]
+		exists := snapshot.CheckChunk(chunk.Checksum)
+		if !exists {
+			return nil, nil
+		}
 		snapshot.Index.AddChunk(cachedObject.Chunks[offset])
 	}
 	return &object, nil
@@ -99,13 +96,8 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 				if err != nil {
 					return nil, err
 				}
-
 			}
 			snapshot.Index.AddChunk(&chunk)
-			// XXX - DEBUG
-			//			fmt.Println("SETTING PACKFILE FOR CHUNK")
-			//			snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
-
 		}
 
 		return object, nil
@@ -163,13 +155,10 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 			if indexChunk == nil {
 				exists := snapshot.CheckChunk(chunk.Checksum)
 				if !exists {
-					//fmt.Println("COULD NOT SPOT CHUNK ?")
 					err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
 					if err != nil {
 						return nil, err
 					}
-					//fmt.Println("SETTING PACKFILE FOR CHUNK")
-					snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
 				}
 				snapshot.Index.AddChunk(&chunk)
 			}

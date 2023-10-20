@@ -3,6 +3,8 @@ package snapshot
 import (
 	"bytes"
 	"fmt"
+	"runtime"
+	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/compression"
@@ -30,9 +32,8 @@ type Snapshot struct {
 	Index      *index.Index
 	Filesystem *vfs.Filesystem
 
-	RepositoryIndex *storageIndex.Index
-
-	packerChan chan interface{}
+	packerChan     chan interface{}
+	packerChanDone chan bool
 }
 
 type PackerChunkMsg struct {
@@ -64,84 +65,76 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		Index:      index.NewIndex(),
 		Filesystem: vfs.NewFilesystem(),
 
-		packerChan: make(chan interface{}),
+		packerChan:     make(chan interface{}),
+		packerChanDone: make(chan bool),
 	}
 
 	go func() {
-		var pack *packfile.PackFile
-		var chunks map[[32]byte]struct{}
-		var objects map[[32]byte]struct{}
+		wg := sync.WaitGroup{}
+		for i := 0; i < runtime.NumCPU(); i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var pack *packfile.PackFile
+				var chunks map[[32]byte]struct{}
+				var objects map[[32]byte]struct{}
 
-		hasher := encryption.GetHasher(repository.Configuration().Hashing)
+				for msg := range snapshot.packerChan {
+					if pack == nil {
+						pack = packfile.New()
+						chunks = make(map[[32]byte]struct{})
+						objects = make(map[[32]byte]struct{})
+					}
+					switch msg := msg.(type) {
+					case *PackerObjectMsg:
+						pack.AddData(msg.Checksum, msg.Data)
+						objects[msg.Checksum] = struct{}{}
 
-		for msg := range snapshot.packerChan {
-			if pack == nil {
-				pack = packfile.New()
-				chunks = make(map[[32]byte]struct{})
-				objects = make(map[[32]byte]struct{})
-			}
-			switch msg := msg.(type) {
-			case *PackerObjectMsg:
-				pack.AddChunk(msg.Checksum, msg.Data)
+					case *PackerChunkMsg:
+						pack.AddData(msg.Checksum, msg.Data)
+						chunks[msg.Checksum] = struct{}{}
 
-			case *PackerChunkMsg:
-				pack.AddChunk(msg.Checksum, msg.Data)
+					default:
+						panic("received data with unexpected type")
+					}
 
-			default:
-				panic("received data with unexpected type")
-			}
-
-			if pack.Size() > uint32(repository.Configuration().PackfileSize) {
-				serializedPackfile, err := pack.Serialize()
-				if err != nil {
-					panic("could not serialize pack file")
+					if pack.Size() > uint32(repository.Configuration().PackfileSize) {
+						objectsList := make([][32]byte, len(objects))
+						for objectChecksum := range objects {
+							objectsList = append(objectsList, objectChecksum)
+						}
+						chunksList := make([][32]byte, len(chunks))
+						for chunkChecksum := range chunks {
+							chunksList = append(chunksList, chunkChecksum)
+						}
+						err = snapshot.PutPackfile(pack, objectsList, chunksList)
+						if err != nil {
+							panic(err)
+						}
+						pack = nil
+					}
 				}
-				hasher.Write(serializedPackfile)
-				checksum := hasher.Sum(nil)
-				var checksum32 [32]byte
-				copy(checksum32[:], checksum[:])
-				err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
-				if err != nil {
-					panic("could not write pack file")
-				}
-				hasher.Reset()
 
-				for chunkChecksum := range chunks {
-					snapshot.RepositoryIndex.SetPackfileForChunk(checksum32, chunkChecksum)
+				if pack != nil {
+					objectsList := make([][32]byte, len(objects))
+					for objectChecksum := range objects {
+						objectsList = append(objectsList, objectChecksum)
+					}
+					chunksList := make([][32]byte, len(chunks))
+					for chunkChecksum := range chunks {
+						chunksList = append(chunksList, chunkChecksum)
+					}
+					err = snapshot.PutPackfile(pack, objectsList, chunksList)
+					if err != nil {
+						panic(err)
+					}
+					pack = nil
 				}
-
-				for objectChecksum := range objects {
-					snapshot.RepositoryIndex.SetPackfileForObject(checksum32, objectChecksum)
-				}
-				pack = nil
-			}
+			}()
 		}
-
-		if pack != nil {
-			serializedPackfile, err := pack.Serialize()
-			if err != nil {
-				panic("could not serialize pack file")
-			}
-			hasher.Write(serializedPackfile)
-			checksum := hasher.Sum(nil)
-			var checksum32 [32]byte
-			copy(checksum32[:], checksum[:])
-			err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
-			if err != nil {
-				panic("could not write pack file")
-			}
-			hasher.Reset()
-
-			for chunkChecksum := range chunks {
-				snapshot.RepositoryIndex.SetPackfileForChunk(checksum32, chunkChecksum)
-			}
-
-			for objectChecksum := range objects {
-				snapshot.RepositoryIndex.SetPackfileForObject(checksum32, objectChecksum)
-			}
-			pack = nil
-		}
-
+		wg.Wait()
+		snapshot.packerChanDone <- true
+		close(snapshot.packerChanDone)
 	}()
 
 	logger.Trace("snapshot", "%s: New()", snapshot.Header.GetIndexShortID())
@@ -523,6 +516,39 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 	return nil
 }
 
+func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: PutPackfile(%064x)", snapshot.Header.GetIndexShortID(), pack)
+
+	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+
+	serializedPackfile, err := pack.Serialize()
+	if err != nil {
+		panic("could not serialize pack file")
+	}
+	hasher.Write(serializedPackfile)
+	checksum := hasher.Sum(nil)
+	var checksum32 [32]byte
+	copy(checksum32[:], checksum[:])
+	err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
+	if err != nil {
+		panic("could not write pack file")
+	}
+
+	for _, chunkChecksum := range chunks {
+		snapshot.Repository().GetRepositoryIndex().SetPackfileForChunk(checksum32, chunkChecksum)
+	}
+
+	for _, objectChecksum := range objects {
+		snapshot.Repository().GetRepositoryIndex().SetPackfileForObject(checksum32, objectChecksum)
+	}
+
+	return nil
+}
+
 func (snapshot *Snapshot) prepareHeader(data []byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -641,9 +667,24 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	buffer, err := snapshot.repository.GetChunk(checksum)
+	packfileChecksum, exists := snapshot.Repository().GetRepositoryIndex().GetPackfileForChunk(checksum)
+	if !exists {
+		return nil, fmt.Errorf("packfile not found")
+	}
+
+	packfileSerialized, err := snapshot.repository.GetPackfile(packfileChecksum)
 	if err != nil {
 		return nil, err
+	}
+
+	packfile, err := packfile.NewFromBytes(packfileSerialized)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, exists := packfile.GetChunk(checksum)
+	if !exists {
+		return nil, fmt.Errorf("chunk not found in packfile")
 	}
 
 	repository := snapshot.repository
@@ -680,7 +721,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	if snapshot.Index.ChunkExists(checksum) {
 		return true
 	} else {
-		return snapshot.RepositoryIndex.ChunkExists(checksum)
+		return snapshot.Repository().GetRepositoryIndex().ChunkExists(checksum)
 	}
 }
 
@@ -694,7 +735,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	if snapshot.Index.ObjectExists(checksum) {
 		return true
 	} else {
-		return snapshot.RepositoryIndex.ObjectExists(checksum)
+		return snapshot.Repository().GetRepositoryIndex().ObjectExists(checksum)
 	}
 }
 
@@ -704,9 +745,12 @@ func (snapshot *Snapshot) Commit() error {
 		profiler.RecordEvent("snapshot.Commit", time.Since(t0))
 	}()
 
-	if snapshot.RepositoryIndex.IsDirty() {
+	close(snapshot.packerChan)
+	<-snapshot.packerChanDone
 
-		serializedRepositoryIndex, err := snapshot.RepositoryIndex.Serialize()
+	if snapshot.Repository().GetRepositoryIndex().IsDirty() {
+
+		serializedRepositoryIndex, err := snapshot.Repository().GetRepositoryIndex().Serialize()
 		if err != nil {
 			logger.Warn("could not serialize repository index: %s", err)
 			return err

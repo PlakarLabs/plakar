@@ -112,21 +112,34 @@ func (index *Index) LookupChecksum(checksumID uint32) [32]byte {
 }
 
 func (index *Index) Merge(deltaIndex *Index) {
+	deltaIndex.muChecksums.Lock()
 	for deltaChecksum := range deltaIndex.Checksums {
-		if _, exists := index.Checksums[deltaChecksum]; !exists {
+		index.muChecksums.Lock()
+		_, exists := index.Checksums[deltaChecksum]
+		index.muChecksums.Unlock()
+		if !exists {
 			index.addChecksum(deltaChecksum)
 		}
 	}
+	deltaIndex.muChecksums.Unlock()
 
+	deltaIndex.muChunks.Lock()
 	for deltaChunkChecksumID, deltaPackfileChecksumID := range deltaIndex.Chunks {
-		index.SetPackfileForChunk(deltaIndex.LookupChecksum(deltaChunkChecksumID),
-			deltaIndex.LookupChecksum(deltaPackfileChecksumID))
+		index.SetPackfileForChunk(
+			deltaIndex.LookupChecksum(deltaPackfileChecksumID),
+			deltaIndex.LookupChecksum(deltaChunkChecksumID),
+		)
 	}
+	deltaIndex.muChunks.Unlock()
 
+	deltaIndex.muObjects.Lock()
 	for deltaObjectChecksumID, deltaPackfileChecksumID := range deltaIndex.Objects {
-		index.SetPackfileForObject(deltaIndex.LookupChecksum(deltaObjectChecksumID),
-			deltaIndex.LookupChecksum(deltaPackfileChecksumID))
+		index.SetPackfileForObject(
+			deltaIndex.LookupChecksum(deltaPackfileChecksumID),
+			deltaIndex.LookupChecksum(deltaObjectChecksumID),
+		)
 	}
+	deltaIndex.muObjects.Unlock()
 }
 
 func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte) {

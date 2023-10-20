@@ -102,7 +102,7 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (p *PackFile) AddChunk(checksum [32]byte, data []byte) {
+func (p *PackFile) AddData(checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("packfile.AddChunk", time.Since(t0))

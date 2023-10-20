@@ -32,6 +32,7 @@ import (
 	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/storage/index"
 	"github.com/google/uuid"
 )
 
@@ -124,6 +125,8 @@ type Repository struct {
 
 	Cache *cache.Cache
 	Key   []byte
+
+	index *index.Index
 
 	wBytes uint64
 	rBytes uint64
@@ -241,6 +244,14 @@ func (repository *Repository) SetStatParallelism(parallelism int) {
 		return
 	}
 	repository.sChan = make(chan bool, parallelism)
+}
+
+func (repository *Repository) SetRepositoryIndex(index *index.Index) {
+	repository.index = index
+}
+
+func (repository *Repository) GetRepositoryIndex() *index.Index {
+	return repository.index
 }
 
 func (repository *Repository) wLock() {

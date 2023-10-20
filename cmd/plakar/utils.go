@@ -31,6 +31,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/storage"
+	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 )
@@ -234,7 +235,6 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 
 				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 				if err != nil {
-					fmt.Println("###1")
 					return nil, err
 				}
 
@@ -243,7 +243,6 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 
 				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
-					fmt.Println("###2")
 					return nil, err
 				}
 				result = append(result, index)
@@ -472,4 +471,22 @@ func checksumArrayContains(a [][32]byte, x [32]byte) bool {
 		}
 	}
 	return false
+}
+
+func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, error) {
+	indexes, err := repository.GetIndexes()
+	if err != nil {
+		return nil, err
+	}
+
+	repositoryIndex := storageIndex.New()
+	for _, indexID := range indexes {
+		idx, err := snapshot.GetRepositoryIndex(repository, indexID)
+		if err != nil {
+			return nil, err
+		}
+		repositoryIndex.Merge(idx)
+	}
+	repositoryIndex.ResetDirty()
+	return repositoryIndex, nil
 }

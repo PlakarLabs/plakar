@@ -52,10 +52,18 @@ func cmd_create(ctx Plakar, args []string) int {
 	}
 
 	repositoryConfig.Hashing = opt_hashing
-	repositoryConfig.Chunking = "ultracdc"
-	repositoryConfig.ChunkingMin = 2 << 10
-	repositoryConfig.ChunkingNormal = repositoryConfig.ChunkingMin + (8 << 10)
-	repositoryConfig.ChunkingMax = 64 << 10
+
+	/*
+		repositoryConfig.Chunking = "ultracdc"
+		repositoryConfig.ChunkingMin = 2 << 10
+		repositoryConfig.ChunkingNormal = repositoryConfig.ChunkingMin + (8 << 10)
+		repositoryConfig.ChunkingMax = 64 << 10
+	*/
+
+	repositoryConfig.Chunking = "fastcdc"
+	repositoryConfig.ChunkingMin = 64 << 10
+	repositoryConfig.ChunkingNormal = (1 << 10) << 10
+	repositoryConfig.ChunkingMax = (8 << 10) << 10
 
 	//repositoryConfig.PackfileSize = 4096 << 10
 	repositoryConfig.PackfileSize = (20 << 10) << 10

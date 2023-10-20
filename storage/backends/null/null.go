@@ -35,10 +35,10 @@ type Transaction struct {
 }
 
 func init() {
-	storage.Register("null", NewNullRepository)
+	storage.Register("null", NewRepository)
 }
 
-func NewNullRepository() storage.RepositoryBackend {
+func NewRepository() storage.RepositoryBackend {
 	return &Repository{}
 }
 
@@ -64,13 +64,6 @@ func (repository *Repository) Open(location string) error {
 
 func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
-}
-
-func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	tx := &Transaction{}
-	tx.Uuid = indexID
-	tx.repository = *repository
-	return tx, nil
 }
 
 // snapshots
@@ -146,13 +139,5 @@ func (repository *Repository) Close() error {
 }
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
-	return nil
-}
-
-func (transaction *Transaction) GetUuid() uuid.UUID {
-	return transaction.Uuid
-}
-
-func (transaction *Transaction) Commit(data []byte) error {
 	return nil
 }

@@ -32,27 +32,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type FSRepository struct {
+type Repository struct {
 	config storage.RepositoryConfig
 
 	Repository string
 	root       string
 }
 
-type FSTransaction struct {
-	Uuid       uuid.UUID
-	repository FSRepository
-}
-
 func init() {
-	storage.Register("fs", NewFSRepository)
+	storage.Register("fs", NewRepository)
 }
 
-func NewFSRepository() storage.RepositoryBackend {
-	return &FSRepository{}
+func NewRepository() storage.RepositoryBackend {
+	return &Repository{}
 }
 
-func (repository *FSRepository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("Create(%s): %s", location, time.Since(t0))
@@ -109,7 +104,7 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	return nil
 }
 
-func (repository *FSRepository) Open(location string) error {
+func (repository *Repository) Open(location string) error {
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}
@@ -138,18 +133,11 @@ func (repository *FSRepository) Open(location string) error {
 	return nil
 }
 
-func (repository *FSRepository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *FSRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	tx := &FSTransaction{}
-	tx.Uuid = indexID
-	tx.repository = *repository
-	return tx, nil
-}
-
-func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	ret := make([]uuid.UUID, 0)
 
 	buckets, err := os.ReadDir(repository.PathSnapshots())
@@ -180,7 +168,7 @@ func (repository *FSRepository) GetSnapshots() ([]uuid.UUID, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathSnapshot(indexID))
 	if err != nil {
 		return nil, err
@@ -189,7 +177,7 @@ func (repository *FSRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) GetBlobs() ([][32]byte, error) {
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathBlobs())
@@ -225,7 +213,7 @@ func (repository *FSRepository) GetBlobs() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) GetPackfiles() ([][32]byte, error) {
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathPackfiles())
@@ -261,7 +249,7 @@ func (repository *FSRepository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathBlob(checksum))
 	if err != nil {
 		return nil, err
@@ -270,7 +258,7 @@ func (repository *FSRepository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) DeleteBlob(checksum [32]byte) error {
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	err := os.Remove(repository.PathBlob(checksum))
 	if err != nil {
 		return err
@@ -278,7 +266,7 @@ func (repository *FSRepository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *FSRepository) GetPackfile(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathPackfile(checksum))
 	if err != nil {
 		return nil, err
@@ -287,7 +275,7 @@ func (repository *FSRepository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) DeletePackfile(checksum [32]byte) error {
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	err := os.Remove(repository.PathPackfile(checksum))
 	if err != nil {
 		return err
@@ -295,7 +283,7 @@ func (repository *FSRepository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *FSRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	f, err := os.Create(repository.PathSnapshot(indexID))
 	if err != nil {
 		return err
@@ -309,7 +297,7 @@ func (repository *FSRepository) PutSnapshot(indexID uuid.UUID, data []byte) erro
 	return nil
 }
 
-func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathBlob(checksum))
 	if err != nil {
 		return err
@@ -323,7 +311,7 @@ func (repository *FSRepository) PutBlob(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *FSRepository) PutPackfile(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathPackfile(checksum))
 	if err != nil {
 		return err
@@ -337,7 +325,7 @@ func (repository *FSRepository) PutPackfile(checksum [32]byte, data []byte) erro
 	return nil
 }
 
-func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	dest := filepath.Join(repository.PathPurge(), indexID.String())
 	err := os.Rename(repository.PathSnapshot(indexID), dest)
 	if err != nil {
@@ -351,12 +339,12 @@ func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 
-func (repository *FSRepository) Close() error {
+func (repository *Repository) Close() error {
 	return nil
 }
 
 /* Indexes */
-func (repository *FSRepository) GetIndexes() ([][32]byte, error) {
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathIndexes())
@@ -392,7 +380,7 @@ func (repository *FSRepository) GetIndexes() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *FSRepository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathIndex(checksum))
 	if err != nil {
 		return err
@@ -406,7 +394,7 @@ func (repository *FSRepository) PutIndex(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *FSRepository) GetIndex(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathIndex(checksum))
 	if err != nil {
 		return nil, err
@@ -415,7 +403,7 @@ func (repository *FSRepository) GetIndex(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *FSRepository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 	err := os.Remove(repository.PathIndex(checksum))
 	if err != nil {
 		return err
@@ -423,7 +411,7 @@ func (repository *FSRepository) DeleteIndex(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *FSRepository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	f, err := os.CreateTemp("", fmt.Sprintf("%s.*", indexID))
 	if err != nil {
 		return err
@@ -443,38 +431,6 @@ func (repository *FSRepository) Commit(indexID uuid.UUID, data []byte) error {
 	}
 
 	err = os.Rename(name, repository.PathSnapshot(indexID))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-/**/
-func (transaction *FSTransaction) GetUuid() uuid.UUID {
-	return transaction.Uuid
-}
-
-func (transaction *FSTransaction) Commit(data []byte) error {
-	f, err := os.CreateTemp("", fmt.Sprintf("%s.*", transaction.Uuid))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, transaction.repository.PathSnapshot(transaction.Uuid))
 	if err != nil {
 		return err
 	}

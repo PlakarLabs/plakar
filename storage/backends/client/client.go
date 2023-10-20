@@ -53,13 +53,6 @@ type Repository struct {
 	// storage.RepositoryBackend
 }
 
-type Transaction struct {
-	Uuid       uuid.UUID
-	repository *Repository
-
-	// storage.TransactionBackend
-}
-
 func init() {
 	network.ProtocolRegister()
 	storage.Register("client", NewRepository)
@@ -532,24 +525,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
 		Transaction: indexID,
-		Data:        data,
-	})
-	if err != nil {
-		return err
-	}
-	return result.Payload.(network.ResCommit).Err
-}
-
-//////
-
-func (transaction *Transaction) GetUuid() uuid.UUID {
-	return transaction.Uuid
-}
-
-func (transaction *Transaction) Commit(data []byte) error {
-	repository := transaction.repository
-	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
-		Transaction: transaction.GetUuid(),
 		Data:        data,
 	})
 	if err != nil {

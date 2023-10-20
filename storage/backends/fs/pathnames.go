@@ -23,78 +23,78 @@ import (
 	"github.com/google/uuid"
 )
 
-func (repository *FSRepository) PathPurge() string {
+func (repository *Repository) PathPurge() string {
 	return filepath.Join(repository.root, "purge")
 }
 
-func (repository *FSRepository) PathChunks() string {
+func (repository *Repository) PathChunks() string {
 	return filepath.Join(repository.root, "chunks")
 }
 
-func (repository *FSRepository) PathObjects() string {
+func (repository *Repository) PathObjects() string {
 	return filepath.Join(repository.root, "objects")
 }
 
-func (repository *FSRepository) PathBlobs() string {
+func (repository *Repository) PathBlobs() string {
 	return filepath.Join(repository.root, "blobs")
 }
 
-func (repository *FSRepository) PathIndexes() string {
+func (repository *Repository) PathIndexes() string {
 	return filepath.Join(repository.root, "indexes")
 }
 
-func (repository *FSRepository) PathPackfiles() string {
+func (repository *Repository) PathPackfiles() string {
 	return filepath.Join(repository.root, "packfiles")
 }
 
-func (repository *FSRepository) PathSnapshots() string {
+func (repository *Repository) PathSnapshots() string {
 	return filepath.Join(repository.root, "snapshots")
 }
 
-func (repository *FSRepository) PathChunkBucket(checksum [32]byte) string {
+func (repository *Repository) PathChunkBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *FSRepository) PathObjectBucket(checksum [32]byte) string {
+func (repository *Repository) PathObjectBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *FSRepository) PathBlobBucket(checksum [32]byte) string {
+func (repository *Repository) PathBlobBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *FSRepository) PathIndexBucket(checksum [32]byte) string {
+func (repository *Repository) PathIndexBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *FSRepository) PathPackfileBucket(checksum [32]byte) string {
+func (repository *Repository) PathPackfileBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *FSRepository) PathSnapshotBucket(indexID uuid.UUID) string {
+func (repository *Repository) PathSnapshotBucket(indexID uuid.UUID) string {
 	return filepath.Join(repository.root, "snapshots", indexID.String()[:2])
 }
 
-func (repository *FSRepository) PathChunk(checksum [32]byte) string {
+func (repository *Repository) PathChunk(checksum [32]byte) string {
 	return filepath.Join(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathObject(checksum [32]byte) string {
+func (repository *Repository) PathObject(checksum [32]byte) string {
 	return filepath.Join(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathBlob(checksum [32]byte) string {
+func (repository *Repository) PathBlob(checksum [32]byte) string {
 	return filepath.Join(repository.PathBlobBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathIndex(checksum [32]byte) string {
+func (repository *Repository) PathIndex(checksum [32]byte) string {
 	return filepath.Join(repository.PathIndexBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathPackfile(checksum [32]byte) string {
+func (repository *Repository) PathPackfile(checksum [32]byte) string {
 	return filepath.Join(repository.PathPackfileBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *FSRepository) PathSnapshot(indexID uuid.UUID) string {
+func (repository *Repository) PathSnapshot(indexID uuid.UUID) string {
 	return filepath.Join(repository.PathSnapshotBucket(indexID), indexID.String())
 }

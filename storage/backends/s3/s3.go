@@ -43,11 +43,6 @@ type Repository struct {
 	bucketName  string
 }
 
-type Transaction struct {
-	Uuid       uuid.UUID
-	repository *Repository
-}
-
 func init() {
 	network.ProtocolRegister()
 	storage.Register("s3", NewRepository)
@@ -173,13 +168,6 @@ func (repository *Repository) Close() error {
 
 func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
-}
-
-func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	tx := &Transaction{}
-	tx.Uuid = indexID
-	tx.repository = repository
-	return tx, nil
 }
 
 // snapshots
@@ -421,19 +409,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (transaction *Transaction) GetUuid() uuid.UUID {
-	return transaction.Uuid
-}
-
-func (transaction *Transaction) Commit(data []byte) error {
-	repository := transaction.repository
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", transaction.Uuid.String()[0:2], transaction.Uuid.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}

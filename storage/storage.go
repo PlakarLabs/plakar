@@ -89,11 +89,6 @@ type RepositoryBackend interface {
 	Close() error
 }
 
-type TransactionBackend interface {
-	GetUuid() uuid.UUID
-	Commit(data []byte) error
-}
-
 var muBackends sync.Mutex
 var backends map[string]func() RepositoryBackend = make(map[string]func() RepositoryBackend)
 

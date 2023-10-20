@@ -31,9 +31,10 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
 
-	chunks := make(map[[32]byte]bool)
-	objects := make(map[[32]byte]bool)
 	blobs := make(map[[32]byte]bool)
+
+	// cleanup packfiles
+	// cleanup indexes
 
 	indexesList, err := repository.GetSnapshots()
 	if err != nil {
@@ -44,12 +45,6 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		s, err := snapshot.Load(repository, indexID)
 		if err != nil {
 			return 1
-		}
-		for _, objectID := range s.Index.ListObjects() {
-			objects[objectID] = true
-		}
-		for _, chunkID := range s.Index.ListChunks() {
-			chunks[chunkID] = true
 		}
 
 		var blobID [32]byte

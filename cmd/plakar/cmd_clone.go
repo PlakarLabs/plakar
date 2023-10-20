@@ -18,9 +18,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"sync"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -36,137 +40,120 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
+	sourceRepository := repository
+	repositoryConfig := sourceRepository.Configuration()
+
+	cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", flags.Arg(1), err)
+		return 1
+	}
+
+	packfileChecksums, err := sourceRepository.GetPackfiles()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		return 1
+	}
+
+	wg := sync.WaitGroup{}
+	for _, _packfileChecksum := range packfileChecksums {
+		wg.Add(1)
+		go func(packfileChecksum [32]byte) {
+			defer wg.Done()
+
+			data, err := sourceRepository.GetPackfile(packfileChecksum)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceRepository.Location, err)
+				return
+			}
+
+			err = cloneRepository.PutPackfile(packfileChecksum, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				return
+			}
+		}(_packfileChecksum)
+	}
+	wg.Wait()
+
+	indexesChecksums, err := sourceRepository.GetIndexes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		return 1
+	}
+
+	wg = sync.WaitGroup{}
+	for _, _indexChecksum := range indexesChecksums {
+		wg.Add(1)
+		go func(indexChecksum [32]byte) {
+			defer wg.Done()
+
+			data, err := sourceRepository.GetIndex(indexChecksum)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location, err)
+				return
+			}
+
+			err = cloneRepository.PutIndex(indexChecksum, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				return
+			}
+		}(_indexChecksum)
+	}
+	wg.Wait()
+
+	wg = sync.WaitGroup{}
+	blobsChecksums, err := sourceRepository.GetBlobs()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get blobs list from repository: %s\n", sourceRepository.Location, err)
+		return 1
+	}
+	for _, _blobChecksum := range blobsChecksums {
+		wg.Add(1)
+		go func(blobChecksum [32]byte) {
+			defer wg.Done()
+
+			data, err := sourceRepository.GetBlob(blobChecksum)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get blob from repository: %s\n", sourceRepository.Location, err)
+				return
+			}
+
+			err = cloneRepository.PutBlob(blobChecksum, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not put blob to repository: %s\n", cloneRepository.Location, err)
+				return
+			}
+		}(_blobChecksum)
+	}
+	wg.Wait()
+
+	wg = sync.WaitGroup{}
+	snapshots, err := sourceRepository.GetSnapshots()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location, err)
+		return 1
+	}
+	for _, _snapshotID := range snapshots {
+		wg.Add(1)
+		go func(snapshotID uuid.UUID) {
+			defer wg.Done()
+
+			data, err := sourceRepository.GetSnapshot(snapshotID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not get snapshot from repository: %s\n", sourceRepository.Location, err)
+				return
+			}
+
+			err = cloneRepository.PutSnapshot(snapshotID, data)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not put snapshot to repository: %s\n", cloneRepository.Location, err)
+				return
+			}
+		}(_snapshotID)
+	}
+	wg.Wait()
+
 	return 0
-	/*
-		cloneRepositoryName := flags.Arg(0)
-
-		sourceRepository := repository
-		repositoryConfig := sourceRepository.Configuration()
-
-		var muChunkChecksum sync.Mutex
-		chunkChecksum := make(map[[32]byte]bool)
-
-		var muObjectChecksum sync.Mutex
-		objectChecksum := make(map[[32]byte]bool)
-
-		indexes, err := sourceRepository.GetSnapshots()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-
-		cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-
-		wg := sync.WaitGroup{}
-		for _, _indexID := range indexes {
-			wg.Add(1)
-			go func(indexID uuid.UUID) {
-				defer wg.Done()
-
-				sourceSnapshot, err := snapshot.Load(sourceRepository, indexID)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not load index %s: %s\n", cloneRepositoryName, indexID, err)
-					return
-				}
-
-				var indexChecksum32 [32]byte
-				copy(indexChecksum32[:], sourceSnapshot.Header.IndexChecksum[:])
-				indexBytes, err := sourceRepository.GetBlob(indexChecksum32)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
-					return
-				}
-				err = cloneRepository.PutBlob(indexChecksum32, indexBytes)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
-					return
-				}
-
-				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], sourceSnapshot.Header.FilesystemChecksum[:])
-				filesystemBytes, err := sourceRepository.GetBlob(filesystemChecksum32)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", ctx.Repository, err)
-					return
-				}
-				err = cloneRepository.PutBlob(filesystemChecksum32, filesystemBytes)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not write index to repository: %s\n", cloneRepositoryName, err)
-					return
-				}
-
-				wg2 := sync.WaitGroup{}
-				for _, _chunkID := range sourceSnapshot.Index.ListChunks() {
-					wg2.Add(1)
-					go func(chunkID [32]byte) {
-						defer wg2.Done()
-						muChunkChecksum.Lock()
-						_, exists := chunkChecksum[chunkID]
-						muChunkChecksum.Unlock()
-						if !exists {
-							data, err := sourceRepository.GetChunk(chunkID)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
-								return
-							}
-							_, err = cloneRepository.PutChunk(chunkID, data)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", cloneRepositoryName, err)
-								return
-							}
-							muChunkChecksum.Lock()
-							chunkChecksum[chunkID] = true
-							muChunkChecksum.Unlock()
-						}
-					}(_chunkID)
-				}
-				wg2.Wait()
-
-				wg3 := sync.WaitGroup{}
-				for _, _objectID := range sourceSnapshot.Index.ListObjects() {
-					wg3.Add(1)
-					go func(objectID [32]byte) {
-						defer wg3.Done()
-						muObjectChecksum.Lock()
-						_, exists := objectChecksum[objectID]
-						muObjectChecksum.Unlock()
-						if !exists {
-							data, err := sourceRepository.GetObject(objectID)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
-								return
-							}
-							err = cloneRepository.PutObject(objectID, data)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", cloneRepositoryName, err)
-								return
-							}
-							muObjectChecksum.Lock()
-							objectChecksum[objectID] = true
-							muObjectChecksum.Unlock()
-						}
-					}(_objectID)
-				}
-				wg3.Wait()
-
-				metadataBytes, err := sourceRepository.GetSnapshot(indexID)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not get metadata from repository: %s\n", ctx.Repository, err)
-					return
-				}
-				err = cloneRepository.PutSnapshot(indexID, metadataBytes)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s: could not write metadata to repository: %s\n", cloneRepositoryName, err)
-					return
-				}
-			}(_indexID)
-		}
-		wg.Wait()
-
-		return 0
-	*/
 }

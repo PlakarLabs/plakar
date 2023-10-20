@@ -13,6 +13,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/storage"
+	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
@@ -27,6 +28,8 @@ type Snapshot struct {
 	Header     *header.Header
 	Index      *index.Index
 	Filesystem *vfs.Filesystem
+
+	RepositoryIndex *storageIndex.Index
 
 	concurrentObjects    int64
 	concurrentChunks     int64
@@ -270,6 +273,39 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
+func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*storageIndex.Index, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
+	}()
+
+	buffer, err := repository.GetIndex(checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	return storageIndex.NewFromBytes(buffer)
+}
+
 func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -472,7 +508,44 @@ func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
 		cache.PutBlob(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
 	}
 
-	return len(buffer), snapshot.transaction.PutBlob(checksum, buffer)
+	return len(buffer), snapshot.repository.PutBlob(checksum, buffer)
+}
+
+func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutIndex", time.Since(t0))
+	}()
+	cache := snapshot.repository.GetCache()
+	logger.Trace("snapshot", "%s: PutIndex(%016x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	repository := snapshot.repository
+
+	buffer := data
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return 0, err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil {
+		//cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
+	}
+
+	return len(buffer), snapshot.repository.PutIndex(checksum, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
@@ -539,6 +612,25 @@ func (snapshot *Snapshot) Commit() error {
 		profiler.RecordEvent("snapshot.Commit", time.Since(t0))
 	}()
 
+	if snapshot.RepositoryIndex.IsDirty() {
+
+		serializedRepositoryIndex, err := snapshot.RepositoryIndex.Serialize()
+		if err != nil {
+			logger.Warn("could not serialize repository index: %s", err)
+			return err
+		}
+		indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		indexHasher.Write(serializedRepositoryIndex)
+		indexChecksum := indexHasher.Sum(nil)
+		indexChecksum32 := [32]byte{}
+		copy(indexChecksum32[:], indexChecksum[:])
+
+		_, err = snapshot.PutIndex(indexChecksum32, serializedRepositoryIndex)
+		if err != nil {
+			return err
+		}
+	}
+
 	serializedIndex, err := snapshot.Index.Serialize()
 	if err != nil {
 		return err
@@ -547,8 +639,7 @@ func (snapshot *Snapshot) Commit() error {
 	indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 	indexHasher.Write(serializedIndex)
 	indexChecksum := indexHasher.Sum(nil)
-
-	var indexChecksum32 [32]byte
+	indexChecksum32 := [32]byte{}
 	copy(indexChecksum32[:], indexChecksum[:])
 
 	nbytes, err := snapshot.PutBlob(indexChecksum32, serializedIndex)

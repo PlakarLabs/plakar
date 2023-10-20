@@ -247,14 +247,14 @@ func (repository *Repository) wLock() {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.wLock", time.Since(t0))
-		logger.Trace("storage", "wLock -> %d : %s", len(repository.wChan), time.Since(t0))
+		logger.Trace("storage.locking", "wLock -> %d : %s", len(repository.wChan), time.Since(t0))
 	}()
 	//	repository.maxParallelism <- true
 	repository.wChan <- true
 }
 func (repository *Repository) wUnlock() {
 	<-repository.wChan
-	logger.Trace("storage", "wUnlock -> %d", len(repository.wChan))
+	logger.Trace("storage.locking", "wUnlock -> %d", len(repository.wChan))
 	// <-repository.maxParallelism
 }
 
@@ -262,14 +262,14 @@ func (repository *Repository) rLock() {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.rLock", time.Since(t0))
-		logger.Trace("storage", "rLock -> %d : %s", len(repository.rChan), time.Since(t0))
+		logger.Trace("storage.locking", "rLock -> %d : %s", len(repository.rChan), time.Since(t0))
 	}()
 	//	repository.maxParallelism <- true
 	repository.rChan <- true
 }
 func (repository *Repository) rUnlock() {
 	<-repository.rChan
-	logger.Trace("storage", "rUnlock -> %d", len(repository.rChan))
+	logger.Trace("storage.locking", "rUnlock -> %d", len(repository.rChan))
 	// <-repository.maxParallelism
 }
 
@@ -277,14 +277,14 @@ func (repository *Repository) sLock() {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("storage.sLock", time.Since(t0))
-		logger.Trace("storage", "sLock -> %d : %s", len(repository.sChan), time.Since(t0))
+		logger.Trace("storage.locking", "sLock -> %d : %s", len(repository.sChan), time.Since(t0))
 	}()
 	//	repository.maxParallelism <- true
 	repository.sChan <- true
 }
 func (repository *Repository) sUnlock() {
 	<-repository.sChan
-	logger.Trace("storage", "sUnlock -> %d", len(repository.sChan))
+	logger.Trace("storage.locking", "sUnlock -> %d", len(repository.sChan))
 	// <-repository.maxParallelism
 }
 
@@ -674,22 +674,6 @@ func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.backend.GetUuid()
 }
 
-func (transaction *Transaction) PutBlob(checksum [32]byte, data []byte) error {
-	repository := transaction.repository
-
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.tx.PutBlob", time.Since(t0))
-		logger.Trace("storage", "%s.PutBlob(%016x) <- %d bytes: %s", transaction.GetUuid(), checksum, len(data), time.Since(t0))
-	}()
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return repository.backend.PutBlob(checksum, data)
-}
-
 func (transaction *Transaction) Commit(data []byte) error {
 	repository := transaction.repository
 	repository.wLock()
@@ -819,6 +803,19 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetIndexes()
+}
+
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutIndex", time.Since(t0))
+		logger.Trace("storage", "PutIndex(%016x): %s", checksum, time.Since(t0))
+	}()
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutIndex(checksum, data)
 }
 
 func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {

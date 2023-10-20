@@ -18,6 +18,7 @@ package index
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -36,13 +37,16 @@ type Index struct {
 
 	muObjects sync.Mutex
 	Objects   map[uint32]uint32
+
+	dirty atomic.Bool
 }
 
-func NewIndex() *Index {
+func New() *Index {
 	return &Index{
-		Checksums: make(map[[32]byte]uint32),
-		Chunks:    make(map[uint32]uint32),
-		Objects:   make(map[uint32]uint32),
+		Checksums:        make(map[[32]byte]uint32),
+		checksumsInverse: make(map[uint32][32]byte),
+		Chunks:           make(map[uint32]uint32),
+		Objects:          make(map[uint32]uint32),
 	}
 }
 
@@ -89,6 +93,7 @@ func (index *Index) addChecksum(checksum [32]byte) uint32 {
 		index.checksumsInverse[index.checksumID] = checksum
 		checksumID = index.checksumID
 		index.checksumID++
+		index.dirty.Store(true)
 		return checksumID
 	} else {
 		return checksumID
@@ -107,9 +112,6 @@ func (index *Index) LookupChecksum(checksumID uint32) [32]byte {
 }
 
 func (index *Index) Merge(deltaIndex *Index) {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
-
 	for deltaChecksum := range deltaIndex.Checksums {
 		if _, exists := index.Checksums[deltaChecksum]; !exists {
 			index.addChecksum(deltaChecksum)
@@ -135,6 +137,7 @@ func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum
 	if _, exists := index.Chunks[chunkID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
 		index.Chunks[chunkID] = packfileID
+		index.dirty.Store(true)
 	}
 }
 
@@ -164,6 +167,7 @@ func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecks
 	if _, exists := index.Objects[objectID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
 		index.Objects[objectID] = packfileID
+		index.dirty.Store(true)
 	}
 }
 
@@ -183,4 +187,12 @@ func (index *Index) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, boo
 		}
 		return packfileChecksum, true
 	}
+}
+
+func (index *Index) IsDirty() bool {
+	return index.dirty.Load()
+}
+
+func (index *Index) ResetDirty() {
+	index.dirty.Store(false)
 }

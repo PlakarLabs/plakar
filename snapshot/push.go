@@ -109,6 +109,11 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 				}
 			}
 			snapshot.Index.AddChunk(&chunk)
+
+			//XXX
+			snapshot.RepositoryIndex.SetPackfileForChunk(chunk.Checksum, chunk.Checksum)
+			//fmt.Println(snapshot.RepositoryIndex.GetPackfileForChunk(chunk.Checksum))
+
 		}
 
 		return object, nil

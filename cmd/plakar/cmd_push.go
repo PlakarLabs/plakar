@@ -28,6 +28,7 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/storage/index"
 	"github.com/google/uuid"
 )
 
@@ -53,11 +54,29 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
+	indexes, err := repository.GetIndexes()
+	if err != nil {
+		logger.Error("%s", err)
+		return 1
+	}
+
+	repositoryIndex := index.New()
+	for _, indexID := range indexes {
+		idx, err := snapshot.GetRepositoryIndex(repository, indexID)
+		if err != nil {
+			logger.Error("%s", err)
+			return 1
+		}
+		repositoryIndex.Merge(idx)
+	}
+	repositoryIndex.ResetDirty()
+
 	snap.Header.Hostname = ctx.Hostname
 	snap.Header.Username = ctx.Username
 	snap.Header.OperatingSystem = runtime.GOOS
 	snap.Header.MachineID = ctx.MachineID
 	snap.Header.CommandLine = ctx.CommandLine
+	snap.RepositoryIndex = repositoryIndex
 
 	var tags []string
 	if opt_tags == "" {

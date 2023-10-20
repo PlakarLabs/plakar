@@ -36,7 +36,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const VERSION string = "0.3.0"
+const VERSION string = "0.4.0"
 
 type RepositoryConfig struct {
 	CreationTime time.Time

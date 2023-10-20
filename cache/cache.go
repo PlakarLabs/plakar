@@ -82,9 +82,9 @@ func (cache *Cache) PutBlob(RepositoryUuid string, checksum [32]byte, data []byt
 func (cache *Cache) GetBlob(RepositoryUuid string, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("cache.GetIndex", time.Since(t0))
+		profiler.RecordEvent("cache.GetBlob", time.Since(t0))
 	}()
-	logger.Trace("cache", "%016x: GetIndex()", checksum)
+	logger.Trace("cache", "%016x: GetBlob()", checksum)
 
 	var data []byte
 	key := fmt.Sprintf("Index:%s:%016x", RepositoryUuid, checksum)

@@ -64,8 +64,6 @@ type RepositoryBackend interface {
 	Open(repository string) error
 	Configuration() RepositoryConfig
 
-	Transaction(indexID uuid.UUID) (TransactionBackend, error)
-
 	GetSnapshots() ([]uuid.UUID, error)
 	PutSnapshot(indexID uuid.UUID, data []byte) error
 	GetSnapshot(indexID uuid.UUID) ([]byte, error)
@@ -85,6 +83,8 @@ type RepositoryBackend interface {
 	PutPackfile(checksum [32]byte, data []byte) error
 	GetPackfile(checksum [32]byte) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
+
+	Commit(indexID uuid.UUID, data []byte) error
 
 	Close() error
 }
@@ -121,8 +121,8 @@ type Repository struct {
 }
 
 type Transaction struct {
+	indexID    uuid.UUID
 	repository *Repository
-	backend    TransactionBackend
 }
 
 func Register(name string, backend func() RepositoryBackend) {
@@ -391,23 +391,6 @@ func (repository *Repository) Configuration() RepositoryConfig {
 	return repository.backend.Configuration()
 }
 
-func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.Transaction", time.Since(t0))
-		logger.Trace("storage", "Transaction(): %s", time.Since(t0))
-	}()
-	tx, err := repository.backend.Transaction(indexID)
-	if err != nil {
-		return nil, err
-	}
-
-	wrapperTx := &Transaction{}
-	wrapperTx.repository = repository
-	wrapperTx.backend = tx
-	return wrapperTx, nil
-}
-
 /* snapshots  */
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	repository.rLock()
@@ -642,21 +625,16 @@ func (repository *Repository) Close() error {
 	return repository.backend.Close()
 }
 
-func (transaction *Transaction) GetUuid() uuid.UUID {
-	return transaction.backend.GetUuid()
-}
-
-func (transaction *Transaction) Commit(data []byte) error {
-	repository := transaction.repository
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	repository.wLock()
 	defer repository.wUnlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.tx.Commit", time.Since(t0))
-		logger.Trace("storage", "%s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
+		profiler.RecordEvent("storage.Commit", time.Since(t0))
+		logger.Trace("storage", "Commit(%s): %s", indexID.String(), time.Since(t0))
 	}()
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 
-	return transaction.backend.Commit(data)
+	return repository.backend.Commit(indexID, data)
 }

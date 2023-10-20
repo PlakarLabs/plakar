@@ -31,6 +31,32 @@ type ResOpen struct {
 	Err              error
 }
 
+type ReqClose struct {
+	Uuid string
+}
+
+type ResClose struct {
+	Err error
+}
+
+type ReqCommit struct {
+	Transaction uuid.UUID
+	Data        []byte
+}
+
+type ResCommit struct {
+	Err error
+}
+
+// snapshots
+type ReqGetSnapshots struct {
+}
+
+type ResGetSnapshots struct {
+	Snapshots []uuid.UUID
+	Err       error
+}
+
 type ReqPutSnapshot struct {
 	IndexID uuid.UUID
 	Data    []byte
@@ -40,47 +66,6 @@ type ResPutSnapshot struct {
 	Err error
 }
 
-type ReqPutBlob struct {
-	Checksum [32]byte
-	Data     []byte
-}
-
-type ResPutBlob struct {
-	Err error
-}
-
-type ReqGetBlobs struct {
-}
-
-type ResGetBlobs struct {
-	Chunks [][32]byte
-	Err    error
-}
-
-type ReqGetChunks struct {
-}
-
-type ResGetChunks struct {
-	Chunks [][32]byte
-	Err    error
-}
-
-type ReqGetObjects struct {
-}
-
-type ResGetObjects struct {
-	Objects [][32]byte
-	Err     error
-}
-
-type ReqGetSnapshots struct {
-}
-
-type ResGetSnapshots struct {
-	Snapshots []uuid.UUID
-	Err       error
-}
-
 type ReqGetSnapshot struct {
 	Uuid uuid.UUID
 }
@@ -88,6 +73,32 @@ type ReqGetSnapshot struct {
 type ResGetSnapshot struct {
 	Data []byte
 	Err  error
+}
+
+type ReqDeleteSnapshot struct {
+	Uuid uuid.UUID
+}
+
+type ResDeleteSnapshot struct {
+	Err error
+}
+
+// blobs
+type ReqGetBlobs struct {
+}
+
+type ResGetBlobs struct {
+	Checksums [][32]byte
+	Err       error
+}
+
+type ReqPutBlob struct {
+	Checksum [32]byte
+	Data     []byte
+}
+
+type ResPutBlob struct {
+	Err error
 }
 
 type ReqGetBlob struct {
@@ -104,115 +115,6 @@ type ReqDeleteBlob struct {
 	Data     []byte
 }
 type ResDeleteBlob struct {
-	Err error
-}
-
-type ReqGetChunk struct {
-	Checksum [32]byte
-}
-
-type ResGetChunk struct {
-	Data []byte
-	Err  error
-}
-
-type ReqCheckObject struct {
-	Checksum [32]byte
-}
-
-type ResCheckObject struct {
-	Exists bool
-	Err    error
-}
-
-type ReqCheckChunk struct {
-	Checksum [32]byte
-}
-
-type ResCheckChunk struct {
-	Exists bool
-	Err    error
-}
-
-type ReqDeleteSnapshot struct {
-	Uuid uuid.UUID
-}
-
-type ResDeleteSnapshot struct {
-	Err error
-}
-
-type ReqClose struct {
-	Uuid string
-}
-
-type ResClose struct {
-	Err error
-}
-
-type ReqTransaction struct {
-	Uuid uuid.UUID
-}
-
-type ResTransaction struct {
-	Uuid uuid.UUID
-	Err  error
-}
-
-type ReqPutChunk struct {
-	Transaction uuid.UUID
-	Checksum    [32]byte
-	Data        []byte
-}
-
-type ResPutChunk struct {
-	NBytes int
-	Err    error
-}
-
-type ReqDeleteChunk struct {
-	Checksum [32]byte
-	Data     []byte
-}
-type ResDeleteChunk struct {
-	Err error
-}
-
-type ReqPutObject struct {
-	Transaction uuid.UUID
-	Checksum    [32]byte
-	Data        []byte
-}
-
-type ResPutObject struct {
-	Err error
-}
-
-type ReqDeleteObject struct {
-	Checksum [32]byte
-	Data     []byte
-}
-type ResDeleteObject struct {
-	Err error
-}
-
-/*
-type ReqPutMetadata struct {
-	Transaction uuid.UUID
-	Data        []byte
-}
-
-type ResPutMetadata struct {
-	Err error
-}
-*/
-
-type ReqCommit struct {
-	Transaction uuid.UUID
-	Data        []byte
-}
-
-type ResCommit struct {
 	Err error
 }
 
@@ -299,6 +201,7 @@ func ProtocolRegister() {
 	gob.Register(ReqClose{})
 	gob.Register(ResClose{})
 
+	// snapshots
 	gob.Register(ReqGetSnapshots{})
 	gob.Register(ResGetSnapshots{})
 
@@ -311,6 +214,7 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteSnapshot{})
 	gob.Register(ResDeleteSnapshot{})
 
+	// blobs
 	gob.Register(ReqGetBlobs{})
 	gob.Register(ResGetBlobs{})
 
@@ -323,6 +227,7 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteBlob{})
 	gob.Register(ResDeleteBlob{})
 
+	// indexes
 	gob.Register(ReqGetIndexes{})
 	gob.Register(ResGetIndexes{})
 
@@ -335,6 +240,7 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteIndex{})
 	gob.Register(ResDeleteIndex{})
 
+	// packfiles
 	gob.Register(ReqGetPackfiles{})
 	gob.Register(ResGetPackfiles{})
 
@@ -346,11 +252,5 @@ func ProtocolRegister() {
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})
-
-	gob.Register(ReqTransaction{})
-	gob.Register(ResTransaction{})
-
-	gob.Register(ReqPutChunk{})
-	gob.Register(ResPutChunk{})
 
 }

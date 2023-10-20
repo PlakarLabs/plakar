@@ -348,6 +348,7 @@ func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
+/*
 func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
 	result, err := repository.sendRequest("ReqTransaction", network.ReqTransaction{
 		Uuid: indexID,
@@ -365,6 +366,7 @@ func (repository *Repository) Transaction(indexID uuid.UUID) (storage.Transactio
 	tx.repository = repository
 	return tx, nil
 }
+*/
 
 // snapshots
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
@@ -413,7 +415,7 @@ func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetBlobs).Chunks, result.Payload.(network.ResGetBlobs).Err
+	return result.Payload.(network.ResGetBlobs).Checksums, result.Payload.(network.ResGetBlobs).Err
 }
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
@@ -525,6 +527,17 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 		return err
 	}
 	return result.Payload.(network.ResDeletePackfile).Err
+}
+
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
+		Transaction: indexID,
+		Data:        data,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResCommit).Err
 }
 
 //////

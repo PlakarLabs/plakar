@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -43,8 +44,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 	decoder := gob.NewDecoder(rd)
 	encoder := gob.NewEncoder(wr)
 
-	transactions := make(map[uuid.UUID]*storage.Transaction)
-
 	var repository *storage.Repository
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()
@@ -70,7 +69,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(ReqCreate).RepositoryConfig)
+				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(ReqCreate).RepositoryConfig)
 				repository, err = storage.Create(dirPath, request.Payload.(ReqCreate).RepositoryConfig)
 				result := Request{
 					Uuid:    request.Uuid,
@@ -92,7 +91,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("%s: Open(%s)", clientUuid, dirPath)
+				logger.Trace("server", "%s: Open(%s)", clientUuid, dirPath)
 				repository, err = storage.Open(dirPath)
 				var payload ResOpen
 				if err != nil {
@@ -112,11 +111,55 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqClose":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: Close()", clientUuid)
+				err := repository.Close()
+				repository = nil
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResClose",
+					Payload: ResClose{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqCommit":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: Commit()", clientUuid)
+				txUuid := request.Payload.(ReqCommit).Transaction
+				data := request.Payload.(ReqCommit).Data
+				err := repository.Commit(txUuid, data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResCommit",
+					Payload: ResCommit{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+			// snapshots
 		case "ReqGetSnapshots":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: GetSnapshots", clientUuid)
+				logger.Trace("server", "%s: GetSnapshots", clientUuid)
 				snapshots, err := repository.GetSnapshots()
 				result := Request{
 					Uuid: request.Uuid,
@@ -132,11 +175,30 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqPutSnapshot":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(ReqPutSnapshot).IndexID)
+				err := repository.PutSnapshot(request.Payload.(ReqPutSnapshot).IndexID, request.Payload.(ReqPutSnapshot).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutSnapshot",
+					Payload: ResPutSnapshot{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetSnapshot":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetSnapshot).Uuid)
+				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetSnapshot).Uuid)
 				data, err := repository.GetSnapshot(request.Payload.(ReqGetSnapshot).Uuid)
 				result := Request{
 					Uuid: request.Uuid,
@@ -152,11 +214,71 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqDeleteSnapshot":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(ReqDeleteSnapshot).Uuid)
+				err := repository.DeleteSnapshot(request.Payload.(ReqDeleteSnapshot).Uuid)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResDeleteSnapshot",
+					Payload: ResDeleteSnapshot{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+			// blobs
+		case "ReqGetBlobs":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: GetBlobs()", clientUuid)
+				checksums, err := repository.GetBlobs()
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetBlobs",
+					Payload: ResGetBlobs{
+						Checksums: checksums,
+						Err:       err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqPutBlob":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqPutBlob).Checksum)
+				err := repository.PutBlob(request.Payload.(ReqPutBlob).Checksum, request.Payload.(ReqPutBlob).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutBlob",
+					Payload: ResPutBlob{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetBlob":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: GetBlob(%016x)", clientUuid, request.Payload.(ReqGetBlob).Checksum)
+				logger.Trace("server", "%s: GetBlob(%016x)", clientUuid, request.Payload.(ReqGetBlob).Checksum)
 				data, err := repository.GetBlob(request.Payload.(ReqGetBlob).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
@@ -172,16 +294,17 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqPutSnapshot":
+		case "ReqDeleteBlob":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutSnapshot()", clientUuid, request.Payload.(ReqPutSnapshot).IndexID)
-				err := repository.PutSnapshot(request.Payload.(ReqPutSnapshot).IndexID, request.Payload.(ReqPutSnapshot).Data)
+
+				logger.Trace("server", "%s: DeleteBlob(%s)", clientUuid, request.Payload.(ReqDeleteBlob).Checksum)
+				err := repository.DeleteBlob(request.Payload.(ReqDeleteBlob).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResPutSnapshot",
-					Payload: ResPutSnapshot{
+					Type: "ResDeleteBlob",
+					Payload: ResDeleteBlob{
 						Err: err,
 					},
 				}
@@ -191,16 +314,37 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqPutBlob":
+			// indexes
+		case "ReqGetIndexes":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqPutBlob).Checksum)
-				err := repository.PutBlob(request.Payload.(ReqPutBlob).Checksum, request.Payload.(ReqPutBlob).Data)
+				logger.Trace("server", "%s: GetIndexes()", clientUuid)
+				checksums, err := repository.GetIndexes()
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResPutBlob",
-					Payload: ResPutBlob{
+					Type: "ResGetIndexes",
+					Payload: ResGetIndexes{
+						Checksums: checksums,
+						Err:       err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqPutIndex":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(ReqPutIndex).Checksum)
+				err := repository.PutIndex(request.Payload.(ReqPutIndex).Checksum, request.Payload.(ReqPutIndex).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutIndex",
+					Payload: ResPutIndex{
 						Err: err,
 					},
 				}
@@ -210,38 +354,17 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqDeleteSnapshot":
+		case "ReqGetIndex":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
-				logger.Trace("%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(ReqDeleteSnapshot).Uuid)
-				err := repository.DeleteSnapshot(request.Payload.(ReqDeleteSnapshot).Uuid)
+				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(ReqGetIndex).Checksum)
+				data, err := repository.GetIndex(request.Payload.(ReqGetIndex).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResDeleteSnapshot",
-					Payload: ResDeleteSnapshot{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqTransaction":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: Transaction(%s)", clientUuid, request.Payload.(ReqTransaction).Uuid)
-				tx, err := repository.Transaction(request.Payload.(ReqTransaction).Uuid)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResTransaction",
-					Payload: ResTransaction{
-						Uuid: tx.GetUuid(),
+					Type: "ResGetIndex",
+					Payload: ResGetIndex{
+						Data: data,
 						Err:  err,
 					},
 				}
@@ -249,23 +372,19 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				if err != nil {
 					logger.Warn("%s", err)
 				}
-				transactions[tx.GetUuid()] = tx
 			}()
 
-		case "ReqCommit":
+		case "ReqDeleteIndex":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("%s: Commit()", clientUuid)
-				txUuid := request.Payload.(ReqCommit).Transaction
-				data := request.Payload.(ReqCommit).Data
-				tx := transactions[txUuid]
-				err := tx.Commit(data)
+				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(ReqDeleteIndex).Checksum)
+				err := repository.DeleteIndex(request.Payload.(ReqDeleteIndex).Checksum)
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResCommit",
-					Payload: ResCommit{
+					Type: "ResDeleteIndex",
+					Payload: ResDeleteIndex{
 						Err: err,
 					},
 				}
@@ -275,18 +394,37 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqClose":
+			// packfiles
+		case "ReqGetPackfiles":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-
-				logger.Trace("%s: Close()", clientUuid)
-				err := repository.Close()
-				repository = nil
+				logger.Trace("server", "%s: GetPackfiles()", clientUuid)
+				checksums, err := repository.GetPackfiles()
 				result := Request{
 					Uuid: request.Uuid,
-					Type: "ResClose",
-					Payload: ResClose{
+					Type: "ResGetPackfiles",
+					Payload: ResGetPackfiles{
+						Checksums: checksums,
+						Err:       err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqPutPackfile":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(ReqPutPackfile).Checksum)
+				err := repository.PutPackfile(request.Payload.(ReqPutPackfile).Checksum, request.Payload.(ReqPutPackfile).Data)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResPutPackfile",
+					Payload: ResPutPackfile{
 						Err: err,
 					},
 				}
@@ -295,6 +433,49 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					logger.Warn("%s", err)
 				}
 			}()
+
+		case "ReqGetPackfile":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(ReqGetPackfile).Checksum)
+				data, err := repository.GetPackfile(request.Payload.(ReqGetPackfile).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResGetPackfile",
+					Payload: ResGetPackfile{
+						Data: data,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqDeletePackfile":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(ReqDeletePackfile).Checksum)
+				err := repository.DeletePackfile(request.Payload.(ReqDeletePackfile).Checksum)
+				result := Request{
+					Uuid: request.Uuid,
+					Type: "ResDeletePackfile",
+					Payload: ResDeletePackfile{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		default:
+			fmt.Println("Unknown request type", request.Type)
 		}
 	}
 	wg.Wait()

@@ -419,6 +419,14 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 //////
 
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }

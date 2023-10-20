@@ -23,8 +23,7 @@ import (
 )
 
 type Snapshot struct {
-	repository  *storage.Repository
-	transaction *storage.Transaction
+	repository *storage.Repository
 
 	SkipDirs []string
 
@@ -52,14 +51,8 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
 	}()
 
-	tx, err := repository.Transaction(indexID)
-	if err != nil {
-		return nil, err
-	}
-
 	snapshot := &Snapshot{
-		repository:  repository,
-		transaction: tx,
+		repository: repository,
 
 		Header:     header.NewHeader(indexID),
 		Index:      index.NewIndex(),
@@ -107,7 +100,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 						for chunkChecksum := range chunks {
 							chunksList = append(chunksList, chunkChecksum)
 						}
-						err = snapshot.PutPackfile(pack, objectsList, chunksList)
+						err := snapshot.PutPackfile(pack, objectsList, chunksList)
 						if err != nil {
 							panic(err)
 						}
@@ -124,7 +117,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 					for chunkChecksum := range chunks {
 						chunksList = append(chunksList, chunkChecksum)
 					}
-					err = snapshot.PutPackfile(pack, objectsList, chunksList)
+					err := snapshot.PutPackfile(pack, objectsList, chunksList)
 					if err != nil {
 						panic(err)
 					}
@@ -213,20 +206,14 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
-	tx, err := repository.Transaction(uuid.Must(uuid.NewRandom()))
-	if err != nil {
-		return nil, err
-	}
-
 	snapshot := &Snapshot{
-		repository:  repository,
-		transaction: tx,
+		repository: repository,
 
 		Header:     hdr,
 		Index:      index,
 		Filesystem: filesystem,
 	}
-	snapshot.Header.IndexID = tx.GetUuid()
+	snapshot.Header.IndexID = uuid.Must(uuid.NewRandom())
 
 	logger.Trace("snapshot", "%s: Fork(): %s", indexID, snapshot.Header.GetIndexShortID())
 	return snapshot, nil
@@ -818,7 +805,7 @@ func (snapshot *Snapshot) Commit() error {
 	}
 
 	logger.Trace("snapshot", "%s: Commit()", snapshot.Header.GetIndexShortID())
-	return snapshot.transaction.Commit(snapshotBytes)
+	return snapshot.repository.Commit(snapshot.Header.IndexID, snapshotBytes)
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {

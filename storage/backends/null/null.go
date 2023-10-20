@@ -145,6 +145,10 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
+func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+	return nil
+}
+
 func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }

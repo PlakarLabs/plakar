@@ -423,6 +423,33 @@ func (repository *FSRepository) DeleteIndex(checksum [32]byte) error {
 	return nil
 }
 
+func (repository *FSRepository) Commit(indexID uuid.UUID, data []byte) error {
+	f, err := os.CreateTemp("", fmt.Sprintf("%s.*", indexID))
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return err
+	}
+
+	name := f.Name()
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(name, repository.PathSnapshot(indexID))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 /**/
 func (transaction *FSTransaction) GetUuid() uuid.UUID {
 	return transaction.Uuid

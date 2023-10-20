@@ -67,41 +67,24 @@ type RepositoryBackend interface {
 	Transaction(indexID uuid.UUID) (TransactionBackend, error)
 
 	GetSnapshots() ([]uuid.UUID, error)
-	GetSnapshot(indexID uuid.UUID) ([]byte, error)
 	PutSnapshot(indexID uuid.UUID, data []byte) error
+	GetSnapshot(indexID uuid.UUID) ([]byte, error)
 	DeleteSnapshot(indexID uuid.UUID) error
 
-	GetIndexes() ([][32]byte, error)
-	GetIndex(checksum [32]byte) ([]byte, error)
-	PutIndex(checksum [32]byte, data []byte) error
-	DeleteIndex(checksum [32]byte) error
-
 	GetBlobs() ([][32]byte, error)
-	GetBlob(checksum [32]byte) ([]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
+	GetBlob(checksum [32]byte) ([]byte, error)
 	DeleteBlob(checksum [32]byte) error
 
+	GetIndexes() ([][32]byte, error)
+	PutIndex(checksum [32]byte, data []byte) error
+	GetIndex(checksum [32]byte) ([]byte, error)
+	DeleteIndex(checksum [32]byte) error
+
 	GetPackfiles() ([][32]byte, error)
-	GetPackfile(checksum [32]byte) ([]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
+	GetPackfile(checksum [32]byte) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
-
-	PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error
-	GetChunkMetadata(checksum [32]byte) ([32]byte, error)
-	DeleteChunkMetadata(checksum [32]byte) error
-	CheckChunkMetadata(checksum [32]byte) (bool, error)
-
-	GetObjects() ([][32]byte, error)
-	GetObject(checksum [32]byte) ([]byte, error)
-	CheckObject(checksum [32]byte) (bool, error)
-	PutObject(checksum [32]byte, data []byte) error
-	DeleteObject(checksum [32]byte) error
-
-	GetChunks() ([][32]byte, error)
-	GetChunk(checksum [32]byte) ([]byte, error)
-	CheckChunk(checksum [32]byte) (bool, error)
-	PutChunk(checksum [32]byte, data []byte) error
-	DeleteChunk(checksum [32]byte) error
 
 	Close() error
 }
@@ -425,6 +408,7 @@ func (repository *Repository) Transaction(indexID uuid.UUID) (*Transaction, erro
 	return wrapperTx, nil
 }
 
+/* snapshots  */
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	repository.rLock()
 	defer repository.rUnlock()
@@ -435,6 +419,20 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetSnapshots()
+}
+
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutSnapshot", time.Since(t0))
+		logger.Trace("storage", "PutSnapshot(%s): %s", indexID, time.Since(t0))
+	}()
+
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutSnapshot(indexID, data)
 }
 
 func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
@@ -456,210 +454,6 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
-/* Blobs */
-func (repository *Repository) GetBlobs() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetBlobs", time.Since(t0))
-		logger.Trace("storage", "GetBlobs(): %s", time.Since(t0))
-	}()
-	return repository.backend.GetBlobs()
-}
-
-func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetBlob", time.Since(t0))
-		logger.Trace("storage", "GetBlob(%016x): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := repository.backend.GetBlob(checksum)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
-	return data, nil
-}
-func (repository *Repository) DeleteBlob(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.DeleteBlob", time.Since(t0))
-		logger.Trace("storage", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.DeleteBlob(checksum)
-}
-
-/* snapshots  */
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutSnapshot", time.Since(t0))
-		logger.Trace("storage", "PutSnapshot(%s): %s", indexID, time.Since(t0))
-	}()
-
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return repository.backend.PutSnapshot(indexID, data)
-}
-
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutBlob", time.Since(t0))
-		logger.Trace("storage", "PutBlob(%016x): %s", checksum, time.Since(t0))
-	}()
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return repository.backend.PutBlob(checksum, data)
-}
-
-func (repository *Repository) GetObjects() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetObjects", time.Since(t0))
-		logger.Trace("storage", "GetObjects(): %s", time.Since(t0))
-	}()
-	return repository.backend.GetObjects()
-}
-
-func (repository *Repository) PutObject(checksum [32]byte, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutObject", time.Since(t0))
-		logger.Trace("storage", "PutObject(%064x): %s", checksum, time.Since(t0))
-	}()
-
-	return repository.backend.PutObject(checksum, data)
-}
-
-func (repository *Repository) DeleteObject(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.DeleteObject", time.Since(t0))
-		logger.Trace("storage", "DeleteObject(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.DeleteObject(checksum)
-}
-
-func (repository *Repository) GetChunks() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetChunks", time.Since(t0))
-		logger.Trace("storage", "GetChunks(): %s", time.Since(t0))
-	}()
-	return repository.backend.GetChunks()
-}
-
-func (repository *Repository) GetChunk(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetChunk", time.Since(t0))
-		logger.Trace("storage", "GetChunk(%064x): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := repository.backend.GetChunk(checksum)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
-	return data, nil
-}
-
-func (repository *Repository) GetObject(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetObject", time.Since(t0))
-		logger.Trace("storage", "GetObject(%064x): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := repository.backend.GetObject(checksum)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
-	return data, nil
-}
-
-func (repository *Repository) PutChunk(checksum [32]byte, data []byte) (int, error) {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutChunk", time.Since(t0))
-		logger.Trace("storage", "PutChunk(%064x): %s", checksum, time.Since(t0))
-	}()
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return len(data), repository.backend.PutChunk(checksum, data)
-}
-
-func (repository *Repository) DeleteChunk(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.DeleteChunk", time.Since(t0))
-		logger.Trace("storage", "DeleteChunk(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.DeleteChunk(checksum)
-}
-
-func (repository *Repository) CheckObject(checksum [32]byte) (bool, error) {
-	repository.sLock()
-	defer repository.sUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.CheckObject", time.Since(t0))
-		logger.Trace("storage", "CheckObject(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.CheckObject(checksum)
-}
-
-func (repository *Repository) CheckChunk(checksum [32]byte) (bool, error) {
-	repository.sLock()
-	defer repository.sUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.CheckChunk", time.Since(t0))
-		logger.Trace("storage", "CheckChunk(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.CheckChunk(checksum)
-}
-
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	repository.sLock()
 	defer repository.sUnlock()
@@ -672,34 +466,7 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	return repository.backend.DeleteSnapshot(indexID)
 }
 
-func (repository *Repository) Close() error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.Close", time.Since(t0))
-		logger.Trace("storage", "Close(): %s", time.Since(t0))
-	}()
-	return repository.backend.Close()
-}
-
-func (transaction *Transaction) GetUuid() uuid.UUID {
-	return transaction.backend.GetUuid()
-}
-
-func (transaction *Transaction) Commit(data []byte) error {
-	repository := transaction.repository
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.tx.Commit", time.Since(t0))
-		logger.Trace("storage", "%s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
-	}()
-	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-
-	return transaction.backend.Commit(data)
-}
-
+/* Packfiles */
 func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	repository.rLock()
 	defer repository.rUnlock()
@@ -755,54 +522,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return repository.backend.DeletePackfile(checksum)
 }
 
-func (repository *Repository) PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.PutChunkMetadata", time.Since(t0))
-		logger.Trace("storage", "PutChunkMetadata(%064x, %064x): %s", checksum, packfileChecksum, time.Since(t0))
-	}()
-	return repository.backend.PutChunkMetadata(checksum, packfileChecksum)
-}
-
-func (repository *Repository) GetChunkMetadata(checksum [32]byte) ([32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.GetChunkMetadata", time.Since(t0))
-		logger.Trace("storage", "GetChunkMetadata(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.GetChunkMetadata(checksum)
-}
-
-func (repository *Repository) DeleteChunkMetadata(checksum [32]byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.DeleteChunkMetadata", time.Since(t0))
-		logger.Trace("storage", "DeleteChunkMetadata(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.DeleteChunkMetadata(checksum)
-}
-
-func (repository *Repository) CheckChunkMetadata(checksum [32]byte) (bool, error) {
-	repository.rLock()
-	defer repository.rUnlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.CheckChunkMetadata", time.Since(t0))
-		logger.Trace("storage", "CheckChunkMetadata(%064x): %s", checksum, time.Since(t0))
-	}()
-	return repository.backend.CheckChunkMetadata(checksum)
-}
-
 /* Indexes */
 func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	repository.rLock()
@@ -846,6 +565,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
 	return data, nil
 }
+
 func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 	repository.sLock()
 	defer repository.sUnlock()
@@ -856,4 +576,87 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 		logger.Trace("storage", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.DeleteIndex(checksum)
+}
+
+/* Blobs */
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetBlobs", time.Since(t0))
+		logger.Trace("storage", "GetBlobs(): %s", time.Since(t0))
+	}()
+	return repository.backend.GetBlobs()
+}
+
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutBlob", time.Since(t0))
+		logger.Trace("storage", "PutBlob(%016x): %s", checksum, time.Since(t0))
+	}()
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutBlob(checksum, data)
+}
+
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetBlob", time.Since(t0))
+		logger.Trace("storage", "GetBlob(%016x): %s", checksum, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetBlob(checksum)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
+}
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	repository.sLock()
+	defer repository.sUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteBlob", time.Since(t0))
+		logger.Trace("storage", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
+	}()
+	return repository.backend.DeleteBlob(checksum)
+}
+
+func (repository *Repository) Close() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.Close", time.Since(t0))
+		logger.Trace("storage", "Close(): %s", time.Since(t0))
+	}()
+	return repository.backend.Close()
+}
+
+func (transaction *Transaction) GetUuid() uuid.UUID {
+	return transaction.backend.GetUuid()
+}
+
+func (transaction *Transaction) Commit(data []byte) error {
+	repository := transaction.repository
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.tx.Commit", time.Since(t0))
+		logger.Trace("storage", "%s.Commit(): %s", transaction.GetUuid(), time.Since(t0))
+	}()
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+
+	return transaction.backend.Commit(data)
 }

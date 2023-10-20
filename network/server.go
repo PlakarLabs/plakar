@@ -133,46 +133,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqGetChunks":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetChunks", clientUuid)
-				chunks, err := repository.GetChunks()
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetChunks",
-					Payload: ResGetChunks{
-						Chunks: chunks,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetObjects":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("%s: GetObjects", clientUuid)
-				objects, err := repository.GetObjects()
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetObjects",
-					Payload: ResGetObjects{
-						Objects: objects,
-						Err:     err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqGetSnapshot":
 			wg.Add(1)
 			go func() {
@@ -251,69 +211,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
-		case "ReqGetChunk":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: GetChunk(%s)", clientUuid, request.Payload.(ReqGetChunk).Checksum)
-				data, err := repository.GetChunk(request.Payload.(ReqGetChunk).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResGetChunk",
-					Payload: ResGetChunk{
-						Data: data,
-						Err:  err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqCheckObject":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: CheckObject(%s)", clientUuid, request.Payload.(ReqCheckObject).Checksum)
-				exists, err := repository.CheckObject(request.Payload.(ReqCheckObject).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResCheckObject",
-					Payload: ResCheckObject{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqCheckChunk":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: CheckChunk(%s)", clientUuid, request.Payload.(ReqCheckChunk).Checksum)
-				exists, err := repository.CheckChunk(request.Payload.(ReqCheckChunk).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResCheckChunk",
-					Payload: ResCheckChunk{
-						Exists: exists,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
 		case "ReqDeleteSnapshot":
 			wg.Add(1)
 			go func() {
@@ -354,91 +251,6 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 					logger.Warn("%s", err)
 				}
 				transactions[tx.GetUuid()] = tx
-			}()
-
-		case "ReqPutChunk":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: PutChunk(%s)", clientUuid, request.Payload.(ReqPutChunk).Checksum)
-				txUuid := request.Payload.(ReqPutChunk).Transaction
-				_ = transactions[txUuid]
-				nbytes, err := repository.PutChunk(request.Payload.(ReqPutChunk).Checksum, request.Payload.(ReqPutChunk).Data)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResPutChunk",
-					Payload: ResPutChunk{
-						NBytes: nbytes,
-						Err:    err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqDeleteChunk":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: DeleteChunk(%s)", clientUuid, request.Payload.(ReqDeleteChunk).Checksum)
-				err := repository.DeleteChunk(request.Payload.(ReqDeleteChunk).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResDeleteChunk",
-					Payload: ResDeleteChunk{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqPutObject":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: PutObject(%s)", clientUuid, request.Payload.(ReqPutObject).Checksum)
-				txUuid := request.Payload.(ReqPutObject).Transaction
-				_ = transactions[txUuid]
-				err := repository.PutObject(request.Payload.(ReqPutObject).Checksum, request.Payload.(ReqPutObject).Data)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResPutObject",
-					Payload: ResPutObject{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqDeleteObject":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("%s: DeleteObject(%s)", clientUuid, request.Payload.(ReqDeleteObject).Checksum)
-				err := repository.DeleteObject(request.Payload.(ReqDeleteObject).Checksum)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResDeleteObject",
-					Payload: ResDeleteObject{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
 			}()
 
 		case "ReqCommit":

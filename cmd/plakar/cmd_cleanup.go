@@ -60,31 +60,9 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		blobs[blobID] = true
 	}
 
-	objectList, err := repository.GetObjects()
-	if err != nil {
-		return 1
-	}
-
-	chunkList, err := repository.GetChunks()
-	if err != nil {
-		return 1
-	}
-
 	blobList, err := repository.GetBlobs()
 	if err != nil {
 		return 1
-	}
-
-	for _, objectID := range objectList {
-		if _, exists := objects[objectID]; !exists {
-			repository.DeleteObject(objectID)
-		}
-	}
-
-	for _, chunkID := range chunkList {
-		if _, exists := chunks[chunkID]; !exists {
-			repository.DeleteChunk(chunkID)
-		}
 	}
 
 	for _, blobID := range blobList {

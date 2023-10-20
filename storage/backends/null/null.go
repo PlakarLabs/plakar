@@ -17,32 +17,21 @@
 package fs
 
 import (
-	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/storage"
 
 	"github.com/google/uuid"
 )
 
-type NullRepository struct {
-	config storage.RepositoryConfig
-
-	Cache *cache.Cache
-
+type Repository struct {
+	config     storage.RepositoryConfig
 	Repository string
-	root       string
-
-	//storage.RepositoryBackend
 }
 
-type NullTransaction struct {
+type Transaction struct {
 	Uuid       uuid.UUID
-	repository NullRepository
-	//prepared   bool
-
-	//storage.TransactionBackend
+	repository Repository
 }
 
 func init() {
@@ -50,18 +39,14 @@ func init() {
 }
 
 func NewNullRepository() storage.RepositoryBackend {
-	return &NullRepository{}
+	return &Repository{}
 }
 
-func (repository *NullRepository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
 	return nil
 }
 
-func (repository *NullRepository) Open(location string) error {
-	if strings.HasPrefix(location, "null://") {
-		location = location[7:]
-	}
-
+func (repository *Repository) Open(location string) error {
 	repositoryConfig := storage.RepositoryConfig{}
 	repositoryConfig.Version = storage.VERSION
 	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
@@ -72,100 +57,98 @@ func (repository *NullRepository) Open(location string) error {
 	repositoryConfig.ChunkingNormal = 1024 << 10
 	repositoryConfig.ChunkingMax = 8192 << 10
 
-	repository.root = location
-
 	repository.config = repositoryConfig
 
 	return nil
 }
 
-func (repository *NullRepository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-func (repository *NullRepository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	tx := &NullTransaction{}
+func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
+	tx := &Transaction{}
 	tx.Uuid = indexID
 	tx.repository = *repository
 	return tx, nil
 }
 
-func (repository *NullRepository) GetSnapshots() ([]uuid.UUID, error) {
+// snapshots
+func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	return []uuid.UUID{}, nil
 }
 
-func (repository *NullRepository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+	return nil
+}
+
+func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *NullRepository) GetBlobs() ([][32]byte, error) {
+func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+	return nil
+}
+
+// blobs
+func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *NullRepository) GetBlob(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+	return nil
+}
+
+func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *NullRepository) DeleteBlob(checksum [32]byte) error {
+func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *NullRepository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	return nil
-}
-
-func (repository *NullRepository) PutBlob(checksum [32]byte, data []byte) error {
-	return nil
-}
-
-func (repository *NullRepository) GetObjects() ([][32]byte, error) {
+// indexes
+func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *NullRepository) PutObject(checksum [32]byte) error {
+func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *NullRepository) DeleteObject(checksum [32]byte) error {
-	return nil
-}
-
-func (repository *NullRepository) GetChunks() ([][32]byte, error) {
-	return [][32]byte{}, nil
-}
-
-func (repository *NullRepository) GetChunk(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *NullRepository) PutChunk(checksum [32]byte, data []byte) error {
+func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *NullRepository) DeleteChunk(checksum [32]byte) error {
+// packfiles
+func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+	return [][32]byte{}, nil
+}
+
+func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *NullRepository) CheckObject(checksum [32]byte) (bool, error) {
-	return false, nil
+func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+	return []byte{}, nil
 }
 
-func (repository *NullRepository) CheckChunk(checksum [32]byte) (bool, error) {
-	return false, nil
-}
-
-func (repository *NullRepository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *NullRepository) Close() error {
+func (repository *Repository) Close() error {
 	return nil
 }
 
-func (transaction *NullTransaction) GetUuid() uuid.UUID {
+func (transaction *Transaction) GetUuid() uuid.UUID {
 	return transaction.Uuid
 }
 
-func (transaction *NullTransaction) Commit(data []byte) error {
+func (transaction *Transaction) Commit(data []byte) error {
 	return nil
 }

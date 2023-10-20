@@ -70,19 +70,15 @@ func (repository *FSRepository) Create(location string, config storage.Repositor
 	}
 
 	os.MkdirAll(filepath.Join(repository.root, "indexes"), 0700)
-
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
-
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
 		os.MkdirAll(filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", i)), 0700)
-
 		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
-
 		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
@@ -341,182 +337,6 @@ func (repository *FSRepository) PutPackfile(checksum [32]byte, data []byte) erro
 	return nil
 }
 
-func (repository *FSRepository) GetObjects() ([][32]byte, error) {
-	ret := make([][32]byte, 0)
-
-	buckets, err := os.ReadDir(repository.PathObjects())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, bucket := range buckets {
-		if !bucket.IsDir() {
-			continue
-		}
-		pathBuckets := filepath.Join(repository.PathObjects(), bucket.Name())
-		objects, err := os.ReadDir(pathBuckets)
-		if err != nil {
-			return ret, err
-		}
-
-		for _, object := range objects {
-			if object.IsDir() {
-				continue
-			}
-			t, err := hex.DecodeString(object.Name())
-			if err != nil {
-				return nil, err
-			}
-			if len(t) != 32 {
-				continue
-			}
-			var t32 [32]byte
-			copy(t32[:], t)
-			ret = append(ret, t32)
-		}
-	}
-	return ret, nil
-}
-
-func (repository *FSRepository) PutObject(checksum [32]byte, data []byte) error {
-	f, err := os.CreateTemp(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x.*", checksum))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathObject(checksum))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repository *FSRepository) GetObject(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathObject(checksum))
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *FSRepository) DeleteObject(checksum [32]byte) error {
-	err := os.Remove(repository.PathObject(checksum))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *FSRepository) GetChunks() ([][32]byte, error) {
-	ret := make([][32]byte, 0)
-
-	buckets, err := os.ReadDir(repository.PathChunks())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, bucket := range buckets {
-		if !bucket.IsDir() {
-			continue // Skip non-directory entries
-		}
-		pathBuckets := filepath.Join(repository.PathChunks(), bucket.Name())
-		chunks, err := os.ReadDir(pathBuckets)
-		if err != nil {
-			return ret, err
-		}
-
-		for _, chunk := range chunks {
-			if chunk.IsDir() {
-				continue // Skip directory entries, assuming chunks are files
-			}
-			t, err := hex.DecodeString(chunk.Name())
-			if err != nil {
-				return nil, err
-			}
-			if len(t) != 32 {
-				continue
-			}
-			var t32 [32]byte
-			copy(t32[:], t)
-			ret = append(ret, t32)
-		}
-	}
-	return ret, nil
-}
-
-func (repository *FSRepository) GetChunk(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathChunk(checksum))
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *FSRepository) PutChunk(checksum [32]byte, data []byte) error {
-	f, err := os.CreateTemp(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x.*", checksum))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathChunk(checksum))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repository *FSRepository) DeleteChunk(checksum [32]byte) error {
-	err := os.Remove(repository.PathChunk(checksum))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *FSRepository) CheckObject(checksum [32]byte) (bool, error) {
-	fileinfo, err := os.Stat(repository.PathObject(checksum))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return fileinfo.Mode().IsRegular(), nil
-}
-
-func (repository *FSRepository) CheckChunk(checksum [32]byte) (bool, error) {
-	fileinfo, err := os.Stat(repository.PathChunk(checksum))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return fileinfo.Mode().IsRegular(), nil
-}
-
 func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
 	dest := filepath.Join(repository.PathPurge(), indexID.String())
 	err := os.Rename(repository.PathSnapshot(indexID), dest)
@@ -533,22 +353,6 @@ func (repository *FSRepository) DeleteSnapshot(indexID uuid.UUID) error {
 
 func (repository *FSRepository) Close() error {
 	return nil
-}
-
-func (repository *FSRepository) PutChunkMetadata(checksum [32]byte, packfileChecksum [32]byte) error {
-	return nil
-}
-
-func (repository *FSRepository) GetChunkMetadata(checksum [32]byte) ([32]byte, error) {
-	return [32]byte{}, fmt.Errorf("not implemented")
-}
-
-func (repository *FSRepository) DeleteChunkMetadata(checksum [32]byte) error {
-	return nil
-}
-
-func (repository *FSRepository) CheckChunkMetadata(checksum [32]byte) (bool, error) {
-	return false, fmt.Errorf("not implemented")
 }
 
 /* Indexes */

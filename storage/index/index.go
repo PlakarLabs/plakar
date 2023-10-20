@@ -38,7 +38,7 @@ type Index struct {
 	muObjects sync.Mutex
 	Objects   map[uint32]uint32
 
-	dirty atomic.Bool
+	dirty int32
 }
 
 func New() *Index {
@@ -93,7 +93,7 @@ func (index *Index) addChecksum(checksum [32]byte) uint32 {
 		index.checksumsInverse[index.checksumID] = checksum
 		checksumID = index.checksumID
 		index.checksumID++
-		index.dirty.Store(true)
+		atomic.StoreInt32(&index.dirty, 1)
 		return checksumID
 	} else {
 		return checksumID
@@ -150,7 +150,7 @@ func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum
 	if _, exists := index.Chunks[chunkID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
 		index.Chunks[chunkID] = packfileID
-		index.dirty.Store(true)
+		atomic.StoreInt32(&index.dirty, 1)
 	}
 }
 
@@ -192,7 +192,7 @@ func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecks
 	if _, exists := index.Objects[objectID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
 		index.Objects[objectID] = packfileID
-		index.dirty.Store(true)
+		atomic.StoreInt32(&index.dirty, 1)
 	}
 }
 
@@ -227,9 +227,9 @@ func (index *Index) ObjectExists(objectChecksum [32]byte) bool {
 }
 
 func (index *Index) IsDirty() bool {
-	return index.dirty.Load()
+	return atomic.LoadInt32(&index.dirty) != 0
 }
 
 func (index *Index) ResetDirty() {
-	index.dirty.Store(false)
+	atomic.StoreInt32(&index.dirty, 0)
 }

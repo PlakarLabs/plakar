@@ -237,6 +237,12 @@ func entryPoint() int {
 		return 1
 	}
 
+	if repository.Configuration().Version != storage.VERSION {
+		fmt.Fprintf(os.Stderr, "%s: incompatible repository version: %s != %s\n",
+			flag.CommandLine.Name(), repository.Configuration().Version, storage.VERSION)
+		return 1
+	}
+
 	var secret []byte
 	if repository.Configuration().Encryption != "" {
 		if ctx.KeyFromFile == "" {

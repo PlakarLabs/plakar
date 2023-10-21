@@ -108,11 +108,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			jindex.Chunks = make(map[uint32]*JSONChunk)
 			jindex.ChunkToObjects = make(map[uint32][]uint32)
 			jindex.ObjectToPathnames = make(map[uint32][]uint32)
-			jindex.ContentTypeToObjects = make(map[uint32][]uint32)
-
-			for pathname, checksumID := range index.ContentTypes {
-				jindex.ContentTypes[pathname] = checksumID
-			}
 
 			for checksumID, pathnameID := range index.Pathnames {
 				jindex.Pathnames[checksumID] = pathnameID
@@ -148,13 +143,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			//for checksumID, pathnames := range index.ObjectToPathnames {
 			//	jindex.ObjectToPathnames[checksumID] = pathnames
 			//}
-
-			for contentType, objects := range index.ContentTypeToObjects {
-				jindex.ContentTypeToObjects[contentType] = make([]uint32, 0)
-				for _, objChecksum := range objects {
-					jindex.ContentTypeToObjects[contentType] = append(jindex.ContentTypeToObjects[contentType], objChecksum)
-				}
-			}
 
 			serialized, err := json.Marshal(jindex)
 			if err != nil {
@@ -221,6 +209,10 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
 			fmt.Printf("VFS.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemDiskSize), metadata.FilesystemDiskSize)
 			fmt.Printf("VFS.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemMemorySize), metadata.FilesystemMemorySize)
+
+			fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
+			fmt.Printf("Metadata.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataDiskSize), metadata.MetadataDiskSize)
+			fmt.Printf("Metadata.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataMemorySize), metadata.MetadataMemorySize)
 
 		}
 	}

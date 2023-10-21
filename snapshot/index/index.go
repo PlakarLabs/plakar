@@ -20,29 +20,18 @@ type Index struct {
 	muPathnames sync.Mutex
 	Pathnames   map[uint32]uint64
 
-	muContentType       sync.Mutex
-	ContentTypes        map[string]uint32
-	contentTypesInverse map[uint32]string
-
 	muPathnameToObject sync.Mutex
 	PathnameToObject   map[uint64]uint32
 	ObjectToPathnames  map[uint32][]uint64
 
 	// Object checksum -> Object
-	muObjects           sync.Mutex
-	Objects             map[uint32][]uint32
-	ObjectToContentType map[uint32]uint32
+	muObjects sync.Mutex
+	Objects   map[uint32][]uint32
 
 	// Chunk checksum -> Chunk
-	muChunks        sync.Mutex
-	Chunks          map[uint32]uint32
-	ChunkToObjects  map[uint32][]uint32
-	ChunkToPackfile map[uint32]uint32
-
-	// Content Type -> Object checksums
-	muContentTypeToObjects sync.Mutex
-	contentTypeID          uint32
-	ContentTypeToObjects   map[uint32][]uint32
+	muChunks       sync.Mutex
+	Chunks         map[uint32]uint32
+	ChunkToObjects map[uint32][]uint32
 }
 
 func NewIndex() *Index {
@@ -52,20 +41,13 @@ func NewIndex() *Index {
 
 		Pathnames: make(map[uint32]uint64),
 
-		ContentTypes:        make(map[string]uint32),
-		contentTypesInverse: make(map[uint32]string),
-
 		PathnameToObject:  make(map[uint64]uint32),
 		ObjectToPathnames: make(map[uint32][]uint64),
 
-		Objects:             make(map[uint32][]uint32),
-		ObjectToContentType: make(map[uint32]uint32),
+		Objects: make(map[uint32][]uint32),
 
-		Chunks:          make(map[uint32]uint32),
-		ChunkToObjects:  make(map[uint32][]uint32),
-		ChunkToPackfile: make(map[uint32]uint32),
-
-		ContentTypeToObjects: make(map[uint32][]uint32),
+		Chunks:         make(map[uint32]uint32),
+		ChunkToObjects: make(map[uint32][]uint32),
 	}
 }
 
@@ -84,11 +66,6 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 	index.checksumsInverse = make(map[uint32][32]byte)
 	for checksum, checksumID := range index.Checksums {
 		index.checksumsInverse[checksumID] = checksum
-	}
-
-	index.contentTypesInverse = make(map[uint32]string)
-	for contentType, contentTypeID := range index.ContentTypes {
-		index.contentTypesInverse[contentTypeID] = contentType
 	}
 	return &index, nil
 }
@@ -139,45 +116,6 @@ func (index *Index) IdToChecksum(checksumID uint32) ([32]byte, bool) {
 	return checksum, exists
 }
 
-// content types
-func (index *Index) addContentType(contentType string) {
-	index.muContentType.Lock()
-	defer index.muContentType.Unlock()
-
-	if _, exists := index.ContentTypes[contentType]; !exists {
-		index.ContentTypes[contentType] = index.contentTypeID
-		index.contentTypesInverse[index.contentTypeID] = contentType
-		index.contentTypeID++
-	}
-}
-
-func (index *Index) getContentTypeID(contentType string) (uint32, bool) {
-	index.muContentType.Lock()
-	defer index.muContentType.Unlock()
-
-	contentTypeID, exists := index.ContentTypes[contentType]
-
-	return contentTypeID, exists
-}
-
-func (index *Index) getContentType(contentTypeID uint32) (string, bool) {
-	index.muContentType.Lock()
-	defer index.muContentType.Unlock()
-
-	contentType, exists := index.contentTypesInverse[contentTypeID]
-	return contentType, exists
-}
-
-func (index *Index) linkObjectToContentType(checksumID uint32, contentTypeID uint32) {
-	index.muContentTypeToObjects.Lock()
-	defer index.muContentTypeToObjects.Unlock()
-
-	if _, exists := index.ContentTypeToObjects[contentTypeID]; !exists {
-		index.ContentTypeToObjects[contentTypeID] = make([]uint32, 0)
-	}
-	index.ContentTypeToObjects[contentTypeID] = append(index.ContentTypeToObjects[contentTypeID], checksumID)
-}
-
 func (index *Index) linkChunkToObject(chunkChecksumID uint32, objectChecksumID uint32) {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
@@ -218,52 +156,30 @@ func (index *Index) ListChunks() [][32]byte {
 	return ret
 }
 
-func (index *Index) ListContentTypes() []string {
-	index.muContentType.Lock()
-	defer index.muContentType.Unlock()
-
-	ret := make([]string, 0)
-	for key := range index.ContentTypes {
-		ret = append(ret, key)
-	}
-	return ret
-}
-
 // Public
-func (index *Index) AddChunk(chunk *objects.Chunk) {
+func (index *Index) AddChunk(chunk *objects.Chunk) uint32 {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
 	logger.Trace("index", "AddChunk(%064x)", chunk.Checksum)
 
-	index.addChecksum(chunk.Checksum)
-
-	checksumID, exists := index.ChecksumToId(chunk.Checksum)
-	if !exists {
-		panic("AddChunk: corrupted index")
-	}
-
+	checksumID := index.addChecksum(chunk.Checksum)
 	index.Chunks[checksumID] = chunk.Length
+	return checksumID
 }
 
-func (index *Index) AddObject(object *objects.Object) {
+func (index *Index) AddObject(object *objects.Object) uint32 {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
 	logger.Trace("index", "AddObject(%064x)", object.Checksum)
 
-	index.addChecksum(object.Checksum)
-	index.addContentType(object.ContentType)
+	objectChecksumID := index.addChecksum(object.Checksum)
 
-	objectChecksumID, exists := index.ChecksumToId(object.Checksum)
-	if !exists {
-		panic("AddObject: corrupted index: could not find object checksum")
-	}
-
-	contentTypeID, exists := index.getContentTypeID(object.ContentType)
-	if !exists {
-		panic("AddObject: corrupted index: could not find content type")
-	}
-
-	index.linkObjectToContentType(objectChecksumID, contentTypeID)
+	//	index.addContentType(object.ContentType)
+	//	contentTypeID, exists := index.getContentTypeID(object.ContentType)
+	//	if !exists {
+	//		panic("AddObject: corrupted index: could not find content type")
+	//	}
+	//	index.linkObjectToContentType(objectChecksumID, contentTypeID)
 
 	chunks := make([]uint32, 0)
 	for _, checksum := range object.Chunks {
@@ -271,13 +187,14 @@ func (index *Index) AddObject(object *objects.Object) {
 		if !exists {
 			panic("AddObject: corrupted index: could not find chunk checksum")
 		}
-
 		index.linkChunkToObject(chunkChecksumID, objectChecksumID)
 		chunks = append(chunks, chunkChecksumID)
 	}
 
 	index.Objects[objectChecksumID] = chunks
-	index.ObjectToContentType[objectChecksumID] = contentTypeID
+	//index.ObjectToContentType[objectChecksumID] = contentTypeID
+
+	return objectChecksumID
 }
 
 func (index *Index) RecordPathnameChecksum(pathnameChecksum [32]byte, pathnameID uint64) {
@@ -344,11 +261,6 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 		return nil
 	}
 
-	contentType, exists := index.ObjectToContentType[checksumID]
-	if !exists {
-		panic("LookupObject: corrupted index: could not find content type")
-	}
-
 	chunks := make([][32]byte, 0)
 	for _, checksumID := range objectChunks {
 		checksum, exists := index.IdToChecksum(checksumID)
@@ -358,15 +270,10 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 		chunks = append(chunks, checksum)
 	}
 
-	contentTypeID, exists := index.getContentType(contentType)
-	if !exists {
-		panic("LookupObject: corrupted index: could not find content type")
-	}
-
 	return &objects.Object{
 		Checksum:    checksum,
 		Chunks:      chunks,
-		ContentType: contentTypeID,
+		ContentType: "",
 	}
 }
 
@@ -407,31 +314,6 @@ func (index *Index) LookupObjectForPathnameHash(pathnameHash [32]byte) *objects.
 
 }
 
-func (index *Index) LookupObjectsForContentType(contentType string) [][32]byte {
-	index.muContentTypeToObjects.Lock()
-	defer index.muContentTypeToObjects.Unlock()
-
-	contentTypeID, exists := index.getContentTypeID(contentType)
-	if !exists {
-		panic("LookupObjectsForContentType: corrupted index: could not find content type")
-	}
-
-	if objectsChecksums, ok := index.ContentTypeToObjects[contentTypeID]; !ok {
-		return nil
-	} else {
-		ret := make([][32]byte, 0)
-		for _, symbolKey := range objectsChecksums {
-			checksum, exists := index.IdToChecksum(symbolKey)
-			if !exists {
-				panic("LookupObjectsForContentType: corrupted index: could not find chunk")
-			}
-
-			ret = append(ret, checksum)
-		}
-		return ret
-	}
-}
-
 func (index *Index) GetObject(checksum [32]byte) *objects.Object {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
@@ -455,27 +337,9 @@ func (index *Index) GetObject(checksum [32]byte) *objects.Object {
 		chunks = append(chunks, checksum)
 	}
 
-	var contentType string
-	contentTypeID, exists := index.ObjectToContentType[checksumID]
-	if exists {
-		contentType, exists = index.getContentType(contentTypeID)
-		if !exists {
-			panic("GetObject: corrupted index: could not find content type")
-		}
-	}
-
 	return &objects.Object{
 		Checksum:    checksum,
 		Chunks:      chunks,
-		ContentType: contentType,
+		ContentType: "",
 	}
-}
-
-func (index *Index) LinkChunkToPackfile(packfileChecksum [32]byte, chunkChecksum [32]byte) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
-
-	packfileID := index.addChecksum(packfileChecksum)
-	chunkID := index.Checksums[chunkChecksum]
-	index.ChunkToPackfile[chunkID] = packfileID
 }

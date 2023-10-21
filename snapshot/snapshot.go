@@ -15,6 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
+	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/PlakarLabs/plakar/vfs"
@@ -30,6 +31,7 @@ type Snapshot struct {
 	Header     *header.Header
 	Index      *index.Index
 	Filesystem *vfs.Filesystem
+	Metadata   *metadata.Metadata
 
 	packerChan     chan interface{}
 	packerChanDone chan bool
@@ -57,6 +59,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		Header:     header.NewHeader(indexID),
 		Index:      index.NewIndex(),
 		Filesystem: vfs.NewFilesystem(),
+		Metadata:   metadata.New(),
 
 		packerChan:     make(chan interface{}),
 		packerChanDone: make(chan bool),
@@ -168,11 +171,23 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
+	var metadataChecksum32 [32]byte
+	copy(metadataChecksum32[:], hdr.MetadataChecksum[:])
+
+	md, verifyChecksum, err := GetMetadata(repository, metadataChecksum32)
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(verifyChecksum[:], hdr.MetadataChecksum[:]) {
+		return nil, fmt.Errorf("metadata mismatches hdr checksum")
+	}
+
 	snapshot := &Snapshot{}
 	snapshot.repository = repository
 	snapshot.Header = hdr
 	snapshot.Index = index
 	snapshot.Filesystem = filesystem
+	snapshot.Metadata = md
 
 	logger.Trace("snapshot", "%s: Load()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
@@ -423,6 +438,31 @@ func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.File
 	copy(verifyChecksum32[:], verifyChecksum[:])
 
 	return filesystem, verifyChecksum32, nil
+}
+
+func GetMetadata(repository *storage.Repository, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
+	}()
+
+	buffer, err := GetBlob(repository, checksum)
+	if err != nil {
+		return nil, [32]byte{}, err
+	}
+
+	md, err := metadata.NewFromBytes(buffer)
+	if err != nil {
+		return nil, [32]byte{}, err
+	}
+
+	mdHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	mdHasher.Write(buffer)
+	verifyChecksum := mdHasher.Sum(nil)
+	verifyChecksum32 := [32]byte{}
+	copy(verifyChecksum32[:], verifyChecksum[:])
+
+	return md, verifyChecksum32, nil
 }
 
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
@@ -793,6 +833,26 @@ func (snapshot *Snapshot) Commit() error {
 	snapshot.Header.FilesystemChecksum = filesystemChecksum32
 	snapshot.Header.FilesystemMemorySize = uint64(len(serializedFilesystem))
 	snapshot.Header.FilesystemDiskSize = uint64(nbytes)
+
+	serializedMetadata, err := snapshot.Metadata.Serialize()
+	if err != nil {
+		return err
+	}
+
+	mdHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	mdHasher.Write(serializedMetadata)
+	metadataChecksum := mdHasher.Sum(nil)
+	var metadataChecksum32 [32]byte
+	copy(metadataChecksum32[:], metadataChecksum[:])
+
+	nbytes, err = snapshot.PutBlob(metadataChecksum32, serializedMetadata)
+	if err != nil {
+		return err
+	}
+
+	snapshot.Header.MetadataChecksum = metadataChecksum32
+	snapshot.Header.MetadataMemorySize = uint64(len(serializedMetadata))
+	snapshot.Header.MetadataDiskSize = uint64(nbytes)
 
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {

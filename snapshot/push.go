@@ -252,6 +252,7 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 				}
 			}
 			snapshot.Index.AddObject(object)
+			snapshot.Metadata.AddMetadata("Content-Type", object.ContentType, object.Checksum)
 
 			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			hasher.Write([]byte(_filename))
@@ -278,7 +279,7 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 		atomic.AddUint64(&snapshot.Header.ChunksSize, uint64(chunkLength))
 	}
 
-	for _, key := range snapshot.Index.ListContentTypes() {
+	for _, key := range snapshot.Metadata.ListKeys("Content-Type") {
 		objectType := strings.Split(key, ";")[0]
 		objectKind := strings.Split(key, "/")[0]
 		if objectType == "" {
@@ -288,12 +289,12 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 		if _, exists := snapshot.Header.FileKind[objectKind]; !exists {
 			snapshot.Header.FileKind[objectKind] = 0
 		}
-		snapshot.Header.FileKind[objectKind] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Header.FileKind[objectKind] += uint64(len(snapshot.Metadata.ListValues("Content-Type", key)))
 
 		if _, exists := snapshot.Header.FileType[objectType]; !exists {
 			snapshot.Header.FileType[objectType] = 0
 		}
-		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Index.LookupObjectsForContentType(key)))
+		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Metadata.ListValues("Content-Type", key)))
 	}
 
 	for _, key := range snapshot.Filesystem.ListStat() {

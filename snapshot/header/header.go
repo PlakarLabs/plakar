@@ -37,6 +37,10 @@ type Header struct {
 	FilesystemDiskSize   uint64
 	FilesystemMemorySize uint64
 
+	MetadataChecksum   [32]byte
+	MetadataDiskSize   uint64
+	MetadataMemorySize uint64
+
 	ChunksCount  uint64
 	ChunksSize   uint64
 	ObjectsCount uint64

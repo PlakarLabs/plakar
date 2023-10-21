@@ -359,6 +359,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
+	object.ContentType, _ = snap.Metadata.LookupKeyForValue("Content-Type", object.Checksum)
 
 	info, _ := snap.Filesystem.LookupInode(path)
 
@@ -436,6 +437,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
+	object.ContentType, _ = snap.Metadata.LookupKeyForValue("Content-Type", object.Checksum)
+
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
 		contentType = object.ContentType
@@ -567,6 +570,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				pathnameID := snap.Filesystem.GetPathnameID(file)
 				object := snap.Index.LookupObjectForPathname(pathnameID)
 				if object != nil {
+					object.ContentType, _ = snap.Metadata.LookupKeyForValue("Content-Type", object.Checksum)
 					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
 						continue
 					}

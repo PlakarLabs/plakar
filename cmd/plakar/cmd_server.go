@@ -19,7 +19,8 @@ package main
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/server/plakard"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -28,7 +29,9 @@ func init() {
 }
 
 func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_protocol string
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
+	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (plakar)")
 	flags.Parse(args)
 
 	addr := ":9876"
@@ -36,6 +39,11 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 		addr = flags.Arg(0)
 	}
 
-	network.Server(repository, addr)
+	switch opt_protocol {
+	case "plakar":
+		plakard.Server(repository, addr)
+	default:
+		logger.Error("unsupported protocol: %s", opt_protocol)
+	}
 	return 0
 }

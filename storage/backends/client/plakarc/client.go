@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package client
+package plakarc
 
 import (
 	"encoding/gob"
@@ -46,16 +46,12 @@ type Repository struct {
 	Repository string
 
 	inflightRequests map[uuid.UUID]chan network.Request
-	//registerInflight     chan inflight
-	notifications chan network.Request
-	//maxConcurrentRequest chan bool
-
-	// storage.RepositoryBackend
+	notifications    chan network.Request
 }
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("client", NewRepository)
+	storage.Register("plakarc", NewRepository)
 }
 
 func NewRepository() storage.RepositoryBackend {

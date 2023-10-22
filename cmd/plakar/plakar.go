@@ -24,7 +24,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 
-	_ "github.com/PlakarLabs/plakar/storage/backends/client"
+	_ "github.com/PlakarLabs/plakar/storage/backends/client/plakarc"
 	_ "github.com/PlakarLabs/plakar/storage/backends/database"
 	_ "github.com/PlakarLabs/plakar/storage/backends/fs"
 	_ "github.com/PlakarLabs/plakar/storage/backends/null"
@@ -224,6 +224,11 @@ func entryPoint() int {
 
 	if command == "config" {
 		return cmd_config(ctx, args)
+	}
+
+	// special case, server does not need a cache but does not return immediately either
+	if command == "server" {
+		opt_nocache = true
 	}
 
 	if !opt_nocache {

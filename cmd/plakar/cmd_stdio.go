@@ -19,14 +19,14 @@ package main
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/server/plakard"
 )
 
 func cmd_stdio(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("stdio", flag.ExitOnError)
 	flags.Parse(args)
 
-	if err := network.Stdio(); err != nil {
+	if err := plakard.Stdio(); err != nil {
 		return 1
 	}
 	return 0

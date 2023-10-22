@@ -146,7 +146,9 @@ func New(location string) (*Repository, error) {
 	var backendName string
 	if !strings.HasPrefix(location, "/") {
 		if strings.HasPrefix(location, "plakar://") || strings.HasPrefix(location, "ssh://") || strings.HasPrefix(location, "stdio://") {
-			backendName = "client"
+			backendName = "plakarc"
+		} else if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
+			backendName = "http"
 		} else if strings.HasPrefix(location, "sqlite://") {
 			backendName = "database"
 		} else if strings.HasPrefix(location, "s3://") {

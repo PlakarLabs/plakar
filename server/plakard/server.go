@@ -1,4 +1,4 @@
-package network
+package plakard
 
 import (
 	"encoding/gob"
@@ -11,13 +11,14 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
 
 func Server(repository *storage.Repository, addr string) {
 
-	ProtocolRegister()
+	network.ProtocolRegister()
 
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -35,7 +36,7 @@ func Server(repository *storage.Repository, addr string) {
 }
 
 func Stdio() error {
-	ProtocolRegister()
+	network.ProtocolRegister()
 	handleConnection(os.Stdin, os.Stdout)
 	return nil
 }
@@ -52,7 +53,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 	homeDir := os.Getenv("HOME")
 
 	for {
-		request := Request{}
+		request := network.Request{}
 		err := decoder.Decode(&request)
 		if err != nil {
 			break
@@ -64,17 +65,17 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				dirPath := request.Payload.(ReqCreate).Repository
+				dirPath := request.Payload.(network.ReqCreate).Repository
 				if dirPath == "" {
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(ReqCreate).RepositoryConfig)
-				repository, err = storage.Create(dirPath, request.Payload.(ReqCreate).RepositoryConfig)
-				result := Request{
+				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				repository, err = storage.Create(dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResCreate",
-					Payload: ResCreate{Err: err},
+					Payload: network.ResCreate{Err: err},
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -86,24 +87,46 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				dirPath := request.Payload.(ReqOpen).Repository
+				dirPath := request.Payload.(network.ReqOpen).Repository
 				if dirPath == "" {
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
 				logger.Trace("server", "%s: Open(%s)", clientUuid, dirPath)
 				repository, err = storage.Open(dirPath)
-				var payload ResOpen
+				var payload network.ResOpen
 				if err != nil {
-					payload = ResOpen{RepositoryConfig: nil, Err: err}
+					payload = network.ResOpen{RepositoryConfig: nil, Err: err}
 				} else {
 					config := repository.Configuration()
-					payload = ResOpen{RepositoryConfig: &config, Err: nil}
+					payload = network.ResOpen{RepositoryConfig: &config, Err: nil}
 				}
-				result := Request{
+				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
 					Payload: payload,
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqCommit":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: Commit()", clientUuid)
+				txUuid := request.Payload.(network.ReqCommit).Transaction
+				data := request.Payload.(network.ReqCommit).Data
+				err := repository.Commit(txUuid, data)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResCommit",
+					Payload: network.ResCommit{
+						Err: err,
+					},
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -119,32 +142,10 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				logger.Trace("server", "%s: Close()", clientUuid)
 				err := repository.Close()
 				repository = nil
-				result := Request{
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResClose",
-					Payload: ResClose{
-						Err: err,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqCommit":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("server", "%s: Commit()", clientUuid)
-				txUuid := request.Payload.(ReqCommit).Transaction
-				data := request.Payload.(ReqCommit).Data
-				err := repository.Commit(txUuid, data)
-				result := Request{
-					Uuid: request.Uuid,
-					Type: "ResCommit",
-					Payload: ResCommit{
+					Payload: network.ResClose{
 						Err: err,
 					},
 				}
@@ -161,10 +162,10 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetSnapshots", clientUuid)
 				snapshots, err := repository.GetSnapshots()
-				result := Request{
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetSnapshots",
-					Payload: ResGetSnapshots{
+					Payload: network.ResGetSnapshots{
 						Snapshots: snapshots,
 						Err:       err,
 					},
@@ -179,12 +180,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(ReqPutSnapshot).IndexID)
-				err := repository.PutSnapshot(request.Payload.(ReqPutSnapshot).IndexID, request.Payload.(ReqPutSnapshot).Data)
-				result := Request{
+				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(network.ReqPutSnapshot).IndexID)
+				err := repository.PutSnapshot(request.Payload.(network.ReqPutSnapshot).IndexID, request.Payload.(network.ReqPutSnapshot).Data)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResPutSnapshot",
-					Payload: ResPutSnapshot{
+					Payload: network.ResPutSnapshot{
 						Err: err,
 					},
 				}
@@ -198,12 +199,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(ReqGetSnapshot).Uuid)
-				data, err := repository.GetSnapshot(request.Payload.(ReqGetSnapshot).Uuid)
-				result := Request{
+				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).Uuid)
+				data, err := repository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).Uuid)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetSnapshot",
-					Payload: ResGetSnapshot{
+					Payload: network.ResGetSnapshot{
 						Data: data,
 						Err:  err,
 					},
@@ -219,12 +220,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(ReqDeleteSnapshot).Uuid)
-				err := repository.DeleteSnapshot(request.Payload.(ReqDeleteSnapshot).Uuid)
-				result := Request{
+				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).Uuid)
+				err := repository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).Uuid)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteSnapshot",
-					Payload: ResDeleteSnapshot{
+					Payload: network.ResDeleteSnapshot{
 						Err: err,
 					},
 				}
@@ -241,10 +242,10 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetBlobs()", clientUuid)
 				checksums, err := repository.GetBlobs()
-				result := Request{
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetBlobs",
-					Payload: ResGetBlobs{
+					Payload: network.ResGetBlobs{
 						Checksums: checksums,
 						Err:       err,
 					},
@@ -259,12 +260,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutBlob(%016x)", clientUuid, request.Payload.(ReqPutBlob).Checksum)
-				err := repository.PutBlob(request.Payload.(ReqPutBlob).Checksum, request.Payload.(ReqPutBlob).Data)
-				result := Request{
+				logger.Trace("server", "%s: PutBlob(%016x)", clientUuid, request.Payload.(network.ReqPutBlob).Checksum)
+				err := repository.PutBlob(request.Payload.(network.ReqPutBlob).Checksum, request.Payload.(network.ReqPutBlob).Data)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResPutBlob",
-					Payload: ResPutBlob{
+					Payload: network.ResPutBlob{
 						Err: err,
 					},
 				}
@@ -278,12 +279,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetBlob(%016x)", clientUuid, request.Payload.(ReqGetBlob).Checksum)
-				data, err := repository.GetBlob(request.Payload.(ReqGetBlob).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: GetBlob(%016x)", clientUuid, request.Payload.(network.ReqGetBlob).Checksum)
+				data, err := repository.GetBlob(request.Payload.(network.ReqGetBlob).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetBlob",
-					Payload: ResGetBlob{
+					Payload: network.ResGetBlob{
 						Data: data,
 						Err:  err,
 					},
@@ -299,12 +300,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteBlob(%s)", clientUuid, request.Payload.(ReqDeleteBlob).Checksum)
-				err := repository.DeleteBlob(request.Payload.(ReqDeleteBlob).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: DeleteBlob(%s)", clientUuid, request.Payload.(network.ReqDeleteBlob).Checksum)
+				err := repository.DeleteBlob(request.Payload.(network.ReqDeleteBlob).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteBlob",
-					Payload: ResDeleteBlob{
+					Payload: network.ResDeleteBlob{
 						Err: err,
 					},
 				}
@@ -321,10 +322,10 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetIndexes()", clientUuid)
 				checksums, err := repository.GetIndexes()
-				result := Request{
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndexes",
-					Payload: ResGetIndexes{
+					Payload: network.ResGetIndexes{
 						Checksums: checksums,
 						Err:       err,
 					},
@@ -339,12 +340,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(ReqPutIndex).Checksum)
-				err := repository.PutIndex(request.Payload.(ReqPutIndex).Checksum, request.Payload.(ReqPutIndex).Data)
-				result := Request{
+				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(network.ReqPutIndex).Checksum)
+				err := repository.PutIndex(request.Payload.(network.ReqPutIndex).Checksum, request.Payload.(network.ReqPutIndex).Data)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResPutIndex",
-					Payload: ResPutIndex{
+					Payload: network.ResPutIndex{
 						Err: err,
 					},
 				}
@@ -358,12 +359,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(ReqGetIndex).Checksum)
-				data, err := repository.GetIndex(request.Payload.(ReqGetIndex).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(network.ReqGetIndex).Checksum)
+				data, err := repository.GetIndex(request.Payload.(network.ReqGetIndex).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetIndex",
-					Payload: ResGetIndex{
+					Payload: network.ResGetIndex{
 						Data: data,
 						Err:  err,
 					},
@@ -379,12 +380,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(ReqDeleteIndex).Checksum)
-				err := repository.DeleteIndex(request.Payload.(ReqDeleteIndex).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(network.ReqDeleteIndex).Checksum)
+				err := repository.DeleteIndex(request.Payload.(network.ReqDeleteIndex).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteIndex",
-					Payload: ResDeleteIndex{
+					Payload: network.ResDeleteIndex{
 						Err: err,
 					},
 				}
@@ -401,10 +402,10 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetPackfiles()", clientUuid)
 				checksums, err := repository.GetPackfiles()
-				result := Request{
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetPackfiles",
-					Payload: ResGetPackfiles{
+					Payload: network.ResGetPackfiles{
 						Checksums: checksums,
 						Err:       err,
 					},
@@ -419,12 +420,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(ReqPutPackfile).Checksum)
-				err := repository.PutPackfile(request.Payload.(ReqPutPackfile).Checksum, request.Payload.(ReqPutPackfile).Data)
-				result := Request{
+				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
+				err := repository.PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum, request.Payload.(network.ReqPutPackfile).Data)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResPutPackfile",
-					Payload: ResPutPackfile{
+					Payload: network.ResPutPackfile{
 						Err: err,
 					},
 				}
@@ -438,12 +439,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(ReqGetPackfile).Checksum)
-				data, err := repository.GetPackfile(request.Payload.(ReqGetPackfile).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(network.ReqGetPackfile).Checksum)
+				data, err := repository.GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetPackfile",
-					Payload: ResGetPackfile{
+					Payload: network.ResGetPackfile{
 						Data: data,
 						Err:  err,
 					},
@@ -459,12 +460,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(ReqDeletePackfile).Checksum)
-				err := repository.DeletePackfile(request.Payload.(ReqDeletePackfile).Checksum)
-				result := Request{
+				logger.Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(network.ReqDeletePackfile).Checksum)
+				err := repository.DeletePackfile(request.Payload.(network.ReqDeletePackfile).Checksum)
+				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeletePackfile",
-					Payload: ResDeletePackfile{
+					Payload: network.ResDeletePackfile{
 						Err: err,
 					},
 				}

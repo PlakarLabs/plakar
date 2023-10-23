@@ -105,6 +105,21 @@ func getSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
+	var reqDeleteSnapshot network.ReqDeleteSnapshot
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteSnapshot); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resDeleteSnapshot network.ResDeleteSnapshot
+	resDeleteSnapshot.Err = lrepository.DeleteSnapshot(reqDeleteSnapshot.Uuid)
+	if err := json.NewEncoder(w).Encode(resDeleteSnapshot); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	var ReqCommit network.ReqCommit
 	if err := json.NewDecoder(r.Body).Decode(&ReqCommit); err != nil {
@@ -176,6 +191,21 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deleteBlob(w http.ResponseWriter, r *http.Request) {
+	var reqDeleteBlob network.ReqDeleteBlob
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteBlob); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resDeleteBlob network.ResDeleteBlob
+	resDeleteBlob.Err = lrepository.DeleteBlob(reqDeleteBlob.Checksum)
+	if err := json.NewEncoder(w).Encode(resDeleteBlob); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 // indexes
 func getIndexes(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndexes network.ReqGetIndexes
@@ -227,6 +257,21 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		resGetIndex.Data = data
 	}
 	if err := json.NewEncoder(w).Encode(resGetIndex); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func deleteIndex(w http.ResponseWriter, r *http.Request) {
+	var reqDeleteIndex network.ReqDeleteIndex
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteIndex); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resDeleteIndex network.ResDeleteIndex
+	resDeleteIndex.Err = lrepository.DeleteIndex(reqDeleteIndex.Checksum)
+	if err := json.NewEncoder(w).Encode(resDeleteIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -288,6 +333,21 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deletePackfile(w http.ResponseWriter, r *http.Request) {
+	var reqDeletePackfile network.ReqDeletePackfile
+	if err := json.NewDecoder(r.Body).Decode(&reqDeletePackfile); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resDeletePackfile network.ResDeletePackfile
+	resDeletePackfile.Err = lrepository.DeletePackfile(reqDeletePackfile.Checksum)
+	if err := json.NewEncoder(w).Encode(resDeletePackfile); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func Server(repository *storage.Repository, addr string) error {
 
 	lrepository = repository
@@ -301,11 +361,13 @@ func Server(repository *storage.Repository, addr string) error {
 	r.HandleFunc("/snapshots", getSnapshots).Methods("GET")
 	r.HandleFunc("/snapshot", putSnapshot).Methods("PUT")
 	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
+	r.HandleFunc("/snapshot", deleteSnapshot).Methods("DELETE")
 	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
 
 	r.HandleFunc("/blobs", getBlobs).Methods("GET")
 	r.HandleFunc("/blob", putBlob).Methods("PUT")
 	r.HandleFunc("/blob", getBlob).Methods("GET")
+	r.HandleFunc("/blob", deleteBlob).Methods("DELETE")
 
 	r.HandleFunc("/indexes", getIndexes).Methods("GET")
 	r.HandleFunc("/index", putIndex).Methods("PUT")

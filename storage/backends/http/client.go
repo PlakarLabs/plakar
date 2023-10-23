@@ -156,6 +156,20 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/snapshot", network.ReqDeleteSnapshot{
+		Uuid: indexID,
+	})
+	if err != nil {
+		return err
+	}
+
+	var resDeleteSnapshot network.ResDeleteSnapshot
+	if err := json.NewDecoder(r.Body).Decode(&resDeleteSnapshot); err != nil {
+		return err
+	}
+	if resDeleteSnapshot.Err != nil {
+		return resDeleteSnapshot.Err
+	}
 	return nil
 }
 
@@ -214,6 +228,20 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/blob", network.ReqDeleteBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+
+	var resDeleteBlob network.ResDeleteBlob
+	if err := json.NewDecoder(r.Body).Decode(&resDeleteBlob); err != nil {
+		return err
+	}
+	if resDeleteBlob.Err != nil {
+		return resDeleteBlob.Err
+	}
 	return nil
 }
 
@@ -272,6 +300,20 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/index", network.ReqDeleteIndex{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+
+	var resDeleteIndex network.ResDeleteIndex
+	if err := json.NewDecoder(r.Body).Decode(&resDeleteIndex); err != nil {
+		return err
+	}
+	if resDeleteIndex.Err != nil {
+		return resDeleteIndex.Err
+	}
 	return nil
 }
 
@@ -330,6 +372,20 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/packfile", network.ReqDeletePackfile{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return err
+	}
+
+	var resDeletePackfile network.ResDeletePackfile
+	if err := json.NewDecoder(r.Body).Decode(&resDeletePackfile); err != nil {
+		return err
+	}
+	if resDeletePackfile.Err != nil {
+		return resDeletePackfile.Err
+	}
 	return nil
 }
 

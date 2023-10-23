@@ -26,6 +26,7 @@ import (
 
 	_ "github.com/PlakarLabs/plakar/storage/backends/database"
 	_ "github.com/PlakarLabs/plakar/storage/backends/fs"
+	_ "github.com/PlakarLabs/plakar/storage/backends/http"
 	_ "github.com/PlakarLabs/plakar/storage/backends/null"
 	_ "github.com/PlakarLabs/plakar/storage/backends/plakard"
 	_ "github.com/PlakarLabs/plakar/storage/backends/s3"

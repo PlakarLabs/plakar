@@ -390,8 +390,8 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
-		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.GetSnapshots", time.Since(t0))
+		logger.Trace("storage", "GetSnapshots(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetSnapshots()
 }

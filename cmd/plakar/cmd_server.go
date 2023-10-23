@@ -20,6 +20,7 @@ import (
 	"flag"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/server/httpd"
 	"github.com/PlakarLabs/plakar/server/plakard"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -31,7 +32,7 @@ func init() {
 func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_protocol string
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
-	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (plakar)")
+	flags.StringVar(&opt_protocol, "protocol", "http", "protocol to use (http or plakar)")
 	flags.Parse(args)
 
 	addr := ":9876"
@@ -40,6 +41,8 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	switch opt_protocol {
+	case "http":
+		httpd.Server(repository, addr)
 	case "plakar":
 		plakard.Server(repository, addr)
 	default:

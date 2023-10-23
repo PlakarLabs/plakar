@@ -70,6 +70,21 @@ func getSnapshots(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func putSnapshot(w http.ResponseWriter, r *http.Request) {
+	var reqPutSnapshot network.ReqPutSnapshot
+	if err := json.NewDecoder(r.Body).Decode(&reqPutSnapshot); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resPutSnapshot network.ResPutSnapshot
+	resPutSnapshot.Err = lrepository.PutSnapshot(reqPutSnapshot.IndexID, reqPutSnapshot.Data)
+	if err := json.NewEncoder(w).Encode(resPutSnapshot); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func getSnapshot(w http.ResponseWriter, r *http.Request) {
 	var reqGetSnapshot network.ReqGetSnapshot
 	if err := json.NewDecoder(r.Body).Decode(&reqGetSnapshot); err != nil {
@@ -85,6 +100,21 @@ func getSnapshot(w http.ResponseWriter, r *http.Request) {
 		resGetSnapshot.Data = data
 	}
 	if err := json.NewEncoder(w).Encode(resGetSnapshot); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func commitSnapshot(w http.ResponseWriter, r *http.Request) {
+	var ReqCommit network.ReqCommit
+	if err := json.NewDecoder(r.Body).Decode(&ReqCommit); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var ResCommit network.ResCommit
+	ResCommit.Err = lrepository.Commit(ReqCommit.Transaction, ReqCommit.Data)
+	if err := json.NewEncoder(w).Encode(ResCommit); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -106,6 +136,21 @@ func getBlobs(w http.ResponseWriter, r *http.Request) {
 		resGetBlobs.Checksums = checksums
 	}
 	if err := json.NewEncoder(w).Encode(resGetBlobs); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func putBlob(w http.ResponseWriter, r *http.Request) {
+	var reqPutBlob network.ReqPutBlob
+	if err := json.NewDecoder(r.Body).Decode(&reqPutBlob); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resPutBlob network.ResPutBlob
+	resPutBlob.Err = lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
+	if err := json.NewEncoder(w).Encode(resPutBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -152,6 +197,21 @@ func getIndexes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func putIndex(w http.ResponseWriter, r *http.Request) {
+	var reqPutIndex network.ReqPutIndex
+	if err := json.NewDecoder(r.Body).Decode(&reqPutIndex); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resPutIndex network.ResPutIndex
+	resPutIndex.Err = lrepository.PutIndex(reqPutIndex.Checksum, reqPutIndex.Data)
+	if err := json.NewEncoder(w).Encode(resPutIndex); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func getIndex(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndex network.ReqGetIndex
 	if err := json.NewDecoder(r.Body).Decode(&reqGetIndex); err != nil {
@@ -193,6 +253,21 @@ func getPackfiles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func putPackfile(w http.ResponseWriter, r *http.Request) {
+	var reqPutPackfile network.ReqPutPackfile
+	if err := json.NewDecoder(r.Body).Decode(&reqPutPackfile); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resPutPackfile network.ResPutPackfile
+	resPutPackfile.Err = lrepository.PutPackfile(reqPutPackfile.Checksum, reqPutPackfile.Data)
+	if err := json.NewEncoder(w).Encode(resPutPackfile); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func getPackfile(w http.ResponseWriter, r *http.Request) {
 	var reqGetPackfile network.ReqGetPackfile
 	if err := json.NewDecoder(r.Body).Decode(&reqGetPackfile); err != nil {
@@ -224,15 +299,20 @@ func Server(repository *storage.Repository, addr string) error {
 	r.HandleFunc("/", closeRepository).Methods("POST")
 
 	r.HandleFunc("/snapshots", getSnapshots).Methods("GET")
+	r.HandleFunc("/snapshot", putSnapshot).Methods("PUT")
 	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
+	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
 
 	r.HandleFunc("/blobs", getBlobs).Methods("GET")
+	r.HandleFunc("/blob", putBlob).Methods("PUT")
 	r.HandleFunc("/blob", getBlob).Methods("GET")
 
 	r.HandleFunc("/indexes", getIndexes).Methods("GET")
+	r.HandleFunc("/index", putIndex).Methods("PUT")
 	r.HandleFunc("/index", getIndex).Methods("GET")
 
 	r.HandleFunc("/packfiles", getPackfiles).Methods("GET")
+	r.HandleFunc("/packfile", putPackfile).Methods("PUT")
 	r.HandleFunc("/packfile", getPackfile).Methods("GET")
 
 	return http.ListenAndServe(addr, r)

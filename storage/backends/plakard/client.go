@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package plakarc
+package plakard
 
 import (
 	"encoding/gob"
@@ -51,7 +51,7 @@ type Repository struct {
 
 func init() {
 	network.ProtocolRegister()
-	storage.Register("plakarc", NewRepository)
+	storage.Register("plakard", NewRepository)
 }
 
 func NewRepository() storage.RepositoryBackend {

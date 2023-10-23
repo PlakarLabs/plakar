@@ -10,11 +10,21 @@ import (
 
 type Lock struct {
 	Timestamp time.Time
+	Hostname  string
+	Username  string
+	MachineID string
+	ProcessID int
+	Exclusive bool
 }
 
-func New() *Lock {
+func New(hostname string, username string, machineID string, processID int, exclusive bool) *Lock {
 	return &Lock{
 		Timestamp: time.Now(),
+		Hostname:  hostname,
+		Username:  username,
+		MachineID: machineID,
+		ProcessID: processID,
+		Exclusive: exclusive,
 	}
 }
 
@@ -44,4 +54,8 @@ func (lock *Lock) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	return serialized, nil
+}
+
+func (lock *Lock) Expired(ttl time.Duration) bool {
+	return time.Since(lock.Timestamp) > ttl
 }

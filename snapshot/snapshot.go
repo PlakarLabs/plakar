@@ -9,6 +9,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/packfile"
@@ -764,6 +765,45 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	} else {
 		return snapshot.Repository().GetRepositoryIndex().ObjectExists(checksum)
 	}
+}
+
+func (snapshot *Snapshot) Lock() error {
+	lock := locking.New(snapshot.Header.Hostname,
+		snapshot.Header.Username,
+		snapshot.Header.MachineID,
+		snapshot.Header.ProcessID,
+		false)
+
+	buffer, err := lock.Serialize()
+	if err != nil {
+		return err
+	}
+
+	repository := snapshot.repository
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+
+	return snapshot.repository.PutLock(snapshot.Header.IndexID, buffer)
+}
+
+func (snapshot *Snapshot) Unlock() error {
+	return snapshot.repository.DeleteLock(snapshot.Header.IndexID)
 }
 
 func (snapshot *Snapshot) Commit() error {

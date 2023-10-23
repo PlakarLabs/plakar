@@ -58,6 +58,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	snap.Header.OperatingSystem = runtime.GOOS
 	snap.Header.MachineID = ctx.MachineID
 	snap.Header.CommandLine = ctx.CommandLine
+	snap.Header.ProcessID = os.Getpid()
 
 	var tags []string
 	if opt_tags == "" {

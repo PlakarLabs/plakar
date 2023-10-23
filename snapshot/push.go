@@ -177,6 +177,23 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 }
 
 func (snapshot *Snapshot) Push(scanDir string) error {
+	if err := snapshot.Lock(); err != nil {
+		return err
+	}
+	defer snapshot.Unlock()
+
+	lockDone := make(chan bool)
+	defer close(lockDone)
+	go func() {
+		for {
+			select {
+			case <-lockDone:
+				return
+			case <-time.After(60 * time.Second):
+				snapshot.Lock()
+			}
+		}
+	}()
 
 	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	wg := sync.WaitGroup{}

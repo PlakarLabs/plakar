@@ -22,6 +22,7 @@ type Header struct {
 	Username        string
 	OperatingSystem string
 	MachineID       string
+	ProcessID       int
 	CommandLine     string
 
 	ScanSize          uint64

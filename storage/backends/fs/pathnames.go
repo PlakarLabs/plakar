@@ -100,7 +100,7 @@ func (repository *Repository) PathPackfile(checksum [32]byte) string {
 }
 
 func (repository *Repository) PathLock(indexID uuid.UUID) string {
-	return filepath.Join(repository.PathLock(indexID), indexID.String())
+	return filepath.Join(repository.PathLocks(), indexID.String())
 }
 
 func (repository *Repository) PathSnapshot(indexID uuid.UUID) string {

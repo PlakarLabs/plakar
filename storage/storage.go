@@ -69,6 +69,11 @@ type RepositoryBackend interface {
 	GetSnapshot(indexID uuid.UUID) ([]byte, error)
 	DeleteSnapshot(indexID uuid.UUID) error
 
+	GetLocks() ([]uuid.UUID, error)
+	PutLock(indexID uuid.UUID, data []byte) error
+	GetLock(indexID uuid.UUID) ([]byte, error)
+	DeleteLock(indexID uuid.UUID) error
+
 	GetBlobs() ([][32]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
 	GetBlob(checksum [32]byte) ([]byte, error)
@@ -439,6 +444,64 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 		logger.Trace("storage", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.DeleteSnapshot(indexID)
+}
+
+/* locks */
+func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetLocks", time.Since(t0))
+		logger.Trace("storage", "GetLocks(): %s", time.Since(t0))
+	}()
+	return repository.backend.GetLocks()
+}
+
+func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
+	repository.wLock()
+	defer repository.wUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.PutLock", time.Since(t0))
+		logger.Trace("storage", "PutLock(%s): %s", indexID, time.Since(t0))
+	}()
+
+	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
+	return repository.backend.PutLock(indexID, data)
+}
+
+func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
+	repository.rLock()
+	defer repository.rUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetLock", time.Since(t0))
+		logger.Trace("storage", "GetLock(%s): %s", indexID, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetLock(indexID)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+
+	return data, nil
+}
+
+func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
+	repository.sLock()
+	defer repository.sUnlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.DeleteLock", time.Since(t0))
+		logger.Trace("storage", "DeleteLock(%s): %s", indexID, time.Since(t0))
+	}()
+	return repository.backend.DeleteLock(indexID)
 }
 
 /* Packfiles */

@@ -83,6 +83,41 @@ type ResDeleteSnapshot struct {
 	Err error
 }
 
+// snapshots
+type ReqGetLocks struct {
+}
+
+type ResGetLocks struct {
+	Locks []uuid.UUID
+	Err   error
+}
+
+type ReqPutLock struct {
+	IndexID uuid.UUID
+	Data    []byte
+}
+
+type ResPutLock struct {
+	Err error
+}
+
+type ReqGetLock struct {
+	IndexID uuid.UUID
+}
+
+type ResGetLock struct {
+	Data []byte
+	Err  error
+}
+
+type ReqDeleteLock struct {
+	IndexID uuid.UUID
+}
+
+type ResDeleteLock struct {
+	Err error
+}
+
 // blobs
 type ReqGetBlobs struct {
 }

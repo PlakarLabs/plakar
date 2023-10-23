@@ -83,6 +83,23 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 
+// locks
+func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
+	return []uuid.UUID{}, nil
+}
+
+func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
+	return nil
+}
+
+func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
+	return nil
+}
+
 // blobs
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	return [][32]byte{}, nil

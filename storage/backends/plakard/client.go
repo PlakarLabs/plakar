@@ -337,26 +337,6 @@ func (repository *Repository) Configuration() storage.RepositoryConfig {
 	return repository.config
 }
 
-/*
-func (repository *Repository) Transaction(indexID uuid.UUID) (storage.TransactionBackend, error) {
-	result, err := repository.sendRequest("ReqTransaction", network.ReqTransaction{
-		Uuid: indexID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	Uuid, err := indexID, result.Payload.(network.ResTransaction).Err
-	if err != nil {
-		return nil, err
-	}
-	tx := &Transaction{}
-	tx.Uuid = Uuid
-	tx.repository = repository
-	return tx, nil
-}
-*/
-
 // snapshots
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	result, err := repository.sendRequest("ReqGetSnapshots", nil)
@@ -396,6 +376,47 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	}
 
 	return result.Payload.(network.ResDeleteSnapshot).Err
+}
+
+// locks
+func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
+	result, err := repository.sendRequest("ReqGetLocks", nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetLocks).Locks, result.Payload.(network.ResGetLocks).Err
+}
+
+func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
+	result, err := repository.sendRequest("ReqPutLock", network.ReqPutLock{
+		IndexID: indexID,
+		Data:    data,
+	})
+	if err != nil {
+		return err
+	}
+	return result.Payload.(network.ResPutLock).Err
+}
+
+func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
+	result, err := repository.sendRequest("ReqGetLock", network.ReqGetLock{
+		IndexID: indexID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Payload.(network.ResGetLock).Data, result.Payload.(network.ResGetLock).Err
+}
+
+func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
+	result, err := repository.sendRequest("ReqDeleteLock", network.ReqDeleteLock{
+		IndexID: indexID,
+	})
+	if err != nil {
+		return err
+	}
+
+	return result.Payload.(network.ResDeleteLock).Err
 }
 
 // blobs

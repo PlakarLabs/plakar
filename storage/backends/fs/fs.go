@@ -65,6 +65,7 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	}
 
 	os.MkdirAll(filepath.Join(repository.root, "indexes"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "locks"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
@@ -435,5 +436,64 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 		return err
 	}
 
+	return nil
+}
+
+func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
+	ret := make([]uuid.UUID, 0)
+
+	locksdir, err := os.ReadDir(repository.PathLocks())
+	if err != nil {
+		return ret, err
+	}
+
+	for _, lock := range locksdir {
+		if lock.IsDir() {
+			continue
+		}
+		indexID, err := uuid.Parse(lock.Name())
+		if err != nil {
+			return ret, err
+		}
+		ret = append(ret, indexID)
+
+	}
+	return ret, nil
+}
+
+func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
+	data, err := os.ReadFile(repository.PathLock(indexID))
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
+	f, err := os.Create(repository.PathLock(indexID))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
+	dest := filepath.Join(repository.PathPurge(), indexID.String())
+	err := os.Rename(repository.PathLock(indexID), dest)
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(dest)
+	if err != nil {
+		return err
+	}
 	return nil
 }

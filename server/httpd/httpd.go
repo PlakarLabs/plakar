@@ -135,7 +135,78 @@ func commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// snapshots
+// locks
+func getLocks(w http.ResponseWriter, r *http.Request) {
+	var reqGetLocks network.ReqGetLocks
+	if err := json.NewDecoder(r.Body).Decode(&reqGetLocks); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resGetLocks network.ResGetLocks
+	locks, err := lrepository.GetLocks()
+	if err != nil {
+		resGetLocks.Err = err
+	} else {
+		resGetLocks.Locks = locks
+	}
+	if err := json.NewEncoder(w).Encode(resGetLocks); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func putLock(w http.ResponseWriter, r *http.Request) {
+	var reqPutLock network.ReqPutLock
+	if err := json.NewDecoder(r.Body).Decode(&reqPutLock); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resPutLock network.ResPutLock
+	resPutLock.Err = lrepository.PutSnapshot(reqPutLock.IndexID, reqPutLock.Data)
+	if err := json.NewEncoder(w).Encode(resPutLock); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func getLock(w http.ResponseWriter, r *http.Request) {
+	var reqGetLock network.ReqGetLock
+	if err := json.NewDecoder(r.Body).Decode(&reqGetLock); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resGetLock network.ResGetLock
+	data, err := lrepository.GetSnapshot(reqGetLock.IndexID)
+	if err != nil {
+		resGetLock.Err = err
+	} else {
+		resGetLock.Data = data
+	}
+	if err := json.NewEncoder(w).Encode(resGetLock); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func deleteLock(w http.ResponseWriter, r *http.Request) {
+	var reqDeleteLock network.ReqDeleteLock
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteLock); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resDeleteLock network.ResDeleteLock
+	resDeleteLock.Err = lrepository.DeleteSnapshot(reqDeleteLock.IndexID)
+	if err := json.NewEncoder(w).Encode(resDeleteLock); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// blobs
 func getBlobs(w http.ResponseWriter, r *http.Request) {
 	var reqGetBlobs network.ReqGetBlobs
 	if err := json.NewDecoder(r.Body).Decode(&reqGetBlobs); err != nil {
@@ -362,6 +433,11 @@ func Server(repository *storage.Repository, addr string) error {
 	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
 	r.HandleFunc("/snapshot", deleteSnapshot).Methods("DELETE")
 	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
+
+	r.HandleFunc("/locks", getLocks).Methods("GET")
+	r.HandleFunc("/lock", putLock).Methods("PUT")
+	r.HandleFunc("/lock", getLock).Methods("GET")
+	r.HandleFunc("/lock", deleteLock).Methods("DELETE")
 
 	r.HandleFunc("/blobs", getBlobs).Methods("GET")
 	r.HandleFunc("/blob", putBlob).Methods("PUT")

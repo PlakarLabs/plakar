@@ -205,6 +205,86 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+			// locks
+		case "ReqGetLocks":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: GetLocks", clientUuid)
+				locks, err := lrepository.GetLocks()
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResGetLocks",
+					Payload: network.ResGetLocks{
+						Locks: locks,
+						Err:   err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqPutLock":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: PutLock()", clientUuid, request.Payload.(network.ReqPutLock).IndexID)
+				err := lrepository.PutLock(request.Payload.(network.ReqPutLock).IndexID, request.Payload.(network.ReqPutLock).Data)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResPutLock",
+					Payload: network.ResPutLock{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqGetLock":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetLock).IndexID)
+				data, err := lrepository.GetLock(request.Payload.(network.ReqGetLock).IndexID)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResGetLock",
+					Payload: network.ResGetLock{
+						Data: data,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
+		case "ReqDeleteLock":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				logger.Trace("server", "%s: DeleteLock(%s)", clientUuid, request.Payload.(network.ReqDeleteLock).IndexID)
+				err := lrepository.DeleteLock(request.Payload.(network.ReqDeleteLock).IndexID)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResDeleteLock",
+					Payload: network.ResDeleteLock{
+						Err: err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 			// blobs
 		case "ReqGetBlobs":
 			wg.Add(1)

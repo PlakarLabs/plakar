@@ -118,7 +118,7 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 
 				logger.Trace("server", "%s: Commit()", clientUuid)
-				txUuid := request.Payload.(network.ReqCommit).Transaction
+				txUuid := request.Payload.(network.ReqCommit).IndexID
 				data := request.Payload.(network.ReqCommit).Data
 				err := repository.Commit(txUuid, data)
 				result := network.Request{
@@ -199,8 +199,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).Uuid)
-				data, err := repository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).Uuid)
+				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).IndexID)
+				data, err := repository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).IndexID)
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetSnapshot",
@@ -220,8 +220,8 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).Uuid)
-				err := repository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).Uuid)
+				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).IndexID)
+				err := repository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).IndexID)
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteSnapshot",

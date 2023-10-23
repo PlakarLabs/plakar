@@ -139,7 +139,7 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 
 func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/snapshot", network.ReqGetSnapshot{
-		Uuid: indexID,
+		IndexID: indexID,
 	})
 	if err != nil {
 		return nil, err
@@ -157,7 +157,7 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	r, err := repository.sendRequest("DELETE", repository.Repository, "/snapshot", network.ReqDeleteSnapshot{
-		Uuid: indexID,
+		IndexID: indexID,
 	})
 	if err != nil {
 		return err
@@ -391,8 +391,8 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	r, err := repository.sendRequest("POST", repository.Repository, "/snapshot", network.ReqCommit{
-		Transaction: indexID,
-		Data:        data,
+		IndexID: indexID,
+		Data:    data,
 	})
 	if err != nil {
 		return err

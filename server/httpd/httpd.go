@@ -93,7 +93,7 @@ func getSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetSnapshot network.ResGetSnapshot
-	data, err := lrepository.GetSnapshot(reqGetSnapshot.Uuid)
+	data, err := lrepository.GetSnapshot(reqGetSnapshot.IndexID)
 	if err != nil {
 		resGetSnapshot.Err = err
 	} else {
@@ -113,7 +113,7 @@ func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteSnapshot network.ResDeleteSnapshot
-	resDeleteSnapshot.Err = lrepository.DeleteSnapshot(reqDeleteSnapshot.Uuid)
+	resDeleteSnapshot.Err = lrepository.DeleteSnapshot(reqDeleteSnapshot.IndexID)
 	if err := json.NewEncoder(w).Encode(resDeleteSnapshot); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -128,7 +128,7 @@ func commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var ResCommit network.ResCommit
-	ResCommit.Err = lrepository.Commit(ReqCommit.Transaction, ReqCommit.Data)
+	ResCommit.Err = lrepository.Commit(ReqCommit.IndexID, ReqCommit.Data)
 	if err := json.NewEncoder(w).Encode(ResCommit); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

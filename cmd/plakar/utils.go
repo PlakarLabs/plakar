@@ -480,13 +480,18 @@ func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, e
 	}
 
 	repositoryIndex := storageIndex.New()
-	for _, indexID := range indexes {
-		idx, err := snapshot.GetRepositoryIndex(repository, indexID)
-		if err != nil {
-			return nil, err
-		}
-		repositoryIndex.Merge(idx)
+	wg := sync.WaitGroup{}
+	for _, _indexID := range indexes {
+		wg.Add(1)
+		go func(indexID [32]byte) {
+			defer wg.Done()
+			idx, err := snapshot.GetRepositoryIndex(repository, indexID)
+			if err == nil {
+				repositoryIndex.Merge(indexID, idx)
+			}
+		}(_indexID)
 	}
+	wg.Wait()
 	repositoryIndex.ResetDirty()
 	return repositoryIndex, nil
 }

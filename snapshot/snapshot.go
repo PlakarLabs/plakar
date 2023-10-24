@@ -466,6 +466,44 @@ func GetMetadata(repository *storage.Repository, checksum [32]byte) (*metadata.M
 	return md, verifyChecksum32, nil
 }
 
+func GetLock(repository *storage.Repository, lockID uuid.UUID) (*locking.Lock, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetLock", time.Since(t0))
+	}()
+
+	buffer, err := repository.GetLock(lockID)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if secret != nil {
+		tmp, err := encryption.Decrypt(secret, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if compressionMethod != "" {
+		tmp, err := compression.Inflate(compressionMethod, buffer)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	lock, err := locking.NewFromBytes(buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return lock, nil
+}
+
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {

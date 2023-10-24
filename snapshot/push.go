@@ -1,9 +1,11 @@
 package snapshot
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"mime"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/google/uuid"
 )
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
@@ -182,6 +185,26 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 	}
 	defer snapshot.Unlock()
 
+	locksID, err := snapshot.repository.GetLocks()
+	if err != nil {
+		return err
+	}
+	for _, lockID := range locksID {
+		_ = lockID
+		t, _ := uuid.NewRandom()
+		if lock, err := GetLock(snapshot.repository, t); err != nil {
+			if os.IsNotExist(err) {
+				// was removed since we got the list
+				continue
+			}
+			return err
+		} else {
+			if lock.Exclusive && lock.Expired(time.Minute*15) {
+				return fmt.Errorf("can't push: %s is locked", snapshot.repository.Location)
+			}
+		}
+	}
+
 	lockDone := make(chan bool)
 	defer close(lockDone)
 	go func() {
@@ -189,7 +212,7 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 			select {
 			case <-lockDone:
 				return
-			case <-time.After(60 * time.Second):
+			case <-time.After(5 * time.Minute):
 				snapshot.Lock()
 			}
 		}

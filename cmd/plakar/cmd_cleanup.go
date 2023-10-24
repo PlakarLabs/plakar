@@ -72,8 +72,6 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		}
 	}
 
-	time.Sleep(1 * time.Minute)
-
 	/*
 
 		locksID, err := snapshot.repository.GetLocks()

@@ -164,7 +164,7 @@ func putLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutLock network.ResPutLock
-	resPutLock.Err = lrepository.PutSnapshot(reqPutLock.IndexID, reqPutLock.Data)
+	resPutLock.Err = lrepository.PutLock(reqPutLock.IndexID, reqPutLock.Data)
 	if err := json.NewEncoder(w).Encode(resPutLock); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -179,7 +179,7 @@ func getLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetLock network.ResGetLock
-	data, err := lrepository.GetSnapshot(reqGetLock.IndexID)
+	data, err := lrepository.GetLock(reqGetLock.IndexID)
 	if err != nil {
 		resGetLock.Err = err
 	} else {
@@ -199,7 +199,7 @@ func deleteLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteLock network.ResDeleteLock
-	resDeleteLock.Err = lrepository.DeleteSnapshot(reqDeleteLock.IndexID)
+	resDeleteLock.Err = lrepository.DeleteLock(reqDeleteLock.IndexID)
 	if err := json.NewEncoder(w).Encode(resDeleteLock); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

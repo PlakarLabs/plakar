@@ -18,7 +18,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
+	"time"
 
+	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -30,6 +34,82 @@ func init() {
 func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
+
+	lock := locking.New(ctx.Hostname,
+		ctx.Username,
+		ctx.MachineID,
+		os.Getpid(),
+		true)
+	currentLockID, err := snapshot.PutLock(*repository, lock)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+	defer repository.DeleteLock(currentLockID)
+
+	locksID, err := repository.GetLocks()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+
+	for _, lockID := range locksID {
+		if lockID == currentLockID {
+			continue
+		}
+		if lock, err := snapshot.GetLock(repository, lockID); err != nil {
+			if os.IsNotExist(err) {
+				// was removed since we got the list
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return 1
+		} else {
+			if !lock.Expired(time.Minute * 15) {
+				fmt.Fprintf(os.Stderr, "can't put exclusive lock: %s has ongoing operations\n", repository.Location)
+				return 1
+			}
+		}
+	}
+
+	time.Sleep(1 * time.Minute)
+
+	/*
+
+		locksID, err := snapshot.repository.GetLocks()
+		if err != nil {
+			return err
+		}
+		for _, lockID := range locksID {
+			_ = lockID
+			t, _ := uuid.NewRandom()
+			if lock, err := GetLock(snapshot.repository, t); err != nil {
+				if os.IsNotExist(err) {
+					// was removed since we got the list
+					continue
+				}
+				return err
+			} else {
+				if lock.Exclusive && lock.Expired(time.Minute*15) {
+					return fmt.Errorf("can't push: %s is locked", snapshot.repository.Location)
+				}
+			}
+		}
+
+
+		lockDone := make(chan bool)
+		defer close(lockDone)
+		go func() {
+			for {
+				select {
+				case <-lockDone:
+					return
+				case <-time.After(5 * time.Minute):
+					snapshot.Lock()
+				}
+			}
+		}()
+	*/
 
 	blobs := make(map[[32]byte]bool)
 

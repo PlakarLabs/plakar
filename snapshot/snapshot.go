@@ -805,6 +805,37 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	}
 }
 
+func PutLock(repository storage.Repository, lock *locking.Lock) (uuid.UUID, error) {
+	lockID := uuid.Must(uuid.NewRandom())
+
+	buffer, err := lock.Serialize()
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	secret := repository.GetSecret()
+	compressionMethod := repository.Configuration().Compression
+
+	if compressionMethod != "" {
+		tmp, err := compression.Deflate(compressionMethod, buffer)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		buffer = tmp
+	}
+
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		buffer = tmp
+	}
+
+	return lockID, repository.PutLock(lockID, buffer)
+
+}
+
 func (snapshot *Snapshot) Lock() error {
 	lock := locking.New(snapshot.Header.Hostname,
 		snapshot.Header.Username,

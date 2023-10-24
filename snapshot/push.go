@@ -21,7 +21,6 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/google/uuid"
 )
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
@@ -190,17 +189,18 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 		return err
 	}
 	for _, lockID := range locksID {
-		_ = lockID
-		t, _ := uuid.NewRandom()
-		if lock, err := GetLock(snapshot.repository, t); err != nil {
+		if lockID == snapshot.Header.IndexID {
+			continue
+		}
+		if lock, err := GetLock(snapshot.repository, lockID); err != nil {
 			if os.IsNotExist(err) {
 				// was removed since we got the list
 				continue
 			}
 			return err
 		} else {
-			if lock.Exclusive && lock.Expired(time.Minute*15) {
-				return fmt.Errorf("can't push: %s is locked", snapshot.repository.Location)
+			if lock.Exclusive && !lock.Expired(time.Minute*15) {
+				return fmt.Errorf("can't push: %s is exclusively locked", snapshot.repository.Location)
 			}
 		}
 	}

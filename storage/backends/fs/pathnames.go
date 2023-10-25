@@ -23,6 +23,10 @@ import (
 	"github.com/google/uuid"
 )
 
+func (repository *Repository) PathTmp() string {
+	return filepath.Join(repository.root, "tmp")
+}
+
 func (repository *Repository) PathPurge() string {
 	return filepath.Join(repository.root, "purge")
 }

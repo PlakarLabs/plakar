@@ -69,6 +69,8 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
+
+	os.MkdirAll(filepath.Join(repository.root, "tmp"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
@@ -413,7 +415,7 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 }
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
-	f, err := os.CreateTemp("", fmt.Sprintf("%s.*", indexID))
+	f, err := os.CreateTemp(repository.PathTmp(), fmt.Sprintf("%s.*", indexID))
 	if err != nil {
 		return err
 	}

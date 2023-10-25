@@ -607,7 +607,6 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	defer func() {
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: PutPackfile(%064x)", snapshot.Header.GetIndexShortID(), pack)
 
 	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
@@ -619,6 +618,8 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	checksum := hasher.Sum(nil)
 	var checksum32 [32]byte
 	copy(checksum32[:], checksum[:])
+
+	logger.Trace("snapshot", "%s: PutPackfile(%016x, ...)", snapshot.Header.GetIndexShortID(), checksum32)
 	err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
 	if err != nil {
 		panic("could not write pack file")

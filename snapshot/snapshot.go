@@ -9,7 +9,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/packfile"
@@ -19,6 +18,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
+	"github.com/PlakarLabs/plakar/storage/locking"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
@@ -247,7 +247,6 @@ func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*header.Hea
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot", "cache.GetSnapshot(%s)", indexID)
 		tmp, err := cache.GetSnapshot(repository.Configuration().RepositoryID.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
@@ -268,7 +267,6 @@ func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*header.Hea
 	}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot", "cache.PutSnapshot(%s)", indexID)
 		cache.PutSnapshot(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
 	}
 
@@ -310,7 +308,6 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 
 	cacheMiss := false
 	if cache != nil {
-		logger.Trace("snapshot", "cache.GetBlob(%016x)", checksum)
 		tmp, err := cache.GetBlob(repository.Configuration().RepositoryID.String(), checksum)
 		if err != nil {
 			cacheMiss = true
@@ -331,7 +328,6 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	}
 
 	if cache != nil && cacheMiss {
-		logger.Trace("snapshot", "cache.PutBlob(%016x)", checksum)
 		cache.PutBlob(repository.Configuration().RepositoryID.String(), checksum, buffer)
 	}
 
@@ -363,9 +359,33 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sto
 		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
 	}()
 
-	buffer, err := repository.GetIndex(checksum)
-	if err != nil {
-		return nil, err
+	cache := repository.GetCache()
+
+	var buffer []byte
+
+	cacheMiss := false
+	if cache != nil {
+		tmp, err := cache.GetIndex(repository.Configuration().RepositoryID.String(), checksum)
+		if err != nil {
+			cacheMiss = true
+			logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
+			tmp, err = repository.GetIndex(checksum)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buffer = tmp
+	} else {
+		logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
+		tmp, err := repository.GetIndex(checksum)
+		if err != nil {
+			return nil, err
+		}
+		buffer = tmp
+	}
+
+	if cache != nil && cacheMiss {
+		cache.PutIndex(repository.Configuration().RepositoryID.String(), checksum, buffer)
 	}
 
 	secret := repository.GetSecret()

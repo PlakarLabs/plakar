@@ -479,6 +479,9 @@ func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, e
 		return nil, err
 	}
 
+	// XXX - we can clear the cache of any key prefixed by an index ID that's not in indexes
+	// do that later
+
 	repositoryIndex := storageIndex.New()
 	wg := sync.WaitGroup{}
 	for _, _indexID := range indexes {

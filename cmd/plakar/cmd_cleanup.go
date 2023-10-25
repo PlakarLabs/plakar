@@ -22,9 +22,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/storage/locking"
 )
 
 func init() {

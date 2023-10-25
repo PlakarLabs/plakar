@@ -31,8 +31,8 @@ func New(hostname string, username string, machineID string, processID int, excl
 func NewFromBytes(serialized []byte) (*Lock, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("locking.NewFromBytes", time.Since(t0))
-		logger.Trace("locking", "NewFromBytes(...): %s", time.Since(t0))
+		profiler.RecordEvent("storage.locking.NewFromBytes", time.Since(t0))
+		logger.Trace("storage.locking", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
 	var lock Lock
@@ -45,8 +45,8 @@ func NewFromBytes(serialized []byte) (*Lock, error) {
 func (lock *Lock) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("locking.Serialize", time.Since(t0))
-		logger.Trace("locking", "Serialize(): %s", time.Since(t0))
+		profiler.RecordEvent("storage.locking.Serialize", time.Since(t0))
+		logger.Trace("storage.locking", "Serialize(): %s", time.Since(t0))
 	}()
 
 	serialized, err := msgpack.Marshal(lock)

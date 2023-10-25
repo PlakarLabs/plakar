@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/storage/index"
@@ -114,10 +115,8 @@ type Repository struct {
 	wBytes uint64
 	rBytes uint64
 
-	wChan          chan bool
-	rChan          chan bool
-	sChan          chan bool
-	maxParallelism chan bool
+	writeSharedLock *locking.SharedLock
+	readSharedLock  *locking.SharedLock
 }
 
 func Register(name string, backend func() RepositoryBackend) {
@@ -189,41 +188,10 @@ func New(location string) (*Repository, error) {
 		repository := &Repository{}
 		repository.Location = location
 		repository.backend = backend()
-		//		repository.maxParallelism = make(chan bool, runtime.NumCPU()*8+1)
-		repository.wChan = make(chan bool, runtime.NumCPU()*8+1)
-		repository.rChan = make(chan bool, runtime.NumCPU()*8+1)
-		repository.sChan = make(chan bool, runtime.NumCPU()*8+1)
-
+		repository.writeSharedLock = locking.NewSharedLock("storage.write", runtime.NumCPU()*8+1)
+		repository.readSharedLock = locking.NewSharedLock("storage.read", runtime.NumCPU()*8+1)
 		return repository, nil
 	}
-}
-
-func (repository *Repository) SetMaxParallelism(parallelism int) {
-	if parallelism == 0 || parallelism == cap(repository.maxParallelism) {
-		return
-	}
-	repository.maxParallelism = make(chan bool, parallelism)
-}
-
-func (repository *Repository) SetReadParallelism(parallelism int) {
-	if parallelism == 0 || parallelism == cap(repository.rChan) {
-		return
-	}
-	repository.rChan = make(chan bool, parallelism)
-}
-
-func (repository *Repository) SetWriteParallelism(parallelism int) {
-	if parallelism == 0 || parallelism == cap(repository.wChan) {
-		return
-	}
-	repository.wChan = make(chan bool, parallelism)
-}
-
-func (repository *Repository) SetStatParallelism(parallelism int) {
-	if parallelism == 0 || parallelism == cap(repository.sChan) {
-		return
-	}
-	repository.sChan = make(chan bool, parallelism)
 }
 
 func (repository *Repository) SetRepositoryIndex(index *index.Index) {
@@ -232,51 +200,6 @@ func (repository *Repository) SetRepositoryIndex(index *index.Index) {
 
 func (repository *Repository) GetRepositoryIndex() *index.Index {
 	return repository.index
-}
-
-func (repository *Repository) wLock() {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.wLock", time.Since(t0))
-		logger.Trace("storage.locking", "wLock -> %d : %s", len(repository.wChan), time.Since(t0))
-	}()
-	//	repository.maxParallelism <- true
-	repository.wChan <- true
-}
-func (repository *Repository) wUnlock() {
-	<-repository.wChan
-	logger.Trace("storage.locking", "wUnlock -> %d", len(repository.wChan))
-	// <-repository.maxParallelism
-}
-
-func (repository *Repository) rLock() {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.rLock", time.Since(t0))
-		logger.Trace("storage.locking", "rLock -> %d : %s", len(repository.rChan), time.Since(t0))
-	}()
-	//	repository.maxParallelism <- true
-	repository.rChan <- true
-}
-func (repository *Repository) rUnlock() {
-	<-repository.rChan
-	logger.Trace("storage.locking", "rUnlock -> %d", len(repository.rChan))
-	// <-repository.maxParallelism
-}
-
-func (repository *Repository) sLock() {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("storage.sLock", time.Since(t0))
-		logger.Trace("storage.locking", "sLock -> %d : %s", len(repository.sChan), time.Since(t0))
-	}()
-	//	repository.maxParallelism <- true
-	repository.sChan <- true
-}
-func (repository *Repository) sUnlock() {
-	<-repository.sChan
-	logger.Trace("storage.locking", "sUnlock -> %d", len(repository.sChan))
-	// <-repository.maxParallelism
 }
 
 func Open(location string) (*Repository, error) {
@@ -390,8 +313,8 @@ func (repository *Repository) Configuration() RepositoryConfig {
 
 /* snapshots  */
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -402,8 +325,8 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 }
 
 func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -416,8 +339,8 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 }
 
 func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -435,8 +358,8 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -448,8 +371,8 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 
 /* locks */
 func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -460,8 +383,8 @@ func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
 }
 
 func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -474,8 +397,8 @@ func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
 }
 
 func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -493,8 +416,8 @@ func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -506,8 +429,8 @@ func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
 
 /* Packfiles */
 func (repository *Repository) GetPackfiles() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -518,8 +441,8 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 }
 
 func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -536,8 +459,8 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -549,8 +472,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -562,8 +485,8 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 /* Indexes */
 func (repository *Repository) GetIndexes() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -574,8 +497,8 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -587,8 +510,8 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 }
 
 func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -605,8 +528,8 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteIndex(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -618,8 +541,8 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 
 /* Blobs */
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -630,8 +553,8 @@ func (repository *Repository) GetBlobs() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -643,8 +566,8 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 }
 
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	repository.rLock()
-	defer repository.rUnlock()
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -660,8 +583,8 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 func (repository *Repository) DeleteBlob(checksum [32]byte) error {
-	repository.sLock()
-	defer repository.sUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -681,8 +604,8 @@ func (repository *Repository) Close() error {
 }
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
-	repository.wLock()
-	defer repository.wUnlock()
+	repository.writeSharedLock.Lock()
+	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {

@@ -72,77 +72,16 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		}
 	}
 
-	/*
-
-		locksID, err := snapshot.repository.GetLocks()
-		if err != nil {
-			return err
-		}
-		for _, lockID := range locksID {
-			_ = lockID
-			t, _ := uuid.NewRandom()
-			if lock, err := GetLock(snapshot.repository, t); err != nil {
-				if os.IsNotExist(err) {
-					// was removed since we got the list
-					continue
-				}
-				return err
-			} else {
-				if lock.Exclusive && lock.Expired(time.Minute*15) {
-					return fmt.Errorf("can't push: %s is locked", snapshot.repository.Location)
-				}
-			}
-		}
-
-
-		lockDone := make(chan bool)
-		defer close(lockDone)
-		go func() {
-			for {
-				select {
-				case <-lockDone:
-					return
-				case <-time.After(5 * time.Minute):
-					snapshot.Lock()
-				}
-			}
-		}()
-	*/
-
-	blobs := make(map[[32]byte]bool)
-
-	// cleanup packfiles
-	// cleanup indexes
-
-	indexesList, err := repository.GetSnapshots()
-	if err != nil {
-		return 1
-	}
-
-	for _, indexID := range indexesList {
-		s, err := snapshot.Load(repository, indexID)
-		if err != nil {
-			return 1
-		}
-
-		var blobID [32]byte
-		copy(blobID[:], s.Header.IndexChecksum[:32])
-		blobs[blobID] = true
-
-		copy(blobID[:], s.Header.FilesystemChecksum[:32])
-		blobs[blobID] = true
-	}
-
-	blobList, err := repository.GetBlobs()
-	if err != nil {
-		return 1
-	}
-
-	for _, blobID := range blobList {
-		if _, exists := blobs[blobID]; !exists {
-			repository.DeleteBlob(blobID)
-		}
-	}
+	// the cleanup algorithm is a bit tricky and needs to be done in the correct sequence,
+	// here's what it has to do:
+	//
+	// 1. fetch all snapshot indexes to figure out which blobs, objects and chunks are used
+	// 2. blobs that are no longer in use can be be removed
+	// 3. for each object and chunk, track which packfiles contain them
+	// 4. if objects or chunks are present in more than one packfile...
+	// 5. decide which one keeps it and a new packfile has to be generated for the other that contains everything BUT the object/chunk
+	// 6. update indexes to reflect the new packfile
+	// 7. save the new index
 
 	return 0
 }

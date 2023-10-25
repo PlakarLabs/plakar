@@ -297,13 +297,10 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			hasher.Write([]byte(_filename))
 			pathnameChecksum := hasher.Sum(nil)
-			pathnameID := snapshot.Filesystem.GetPathnameID(_filename)
-
 			key := [32]byte{}
 			copy(key[:], pathnameChecksum)
 
-			snapshot.Index.RecordPathnameChecksum(key, pathnameID)
-			snapshot.Index.LinkPathnameToObject(pathnameID, object)
+			snapshot.Index.LinkPathnameToObject(key, object)
 			atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(fileinfo.Size()))
 		}(filename)
 	}

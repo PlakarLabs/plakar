@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -51,8 +52,12 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	snapshot := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	pathnameID := snapshot.Filesystem.GetPathnameID(pathname)
-	object := snapshot.Index.LookupObjectForPathname(pathnameID)
+	hasher := encryption.GetHasher(repository.Configuration().Hashing)
+	hasher.Write([]byte(pathname))
+	pathnameChecksum := hasher.Sum(nil)
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 	if object == nil {
 		return 0
 	}

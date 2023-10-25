@@ -101,8 +101,12 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			}
 			dest = filepath.Clean(dest)
 
-			pathnameID := snapshot.Filesystem.GetPathnameID(file)
-			object := snapshot.Index.LookupObjectForPathname(pathnameID)
+			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+			hasher.Write([]byte(file))
+			pathnameChecksum := hasher.Sum(nil)
+			key := [32]byte{}
+			copy(key[:], pathnameChecksum)
+			object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 			if object == nil {
 				logger.Warn("skipping %s", rel)
 				return

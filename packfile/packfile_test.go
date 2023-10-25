@@ -15,8 +15,8 @@ func TestPackFile(t *testing.T) {
 	checksum2 := [32]byte{2} // Mock checksum for chunk2
 
 	// Test AddChunk
-	p.AddData(checksum1, chunk1)
-	p.AddData(checksum2, chunk2)
+	p.AddData(1, checksum1, chunk1)
+	p.AddData(2, checksum2, chunk2)
 
 	// Test GetChunk
 	retrievedChunk1, exists := p.GetChunk(checksum1)
@@ -40,8 +40,8 @@ func TestPackFileSerialization(t *testing.T) {
 	checksum2 := [32]byte{2} // Mock checksum for chunk2
 
 	// Test AddChunk
-	p.AddData(checksum1, chunk1)
-	p.AddData(checksum2, chunk2)
+	p.AddData(1, checksum1, chunk1)
+	p.AddData(2, checksum2, chunk2)
 
 	// Test Serialize and NewFromBytes
 	serialized, err := p.Serialize()

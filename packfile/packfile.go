@@ -11,9 +11,15 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 )
 
+const (
+	TYPE_CHUNK  = 1
+	TYPE_OBJECT = 2
+)
+
 type Chunk struct {
-	Offset uint32
-	Length uint32
+	DataType uint8
+	Offset   uint32
+	Length   uint32
 }
 
 type PackFile struct {
@@ -61,9 +67,13 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 	p := New()
 	p.Data = data
 	for remaining > 0 {
+		var dataType uint8
 		var checksum [32]byte
 		var chunkOffset uint32
 		var chunkLength uint32
+		if err := binary.Read(reader, binary.LittleEndian, &dataType); err != nil {
+			return nil, err
+		}
 		if err := binary.Read(reader, binary.LittleEndian, &checksum); err != nil {
 			return nil, err
 		}
@@ -99,6 +109,9 @@ func (p *PackFile) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	for checksum, chunk := range p.Index {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.DataType); err != nil {
+			return nil, err
+		}
 		if err := binary.Write(&buffer, binary.LittleEndian, checksum); err != nil {
 			return nil, err
 		}
@@ -116,7 +129,7 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (p *PackFile) AddData(checksum [32]byte, data []byte) {
+func (p *PackFile) AddData(dataType uint8, checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("packfile.AddChunk", time.Since(t0))
@@ -124,7 +137,7 @@ func (p *PackFile) AddData(checksum [32]byte, data []byte) {
 	}()
 
 	if _, exists := p.Index[checksum]; !exists {
-		p.Index[checksum] = Chunk{uint32(len(p.Data)), uint32(len(data))}
+		p.Index[checksum] = Chunk{dataType, uint32(len(p.Data)), uint32(len(data))}
 		p.Data = append(p.Data, data...)
 	}
 }

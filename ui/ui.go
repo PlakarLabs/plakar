@@ -31,6 +31,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
@@ -353,8 +354,12 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	pathnameID := snap.Filesystem.GetPathnameID(path)
-	object := snap.Index.LookupObjectForPathname(pathnameID)
+	hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
+	hasher.Write([]byte(path))
+	pathnameChecksum := hasher.Sum(nil)
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+	object := snap.Index.LookupObjectForPathnameChecksum(key)
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -431,8 +436,12 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	pathnameID := snap.Filesystem.GetPathnameID(path)
-	object := snap.Index.LookupObjectForPathname(pathnameID)
+	hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
+	hasher.Write([]byte(path))
+	pathnameChecksum := hasher.Sum(nil)
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+	object := snap.Index.LookupObjectForPathnameChecksum(key)
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -567,8 +576,12 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, file := range snap.Filesystem.ListStat() {
 			if strings.Contains(file, q) {
-				pathnameID := snap.Filesystem.GetPathnameID(file)
-				object := snap.Index.LookupObjectForPathname(pathnameID)
+				hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
+				hasher.Write([]byte(file))
+				pathnameChecksum := hasher.Sum(nil)
+				key := [32]byte{}
+				copy(key[:], pathnameChecksum)
+				object := snap.Index.LookupObjectForPathnameChecksum(key)
 				if object != nil {
 					object.ContentType, _ = snap.Metadata.LookupKeyForValue("Content-Type", object.Checksum)
 					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {

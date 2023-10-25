@@ -107,7 +107,7 @@ func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 	var key [32]byte
 	copy(key[:], pathnameHash[:32])
 
-	object := snapshot.Index.LookupObjectForPathnameHash(key)
+	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 	if object == nil {
 		return nil, os.ErrNotExist
 	}

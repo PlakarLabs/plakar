@@ -26,6 +26,7 @@ import (
 	"os/user"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
@@ -150,10 +151,14 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			pathnameID1 := snapshot1.Filesystem.GetPathnameID(args[i])
-			pathnameID2 := snapshot2.Filesystem.GetPathnameID(args[i])
-			object1 := snapshot1.Index.LookupObjectForPathname(pathnameID1)
-			object2 := snapshot2.Index.LookupObjectForPathname(pathnameID2)
+			hasher := encryption.GetHasher(snapshot1.Repository().Configuration().Hashing)
+			hasher.Write([]byte(args[i]))
+			pathnameChecksum := hasher.Sum(nil)
+			key := [32]byte{}
+			copy(key[:], pathnameChecksum)
+			object1 := snapshot1.Index.LookupObjectForPathnameChecksum(key)
+			object2 := snapshot2.Index.LookupObjectForPathnameChecksum(key)
+
 			if object1 == nil && object2 == nil {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
 			}
@@ -186,10 +191,19 @@ func fiToDiff(fi vfs.FileInfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	pathnameID1 := snapshot1.Filesystem.GetPathnameID(filename1)
-	pathnameID2 := snapshot2.Filesystem.GetPathnameID(filename2)
-	object1 := snapshot1.Index.LookupObjectForPathname(pathnameID1)
-	object2 := snapshot2.Index.LookupObjectForPathname(pathnameID2)
+	hasher := encryption.GetHasher(snapshot1.Repository().Configuration().Hashing)
+	hasher.Write([]byte(filename1))
+	pathnameChecksum := hasher.Sum(nil)
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+	object1 := snapshot1.Index.LookupObjectForPathnameChecksum(key)
+
+	hasher = encryption.GetHasher(snapshot2.Repository().Configuration().Hashing)
+	hasher.Write([]byte(filename2))
+	pathnameChecksum = hasher.Sum(nil)
+	key = [32]byte{}
+	copy(key[:], pathnameChecksum)
+	object2 := snapshot2.Index.LookupObjectForPathnameChecksum(key)
 
 	// file does not exist in either snapshot
 	if object1 == nil && object2 == nil {

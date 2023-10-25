@@ -103,15 +103,15 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, index := range indexes {
 			jindex := JSONIndex{}
 			jindex.ContentTypes = make(map[string]uint32)
-			jindex.Pathnames = make(map[uint32]uint64)
+			//jindex.Pathnames = make(map[uint32]uint32)
 			jindex.Objects = make(map[uint32]*JSONObject)
 			jindex.Chunks = make(map[uint32]*JSONChunk)
 			jindex.ChunkToObjects = make(map[uint32][]uint32)
 			jindex.ObjectToPathnames = make(map[uint32][]uint32)
 
-			for checksumID, pathnameID := range index.Pathnames {
-				jindex.Pathnames[checksumID] = pathnameID
-			}
+			//for checksumID, pathnameID := range index.Pathnames {
+			//	jindex.Pathnames[checksumID] = pathnameID
+			//}
 
 			for checksumID, objectChunks := range index.Objects {
 				jobject := &JSONObject{
@@ -133,13 +133,14 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 				jindex.Chunks[checksumID] = jchunk
 			}
 
-			for checksum, objects := range index.ChunkToObjects {
-				jindex.ChunkToObjects[checksum] = make([]uint32, 0)
-				for _, objChecksum := range objects {
-					jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
+			/*
+				for checksum, objects := range index.ChunkToObjects {
+					jindex.ChunkToObjects[checksum] = make([]uint32, 0)
+					for _, objChecksum := range objects {
+						jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
+					}
 				}
-			}
-
+			*/
 			//for checksumID, pathnames := range index.ObjectToPathnames {
 			//	jindex.ObjectToPathnames[checksumID] = pathnames
 			//}

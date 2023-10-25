@@ -62,8 +62,13 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 }
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
-	pathnameID := snapshot.Filesystem.GetPathnameID(resource)
-	object := snapshot.Index.LookupObjectForPathname(pathnameID)
+	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	hasher.Write([]byte(resource))
+	pathnameChecksum := hasher.Sum(nil)
+	key := [32]byte{}
+	copy(key[:], pathnameChecksum)
+
+	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 	if object == nil {
 		logger.Warn("%s: no such file %s", snapshot.Header.GetIndexShortID(), resource)
 		return false, nil
@@ -138,8 +143,12 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	}
 
 	for _, file := range snapshot.Filesystem.ListFiles() {
-		pathnameID := snapshot.Filesystem.GetPathnameID(file)
-		object := snapshot.Index.LookupObjectForPathname(pathnameID)
+		hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		hasher.Write([]byte(file))
+		pathnameChecksum := hasher.Sum(nil)
+		key := [32]byte{}
+		copy(key[:], pathnameChecksum)
+		object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 		if object == nil {
 			logger.Warn("%s: unlisted object for file %s", snapshot.Header.GetIndexShortID(), file)
 			ret = false

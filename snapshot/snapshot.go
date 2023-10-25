@@ -84,11 +84,11 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 					}
 					switch msg := msg.(type) {
 					case *PackerObjectMsg:
-						pack.AddData(msg.Checksum, msg.Data)
+						pack.AddData(packfile.TYPE_OBJECT, msg.Checksum, msg.Data)
 						objects[msg.Checksum] = struct{}{}
 
 					case *PackerChunkMsg:
-						pack.AddData(msg.Checksum, msg.Data)
+						pack.AddData(packfile.TYPE_CHUNK, msg.Checksum, msg.Data)
 						chunks[msg.Checksum] = struct{}{}
 
 					default:

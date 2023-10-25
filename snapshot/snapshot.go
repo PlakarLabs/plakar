@@ -923,9 +923,9 @@ func (snapshot *Snapshot) Commit() error {
 			return err
 		}
 
-		for _, indexID := range snapshot.Repository().GetRepositoryIndex().ListContains() {
-			snapshot.repository.DeleteIndex(indexID)
-		}
+		//for _, indexID := range snapshot.Repository().GetRepositoryIndex().ListContains() {
+		//	snapshot.repository.DeleteIndex(indexID)
+		//}
 	}
 
 	serializedIndex, err := snapshot.Index.Serialize()

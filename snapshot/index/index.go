@@ -44,27 +44,6 @@ func NewIndex() *Index {
 	}
 }
 
-/*
-func NewIndexFromBytes(serialized []byte) (*Index, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("index.NewIndexFromBytes", time.Since(t0))
-		logger.Trace("index", "NewIndexFromBytes(...): %s", time.Since(t0))
-	}()
-
-	var index Index
-	if err := msgpack.Unmarshal(serialized, &index); err != nil {
-		return nil, err
-	}
-
-	index.checksumsInverse = make(map[uint32][32]byte)
-	for checksum, checksumID := range index.Checksums {
-		index.checksumsInverse[checksumID] = checksum
-	}
-	return &index, nil
-}
-*/
-
 func NewIndexFromBytes(serialized []byte) (*Index, error) {
 	buffer := bytes.NewReader(serialized)
 	index := &Index{
@@ -292,37 +271,6 @@ func (index *Index) Serialize() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-/*
-func (index *Index) Serialize() ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("index.Serialize", time.Since(t0))
-		logger.Trace("index", "Serialize(): %s", time.Since(t0))
-	}()
-
-	t1 := time.Now()
-	b, err := index.normalize()
-	fmt.Printf("index.normalize() = %d bytes: %016x\n", len(b), sha256.Sum256(b))
-	fmt.Println("index.normalize():", time.Since(t1))
-	if err != nil {
-		return nil, err
-	}
-	_ = b
-
-	t2 := time.Now()
-	serialized, err := msgpack.Marshal(index)
-	fmt.Printf("index.msgpack() = %d bytes: %016x\n", len(serialized), sha256.Sum256(serialized))
-	fmt.Println("index.msgpack():", time.Since(t2))
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("index.Serialize(): %016x\n", sha256.Sum256(serialized))
-
-	return serialized, nil
-}
-*/
-
 // checksums
 func (index *Index) addChecksum(checksum [32]byte) uint32 {
 	index.muChecksums.Lock()
@@ -355,17 +303,6 @@ func (index *Index) IdToChecksum(checksumID uint32) ([32]byte, bool) {
 	return checksum, exists
 }
 
-/*
-	func (index *Index) linkChunkToObject(chunkChecksumID uint32, objectChecksumID uint32) {
-		index.muChunks.Lock()
-		defer index.muChunks.Unlock()
-
-		if _, exists := index.ChunkToObjects[chunkChecksumID]; !exists {
-			index.ChunkToObjects[chunkChecksumID] = make([]uint32, 0)
-		}
-		index.ChunkToObjects[chunkChecksumID] = append(index.ChunkToObjects[chunkChecksumID], objectChecksumID)
-	}
-*/
 func (index *Index) ListObjects() [][32]byte {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()

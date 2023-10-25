@@ -88,6 +88,7 @@ type RepositoryBackend interface {
 	GetPackfiles() ([][32]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
 	GetPackfile(checksum [32]byte) ([]byte, error)
+	//GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
 
 	Commit(indexID uuid.UUID, data []byte) error

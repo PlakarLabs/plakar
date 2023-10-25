@@ -626,11 +626,11 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	}
 
 	for _, chunkChecksum := range chunks {
-		snapshot.Repository().GetRepositoryIndex().SetPackfileForChunk(checksum32, chunkChecksum)
+		snapshot.Repository().GetRepositoryIndex().SetPackfileForChunk(checksum32, chunkChecksum, pack.Index[chunkChecksum].Offset, pack.Index[chunkChecksum].Length)
 	}
 
 	for _, objectChecksum := range objects {
-		snapshot.Repository().GetRepositoryIndex().SetPackfileForObject(checksum32, objectChecksum)
+		snapshot.Repository().GetRepositoryIndex().SetPackfileForObject(checksum32, objectChecksum, pack.Index[objectChecksum].Offset, pack.Index[objectChecksum].Length)
 	}
 
 	return nil

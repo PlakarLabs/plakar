@@ -26,6 +26,12 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Subpart struct {
+	PackfileID uint32
+	Offset     uint32
+	Length     uint32
+}
+
 type Index struct {
 	muChecksums      sync.Mutex
 	checksumID       uint32
@@ -33,10 +39,10 @@ type Index struct {
 	checksumsInverse map[uint32][32]byte
 
 	muChunks sync.Mutex
-	Chunks   map[uint32]uint32
+	Chunks   map[uint32]Subpart
 
 	muObjects sync.Mutex
-	Objects   map[uint32]uint32
+	Objects   map[uint32]Subpart
 
 	muContains sync.Mutex
 	Contains   map[uint32]struct{}
@@ -48,8 +54,8 @@ func New() *Index {
 	return &Index{
 		Checksums:        make(map[[32]byte]uint32),
 		checksumsInverse: make(map[uint32][32]byte),
-		Chunks:           make(map[uint32]uint32),
-		Objects:          make(map[uint32]uint32),
+		Chunks:           make(map[uint32]Subpart),
+		Objects:          make(map[uint32]Subpart),
 		Contains:         make(map[uint32]struct{}),
 	}
 }
@@ -129,19 +135,23 @@ func (index *Index) Merge(indexID [32]byte, deltaIndex *Index) {
 	deltaIndex.muChecksums.Unlock()
 
 	deltaIndex.muChunks.Lock()
-	for deltaChunkChecksumID, deltaPackfileChecksumID := range deltaIndex.Chunks {
+	for deltaChunkChecksumID, subpart := range deltaIndex.Chunks {
 		index.SetPackfileForChunk(
-			deltaIndex.LookupChecksum(deltaPackfileChecksumID),
+			deltaIndex.LookupChecksum(subpart.PackfileID),
 			deltaIndex.LookupChecksum(deltaChunkChecksumID),
+			subpart.Offset,
+			subpart.Length,
 		)
 	}
 	deltaIndex.muChunks.Unlock()
 
 	deltaIndex.muObjects.Lock()
-	for deltaObjectChecksumID, deltaPackfileChecksumID := range deltaIndex.Objects {
+	for deltaObjectChecksumID, subpart := range deltaIndex.Objects {
 		index.SetPackfileForObject(
-			deltaIndex.LookupChecksum(deltaPackfileChecksumID),
+			deltaIndex.LookupChecksum(subpart.PackfileID),
 			deltaIndex.LookupChecksum(deltaObjectChecksumID),
+			subpart.Offset,
+			subpart.Length,
 		)
 	}
 	deltaIndex.muObjects.Unlock()
@@ -151,14 +161,18 @@ func (index *Index) Merge(indexID [32]byte, deltaIndex *Index) {
 	index.muContains.Unlock()
 }
 
-func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte) {
+func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
 
 	chunkID := index.addChecksum(chunkChecksum)
 	if _, exists := index.Chunks[chunkID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
-		index.Chunks[chunkID] = packfileID
+		index.Chunks[chunkID] = Subpart{
+			PackfileID: packfileID,
+			Offset:     packfileOffset,
+			Length:     chunkLength,
+		}
 		atomic.StoreInt32(&index.dirty, 1)
 	}
 }
@@ -168,16 +182,34 @@ func (index *Index) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool)
 	defer index.muChunks.Unlock()
 
 	chunkID := index.addChecksum(chunkChecksum)
-	if packfileID, exists := index.Chunks[chunkID]; !exists {
+	if subpart, exists := index.Chunks[chunkID]; !exists {
 		return [32]byte{}, false
 	} else {
 		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[packfileID]
+		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
 		index.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
 		return packfileChecksum, true
+	}
+}
+
+func (index *Index) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
+
+	chunkID := index.addChecksum(chunkChecksum)
+	if subpart, exists := index.Chunks[chunkID]; !exists {
+		return [32]byte{}, 0, 0, false
+	} else {
+		index.muChecksums.Lock()
+		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
+		index.muChecksums.Unlock()
+		if !exists {
+			panic("packfile checksum not found")
+		}
+		return packfileChecksum, subpart.Offset, subpart.Length, true
 	}
 }
 
@@ -193,14 +225,18 @@ func (index *Index) ChunkExists(chunkChecksum [32]byte) bool {
 	}
 }
 
-func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte) {
+func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
 
 	objectID := index.addChecksum(objectChecksum)
 	if _, exists := index.Objects[objectID]; !exists {
 		packfileID := index.addChecksum(packfileChecksum)
-		index.Objects[objectID] = packfileID
+		index.Objects[objectID] = Subpart{
+			PackfileID: packfileID,
+			Offset:     packfileOffset,
+			Length:     chunkLength,
+		}
 		atomic.StoreInt32(&index.dirty, 1)
 	}
 }
@@ -210,16 +246,34 @@ func (index *Index) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, boo
 	defer index.muObjects.Unlock()
 
 	objectID := index.addChecksum(objectChecksum)
-	if packfileID, exists := index.Objects[objectID]; !exists {
+	if subpart, exists := index.Objects[objectID]; !exists {
 		return [32]byte{}, false
 	} else {
 		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[packfileID]
+		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
 		index.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
 		return packfileChecksum, true
+	}
+}
+
+func (index *Index) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+	index.muObjects.Lock()
+	defer index.muObjects.Unlock()
+
+	objectID := index.addChecksum(objectChecksum)
+	if subpart, exists := index.Objects[objectID]; !exists {
+		return [32]byte{}, 0, 0, false
+	} else {
+		index.muChecksums.Lock()
+		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
+		index.muChecksums.Unlock()
+		if !exists {
+			panic("packfile checksum not found")
+		}
+		return packfileChecksum, subpart.Offset, subpart.Length, true
 	}
 }
 

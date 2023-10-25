@@ -34,12 +34,14 @@ func init() {
 
 func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_nospawn bool
+	var opt_addr string
 
 	flags := flag.NewFlagSet("ui", flag.ExitOnError)
 	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
+	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
 	flags.Parse(args)
 
-	err := ui.Ui(repository, !opt_nospawn)
+	err := ui.Ui(repository, opt_addr, !opt_nospawn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

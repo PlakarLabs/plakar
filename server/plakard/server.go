@@ -505,6 +505,31 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqGetPackfileSubpart":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: GetPackfileSubpart(%016x, %d, %d)", clientUuid,
+					request.Payload.(network.ReqGetPackfileSubpart).Checksum,
+					request.Payload.(network.ReqGetPackfileSubpart).Offset,
+					request.Payload.(network.ReqGetPackfileSubpart).Length)
+				data, err := lrepository.GetPackfileSubpart(request.Payload.(network.ReqGetPackfile).Checksum,
+					request.Payload.(network.ReqGetPackfileSubpart).Offset,
+					request.Payload.(network.ReqGetPackfileSubpart).Length)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResGetPackfileSubpart",
+					Payload: network.ResGetPackfileSubpart{
+						Data: data,
+						Err:  err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqDeletePackfile":
 			wg.Add(1)
 			go func() {

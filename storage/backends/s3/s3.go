@@ -449,6 +449,30 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return dataBytes, nil
 }
 
+func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	opts := minio.GetObjectOptions{}
+	opts.SetRange(int64(offset), int64(offset+length))
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), opts)
+	if err != nil {
+		return nil, err
+	}
+	stat, err := object.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	dataBytes := make([]byte, stat.Size)
+	_, err = object.Read(dataBytes)
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
+	}
+	object.Close()
+
+	return dataBytes[offset : offset+length], nil
+}
+
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {

@@ -615,7 +615,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(repository *storage.Repository, spawn bool) error {
+func Ui(repository *storage.Repository, addr string, spawn bool) error {
 	lrepository = repository
 	lcache = nil
 
@@ -647,16 +647,20 @@ func Ui(repository *storage.Repository, spawn bool) error {
 	}
 	templates[t.Name()] = t
 
-	var port uint16
-	for {
-		port = uint16(rand.Uint32() % 0xffff)
-		if port >= 1024 {
-			break
+	var url string
+	if addr != "" {
+		url = fmt.Sprintf("http://%s", addr)
+	} else {
+		var port uint16
+		for {
+			port = uint16(rand.Uint32() % 0xffff)
+			if port >= 1024 {
+				break
+			}
 		}
+		addr = fmt.Sprintf("localhost:%d", port)
+		url = fmt.Sprintf("http://%s", addr)
 	}
-
-	url := fmt.Sprintf("http://localhost:%d", port)
-
 	fmt.Println("lauching browser UI pointing at", url)
 	if spawn {
 		switch runtime.GOOS {
@@ -681,5 +685,5 @@ func Ui(repository *storage.Repository, spawn bool) error {
 
 	r.HandleFunc("/search", search_snapshots)
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), r)
+	return http.ListenAndServe(addr, r)
 }

@@ -404,6 +404,26 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getPackfileSubpart(w http.ResponseWriter, r *http.Request) {
+	var reqGetPackfileSubpart network.ReqGetPackfileSubpart
+	if err := json.NewDecoder(r.Body).Decode(&reqGetPackfileSubpart); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resGetPackfileSubpart network.ResGetPackfileSubpart
+	data, err := lrepository.GetPackfileSubpart(reqGetPackfileSubpart.Checksum, reqGetPackfileSubpart.Offset, reqGetPackfileSubpart.Length)
+	if err != nil {
+		resGetPackfileSubpart.Err = err
+	} else {
+		resGetPackfileSubpart.Data = data
+	}
+	if err := json.NewEncoder(w).Encode(resGetPackfileSubpart); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	var reqDeletePackfile network.ReqDeletePackfile
 	if err := json.NewDecoder(r.Body).Decode(&reqDeletePackfile); err != nil {
@@ -452,6 +472,7 @@ func Server(repository *storage.Repository, addr string) error {
 	r.HandleFunc("/packfiles", getPackfiles).Methods("GET")
 	r.HandleFunc("/packfile", putPackfile).Methods("PUT")
 	r.HandleFunc("/packfile", getPackfile).Methods("GET")
+	r.HandleFunc("/packfile/subpart", getPackfileSubpart).Methods("GET")
 	r.HandleFunc("/packfile", deletePackfile).Methods("DELETE")
 
 	return http.ListenAndServe(addr, r)

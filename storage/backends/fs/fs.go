@@ -19,6 +19,7 @@ package fs
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -275,6 +276,24 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 		return nil, err
 	}
 
+	return data, nil
+}
+
+func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	fp, err := os.Open(repository.PathPackfile(checksum))
+	if err != nil {
+		return nil, err
+	}
+	defer fp.Close()
+
+	if _, err := fp.Seek(int64(offset), io.SeekStart); err != nil {
+		return nil, err
+	}
+
+	data := make([]byte, length)
+	if _, err := fp.Read(data); err != nil {
+		return nil, err
+	}
 	return data, nil
 }
 

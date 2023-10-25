@@ -214,6 +214,17 @@ type ResGetPackfile struct {
 	Err  error
 }
 
+type ReqGetPackfileSubpart struct {
+	Checksum [32]byte
+	Offset   uint32
+	Length   uint32
+}
+
+type ResGetPackfileSubpart struct {
+	Data []byte
+	Err  error
+}
+
 type ReqDeletePackfile struct {
 	Checksum [32]byte
 }
@@ -284,6 +295,9 @@ func ProtocolRegister() {
 
 	gob.Register(ReqGetPackfile{})
 	gob.Register(ResGetPackfile{})
+
+	gob.Register(ReqGetPackfileSubpart{})
+	gob.Register(ResGetPackfileSubpart{})
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})

@@ -754,24 +754,14 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, exists := snapshot.Repository().GetRepositoryIndex().GetPackfileForChunk(checksum)
+	packfileChecksum, offset, length, exists := snapshot.Repository().GetRepositoryIndex().GetSubpartForChunk(checksum)
 	if !exists {
 		return nil, fmt.Errorf("packfile not found")
 	}
 
-	packfileSerialized, err := snapshot.repository.GetPackfile(packfileChecksum)
+	buffer, err := snapshot.repository.GetPackfileSubpart(packfileChecksum, offset, length)
 	if err != nil {
 		return nil, err
-	}
-
-	packfile, err := packfile.NewFromBytes(packfileSerialized)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, exists := packfile.GetChunk(checksum)
-	if !exists {
-		return nil, fmt.Errorf("chunk not found in packfile")
 	}
 
 	repository := snapshot.repository

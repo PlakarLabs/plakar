@@ -555,6 +555,15 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
+func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT substr(data, ?, ?) FROM packfiles WHERE checksum=?`, offset+1, length, checksum[:]).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	statement, err := repository.conn.Prepare(`DELETE FROM packfiles WHERE checksum=?`)
 	if err != nil {

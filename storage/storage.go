@@ -88,7 +88,7 @@ type RepositoryBackend interface {
 	GetPackfiles() ([][32]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
 	GetPackfile(checksum [32]byte) ([]byte, error)
-	//GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
+	GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
 
 	Commit(indexID uuid.UUID, data []byte) error
@@ -452,6 +452,24 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	}()
 
 	data, err := repository.backend.GetPackfile(checksum)
+	if err != nil {
+		return nil, err
+	}
+	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
+	return data, nil
+}
+
+func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.GetPackfileSubpart", time.Since(t0))
+		logger.Trace("storage", "GetPackfileSubpart(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
+	}()
+
+	data, err := repository.backend.GetPackfileSubpart(checksum, offset, length)
 	if err != nil {
 		return nil, err
 	}

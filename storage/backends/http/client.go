@@ -443,6 +443,26 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return resGetPackfile.Data, nil
 }
 
+func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileSubpart{
+		Checksum: checksum,
+		Offset:   offset,
+		Length:   length,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var resGetPackfileSubpart network.ResGetPackfileSubpart
+	if err := json.NewDecoder(r.Body).Decode(&resGetPackfileSubpart); err != nil {
+		return nil, err
+	}
+	if resGetPackfileSubpart.Err != nil {
+		return nil, resGetPackfileSubpart.Err
+	}
+	return resGetPackfileSubpart.Data, nil
+}
+
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	r, err := repository.sendRequest("DELETE", repository.Repository, "/packfile", network.ReqDeletePackfile{
 		Checksum: checksum,

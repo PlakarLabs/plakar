@@ -912,10 +912,6 @@ func (snapshot *Snapshot) Commit() error {
 		if err != nil {
 			return err
 		}
-
-		//for _, indexID := range snapshot.Repository().GetRepositoryIndex().ListContains() {
-		//	snapshot.repository.DeleteIndex(indexID)
-		//}
 	}
 
 	serializedIndex, err := snapshot.Index.Serialize()
@@ -929,14 +925,17 @@ func (snapshot *Snapshot) Commit() error {
 	indexChecksum32 := [32]byte{}
 	copy(indexChecksum32[:], indexChecksum[:])
 
-	nbytes, err := snapshot.PutBlob(indexChecksum32, serializedIndex)
-	if err != nil {
+	if exists, err := snapshot.repository.CheckBlob(indexChecksum32); err != nil {
 		return err
+	} else if !exists {
+		_, err := snapshot.PutBlob(indexChecksum32, serializedIndex)
+		if err != nil {
+			return err
+		}
 	}
 
 	snapshot.Header.IndexChecksum = indexChecksum32
-	snapshot.Header.IndexMemorySize = uint64(len(serializedIndex))
-	snapshot.Header.IndexDiskSize = uint64(nbytes)
+	snapshot.Header.IndexSize = uint64(len(serializedIndex))
 
 	serializedFilesystem, err := snapshot.Filesystem.Serialize()
 	if err != nil {
@@ -949,14 +948,17 @@ func (snapshot *Snapshot) Commit() error {
 	var filesystemChecksum32 [32]byte
 	copy(filesystemChecksum32[:], filesystemChecksum[:])
 
-	nbytes, err = snapshot.PutBlob(filesystemChecksum32, serializedFilesystem)
-	if err != nil {
+	if exists, err := snapshot.repository.CheckBlob(filesystemChecksum32); err != nil {
 		return err
+	} else if !exists {
+		_, err = snapshot.PutBlob(filesystemChecksum32, serializedFilesystem)
+		if err != nil {
+			return err
+		}
 	}
 
 	snapshot.Header.FilesystemChecksum = filesystemChecksum32
-	snapshot.Header.FilesystemMemorySize = uint64(len(serializedFilesystem))
-	snapshot.Header.FilesystemDiskSize = uint64(nbytes)
+	snapshot.Header.FilesystemSize = uint64(len(serializedFilesystem))
 
 	serializedMetadata, err := snapshot.Metadata.Serialize()
 	if err != nil {
@@ -969,14 +971,17 @@ func (snapshot *Snapshot) Commit() error {
 	var metadataChecksum32 [32]byte
 	copy(metadataChecksum32[:], metadataChecksum[:])
 
-	nbytes, err = snapshot.PutBlob(metadataChecksum32, serializedMetadata)
-	if err != nil {
+	if exists, err := snapshot.repository.CheckBlob(metadataChecksum32); err != nil {
 		return err
+	} else if !exists {
+		_, err := snapshot.PutBlob(metadataChecksum32, serializedMetadata)
+		if err != nil {
+			return err
+		}
 	}
 
 	snapshot.Header.MetadataChecksum = metadataChecksum32
-	snapshot.Header.MetadataMemorySize = uint64(len(serializedMetadata))
-	snapshot.Header.MetadataDiskSize = uint64(nbytes)
+	snapshot.Header.MetadataSize = uint64(len(serializedMetadata))
 
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {

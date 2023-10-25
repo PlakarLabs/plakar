@@ -30,17 +30,14 @@ type Header struct {
 
 	ScannedDirectories []string
 
-	IndexChecksum   [32]byte
-	IndexDiskSize   uint64
-	IndexMemorySize uint64
+	IndexChecksum [32]byte
+	IndexSize     uint64
 
-	FilesystemChecksum   [32]byte
-	FilesystemDiskSize   uint64
-	FilesystemMemorySize uint64
+	FilesystemChecksum [32]byte
+	FilesystemSize     uint64
 
-	MetadataChecksum   [32]byte
-	MetadataDiskSize   uint64
-	MetadataMemorySize uint64
+	MetadataChecksum [32]byte
+	MetadataSize     uint64
 
 	ChunksCount  uint64
 	ChunksSize   uint64

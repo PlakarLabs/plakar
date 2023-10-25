@@ -77,6 +77,7 @@ type RepositoryBackend interface {
 
 	GetBlobs() ([][32]byte, error)
 	PutBlob(checksum [32]byte, data []byte) error
+	CheckBlob(checksum [32]byte) (bool, error)
 	GetBlob(checksum [32]byte) ([]byte, error)
 	DeleteBlob(checksum [32]byte) error
 
@@ -584,6 +585,19 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return repository.backend.PutBlob(checksum, data)
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	repository.readSharedLock.Lock()
+	defer repository.readSharedLock.Unlock()
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("storage.CheckBlob", time.Since(t0))
+		logger.Trace("storage", "CheckBlob(%016x): %s", checksum, time.Since(t0))
+	}()
+
+	return repository.backend.CheckBlob(checksum)
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
@@ -601,6 +615,7 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	atomic.AddUint64(&repository.rBytes, uint64(len(data)))
 	return data, nil
 }
+
 func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()

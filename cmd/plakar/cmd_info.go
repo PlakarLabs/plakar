@@ -204,16 +204,13 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
 			fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
-			fmt.Printf("Index.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexDiskSize), metadata.IndexDiskSize)
-			fmt.Printf("Index.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.IndexMemorySize), metadata.IndexMemorySize)
+			fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.IndexSize)
 
 			fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
-			fmt.Printf("VFS.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemDiskSize), metadata.FilesystemDiskSize)
-			fmt.Printf("VFS.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemMemorySize), metadata.FilesystemMemorySize)
+			fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
 
 			fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
-			fmt.Printf("Metadata.DiskSize: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataDiskSize), metadata.MetadataDiskSize)
-			fmt.Printf("Metadata.MemorySize: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataMemorySize), metadata.MetadataMemorySize)
+			fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataSize), metadata.MetadataSize)
 
 		}
 	}
@@ -258,11 +255,12 @@ func info_plakar(repository *storage.Repository) int {
 	totalSize := uint64(0)
 	totalIndexSize := uint64(0)
 	totalFilesystemSize := uint64(0)
+	totalMetadataSize := uint64(0)
 	for _, metadata := range metadatas {
 		totalSize += metadata.ScanProcessedSize
-		totalIndexSize += metadata.IndexDiskSize
-		totalFilesystemSize += metadata.FilesystemDiskSize
-
+		totalIndexSize += metadata.IndexSize
+		totalFilesystemSize += metadata.FilesystemSize
+		totalMetadataSize += metadata.MetadataSize
 	}
 	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
 	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)

@@ -109,6 +109,10 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	return false, nil
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }

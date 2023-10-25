@@ -136,6 +136,15 @@ type ResPutBlob struct {
 	Err error
 }
 
+type ReqCheckBlob struct {
+	Checksum [32]byte
+}
+
+type ResCheckBlob struct {
+	Exists bool
+	Err    error
+}
+
 type ReqGetBlob struct {
 	Checksum [32]byte
 }
@@ -266,6 +275,9 @@ func ProtocolRegister() {
 
 	gob.Register(ReqPutBlob{})
 	gob.Register(ResPutBlob{})
+
+	gob.Register(ReqCheckBlob{})
+	gob.Register(ResCheckBlob{})
 
 	gob.Register(ReqGetBlob{})
 	gob.Register(ResGetBlob{})

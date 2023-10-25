@@ -253,6 +253,17 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	if _, err := os.Stat(repository.PathBlob(checksum)); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathBlob(checksum))
 	if err != nil {

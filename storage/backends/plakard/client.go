@@ -439,6 +439,16 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return result.Payload.(network.ResPutBlob).Err
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	result, err := repository.sendRequest("ReqCheckBlob", network.ReqCheckBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return false, err
+	}
+	return result.Payload.(network.ResCheckBlob).Exists, result.Payload.(network.ResGetBlob).Err
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetBlob", network.ReqGetBlob{
 		Checksum: checksum,

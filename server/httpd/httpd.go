@@ -242,6 +242,26 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func checkBlob(w http.ResponseWriter, r *http.Request) {
+	var reqCheckBlob network.ReqCheckBlob
+	if err := json.NewDecoder(r.Body).Decode(&reqCheckBlob); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resCheckBlob network.ResCheckBlob
+	exists, err := lrepository.CheckBlob(reqCheckBlob.Checksum)
+	if err != nil {
+		resCheckBlob.Err = err
+	} else {
+		resCheckBlob.Exists = exists
+	}
+	if err := json.NewEncoder(w).Encode(resCheckBlob); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func getBlob(w http.ResponseWriter, r *http.Request) {
 	var reqGetBlob network.ReqGetBlob
 	if err := json.NewDecoder(r.Body).Decode(&reqGetBlob); err != nil {
@@ -462,6 +482,7 @@ func Server(repository *storage.Repository, addr string) error {
 	r.HandleFunc("/blobs", getBlobs).Methods("GET")
 	r.HandleFunc("/blob", putBlob).Methods("PUT")
 	r.HandleFunc("/blob", getBlob).Methods("GET")
+	r.HandleFunc("/blob/check", checkBlob).Methods("GET")
 	r.HandleFunc("/blob", deleteBlob).Methods("DELETE")
 
 	r.HandleFunc("/indexes", getIndexes).Methods("GET")

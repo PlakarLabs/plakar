@@ -305,6 +305,22 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("blobs/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
+	if err != nil {
+		return false, err
+	}
+	_, err = object.Stat()
+	if err != nil {
+		errResponse := minio.ToErrorResponse(err)
+		if errResponse.Code == "NoSuchKey" {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("blobs/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {

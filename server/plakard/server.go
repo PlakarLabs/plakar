@@ -325,6 +325,26 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				}
 			}()
 
+		case "ReqCheckBlob":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				logger.Trace("server", "%s: CheckBlob(%016x)", clientUuid, request.Payload.(network.ReqCheckBlob).Checksum)
+				exists, err := lrepository.CheckBlob(request.Payload.(network.ReqCheckBlob).Checksum)
+				result := network.Request{
+					Uuid: request.Uuid,
+					Type: "ResCheckBlob",
+					Payload: network.ResCheckBlob{
+						Exists: exists,
+						Err:    err,
+					},
+				}
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqGetBlob":
 			wg.Add(1)
 			go func() {

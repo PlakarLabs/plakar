@@ -281,6 +281,24 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	r, err := repository.sendRequest("GET", repository.Repository, "/blob/check", network.ReqCheckBlob{
+		Checksum: checksum,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	var resCheckBlob network.ResCheckBlob
+	if err := json.NewDecoder(r.Body).Decode(&resCheckBlob); err != nil {
+		return false, err
+	}
+	if resCheckBlob.Err != nil {
+		return false, resCheckBlob.Err
+	}
+	return resCheckBlob.Exists, nil
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/blob", network.ReqGetBlob{
 		Checksum: checksum,

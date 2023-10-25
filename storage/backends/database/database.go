@@ -403,6 +403,18 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+	var data []byte
+	err := repository.conn.QueryRow(`SELECT checksum=? FROM blobs WHERE checksum=?`, checksum[:]).Scan(&data)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT data FROM blobs WHERE checksum=?`, checksum[:]).Scan(&data)

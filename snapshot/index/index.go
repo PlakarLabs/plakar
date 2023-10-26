@@ -1,12 +1,14 @@
 package index
 
 import (
+	"bytes"
+	"encoding/binary"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/PlakarLabs/plakar/logger"
 )
@@ -43,16 +45,86 @@ func NewIndex() *Index {
 }
 
 func NewIndexFromBytes(serialized []byte) (*Index, error) {
+	buffer := bytes.NewReader(serialized)
+	index := &Index{
+		Checksums:        make(map[[32]byte]uint32),
+		checksumsInverse: make(map[uint32][32]byte),
+		PathnameToObject: make(map[uint32]uint32),
+		Objects:          make(map[uint32][]uint32),
+		Chunks:           make(map[uint32]uint32),
+	}
 
-	var index Index
-	if err := msgpack.Unmarshal(serialized, &index); err != nil {
+	// Read checksumsList
+	var nChecksums uint32
+	if err := binary.Read(buffer, binary.LittleEndian, &nChecksums); err != nil {
 		return nil, err
 	}
-	index.checksumsInverse = make(map[uint32][32]byte)
-	for checksum, checksumID := range index.Checksums {
-		index.checksumsInverse[checksumID] = checksum
+	for i := uint32(0); i < nChecksums; i++ {
+		var checksum [32]byte
+		if err := binary.Read(buffer, binary.LittleEndian, &checksum); err != nil {
+			return nil, err
+		}
+		index.Checksums[checksum] = i
+		index.checksumsInverse[i] = checksum
 	}
-	return &index, nil
+
+	// Read pathnameToObject
+	var nPathnameToObject uint32
+	if err := binary.Read(buffer, binary.LittleEndian, &nPathnameToObject); err != nil {
+		return nil, err
+	}
+	for i := uint32(0); i < nPathnameToObject; i++ {
+		var pathnameID, objectID uint32
+		if err := binary.Read(buffer, binary.LittleEndian, &pathnameID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(buffer, binary.LittleEndian, &objectID); err != nil {
+			return nil, err
+		}
+		index.PathnameToObject[pathnameID] = objectID
+	}
+
+	// Read objects
+	var nObjects uint32
+	if err := binary.Read(buffer, binary.LittleEndian, &nObjects); err != nil {
+		return nil, err
+	}
+	for i := uint32(0); i < nObjects; i++ {
+		var objectID, nChunks uint32
+		if err := binary.Read(buffer, binary.LittleEndian, &objectID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(buffer, binary.LittleEndian, &nChunks); err != nil {
+			return nil, err
+		}
+		chunksList := make([]uint32, nChunks)
+		for j := uint32(0); j < nChunks; j++ {
+			var chunkID uint32
+			if err := binary.Read(buffer, binary.LittleEndian, &chunkID); err != nil {
+				return nil, err
+			}
+			chunksList[j] = chunkID
+		}
+		index.Objects[objectID] = chunksList
+	}
+
+	// Read chunks
+	var nChunks uint32
+	if err := binary.Read(buffer, binary.LittleEndian, &nChunks); err != nil {
+		return nil, err
+	}
+	for i := uint32(0); i < nChunks; i++ {
+		var chunkID, chunkLength uint32
+		if err := binary.Read(buffer, binary.LittleEndian, &chunkID); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(buffer, binary.LittleEndian, &chunkLength); err != nil {
+			return nil, err
+		}
+		index.Chunks[chunkID] = chunkLength
+	}
+
+	return index, nil
 }
 
 func (index *Index) Serialize() ([]byte, error) {
@@ -62,11 +134,141 @@ func (index *Index) Serialize() ([]byte, error) {
 		logger.Trace("index", "normalize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(index)
-	if err != nil {
+	checksumsList := make([][32]byte, 0)
+	for checksum := range index.Checksums {
+		i := sort.Search(len(checksumsList), func(i int) bool {
+			return bytes.Compare(checksumsList[i][:], checksum[:]) >= 0
+		})
+		checksumsList = append(checksumsList, [32]byte{})
+		copy(checksumsList[i+1:], checksumsList[i:])
+		checksumsList[i] = checksum
+	}
+
+	newChecksums := make(map[[32]byte]uint32)
+	newChecksumsInverse := make(map[uint32][32]byte)
+	for idx, checksum := range checksumsList {
+		newChecksums[checksum] = uint32(idx)
+		newChecksumsInverse[uint32(idx)] = checksum
+	}
+
+	newChunks := make(map[uint32]uint32)
+	chunksList := make([]uint32, 0)
+	for chunkChecksum, chunkLength := range index.Chunks {
+		newChunkID := newChecksums[index.checksumsInverse[chunkChecksum]]
+		newChunks[newChunkID] = chunkLength
+
+		i := sort.Search(len(chunksList), func(i int) bool {
+			return chunksList[i] > newChunkID
+		})
+		chunksList = append(chunksList, 0)
+		copy(chunksList[i+1:], chunksList[i:])
+		chunksList[i] = newChunkID
+	}
+
+	newObjects := make(map[uint32][]uint32)
+	objectsList := make([]uint32, 0)
+	for objectChecksum, chunksList := range index.Objects {
+		newChunksList := make([]uint32, 0)
+		for _, chunkChecksum := range chunksList {
+			newChunksList = append(newChunksList, newChecksums[index.checksumsInverse[chunkChecksum]])
+		}
+		newObjectID := newChecksums[index.checksumsInverse[objectChecksum]]
+		newObjects[newObjectID] = newChunksList
+
+		i := sort.Search(len(objectsList), func(i int) bool {
+			return objectsList[i] > newObjectID
+		})
+		objectsList = append(objectsList, 0)
+		copy(objectsList[i+1:], objectsList[i:])
+		objectsList[i] = newObjectID
+	}
+
+	newPathnameToObject := make(map[uint32]uint32)
+	pathnamesList := make([]uint32, 0)
+	for pathnameChecksum, objectChecksum := range index.PathnameToObject {
+		newPathnameID := newChecksums[index.checksumsInverse[pathnameChecksum]]
+		newPathnameToObject[newPathnameID] = newChecksums[index.checksumsInverse[objectChecksum]]
+
+		i := sort.Search(len(pathnamesList), func(i int) bool {
+			return pathnamesList[i] > newPathnameID
+		})
+		pathnamesList = append(pathnamesList, 0)
+		copy(pathnamesList[i+1:], pathnamesList[i:])
+		pathnamesList[i] = newPathnameID
+	}
+
+	index.Chunks = newChunks
+	index.Objects = newObjects
+	index.PathnameToObject = newPathnameToObject
+	index.Checksums = newChecksums
+	index.checksumsInverse = newChecksumsInverse
+
+	var buffer bytes.Buffer
+
+	// first, write the checksumsList
+	var nChecksums uint32 = uint32(len(checksumsList))
+	if err := binary.Write(&buffer, binary.LittleEndian, nChecksums); err != nil {
 		return nil, err
 	}
-	return serialized, nil
+	for _, checksum := range checksumsList {
+		if err := binary.Write(&buffer, binary.LittleEndian, checksum); err != nil {
+			return nil, err
+		}
+	}
+	checksumsList = nil
+
+	// then write, the pathnameToObject
+	var nPathnameToObject uint32 = uint32(len(pathnamesList))
+	if err := binary.Write(&buffer, binary.LittleEndian, nPathnameToObject); err != nil {
+		return nil, err
+	}
+	for _, pathnameID := range pathnamesList {
+		if err := binary.Write(&buffer, binary.LittleEndian, pathnameID); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, newPathnameToObject[pathnameID]); err != nil {
+			return nil, err
+		}
+	}
+	pathnamesList = nil
+
+	// then write the objects
+	var nObjects uint32 = uint32(len(objectsList))
+	if err := binary.Write(&buffer, binary.LittleEndian, nObjects); err != nil {
+		return nil, err
+	}
+	for _, objectID := range objectsList {
+		if err := binary.Write(&buffer, binary.LittleEndian, objectID); err != nil {
+			return nil, err
+		}
+		var nChunks uint32 = uint32(len(index.Objects[objectID]))
+		if err := binary.Write(&buffer, binary.LittleEndian, nChunks); err != nil {
+			return nil, err
+		}
+		for _, chunkID := range index.Objects[objectID] {
+			if err := binary.Write(&buffer, binary.LittleEndian, chunkID); err != nil {
+				return nil, err
+			}
+		}
+	}
+	objectsList = nil
+
+	// then write the chunks
+	var nChunks uint32 = uint32(len(chunksList))
+	if err := binary.Write(&buffer, binary.LittleEndian, nChunks); err != nil {
+		return nil, err
+	}
+	for _, chunkID := range chunksList {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunkID); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, index.Chunks[chunkID]); err != nil {
+			return nil, err
+		}
+	}
+	chunksList = nil
+
+	return buffer.Bytes(), nil
 }
 
 // checksums

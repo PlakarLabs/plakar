@@ -48,11 +48,6 @@ type Filesystem struct {
 	muInodes sync.Mutex
 	Inodes   map[string]FileInfo
 
-	muPathnames      sync.Mutex
-	pathnameID       uint64
-	Pathnames        map[string]uint64
-	pathnamesInverse map[uint64]string
-
 	muScannedDirectories sync.Mutex
 	scannedDirectories   []string
 
@@ -67,11 +62,30 @@ type Filesystem struct {
 	totalSize    uint64
 }
 
+type flattenedFilesystemNode struct {
+	Inode    string
+	Children []*flattenedFilesystemNode
+}
+
+type flattenedInode struct {
+	Inode    string
+	Fileinfo FileInfo
+}
+
+type flattenedSymlink struct {
+	Link   string
+	Target string
+}
+
+type flattenedFilesystem struct {
+	Root     flattenedFilesystemNode
+	Inodes   []flattenedInode
+	Symlinks []flattenedSymlink
+}
+
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
 	filesystem.Inodes = make(map[string]FileInfo)
-	filesystem.Pathnames = make(map[string]uint64)
-	filesystem.pathnamesInverse = make(map[uint64]string)
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem.Symlinks = make(map[string]string)
@@ -81,6 +95,75 @@ func NewFilesystem() *Filesystem {
 	return filesystem
 }
 
+func (filesystem *Filesystem) _flatten_debug(flatnode *flattenedFilesystemNode, depth int) {
+	fmt.Println(strings.Repeat(" ", depth), filesystem.Inodes[flatnode.Inode])
+	for i, _ := range flatnode.Children {
+		if flatnode.Children[i] != nil {
+			filesystem._flatten_debug(flatnode.Children[i], depth+1)
+		}
+	}
+}
+
+func (filesystem *Filesystem) _flatten_fs(fsnode *FilesystemNode, flatnode *flattenedFilesystemNode) {
+	flatnode.Inode = fsnode.Inode
+	flatnode.Children = make([]*flattenedFilesystemNode, 0)
+	for name, node := range fsnode.Children {
+		i := sort.Search(len(flatnode.Children), func(i int) bool {
+			return filesystem.Inodes[flatnode.Children[i].Inode].Name() > name
+		})
+		flatnode.Children = append(flatnode.Children, &flattenedFilesystemNode{})
+		copy(flatnode.Children[i+1:], flatnode.Children[i:])
+		flatnode.Children[i] = &flattenedFilesystemNode{node.Inode, make([]*flattenedFilesystemNode, 0)}
+
+		filesystem._flatten_fs(node, flatnode.Children[i])
+
+	}
+}
+
+func (filesystem *Filesystem) flatten() *flattenedFilesystem {
+	flattenedFilesystem := &flattenedFilesystem{
+		Inodes:   make([]flattenedInode, 0),
+		Symlinks: make([]flattenedSymlink, 0),
+	}
+
+	for inode, fileinfo := range filesystem.Inodes {
+		i := sort.Search(len(flattenedFilesystem.Inodes), func(i int) bool {
+			return flattenedFilesystem.Inodes[i].Inode > inode
+		})
+		flattenedFilesystem.Inodes = append(flattenedFilesystem.Inodes, flattenedInode{})
+		copy(flattenedFilesystem.Inodes[i+1:], flattenedFilesystem.Inodes[i:])
+		flattenedFilesystem.Inodes[i] = flattenedInode{inode, fileinfo}
+	}
+
+	for link, target := range filesystem.Symlinks {
+		i := sort.Search(len(flattenedFilesystem.Symlinks), func(i int) bool {
+			return flattenedFilesystem.Symlinks[i].Link > link
+		})
+		flattenedFilesystem.Symlinks = append(flattenedFilesystem.Symlinks, flattenedSymlink{})
+		copy(flattenedFilesystem.Symlinks[i+1:], flattenedFilesystem.Symlinks[i:])
+		flattenedFilesystem.Symlinks[i] = flattenedSymlink{link, target}
+	}
+
+	filesystem._flatten_fs(filesystem.Root, &flattenedFilesystem.Root)
+
+	return flattenedFilesystem
+}
+
+func (filesystem *Filesystem) Serialize() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.Serialize", time.Since(t0))
+		logger.Trace("vfs", "Serialize(): %s", time.Since(t0))
+	}()
+
+	serialized, err := msgpack.Marshal(filesystem.flatten())
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
+
+/*
 func (filesystem *Filesystem) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -94,7 +177,73 @@ func (filesystem *Filesystem) Serialize() ([]byte, error) {
 	}
 	return serialized, nil
 }
+*/
 
+func (filesystem *Filesystem) _unflatten_fs(fsnode *FilesystemNode, flatnode *flattenedFilesystemNode) {
+	fsnode.Inode = flatnode.Inode
+	fsnode.Children = make(map[string]*FilesystemNode)
+	for _, child := range flatnode.Children {
+		childNode := &FilesystemNode{}
+		filesystem._unflatten_fs(childNode, child)
+		fsnode.Children[filesystem.Inodes[childNode.Inode].Name()] = childNode
+	}
+}
+
+func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
+
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.Deserialize", time.Since(t0))
+		logger.Trace("vfs", "Deserialize(): %s", time.Since(t0))
+	}()
+
+	// Unmarshal the flattened filesystem
+	var flatFs flattenedFilesystem
+	err := msgpack.Unmarshal(serialized, &flatFs)
+	if err != nil {
+		return nil, err
+	}
+
+	var filesystem Filesystem
+	// Populate the Inodes map
+	filesystem.Inodes = make(map[string]FileInfo)
+	for _, inode := range flatFs.Inodes {
+		filesystem.Inodes[inode.Inode] = inode.Fileinfo
+	}
+
+	// Populate the Symlinks map
+	filesystem.Symlinks = make(map[string]string)
+	for _, symlink := range flatFs.Symlinks {
+		filesystem.Symlinks[symlink.Link] = symlink.Target
+	}
+
+	// Reconstruct the filesystem tree
+	filesystem.Root = &FilesystemNode{}
+	filesystem._unflatten_fs(filesystem.Root, &flatFs.Root)
+
+	filesystem.reindex()
+
+	return &filesystem, nil
+	/*
+	   t0 := time.Now()
+
+	   	defer func() {
+	   		profiler.RecordEvent("vfs.NewFilesystemFromBytes", time.Since(t0))
+	   		logger.Trace("vfs", "NewFilesystemFromBytes(): %s", time.Since(t0))
+	   	}()
+
+	   var filesystem Filesystem
+
+	   	if err := msgpack.Unmarshal(serialized, &filesystem); err != nil {
+	   		return nil, err
+	   	}
+
+	   filesystem.reindex()
+	   return &filesystem, nil
+	*/
+}
+
+/*
 func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	t0 := time.Now()
 	defer func() {
@@ -109,6 +258,7 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	filesystem.reindex()
 	return &filesystem, nil
 }
+*/
 
 func NewFilesystemFromScan(repository string, directory string) (*Filesystem, error) {
 	t0 := time.Now()
@@ -197,7 +347,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
 
-	filesystem.addPathname(pathname)
+	//	filesystem.addPathname(pathname)
 
 	p := filesystem.Root
 	if pathname != "/" {
@@ -544,14 +694,6 @@ func (filesystem *Filesystem) reindex() {
 		profiler.RecordEvent("vfs.reindex", time.Since(t0))
 		logger.Trace("vfs", "reindex(): %s", time.Since(t0))
 	}()
-
-	filesystem.muPathnames.Lock()
-	filesystem.pathnamesInverse = make(map[uint64]string)
-	for pathname, pathnameId := range filesystem.Pathnames {
-		filesystem.pathnamesInverse[pathnameId] = pathname
-	}
-	filesystem.muPathnames.Unlock()
-
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem._reindex("/")
 }
@@ -572,50 +714,6 @@ func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
 		filesystem.totalSize += uint64(fileinfo.Size())
 	}
 	return key
-}
-
-func (filesystem *Filesystem) addPathname(pathname string) uint64 {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.addPathname", time.Since(t0))
-		logger.Trace("vfs", "addPathname(): %s", time.Since(t0))
-	}()
-
-	if pathnameId, exists := filesystem.Pathnames[pathname]; !exists {
-		filesystem.Pathnames[pathname] = filesystem.pathnameID
-		filesystem.pathnamesInverse[filesystem.pathnameID] = pathname
-		filesystem.pathnameID++
-		return pathnameId
-	} else {
-		return pathnameId
-	}
-}
-
-func (filesystem *Filesystem) GetPathnameID(pathname string) uint64 {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.GetPathnameID", time.Since(t0))
-		logger.Trace("vfs", "GetPathnameID(): %s", time.Since(t0))
-	}()
-	return filesystem.Pathnames[pathname]
-}
-
-func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.GetPathname", time.Since(t0))
-		logger.Trace("vfs", "GetPathname(): %s", time.Since(t0))
-	}()
-	return filesystem.pathnamesInverse[pathnameId]
 }
 
 func (filesystem *Filesystem) Size() uint64 {

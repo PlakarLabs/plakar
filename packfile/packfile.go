@@ -18,19 +18,20 @@ const (
 
 type Chunk struct {
 	DataType uint8
+	Checksum [32]byte
 	Offset   uint32
 	Length   uint32
 }
 
 type PackFile struct {
 	Data  []byte
-	Index map[[32]byte]Chunk
+	Index []Chunk
 }
 
 func New() *PackFile {
 	return &PackFile{
 		Data:  make([]byte, 0),
-		Index: make(map[[32]byte]Chunk),
+		Index: make([]Chunk, 0),
 	}
 }
 
@@ -88,11 +89,13 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 			return nil, fmt.Errorf("chunk offset + chunk length exceeds total length of packfile")
 		}
 
-		p.Index[checksum] = Chunk{
-			Offset: chunkOffset,
-			Length: chunkLength,
-		}
-		remaining -= len(checksum) + 8
+		p.Index = append(p.Index, Chunk{
+			DataType: dataType,
+			Checksum: checksum,
+			Offset:   chunkOffset,
+			Length:   chunkLength,
+		})
+		remaining -= (len(checksum) + 9)
 	}
 	return p, nil
 }
@@ -108,11 +111,11 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
 		return nil, err
 	}
-	for checksum, chunk := range p.Index {
+	for _, chunk := range p.Index {
 		if err := binary.Write(&buffer, binary.LittleEndian, chunk.DataType); err != nil {
 			return nil, err
 		}
-		if err := binary.Write(&buffer, binary.LittleEndian, checksum); err != nil {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Checksum); err != nil {
 			return nil, err
 		}
 		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Offset); err != nil {
@@ -135,11 +138,9 @@ func (p *PackFile) AddData(dataType uint8, checksum [32]byte, data []byte) {
 		profiler.RecordEvent("packfile.AddChunk", time.Since(t0))
 		logger.Trace("packfile", "AddChunk(...): %s", time.Since(t0))
 	}()
+	p.Index = append(p.Index, Chunk{dataType, checksum, uint32(len(p.Data)), uint32(len(data))})
+	p.Data = append(p.Data, data...)
 
-	if _, exists := p.Index[checksum]; !exists {
-		p.Index[checksum] = Chunk{dataType, uint32(len(p.Data)), uint32(len(data))}
-		p.Data = append(p.Data, data...)
-	}
 }
 
 func (p *PackFile) GetChunk(checksum [32]byte) ([]byte, bool) {
@@ -149,11 +150,12 @@ func (p *PackFile) GetChunk(checksum [32]byte) ([]byte, bool) {
 		logger.Trace("packfile", "GetChunk(...): %s", time.Since(t0))
 	}()
 
-	if chunk, exists := p.Index[checksum]; !exists {
-		return nil, false
-	} else {
-		return p.Data[chunk.Offset : chunk.Offset+chunk.Length], true
+	for _, chunk := range p.Index {
+		if chunk.Checksum == checksum {
+			return p.Data[chunk.Offset : chunk.Offset+chunk.Length], true
+		}
 	}
+	return nil, false
 }
 
 func (p *PackFile) Size() uint32 {

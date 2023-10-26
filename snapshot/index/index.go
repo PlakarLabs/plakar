@@ -148,26 +148,16 @@ func (index *Index) AddObject(object *objects.Object) uint32 {
 	logger.Trace("index", "AddObject(%064x)", object.Checksum)
 
 	objectChecksumID := index.addChecksum(object.Checksum)
-
-	//	index.addContentType(object.ContentType)
-	//	contentTypeID, exists := index.getContentTypeID(object.ContentType)
-	//	if !exists {
-	//		panic("AddObject: corrupted index: could not find content type")
-	//	}
-	//	index.linkObjectToContentType(objectChecksumID, contentTypeID)
-
 	chunks := make([]uint32, 0)
 	for _, checksum := range object.Chunks {
 		chunkChecksumID, exists := index.ChecksumToId(checksum)
 		if !exists {
 			panic("AddObject: corrupted index: could not find chunk checksum")
 		}
-		//index.linkChunkToObject(chunkChecksumID, objectChecksumID)
 		chunks = append(chunks, chunkChecksumID)
 	}
 
 	index.Objects[objectChecksumID] = chunks
-	//index.ObjectToContentType[objectChecksumID] = contentTypeID
 
 	return objectChecksumID
 }
@@ -183,11 +173,6 @@ func (index *Index) LinkPathnameToObject(pathnameChecksum [32]byte, object *obje
 
 	pathnameID := index.addChecksum(pathnameChecksum)
 	index.PathnameToObject[pathnameID] = checksumID
-	//	if _, exists := index.ObjectToPathnames[checksumID]; !exists {
-	//		index.ObjectToPathnames[checksumID] = make([]uint32, 0)
-	//	}
-	//
-	// index.ObjectToPathnames[checksumID] = append(index.ObjectToPathnames[checksumID], pathnameID)
 }
 
 func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {

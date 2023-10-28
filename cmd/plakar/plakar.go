@@ -224,8 +224,10 @@ func entryPoint() int {
 	}
 
 	// special case, server does not need a cache but does not return immediately either
+	skipPassphrase := false
 	if command == "server" || command == "stdio" {
 		opt_nocache = true
+		skipPassphrase = true
 	}
 
 	if !opt_nocache {
@@ -246,28 +248,30 @@ func entryPoint() int {
 	}
 
 	var secret []byte
-	if repository.Configuration().Encryption != "" {
-		if ctx.KeyFromFile == "" {
-			for {
-				passphrase, err := helpers.GetPassphrase("repository")
+	if !skipPassphrase {
+		if repository.Configuration().Encryption != "" {
+			if ctx.KeyFromFile == "" {
+				for {
+					passphrase, err := helpers.GetPassphrase("repository")
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s\n", err)
+						continue
+					}
+
+					secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "%s\n", err)
+						continue
+					}
+
+					break
+				}
+			} else {
+				secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().EncryptionKey)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
-					continue
+					os.Exit(1)
 				}
-
-				secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s\n", err)
-					continue
-				}
-
-				break
-			}
-		} else {
-			secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().EncryptionKey)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
 			}
 		}
 	}

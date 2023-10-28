@@ -32,7 +32,7 @@ func init() {
 func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_protocol string
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
-	flags.StringVar(&opt_protocol, "protocol", "http", "protocol to use (http or plakar)")
+	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (http, stdio or plakar)")
 	flags.Parse(args)
 
 	addr := ":9876"
@@ -45,6 +45,8 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 		httpd.Server(repository, addr)
 	case "plakar":
 		plakard.Server(repository, addr)
+	case "stdio":
+		plakard.Stdio(repository)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

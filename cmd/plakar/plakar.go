@@ -219,16 +219,12 @@ func entryPoint() int {
 		return cmd_create(ctx, args)
 	}
 
-	if command == "stdio" {
-		return cmd_stdio(ctx, args)
-	}
-
 	if command == "config" {
 		return cmd_config(ctx, args)
 	}
 
 	// special case, server does not need a cache but does not return immediately either
-	if command == "server" {
+	if command == "server" || command == "stdio" {
 		opt_nocache = true
 	}
 

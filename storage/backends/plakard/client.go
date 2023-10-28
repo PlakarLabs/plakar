@@ -325,7 +325,7 @@ func (repository *Repository) Open(location string) error {
 }
 
 func (repository *Repository) Close() error {
-	result, err := repository.sendRequest("ReqClose", nil)
+	result, err := repository.sendRequest("ReqClose", network.ReqClose{})
 	if err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func (repository *Repository) Configuration() storage.RepositoryConfig {
 
 // snapshots
 func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	result, err := repository.sendRequest("ReqGetSnapshots", nil)
+	result, err := repository.sendRequest("ReqGetSnapshots", network.ReqGetSnapshots{})
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 
 // locks
 func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	result, err := repository.sendRequest("ReqGetLocks", nil)
+	result, err := repository.sendRequest("ReqGetLocks", network.ReqGetLocks{})
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +421,7 @@ func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
 
 // blobs
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetBlobs", nil)
+	result, err := repository.sendRequest("ReqGetBlobs", network.ReqGetBlobs{})
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +446,7 @@ func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return result.Payload.(network.ResCheckBlob).Exists, result.Payload.(network.ResGetBlob).Err
+	return result.Payload.(network.ResCheckBlob).Exists, result.Payload.(network.ResCheckBlob).Err
 }
 
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
@@ -471,7 +471,7 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 
 // indexes
 func (repository *Repository) GetIndexes() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetIndexes", nil)
+	result, err := repository.sendRequest("ReqGetIndexes", network.ReqGetIndexes{})
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +511,7 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 
 // packfiles
 func (repository *Repository) GetPackfiles() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetPackfiles", nil)
+	result, err := repository.sendRequest("ReqGetPackfiles", network.ReqGetPackfiles{})
 	if err != nil {
 		return nil, err
 	}

@@ -37,8 +37,10 @@ func Server(repository *storage.Repository, addr string) {
 	}
 }
 
-func Stdio() error {
+func Stdio(repository *storage.Repository) error {
+	lrepository = repository
 	network.ProtocolRegister()
+
 	handleConnection(os.Stdin, os.Stdout)
 	return nil
 }

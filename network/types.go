@@ -269,6 +269,19 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteSnapshot{})
 	gob.Register(ResDeleteSnapshot{})
 
+	//
+	gob.Register(ReqGetLocks{})
+	gob.Register(ResGetLocks{})
+
+	gob.Register(ReqPutLock{})
+	gob.Register(ResPutLock{})
+
+	gob.Register(ReqGetLock{})
+	gob.Register(ResGetLock{})
+
+	gob.Register(ReqDeleteLock{})
+	gob.Register(ResDeleteLock{})
+
 	// blobs
 	gob.Register(ReqGetBlobs{})
 	gob.Register(ResGetBlobs{})

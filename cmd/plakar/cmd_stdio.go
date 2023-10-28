@@ -20,13 +20,18 @@ import (
 	"flag"
 
 	"github.com/PlakarLabs/plakar/server/plakard"
+	"github.com/PlakarLabs/plakar/storage"
 )
 
-func cmd_stdio(ctx Plakar, args []string) int {
+func init() {
+	registerCommand("stdio", cmd_stdio)
+}
+
+func cmd_stdio(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags := flag.NewFlagSet("stdio", flag.ExitOnError)
 	flags.Parse(args)
 
-	if err := plakard.Stdio(); err != nil {
+	if err := plakard.Stdio(repository); err != nil {
 		return 1
 	}
 	return 0

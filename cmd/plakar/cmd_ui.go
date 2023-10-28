@@ -25,7 +25,8 @@ import (
 	"os"
 
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/ui"
+	v1 "github.com/PlakarLabs/plakar/ui/v1"
+	v2 "github.com/PlakarLabs/plakar/ui/v2"
 )
 
 func init() {
@@ -35,13 +36,23 @@ func init() {
 func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_nospawn bool
 	var opt_addr string
+	var opt_v2 bool
 
 	flags := flag.NewFlagSet("ui", flag.ExitOnError)
 	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
+	flags.BoolVar(&opt_v2, "v2", false, "use v2 UI")
 	flags.Parse(args)
 
-	err := ui.Ui(repository, opt_addr, !opt_nospawn)
+	if opt_v2 {
+		err := v2.Ui(repository, opt_addr, !opt_nospawn)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+			return 1
+		}
+	}
+
+	err := v1.Ui(repository, opt_addr, !opt_nospawn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

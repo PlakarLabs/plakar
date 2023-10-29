@@ -34,10 +34,16 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type ChildEntry struct {
+	Name string
+	Node *FilesystemNode
+}
+
 type FilesystemNode struct {
 	muNode   sync.Mutex
 	Inode    string
-	Children map[string]*FilesystemNode
+	Children []ChildEntry
+	children map[string]*FilesystemNode
 }
 
 type Filesystem struct {
@@ -65,7 +71,10 @@ type Filesystem struct {
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
 	filesystem.Inodes = make(map[string]FileInfo)
-	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
+	filesystem.Root = &FilesystemNode{
+		Children: make([]ChildEntry, 0),
+		children: make(map[string]*FilesystemNode),
+	}
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem.Symlinks = make(map[string]string)
 	filesystem.nFiles = 0
@@ -184,6 +193,16 @@ func NewFilesystemFromScan(repository string, directory string) (*Filesystem, er
 	return fs, nil
 }
 
+func sortedInsert(slice []ChildEntry, val ChildEntry) []ChildEntry {
+	index := sort.Search(len(slice), func(i int) bool { return slice[i].Name >= val.Name })
+
+	slice = append(slice, val)
+	copy(slice[index+1:], slice[index:])
+	slice[index] = val
+
+	return slice
+}
+
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 	inodeKey := filesystem.addInode(*fileinfo)
 
@@ -195,13 +214,18 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 		atoms := strings.Split(pathname, "/")[1:]
 		for _, atom := range atoms {
 			p.muNode.Lock()
-			tmp, exists := p.Children[atom]
+			tmp, exists := p.children[atom]
 			p.muNode.Unlock()
 
 			if !exists {
 				p.muNode.Lock()
-				p.Children[atom] = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
-				tmp = p.Children[atom]
+				node := &FilesystemNode{
+					Children: make([]ChildEntry, 0),
+					children: make(map[string]*FilesystemNode),
+				}
+				p.Children = sortedInsert(p.Children, ChildEntry{Name: atom, Node: node})
+				p.children[atom] = node
+				tmp = p.children[atom]
 				p.muNode.Unlock()
 			}
 			p = tmp
@@ -320,7 +344,7 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 	atoms := strings.Split(pathname, "/")[1:]
 	for _, atom := range atoms {
 		p.muNode.Lock()
-		tmp, exists := p.Children[atom]
+		tmp, exists := p.children[atom]
 		p.muNode.Unlock()
 
 		if !exists {
@@ -420,10 +444,9 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 	}
 
 	ret := make([]string, 0)
-	for child := range parent.Children {
+	for child := range parent.children {
 		ret = append(ret, child)
 	}
-
 	sort.Strings(ret)
 
 	return ret, nil
@@ -518,15 +541,18 @@ func (filesystem *Filesystem) _reindex(pathname string) {
 	filesystem.statInfo[pathname] = &pathnameInode
 	filesystem.totalSize += uint64(pathnameInode.Size())
 
-	for name, node := range node.Children {
-		nodeInode := filesystem.Inodes[node.Inode]
-		child := filepath.Clean(fmt.Sprintf("%s/%s", pathname, name))
+	node.children = make(map[string]*FilesystemNode)
+	for _, child := range node.Children {
+		node.children[child.Name] = child.Node
+		nodeInode := filesystem.Inodes[child.Node.Inode]
+		child := filepath.Clean(fmt.Sprintf("%s/%s", pathname, child.Name))
 		if nodeInode.Mode().IsDir() {
 			filesystem._reindex(child)
 		} else {
 			filesystem.statInfo[child] = &nodeInode
 		}
 	}
+
 }
 
 func (filesystem *Filesystem) reindex() {

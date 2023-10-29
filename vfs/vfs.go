@@ -41,18 +41,20 @@ type ChildEntry struct {
 
 type FilesystemNode struct {
 	muNode   sync.Mutex
-	Inode    string
+	Inode    FileInfo
 	Children []ChildEntry
 	children map[string]*FilesystemNode
+}
+
+type SymlinkEntry struct {
+	Origin string
+	Target string
 }
 
 type Filesystem struct {
 	importer *importer.Importer
 
 	Root *FilesystemNode
-
-	muInodes sync.Mutex
-	Inodes   map[string]FileInfo
 
 	muScannedDirectories sync.Mutex
 	scannedDirectories   []string
@@ -61,7 +63,8 @@ type Filesystem struct {
 	statInfo map[string]*FileInfo
 
 	muSymlinks sync.Mutex
-	Symlinks   map[string]string
+	Symlinks   []SymlinkEntry
+	symlinks   map[string]string
 
 	nFiles       uint64
 	nDirectories uint64
@@ -70,13 +73,13 @@ type Filesystem struct {
 
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
-	filesystem.Inodes = make(map[string]FileInfo)
 	filesystem.Root = &FilesystemNode{
 		Children: make([]ChildEntry, 0),
 		children: make(map[string]*FilesystemNode),
 	}
 	filesystem.statInfo = make(map[string]*FileInfo)
-	filesystem.Symlinks = make(map[string]string)
+	filesystem.Symlinks = make([]SymlinkEntry, 0)
+	filesystem.symlinks = make(map[string]string)
 	filesystem.nFiles = 0
 	filesystem.nDirectories = 0
 	filesystem.totalSize = 0
@@ -193,7 +196,7 @@ func NewFilesystemFromScan(repository string, directory string) (*Filesystem, er
 	return fs, nil
 }
 
-func sortedInsert(slice []ChildEntry, val ChildEntry) []ChildEntry {
+func sortedChildInsert(slice []ChildEntry, val ChildEntry) []ChildEntry {
 	index := sort.Search(len(slice), func(i int) bool { return slice[i].Name >= val.Name })
 
 	slice = append(slice, val)
@@ -203,8 +206,18 @@ func sortedInsert(slice []ChildEntry, val ChildEntry) []ChildEntry {
 	return slice
 }
 
+func sortedSymlinkInsert(slice []SymlinkEntry, val SymlinkEntry) []SymlinkEntry {
+	index := sort.Search(len(slice), func(i int) bool { return slice[i].Origin >= val.Origin })
+
+	slice = append(slice, val)
+	copy(slice[index+1:], slice[index:])
+	slice[index] = val
+
+	return slice
+}
+
 func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
-	inodeKey := filesystem.addInode(*fileinfo)
+	filesystem.totalSize += uint64(fileinfo.Size())
 
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
@@ -223,7 +236,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 					Children: make([]ChildEntry, 0),
 					children: make(map[string]*FilesystemNode),
 				}
-				p.Children = sortedInsert(p.Children, ChildEntry{Name: atom, Node: node})
+				p.Children = sortedChildInsert(p.Children, ChildEntry{Name: atom, Node: node})
 				p.children[atom] = node
 				tmp = p.children[atom]
 				p.muNode.Unlock()
@@ -232,7 +245,7 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 		}
 	}
 	p.muNode.Lock()
-	p.Inode = inodeKey
+	p.Inode = *fileinfo
 	p.muNode.Unlock()
 
 	filesystem.muStat.Lock()
@@ -311,7 +324,8 @@ func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []stri
 				filesystem.muStat.Unlock()
 
 				filesystem.muSymlinks.Lock()
-				filesystem.Symlinks[pathname] = originFile
+				filesystem.Symlinks = sortedSymlinkInsert(filesystem.Symlinks, SymlinkEntry{Origin: pathname, Target: originFile})
+				filesystem.symlinks[pathname] = originFile
 				filesystem.muSymlinks.Unlock()
 			}
 		}
@@ -435,9 +449,7 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 		return nil, os.ErrNotExist
 	}
 
-	filesystem.muInodes.Lock()
-	parentInode := filesystem.Inodes[parent.Inode]
-	filesystem.muInodes.Unlock()
+	parentInode := parent.Inode
 
 	if !parentInode.Mode().IsDir() {
 		return nil, os.ErrInvalid
@@ -537,14 +549,14 @@ func (filesystem *Filesystem) _reindex(pathname string) {
 		return
 	}
 
-	pathnameInode := filesystem.Inodes[node.Inode]
+	pathnameInode := node.Inode
 	filesystem.statInfo[pathname] = &pathnameInode
 	filesystem.totalSize += uint64(pathnameInode.Size())
 
 	node.children = make(map[string]*FilesystemNode)
 	for _, child := range node.Children {
 		node.children[child.Name] = child.Node
-		nodeInode := filesystem.Inodes[child.Node.Inode]
+		nodeInode := child.Node.Inode
 		child := filepath.Clean(fmt.Sprintf("%s/%s", pathname, child.Name))
 		if nodeInode.Mode().IsDir() {
 			filesystem._reindex(child)
@@ -564,24 +576,6 @@ func (filesystem *Filesystem) reindex() {
 
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem._reindex("/")
-}
-
-func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
-	filesystem.muInodes.Lock()
-	defer filesystem.muInodes.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.addInode", time.Since(t0))
-		logger.Trace("vfs", "addInode(): %s", time.Since(t0))
-	}()
-
-	key := fmt.Sprintf("%d,%d", fileinfo.Dev(), fileinfo.Ino())
-	if _, exists := filesystem.Inodes[key]; !exists {
-		filesystem.Inodes[key] = fileinfo
-		filesystem.totalSize += uint64(fileinfo.Size())
-	}
-	return key
 }
 
 func (filesystem *Filesystem) Size() uint64 {

@@ -48,11 +48,6 @@ type Filesystem struct {
 	muInodes sync.Mutex
 	Inodes   map[string]FileInfo
 
-	muPathnames      sync.Mutex
-	pathnameID       uint64
-	Pathnames        map[string]uint64
-	pathnamesInverse map[uint64]string
-
 	muScannedDirectories sync.Mutex
 	scannedDirectories   []string
 
@@ -70,8 +65,6 @@ type Filesystem struct {
 func NewFilesystem() *Filesystem {
 	filesystem := &Filesystem{}
 	filesystem.Inodes = make(map[string]FileInfo)
-	filesystem.Pathnames = make(map[string]uint64)
-	filesystem.pathnamesInverse = make(map[uint64]string)
 	filesystem.Root = &FilesystemNode{Children: make(map[string]*FilesystemNode)}
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem.Symlinks = make(map[string]string)
@@ -196,8 +189,6 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 
 	pathname = filepath.Clean(pathname)
 	pathname = filepath.ToSlash(pathname)
-
-	filesystem.addPathname(pathname)
 
 	p := filesystem.Root
 	if pathname != "/" {
@@ -545,13 +536,6 @@ func (filesystem *Filesystem) reindex() {
 		logger.Trace("vfs", "reindex(): %s", time.Since(t0))
 	}()
 
-	filesystem.muPathnames.Lock()
-	filesystem.pathnamesInverse = make(map[uint64]string)
-	for pathname, pathnameId := range filesystem.Pathnames {
-		filesystem.pathnamesInverse[pathnameId] = pathname
-	}
-	filesystem.muPathnames.Unlock()
-
 	filesystem.statInfo = make(map[string]*FileInfo)
 	filesystem._reindex("/")
 }
@@ -572,50 +556,6 @@ func (filesystem *Filesystem) addInode(fileinfo FileInfo) string {
 		filesystem.totalSize += uint64(fileinfo.Size())
 	}
 	return key
-}
-
-func (filesystem *Filesystem) addPathname(pathname string) uint64 {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.addPathname", time.Since(t0))
-		logger.Trace("vfs", "addPathname(): %s", time.Since(t0))
-	}()
-
-	if pathnameId, exists := filesystem.Pathnames[pathname]; !exists {
-		filesystem.Pathnames[pathname] = filesystem.pathnameID
-		filesystem.pathnamesInverse[filesystem.pathnameID] = pathname
-		filesystem.pathnameID++
-		return pathnameId
-	} else {
-		return pathnameId
-	}
-}
-
-func (filesystem *Filesystem) GetPathnameID(pathname string) uint64 {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.GetPathnameID", time.Since(t0))
-		logger.Trace("vfs", "GetPathnameID(): %s", time.Since(t0))
-	}()
-	return filesystem.Pathnames[pathname]
-}
-
-func (filesystem *Filesystem) GetPathname(pathnameId uint64) string {
-	filesystem.muPathnames.Lock()
-	defer filesystem.muPathnames.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.GetPathname", time.Since(t0))
-		logger.Trace("vfs", "GetPathname(): %s", time.Since(t0))
-	}()
-	return filesystem.pathnamesInverse[pathnameId]
 }
 
 func (filesystem *Filesystem) Size() uint64 {

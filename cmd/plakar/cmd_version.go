@@ -23,7 +23,7 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 )
 
-const VERSION = "0.4.12-alpha"
+const VERSION = "0.4.13-alpha"
 
 func init() {
 	registerCommand("version", cmd_version)

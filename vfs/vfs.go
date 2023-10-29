@@ -444,10 +444,10 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 	}
 
 	ret := make([]string, 0)
-	for child := range parent.children {
-		ret = append(ret, child)
+	for _, child := range parent.Children {
+		ret = append(ret, child.Name)
 	}
-	sort.Strings(ret)
+	//sort.Strings(ret)
 
 	return ret, nil
 

@@ -11,6 +11,8 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 )
 
+const VERSION string = "0.0.1"
+
 type Index struct {
 	muChecksums      sync.Mutex
 	checksumID       uint32

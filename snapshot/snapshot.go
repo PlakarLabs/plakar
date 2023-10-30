@@ -950,6 +950,7 @@ func (snapshot *Snapshot) Commit() error {
 		}
 	}
 
+	snapshot.Header.IndexVersion = index.VERSION
 	snapshot.Header.IndexChecksum = indexChecksum32
 	snapshot.Header.IndexSize = uint64(len(serializedIndex))
 
@@ -973,6 +974,7 @@ func (snapshot *Snapshot) Commit() error {
 		}
 	}
 
+	snapshot.Header.FilesystemVersion = vfs.VERSION
 	snapshot.Header.FilesystemChecksum = filesystemChecksum32
 	snapshot.Header.FilesystemSize = uint64(len(serializedFilesystem))
 
@@ -996,6 +998,7 @@ func (snapshot *Snapshot) Commit() error {
 		}
 	}
 
+	snapshot.Header.MetadataVersion = metadata.VERSION
 	snapshot.Header.MetadataChecksum = metadataChecksum32
 	snapshot.Header.MetadataSize = uint64(len(serializedMetadata))
 

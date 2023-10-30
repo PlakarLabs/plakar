@@ -10,6 +10,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+const VERSION string = "0.0.1"
+
 type Mapping struct {
 	muMapping      sync.Mutex
 	Mapping        map[uint32][]uint32

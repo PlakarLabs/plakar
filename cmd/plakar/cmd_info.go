@@ -203,12 +203,15 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 			fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
+			fmt.Printf("Index.Version: %s\n", metadata.IndexVersion)
 			fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
 			fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.IndexSize)
 
+			fmt.Printf("VFS.Version: %s\n", metadata.FilesystemVersion)
 			fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
 			fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
 
+			fmt.Printf("Metadata.Version: %s\n", metadata.MetadataVersion)
 			fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
 			fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataSize), metadata.MetadataSize)
 

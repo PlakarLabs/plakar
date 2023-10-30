@@ -34,6 +34,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+const VERSION string = "0.0.1"
+
 type ChildEntry struct {
 	Name string
 	Node *FilesystemNode

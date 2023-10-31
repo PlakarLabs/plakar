@@ -68,10 +68,6 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 		return info_plakar(repository)
 	}
 
-	var opt_metadata bool
-	var opt_index bool
-	var opt_filesystem bool
-
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 
 	metadatas, err := getHeaders(repository, flags.Args())

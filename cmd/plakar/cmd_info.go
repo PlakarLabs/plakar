@@ -17,7 +17,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -74,149 +73,55 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_filesystem bool
 
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
-	flags.BoolVar(&opt_metadata, "metadata", false, "display metadata")
-	flags.BoolVar(&opt_index, "index", false, "display index")
-	flags.BoolVar(&opt_filesystem, "filesystem", false, "display filesystem")
-	flags.Parse(args)
 
-	if opt_metadata {
-		metadatas, err := getHeaders(repository, flags.Args())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, metadata := range metadatas {
-			serialized, err := json.Marshal(metadata)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println(string(serialized))
-		}
+	metadatas, err := getHeaders(repository, flags.Args())
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if opt_index {
-		indexes, err := getIndexes(repository, flags.Args())
-		if err != nil {
-			log.Fatal(err)
-		}
+	for _, metadata := range metadatas {
+		fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
+		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
+		fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
 
-		for _, index := range indexes {
-			jindex := JSONIndex{}
-			jindex.ContentTypes = make(map[string]uint32)
-			//jindex.Pathnames = make(map[uint32]uint32)
-			jindex.Objects = make(map[uint32]*JSONObject)
-			jindex.Chunks = make(map[uint32]*JSONChunk)
-			jindex.ChunkToObjects = make(map[uint32][]uint32)
-			jindex.ObjectToPathnames = make(map[uint32][]uint32)
+		fmt.Printf("Version: %s\n", repository.Configuration().Version)
+		fmt.Printf("Hostname: %s\n", metadata.Hostname)
+		fmt.Printf("Username: %s\n", metadata.Username)
+		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
+		fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
+		fmt.Printf("MachineID: %s\n", metadata.MachineID)
+		fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
+		fmt.Printf("Tags: %s\n", strings.Join(metadata.Tags, ", "))
+		fmt.Printf("Directories: %d\n", metadata.DirectoriesCount)
+		fmt.Printf("Files: %d\n", metadata.FilesCount)
+		fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
+		fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
 
-			//for checksumID, pathnameID := range index.Pathnames {
-			//	jindex.Pathnames[checksumID] = pathnameID
-			//}
+		fmt.Printf("Objects.Count: %d\n", metadata.ObjectsCount)
+		fmt.Printf("Objects.TransferCount: %d\n", metadata.ObjectsTransferCount)
+		fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
 
-			for checksumID, objectChunks := range index.Objects {
-				jobject := &JSONObject{
-					Chunks: make([]uint32, 0),
-				}
+		fmt.Printf("Chunks.Count: %d\n", metadata.ChunksCount)
+		fmt.Printf("Chunks.Size: %d\n", metadata.ChunksSize)
+		fmt.Printf("Chunks,TransferCount: %d\n", metadata.ChunksTransferCount)
+		fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
 
-				for _, chunkChecksum := range objectChunks {
-					jobject.Chunks = append(jobject.Chunks, chunkChecksum)
-				}
+		fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
-				jindex.Objects[checksumID] = jobject
-			}
+		fmt.Printf("Index.Version: %s\n", metadata.IndexVersion)
+		fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
+		fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.IndexSize)
 
-			for checksumID, chunkLength := range index.Chunks {
-				jchunk := &JSONChunk{
-					Length: chunkLength,
-				}
+		fmt.Printf("VFS.Version: %s\n", metadata.FilesystemVersion)
+		fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
+		fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
 
-				jindex.Chunks[checksumID] = jchunk
-			}
+		fmt.Printf("Metadata.Version: %s\n", metadata.MetadataVersion)
+		fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
+		fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataSize), metadata.MetadataSize)
 
-			/*
-				for checksum, objects := range index.ChunkToObjects {
-					jindex.ChunkToObjects[checksum] = make([]uint32, 0)
-					for _, objChecksum := range objects {
-						jindex.ChunkToObjects[checksum] = append(jindex.ChunkToObjects[checksum], objChecksum)
-					}
-				}
-			*/
-			//for checksumID, pathnames := range index.ObjectToPathnames {
-			//	jindex.ObjectToPathnames[checksumID] = pathnames
-			//}
-
-			serialized, err := json.Marshal(jindex)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println(string(serialized))
-		}
 	}
 
-	if opt_filesystem {
-		filesystems, err := getFilesystems(repository, flags.Args())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, filesystem := range filesystems {
-			serialized, err := json.Marshal(filesystem)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println(string(serialized))
-		}
-	}
-
-	if !opt_metadata && !opt_index && !opt_filesystem {
-		metadatas, err := getHeaders(repository, flags.Args())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, metadata := range metadatas {
-			fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
-			fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
-			fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
-
-			fmt.Printf("Version: %s\n", repository.Configuration().Version)
-			fmt.Printf("Hostname: %s\n", metadata.Hostname)
-			fmt.Printf("Username: %s\n", metadata.Username)
-			fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
-			fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
-			fmt.Printf("MachineID: %s\n", metadata.MachineID)
-			fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
-			fmt.Printf("Tags: %s\n", strings.Join(metadata.Tags, ", "))
-			fmt.Printf("Directories: %d\n", metadata.DirectoriesCount)
-			fmt.Printf("Files: %d\n", metadata.FilesCount)
-			fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
-			fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
-
-			fmt.Printf("Objects.Count: %d\n", metadata.ObjectsCount)
-			fmt.Printf("Objects.TransferCount: %d\n", metadata.ObjectsTransferCount)
-			fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
-
-			fmt.Printf("Chunks.Count: %d\n", metadata.ChunksCount)
-			fmt.Printf("Chunks.Size: %d\n", metadata.ChunksSize)
-			fmt.Printf("Chunks,TransferCount: %d\n", metadata.ChunksTransferCount)
-			fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
-
-			fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
-
-			fmt.Printf("Index.Version: %s\n", metadata.IndexVersion)
-			fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
-			fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.IndexSize)
-
-			fmt.Printf("VFS.Version: %s\n", metadata.FilesystemVersion)
-			fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
-			fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
-
-			fmt.Printf("Metadata.Version: %s\n", metadata.MetadataVersion)
-			fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
-			fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataSize), metadata.MetadataSize)
-
-		}
-	}
 	return 0
 }
 

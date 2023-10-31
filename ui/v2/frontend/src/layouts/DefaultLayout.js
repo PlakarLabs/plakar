@@ -15,9 +15,10 @@ function DefaultLayout({children, conf}) {
 
     return (
         <>
-            <CssBaseline/>
+
             <ThemeUIProvider theme={themeUITheme}>
                 <MaterialThemeProvider theme={{[THEME_ID]: materialTheme}}>
+                    <CssBaseline/>
                     <Stack>
                         <AppBar position="static" color="transparent">
                             <Stack direction={{xs: 'column', sm: 'row'}}

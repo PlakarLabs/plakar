@@ -4,8 +4,8 @@ import React from 'react';
 import {connect} from 'react-redux';
 import {useState, useEffect} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
-import {selectSnapshots, fetchSnapshots} from '../state/Root';
-import {Typography, Stack, AppBar, Container} from '@mui/material';
+import {selectSnapshots} from '../state/Root';
+import {Typography, Stack, AppBar, Container, TextField, Box, InputBase, Pagination} from '@mui/material';
 import {styled} from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -16,26 +16,34 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import TableFooter from '@mui/material/TableFooter';
 import TablePagination from '@mui/material/TablePagination';
+import InputAdornment from '@mui/material/InputAdornment';
+
 import Tag from '../components/Tag'
 import DefaultLayout from "../layouts/DefaultLayout";
+import SingleScreenLayout from "../layouts/SingleScreenLayout";
+import {IconButton} from "theme-ui";
+import SearchIcon from '@mui/icons-material/Search';
+import {materialTheme} from "../Theme";
+import {fetchSnapshots, snapshots} from "../utils/PlakarApiClient";
 
 
 const StyledTableCell = styled(TableCell)(({theme}) => ({
     [`&.${tableCellClasses.head}`]: {
-        backgroundColor: theme.palette.common.black,
-        color: theme.palette.common.white,
+        backgroundColor: theme.palette.grey['50'],
     },
     [`&.${tableCellClasses.body}`]: {
-        fontSize: 14,
+        // fontSize: 14,
+        // lineHeight: '20px',
     },
 }));
 
+// change the color for intermediate rows if needed
 const StyledTableRow = styled(TableRow)(({theme}) => ({
     '&:nth-of-type(odd)': {
-        backgroundColor: theme.palette.action.hover,
+        backgroundColor: 'white',
     },
-    // hide last border
-    '&:last-child td, &:last-child th': {
+    // hide lines for all
+    '& td, & th': {
         border: 0,
     },
 }));
@@ -50,18 +58,7 @@ function createData(
     return {name, calories, fat, carbs, protein};
 }
 
-const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
-];
+const rows = fetchSnapshots('', 1, 10).items;
 
 
 function SnapshotList({}) {
@@ -76,57 +73,105 @@ function SnapshotList({}) {
 
 
     return (
-        <DefaultLayout>
-            <Typography variant="h3" component="h1">Snapshots</Typography>
-            <TableContainer component={Paper}>
-                <Table sx={{minWidth: 700}} aria-label="customized table">
-                    <TableHead>
-                        <TableRow>
-                            <StyledTableCell>Dessert (100g serving)</StyledTableCell>
-                            <StyledTableCell align="right">Calories</StyledTableCell>
-                            <StyledTableCell align="right">Fat&nbsp;(g)</StyledTableCell>
-                            <StyledTableCell align="right">Carbs&nbsp;(g)</StyledTableCell>
-                            <StyledTableCell align="right">Protein&nbsp;(g)</StyledTableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <StyledTableRow key={row.name}>
-                                <StyledTableCell component="th" scope="row">
-                                    {row.name}
+        <SingleScreenLayout>
+            <Stack spacing={1}>
+
+                <TextField fullWidth
+                           label="Search..."
+                           id="search"
+                           sx={{ boxShadow: 3, borderRadius: 1 }}
+                           InputProps={{
+                    endAdornment: (
+                        <InputAdornment position="start">
+                            <SearchIcon/>
+                        </InputAdornment>
+                    ),
+                }}/>
+                <Typography variant="h3" component="h1">Snapshots</Typography>
+                <TableContainer component={Paper}>
+                    <Table sx={{minWidth: 700}} size="small" aria-label="customized table">
+                        <TableHead>
+                            <TableRow>
+                                <StyledTableCell>
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Snapshot Id
+                                    </Typography>
                                 </StyledTableCell>
-                                <StyledTableCell align="right">{row.calories}</StyledTableCell>
-                                <StyledTableCell align="right">{row.fat}</StyledTableCell>
-                                <StyledTableCell align="right">{row.carbs}</StyledTableCell>
-                                <StyledTableCell align="right">{row.protein}</StyledTableCell>
-                            </StyledTableRow>
-                        ))}
-                    </TableBody>
-                    <TableFooter>
-                        <TableRow>
-                            <TablePagination
-                                rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}
-                                colSpan={3}
-                                count={rows.length}
-                                rowsPerPage={10}
-                                page={page}
-                                SelectProps={{
-                                    inputProps: {
-                                        'aria-label': 'rows per page',
-                                    },
-                                    native: true,
-                                }}
-                                // onPageChange={handleChangePage}
-                                // onRowsPerPageChange={handleChangeRowsPerPage}
-                                // ActionsComponent={TablePaginationActions}
-                            />
-                        </TableRow>
-                    </TableFooter>
-                </Table>
-            </TableContainer>
+                                <StyledTableCell align="right">
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Username
+                                    </Typography>
+                                </StyledTableCell>
+                                <StyledTableCell align="right">
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Hostname
+                                    </Typography>
+                                </StyledTableCell>
+                                <StyledTableCell align="right">
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Date
+                                    </Typography>
+                                </StyledTableCell>
+                                <StyledTableCell align="right">
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Size</Typography>
+                                </StyledTableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {rows.map((row) => (
+                                <StyledTableRow key={row.name}>
+                                    <StyledTableCell component="th" scope="row">
+                                        <Typography variant='textsmregular'>{row.id}</Typography>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="right">
+                                        <Typography variant='textsmregular'>{row.username}</Typography>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="right">
+                                        <Typography variant='textsmregular'>{row.hostName}</Typography>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="right">
+                                        <Typography variant='textsmregular'>{row.date}</Typography>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="right">
+                                        <Typography variant='textsmregular'>{row.size}</Typography>
+                                    </StyledTableCell>
+                                </StyledTableRow>
+                            ))}
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow>
+                                <td colSpan={10}>
+                                    <Stack sx={{width: "100%"}} alignItems="stretch" direction={'row'}
+                                           justifyContent={"flex-start"} padding={2}>
+                                        <Pagination count={10} color={'primary'} size={'small'}/>
 
+                                        {/*<TablePagination*/}
 
-        </DefaultLayout>
+                                        {/*    showFirstButton*/}
+                                        {/*    showLastButton*/}
+                                        {/*    rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}*/}
+                                        {/*    colSpan={3}*/}
+                                        {/*    count={rows.length}*/}
+                                        {/*    rowsPerPage={10}*/}
+                                        {/*    page={page}*/}
+                                        {/*    SelectProps={{*/}
+                                        {/*        inputProps: {*/}
+                                        {/*            'aria-label': 'rows per page',*/}
+                                        {/*        },*/}
+                                        {/*        native: true,*/}
+                                        {/*    }}*/}
+
+                                        {/*/>*/}
+                                    </Stack>
+                                </td>
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
+                </TableContainer>
+            </Stack>
+
+        </SingleScreenLayout>
     );
 
 };

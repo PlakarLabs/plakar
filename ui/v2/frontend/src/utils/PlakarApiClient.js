@@ -1,10 +1,10 @@
 import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
 
 
-const snapshots = createDummySnapshotItems(384);
+export const snapshots = createDummySnapshotItems(384);
 
 
-function fetchSnapshots(apiUrl, page, pageSize) {
+export function fetchSnapshots(apiUrl, page, pageSize) {
     return fetchSnapshotPage(snapshots, page, pageSize);
 }
 

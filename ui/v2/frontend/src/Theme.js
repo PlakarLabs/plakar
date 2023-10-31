@@ -19,7 +19,7 @@ export const themeOptions = {
     },
   },
   typography: {
-    fontFamily: {font},
+    fontFamily: font,
     fontSize: 16,
     fontWeight: '600',
   },

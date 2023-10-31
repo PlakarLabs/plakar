@@ -18,6 +18,7 @@ import TableFooter from '@mui/material/TableFooter';
 import TablePagination from '@mui/material/TablePagination';
 import Tag from '../components/Tag'
 import DefaultLayout from "../layouts/DefaultLayout";
+import {useParams} from "react-router-dom";
 
 
 const StyledTableCell = styled(TableCell)(({theme}) => ({
@@ -64,8 +65,9 @@ const rows = [
 ];
 
 
-function SnapshotList({}) {
+function PathList({}) {
     const [page, setPage] = React.useState(0);
+    let {id, path} = useParams();
 
     // useEffect(() => {
     //         fetchSnapshots();
@@ -76,8 +78,11 @@ function SnapshotList({}) {
 
 
     return (
-        <DefaultLayout>
-            <Typography variant="h3" component="h1">Snapshots</Typography>
+        <>
+            <Typography variant="h3" component="h1">Path Listing</Typography>
+            <Typography >{id}</Typography>
+            <Typography >{path}</Typography>
+
             <TableContainer component={Paper}>
                 <Table sx={{minWidth: 700}} aria-label="customized table">
                     <TableHead>
@@ -126,9 +131,9 @@ function SnapshotList({}) {
             </TableContainer>
 
 
-        </DefaultLayout>
+        </>
     );
 
 };
 
-export default SnapshotList;
+export default PathList;

@@ -31,7 +31,7 @@ export const fetchSnapshots = () => async dispatch => {
       dispatch({ type: 'FETCH_SNAPSHOTS_FAILURE', error });
     }
   };
-  
+
 export const confApp = (apiUrl, storeName) => async dispatch => {
     const data = { apiUrl: apiUrl, storeName: storeName }
     dispatch({ type: 'SET_CONF', payload: data});
@@ -43,7 +43,7 @@ export const confApp = (apiUrl, storeName) => async dispatch => {
     loading: false,
     error: null,
   };
-  
+
   export const snapshotsReducer = (state = initialState, action) => {
     switch (action.type) {
       case 'FETCH_SNAPSHOTS_REQUESTS':
@@ -57,15 +57,20 @@ export const confApp = (apiUrl, storeName) => async dispatch => {
     }
   };
 
-  export const confReducer = (state = {}, action) => {
+
+  const confState = {
+      apiUrl: null,
+    storeName: null,
+  };
+  export const confReducer = (state = confState, action) => {
     switch (action.type) {
       case 'SET_CONF':
-        return {...state, apiUrl: action.payload.apiUrl, storeName: action.payload.storeName}; 
+        return {...state, apiUrl: action.payload.apiUrl, storeName: action.payload.storeName};
       default:
         return state;
     }
   };
-  
+
   // Example selector
   export const selectSnapshots = glState => glState.snapshots;
   export const selectConf = glState => glState.conf;

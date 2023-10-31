@@ -1,75 +1,37 @@
 import React from 'react';
-import {useEffect} from 'react';
-import {connect} from 'react-redux';
-import {ThemeUIProvider} from 'theme-ui';
-import {
-    THEME_ID,
-    ThemeProvider as MaterialThemeProvider
-} from '@mui/material/styles';
-import {materialTheme, themeUITheme} from './Theme';
-import {selectConf, confApp} from './state/Root';
-import {AppBar, Stack, Typography} from "@mui/material";
-import {ReactComponent as Logo} from './Logo/Full.svg';
+import {Provider} from 'react-redux';
 
-
+import {persistor, routerSelector, store, history} from "./utils/Store";
+import {Route, Routes} from "react-router-dom";
+import Welcome from "./pages/Welcome";
+import {PersistGate} from "redux-persist/integration/react";
+import {ReduxRouter} from "@lagunovsky/redux-react-router";
+import Config from "./pages/Config";
+import SnapshotList from "./pages/SnapshotList";
+import {CONFIG_ROUTE, SNAPSHOT_ROUTE} from "./utils/Routes";
+import Explorer from "./pages/Explorer";
 
 
 // http://localhost:3000?api_url=http://localhost:8000&store_name=plakar
 
-function App({conf, confApp}) {
-    // const apiUrl = useSelector(state => state.root.apiUrl);
-
-    useEffect(() => {
-        // Get the URLSearchParams object from the current URL
-        const searchParams = new URLSearchParams(window.location.search);
-
-        // Get the value of the 'api' parameter
-        const api = searchParams.get('api_url');
-        const storeName = searchParams.get('store_name');
-
-        // Store the 'api' value in local storage
-        if (api != null && storeName != null) {
-            confApp(api, storeName);
-            const newUrl = window.location.pathname + window.location.hash;
-            window.history.replaceState({}, '', newUrl);
-        }
-        // Remove the 'api_url' parameter from the URL
-
-    }, [confApp]);
-
-
+function App() {
     return (
+        <Provider store={store}>
+            <PersistGate loading={null} persistor={persistor}>
+                <ReduxRouter history={history} routerSelector={routerSelector}>
+                    <Routes>
+                        <Route path={'/'} element={<Welcome/>}/>
+                        <Route path={SNAPSHOT_ROUTE} element={<SnapshotList/>}/>
+                        <Route path={'snapshot/:snapshotId/*'} element={<Explorer/>}/>
 
-        <ThemeUIProvider theme={themeUITheme}>
-            <MaterialThemeProvider theme={{[THEME_ID]: materialTheme}}>
-                <Stack>
-                    <AppBar position="static" color="transparent">
-                        <Stack direction={{xs:'column', sm: 'row'}} 
-                          justifyContent="left"
-                          alignItems="center"
-                        maxWidth="xl" sx={{padding: 2}}>
-                            <Logo padding="s"/>
-                            <Typography href="#" sx={{padding: 1}}>on <strong>{conf.storeName ? conf.storeName : 'loading...'}</strong></Typography>
-                        </Stack>
-                    </AppBar>
-                    <Typography>Loading...</Typography>
+                        <Route path={CONFIG_ROUTE} element={<Config/>}/>
+                    </Routes>
+                </ReduxRouter>
+            </PersistGate>
+        </Provider>
 
-
-                </Stack>
-            </MaterialThemeProvider>
-        </ThemeUIProvider>
     );
 }
 
-const mapStateToProps = state => ({
-    conf: selectConf(state),
-});
 
-const mapDispatchToProps = {
-    confApp,
-};
-
-export default connect(mapStateToProps, mapDispatchToProps)(App);
-
-
-// export default App;
+export default App;

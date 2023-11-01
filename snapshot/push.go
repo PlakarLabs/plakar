@@ -312,7 +312,11 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 	snapshot.Header.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
 	snapshot.Header.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
 
-	for _, chunkLength := range snapshot.Index.Chunks {
+	for _, chunk := range snapshot.Index.ListChunks() {
+		chunkLength, exists := snapshot.Index.GetChunkLength(chunk)
+		if !exists {
+			panic("ListChunks: corrupted index")
+		}
 		atomic.AddUint64(&snapshot.Header.ChunksSize, uint64(chunkLength))
 	}
 

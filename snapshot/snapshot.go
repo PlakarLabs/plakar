@@ -912,7 +912,6 @@ func (snapshot *Snapshot) Commit() error {
 	<-snapshot.packerChanDone
 
 	if snapshot.Repository().GetRepositoryIndex().IsDirty() {
-
 		serializedRepositoryIndex, err := snapshot.Repository().GetRepositoryIndex().Serialize()
 		if err != nil {
 			logger.Warn("could not serialize repository index: %s", err)
@@ -923,80 +922,130 @@ func (snapshot *Snapshot) Commit() error {
 		indexChecksum := indexHasher.Sum(nil)
 		indexChecksum32 := [32]byte{}
 		copy(indexChecksum32[:], indexChecksum[:])
-
 		_, err = snapshot.PutIndex(indexChecksum32, serializedRepositoryIndex)
 		if err != nil {
 			return err
 		}
 	}
 
-	serializedIndex, err := snapshot.Index.Serialize()
-	if err != nil {
-		return err
-	}
+	// there are three bits we can parallelize here:
+	var serializedIndex []byte
+	var serializedFilesystem []byte
+	var serializedMetadata []byte
+	var indexChecksum32 [32]byte
+	var filesystemChecksum32 [32]byte
+	var metadataChecksum32 [32]byte
 
-	indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
-	indexHasher.Write(serializedIndex)
-	indexChecksum := indexHasher.Sum(nil)
-	indexChecksum32 := [32]byte{}
-	copy(indexChecksum32[:], indexChecksum[:])
-
-	if exists, err := snapshot.repository.CheckBlob(indexChecksum32); err != nil {
-		return err
-	} else if !exists {
-		_, err := snapshot.PutBlob(indexChecksum32, serializedIndex)
-		if err != nil {
-			return err
+	wg := sync.WaitGroup{}
+	errc := make(chan error)
+	errcDone := make(chan bool)
+	var parallelError error
+	go func() {
+		for err := range errc {
+			logger.Warn("commit error: %s", err)
+			parallelError = err
 		}
+		close(errcDone)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		var err error
+		serializedIndex, err = snapshot.Index.Serialize()
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		indexHasher.Write(serializedIndex)
+		indexChecksum := indexHasher.Sum(nil)
+		copy(indexChecksum32[:], indexChecksum[:])
+
+		if exists, err := snapshot.repository.CheckBlob(indexChecksum32); err != nil {
+			errc <- err
+			return
+		} else if !exists {
+			_, err := snapshot.PutBlob(indexChecksum32, serializedIndex)
+			if err != nil {
+				errc <- err
+				return
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		var err error
+		serializedFilesystem, err = snapshot.Filesystem.Serialize()
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		fsHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		fsHasher.Write(serializedFilesystem)
+		filesystemChecksum := fsHasher.Sum(nil)
+		copy(filesystemChecksum32[:], filesystemChecksum[:])
+
+		if exists, err := snapshot.repository.CheckBlob(filesystemChecksum32); err != nil {
+			errc <- err
+			return
+		} else if !exists {
+			_, err = snapshot.PutBlob(filesystemChecksum32, serializedFilesystem)
+			if err != nil {
+				errc <- err
+				return
+			}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		var err error
+		serializedMetadata, err = snapshot.Metadata.Serialize()
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		mdHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		mdHasher.Write(serializedMetadata)
+		metadataChecksum := mdHasher.Sum(nil)
+		copy(metadataChecksum32[:], metadataChecksum[:])
+
+		if exists, err := snapshot.repository.CheckBlob(metadataChecksum32); err != nil {
+			errc <- err
+			return
+		} else if !exists {
+			_, err := snapshot.PutBlob(metadataChecksum32, serializedMetadata)
+			if err != nil {
+				errc <- err
+				return
+			}
+		}
+	}()
+	wg.Wait()
+	close(errc)
+	<-errcDone
+
+	if parallelError != nil {
+		return parallelError
 	}
 
 	snapshot.Header.IndexVersion = index.VERSION
 	snapshot.Header.IndexChecksum = indexChecksum32
 	snapshot.Header.IndexSize = uint64(len(serializedIndex))
 
-	serializedFilesystem, err := snapshot.Filesystem.Serialize()
-	if err != nil {
-		return err
-	}
-
-	fsHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
-	fsHasher.Write(serializedFilesystem)
-	filesystemChecksum := fsHasher.Sum(nil)
-	var filesystemChecksum32 [32]byte
-	copy(filesystemChecksum32[:], filesystemChecksum[:])
-
-	if exists, err := snapshot.repository.CheckBlob(filesystemChecksum32); err != nil {
-		return err
-	} else if !exists {
-		_, err = snapshot.PutBlob(filesystemChecksum32, serializedFilesystem)
-		if err != nil {
-			return err
-		}
-	}
-
 	snapshot.Header.FilesystemVersion = vfs.VERSION
 	snapshot.Header.FilesystemChecksum = filesystemChecksum32
 	snapshot.Header.FilesystemSize = uint64(len(serializedFilesystem))
-
-	serializedMetadata, err := snapshot.Metadata.Serialize()
-	if err != nil {
-		return err
-	}
-
-	mdHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
-	mdHasher.Write(serializedMetadata)
-	metadataChecksum := mdHasher.Sum(nil)
-	var metadataChecksum32 [32]byte
-	copy(metadataChecksum32[:], metadataChecksum[:])
-
-	if exists, err := snapshot.repository.CheckBlob(metadataChecksum32); err != nil {
-		return err
-	} else if !exists {
-		_, err := snapshot.PutBlob(metadataChecksum32, serializedMetadata)
-		if err != nil {
-			return err
-		}
-	}
 
 	snapshot.Header.MetadataVersion = metadata.VERSION
 	snapshot.Header.MetadataChecksum = metadataChecksum32

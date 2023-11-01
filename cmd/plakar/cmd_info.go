@@ -69,6 +69,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
+	flags.Parse(args)
 
 	metadatas, err := getHeaders(repository, flags.Args())
 	if err != nil {

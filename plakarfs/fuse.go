@@ -113,7 +113,7 @@ func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error)
 		}
 
 		var filesystemChecksum32 [32]byte
-		copy(filesystemChecksum32[:], hdr.FilesystemChecksum[:])
+		copy(filesystemChecksum32[:], hdr.VFS[0].Checksum[:])
 
 		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
 		if err != nil {

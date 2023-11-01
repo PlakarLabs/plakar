@@ -105,18 +105,23 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
 
-		fmt.Printf("Index.Version: %s\n", metadata.IndexVersion)
-		fmt.Printf("Index.Checksum: %064x\n", metadata.IndexChecksum)
-		fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.IndexSize), metadata.IndexSize)
+		for offset, blob := range metadata.Index {
+			fmt.Printf("Index[%d].Version: %s\n", offset, blob.Version)
+			fmt.Printf("Index[%d].Checksum: %064x\n", offset, blob.Checksum)
+			fmt.Printf("Index[%d].Size: %s (%d bytes)\n", offset, humanize.Bytes(blob.Size), blob.Size)
+		}
 
-		fmt.Printf("VFS.Version: %s\n", metadata.FilesystemVersion)
-		fmt.Printf("VFS.Checksum: %064x\n", metadata.FilesystemChecksum)
-		fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.FilesystemSize), metadata.FilesystemSize)
+		for offset, blob := range metadata.VFS {
+			fmt.Printf("VFS[%d].Version: %s\n", offset, blob.Version)
+			fmt.Printf("VFS[%d].Checksum: %064x\n", offset, blob.Checksum)
+			fmt.Printf("VFS[%d].Size: %s (%d bytes)\n", offset, humanize.Bytes(blob.Size), blob.Size)
+		}
 
-		fmt.Printf("Metadata.Version: %s\n", metadata.MetadataVersion)
-		fmt.Printf("Metadata.Checksum: %064x\n", metadata.MetadataChecksum)
-		fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.MetadataSize), metadata.MetadataSize)
-
+		for offset, blob := range metadata.Metadata {
+			fmt.Printf("Metadata[%d].Version: %s\n", offset, blob.Version)
+			fmt.Printf("Metadata[%d].Checksum: %064x\n", offset, blob.Checksum)
+			fmt.Printf("Metadata[%d].Size: %s (%d bytes)\n", offset, humanize.Bytes(blob.Size), blob.Size)
+		}
 	}
 
 	return 0
@@ -163,13 +168,21 @@ func info_plakar(repository *storage.Repository) int {
 	totalMetadataSize := uint64(0)
 	for _, metadata := range metadatas {
 		totalSize += metadata.ScanProcessedSize
-		totalIndexSize += metadata.IndexSize
-		totalFilesystemSize += metadata.FilesystemSize
-		totalMetadataSize += metadata.MetadataSize
+
+		for _, blob := range metadata.Index {
+			totalIndexSize += blob.Size
+		}
+		for _, blob := range metadata.VFS {
+			totalFilesystemSize += blob.Size
+		}
+		for _, blob := range metadata.Metadata {
+			totalMetadataSize += blob.Size
+		}
 	}
 	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
 	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)
 	fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(totalFilesystemSize), totalFilesystemSize)
+	fmt.Printf("Metadata Size: %s (%d bytes)\n", humanize.Bytes(totalMetadataSize), totalMetadataSize)
 
 	return 0
 }

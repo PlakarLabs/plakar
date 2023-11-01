@@ -150,36 +150,36 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	}
 
 	var indexChecksum32 [32]byte
-	copy(indexChecksum32[:], hdr.IndexChecksum[:])
+	copy(indexChecksum32[:], hdr.Index[0].Checksum[:])
 
 	index, verifyChecksum, err := GetIndex(repository, indexChecksum32)
 	if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(verifyChecksum[:], hdr.IndexChecksum[:]) {
+	if !bytes.Equal(verifyChecksum[:], hdr.Index[0].Checksum[:]) {
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
 	var filesystemChecksum32 [32]byte
-	copy(filesystemChecksum32[:], hdr.FilesystemChecksum[:])
+	copy(filesystemChecksum32[:], hdr.VFS[0].Checksum[:])
 
 	filesystem, verifyChecksum, err := GetFilesystem(repository, filesystemChecksum32)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(verifyChecksum[:], hdr.FilesystemChecksum[:]) {
+	if !bytes.Equal(verifyChecksum[:], hdr.VFS[0].Checksum[:]) {
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
 	var metadataChecksum32 [32]byte
-	copy(metadataChecksum32[:], hdr.MetadataChecksum[:])
+	copy(metadataChecksum32[:], hdr.Metadata[0].Checksum[:])
 
 	md, verifyChecksum, err := GetMetadata(repository, metadataChecksum32)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(verifyChecksum[:], hdr.MetadataChecksum[:]) {
+	if !bytes.Equal(verifyChecksum[:], hdr.Metadata[0].Checksum[:]) {
 		return nil, fmt.Errorf("metadata mismatches hdr checksum")
 	}
 
@@ -205,20 +205,20 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 		return nil, err
 	}
 
-	index, verifyChecksum, err := GetIndex(repository, hdr.IndexChecksum)
+	index, verifyChecksum, err := GetIndex(repository, hdr.Index[0].Checksum)
 	if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(verifyChecksum[:], hdr.IndexChecksum[:]) {
+	if !bytes.Equal(verifyChecksum[:], hdr.Index[0].Checksum[:]) {
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
-	filesystem, verifyChecksum, err := GetFilesystem(repository, hdr.FilesystemChecksum)
+	filesystem, verifyChecksum, err := GetFilesystem(repository, hdr.VFS[0].Checksum)
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(verifyChecksum[:], hdr.FilesystemChecksum[:]) {
+	if !bytes.Equal(verifyChecksum[:], hdr.VFS[0].Checksum[:]) {
 		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
 	}
 
@@ -1039,17 +1039,30 @@ func (snapshot *Snapshot) Commit() error {
 		return parallelError
 	}
 
-	snapshot.Header.IndexVersion = index.VERSION
-	snapshot.Header.IndexChecksum = indexChecksum32
-	snapshot.Header.IndexSize = uint64(len(serializedIndex))
+	indexBlob := header.Blob{
+		Type:     "index",
+		Version:  index.VERSION,
+		Checksum: indexChecksum32,
+		Size:     uint64(len(serializedIndex)),
+	}
 
-	snapshot.Header.FilesystemVersion = vfs.VERSION
-	snapshot.Header.FilesystemChecksum = filesystemChecksum32
-	snapshot.Header.FilesystemSize = uint64(len(serializedFilesystem))
+	vfsBlob := header.Blob{
+		Type:     "vfs",
+		Version:  vfs.VERSION,
+		Checksum: filesystemChecksum32,
+		Size:     uint64(len(serializedFilesystem)),
+	}
 
-	snapshot.Header.MetadataVersion = metadata.VERSION
-	snapshot.Header.MetadataChecksum = metadataChecksum32
-	snapshot.Header.MetadataSize = uint64(len(serializedMetadata))
+	metadataBlob := header.Blob{
+		Type:     "content-type",
+		Version:  metadata.VERSION,
+		Checksum: metadataChecksum32,
+		Size:     uint64(len(serializedMetadata)),
+	}
+
+	snapshot.Header.Index = []header.Blob{indexBlob}
+	snapshot.Header.VFS = []header.Blob{vfsBlob}
+	snapshot.Header.Metadata = []header.Blob{metadataBlob}
 
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {

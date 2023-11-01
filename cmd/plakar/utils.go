@@ -177,7 +177,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 				}
 
 				var indexChecksum32 [32]byte
-				copy(indexChecksum32[:], md.IndexChecksum[:])
+				copy(indexChecksum32[:], md.Index[0].Checksum[:])
 
 				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
@@ -239,7 +239,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 				}
 
 				var indexChecksum32 [32]byte
-				copy(indexChecksum32[:], md.IndexChecksum[:])
+				copy(indexChecksum32[:], md.Index[0].Checksum[:])
 
 				index, _, err := snapshot.GetIndex(repository, indexChecksum32)
 				if err != nil {
@@ -275,7 +275,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 				}
 
 				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.FilesystemChecksum[:])
+				copy(filesystemChecksum32[:], md.VFS[0].Checksum[:])
 
 				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {
@@ -347,7 +347,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 				}
 
 				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.FilesystemChecksum[:])
+				copy(filesystemChecksum32[:], md.VFS[0].Checksum[:])
 
 				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {

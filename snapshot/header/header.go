@@ -10,6 +10,13 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Blob struct {
+	Type     string
+	Version  string
+	Checksum [32]byte
+	Size     uint64
+}
+
 type Header struct {
 	IndexID          uuid.UUID
 	Version          string
@@ -30,17 +37,9 @@ type Header struct {
 
 	ScannedDirectories []string
 
-	IndexVersion  string
-	IndexChecksum [32]byte
-	IndexSize     uint64
-
-	FilesystemVersion  string
-	FilesystemChecksum [32]byte
-	FilesystemSize     uint64
-
-	MetadataVersion  string
-	MetadataChecksum [32]byte
-	MetadataSize     uint64
+	Index    []Blob
+	VFS      []Blob
+	Metadata []Blob
 
 	ChunksCount  uint64
 	ChunksSize   uint64

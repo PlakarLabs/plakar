@@ -14,33 +14,37 @@ import (
 const VERSION string = "0.0.1"
 
 type Index struct {
-	muChecksums      sync.Mutex
-	checksumID       uint32
-	Checksums        map[[32]byte]uint32
-	checksumsInverse map[uint32][32]byte
-
-	muPathnameToObject sync.Mutex
-	PathnameToObject   map[uint32]uint32
+	muPathnameToObject           sync.Mutex
+	PathnamesChecksumsMap        map[[32]byte]uint32
+	inversePathnamesChecksumsMap map[uint32][32]byte
+	PathnameToObject             map[uint32]uint32
 
 	// Object checksum -> chunks checksums
-	muObjects sync.Mutex
-	Objects   map[uint32][]uint32
+	muObjects                  sync.Mutex
+	ObjectsChecksumsMap        map[[32]byte]uint32
+	inverseObjectsChecksumsMap map[uint32][32]byte
+	Objects                    map[uint32][]uint32
 
 	// Chunk checksum -> length
-	muChunks sync.Mutex
-	Chunks   map[uint32]uint32
+	muChunks                  sync.Mutex
+	ChunksChecksumsMap        map[[32]byte]uint32
+	inverseChunksChecksumsMap map[uint32][32]byte
+	Chunks                    map[uint32]uint32
 }
 
 func NewIndex() *Index {
 	return &Index{
-		Checksums:        make(map[[32]byte]uint32),
-		checksumsInverse: make(map[uint32][32]byte),
+		PathnamesChecksumsMap:        make(map[[32]byte]uint32),
+		inversePathnamesChecksumsMap: make(map[uint32][32]byte),
+		PathnameToObject:             make(map[uint32]uint32),
 
-		PathnameToObject: make(map[uint32]uint32),
+		ObjectsChecksumsMap:        make(map[[32]byte]uint32),
+		inverseObjectsChecksumsMap: make(map[uint32][32]byte),
+		Objects:                    make(map[uint32][]uint32),
 
-		Objects: make(map[uint32][]uint32),
-
-		Chunks: make(map[uint32]uint32),
+		ChunksChecksumsMap:        make(map[[32]byte]uint32),
+		inverseChunksChecksumsMap: make(map[uint32][32]byte),
+		Chunks:                    make(map[uint32]uint32),
 	}
 }
 
@@ -50,10 +54,22 @@ func NewIndexFromBytes(serialized []byte) (*Index, error) {
 	if err := msgpack.Unmarshal(serialized, &index); err != nil {
 		return nil, err
 	}
-	index.checksumsInverse = make(map[uint32][32]byte)
-	for checksum, checksumID := range index.Checksums {
-		index.checksumsInverse[checksumID] = checksum
+
+	index.inverseChunksChecksumsMap = make(map[uint32][32]byte)
+	for checksum, checksumID := range index.ChunksChecksumsMap {
+		index.inverseChunksChecksumsMap[checksumID] = checksum
 	}
+
+	index.inverseObjectsChecksumsMap = make(map[uint32][32]byte)
+	for checksum, checksumID := range index.ObjectsChecksumsMap {
+		index.inverseObjectsChecksumsMap[checksumID] = checksum
+	}
+
+	index.inversePathnamesChecksumsMap = make(map[uint32][32]byte)
+	for checksum, checksumID := range index.PathnamesChecksumsMap {
+		index.inversePathnamesChecksumsMap[checksumID] = checksum
+	}
+
 	return &index, nil
 }
 
@@ -71,45 +87,13 @@ func (index *Index) Serialize() ([]byte, error) {
 	return serialized, nil
 }
 
-// checksums
-func (index *Index) addChecksum(checksum [32]byte) uint32 {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
-
-	if checksumID, exists := index.Checksums[checksum]; !exists {
-		index.Checksums[checksum] = index.checksumID
-		index.checksumsInverse[index.checksumID] = checksum
-		checksumID = index.checksumID
-		index.checksumID++
-		return checksumID
-	} else {
-		return checksumID
-	}
-}
-
-func (index *Index) ChecksumToId(checksum [32]byte) (uint32, bool) {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
-
-	checksumID, exists := index.Checksums[checksum]
-	return checksumID, exists
-}
-
-func (index *Index) IdToChecksum(checksumID uint32) ([32]byte, bool) {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
-
-	checksum, exists := index.checksumsInverse[checksumID]
-	return checksum, exists
-}
-
 func (index *Index) ListObjects() [][32]byte {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
 
 	ret := make([][32]byte, 0)
 	for checksumID := range index.Objects {
-		checksum, exists := index.IdToChecksum(checksumID)
+		checksum, exists := index.inverseObjectsChecksumsMap[checksumID]
 		if !exists {
 			panic("ListObjects: corrupted index")
 		}
@@ -124,7 +108,7 @@ func (index *Index) ListChunks() [][32]byte {
 
 	ret := make([][32]byte, 0)
 	for checksumID := range index.Chunks {
-		checksum, exists := index.IdToChecksum(checksumID)
+		checksum, exists := index.inverseChunksChecksumsMap[checksumID]
 		if !exists {
 			panic("ListChunks: corrupted index")
 		}
@@ -134,54 +118,62 @@ func (index *Index) ListChunks() [][32]byte {
 }
 
 // Public
-func (index *Index) AddChunk(chunk *objects.Chunk) uint32 {
+func (index *Index) AddChunk(chunk *objects.Chunk) {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
 	logger.Trace("index", "AddChunk(%064x)", chunk.Checksum)
 
-	checksumID := index.addChecksum(chunk.Checksum)
-	index.Chunks[checksumID] = chunk.Length
-	return checksumID
+	if _, exists := index.ChunksChecksumsMap[chunk.Checksum]; !exists {
+		checksumID := uint32(len(index.ChunksChecksumsMap))
+		index.ChunksChecksumsMap[chunk.Checksum] = checksumID
+		index.inverseChunksChecksumsMap[checksumID] = chunk.Checksum
+		index.Chunks[checksumID] = chunk.Length
+	}
 }
 
-func (index *Index) AddObject(object *objects.Object) uint32 {
+func (index *Index) AddObject(object *objects.Object) {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
 	logger.Trace("index", "AddObject(%064x)", object.Checksum)
 
-	objectChecksumID := index.addChecksum(object.Checksum)
-	chunks := make([]uint32, 0)
-	for _, checksum := range object.Chunks {
-		chunkChecksumID, exists := index.ChecksumToId(checksum)
-		if !exists {
-			panic("AddObject: corrupted index: could not find chunk checksum")
+	if _, exists := index.ObjectsChecksumsMap[object.Checksum]; !exists {
+		checksumID := uint32(len(index.ObjectsChecksumsMap))
+		index.ObjectsChecksumsMap[object.Checksum] = checksumID
+		index.inverseObjectsChecksumsMap[checksumID] = object.Checksum
+		index.Objects[checksumID] = make([]uint32, len(object.Chunks))
+		for offset, checksum := range object.Chunks {
+			index.muChunks.Lock()
+			chunkID := index.ChunksChecksumsMap[checksum]
+			index.muChunks.Unlock()
+			index.Objects[checksumID][offset] = chunkID
 		}
-		chunks = append(chunks, chunkChecksumID)
 	}
-
-	index.Objects[objectChecksumID] = chunks
-
-	return objectChecksumID
 }
 
 func (index *Index) LinkPathnameToObject(pathnameChecksum [32]byte, object *objects.Object) {
 	index.muPathnameToObject.Lock()
 	defer index.muPathnameToObject.Unlock()
 
-	checksumID, exists := index.ChecksumToId(object.Checksum)
+	index.muObjects.Lock()
+	objectID, exists := index.ObjectsChecksumsMap[object.Checksum]
+	index.muObjects.Unlock()
 	if !exists {
 		panic("LinkPathnameToObject: corrupted index: could not find object checksum")
 	}
 
-	pathnameID := index.addChecksum(pathnameChecksum)
-	index.PathnameToObject[pathnameID] = checksumID
+	if _, exists := index.PathnamesChecksumsMap[pathnameChecksum]; !exists {
+		pathnameID := uint32(len(index.PathnamesChecksumsMap))
+		index.PathnamesChecksumsMap[pathnameChecksum] = pathnameID
+		index.inversePathnamesChecksumsMap[pathnameID] = pathnameChecksum
+		index.PathnameToObject[pathnameID] = objectID
+	}
 }
 
 func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {
 	index.muChunks.Lock()
 	defer index.muChunks.Unlock()
 
-	checksumID, exists := index.ChecksumToId(checksum)
+	checksumID, exists := index.ChunksChecksumsMap[checksum]
 	if !exists {
 		return nil
 	}
@@ -204,7 +196,7 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 	index.muObjects.Lock()
 	defer index.muObjects.Unlock()
 
-	checksumID, exists := index.ChecksumToId(checksum)
+	checksumID, exists := index.ObjectsChecksumsMap[checksum]
 	if !exists {
 		return nil
 	}
@@ -216,7 +208,9 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 
 	chunks := make([][32]byte, 0)
 	for _, checksumID := range objectChunks {
-		checksum, exists := index.IdToChecksum(checksumID)
+		index.muChunks.Lock()
+		checksum, exists := index.inverseChunksChecksumsMap[checksumID]
+		index.muChunks.Unlock()
 		if !exists {
 			panic("LookupObject: corrupted index: could not find chunk checksum")
 		}
@@ -224,9 +218,8 @@ func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
 	}
 
 	return &objects.Object{
-		Checksum:    checksum,
-		Chunks:      chunks,
-		ContentType: "",
+		Checksum: checksum,
+		Chunks:   chunks,
 	}
 }
 
@@ -238,7 +231,7 @@ func (index *Index) LookupObjectForPathnameChecksum(pathnameChecksum [32]byte) *
 	index.muPathnameToObject.Lock()
 	defer index.muPathnameToObject.Unlock()
 
-	pathnameID, exists := index.ChecksumToId(pathnameChecksum)
+	pathnameID, exists := index.PathnamesChecksumsMap[pathnameChecksum]
 	if !exists {
 		return nil
 	}
@@ -248,39 +241,26 @@ func (index *Index) LookupObjectForPathnameChecksum(pathnameChecksum [32]byte) *
 		return nil
 	}
 
-	checksum, exists := index.IdToChecksum(checksumID)
+	index.muObjects.Lock()
+	objectChecksum, exists := index.inverseObjectsChecksumsMap[checksumID]
+	index.muObjects.Unlock()
 	if !exists {
 		panic("LookupObjectForPathname: corrupted index: could not find object checksum")
 	}
-	return index.LookupObject(checksum)
+
+	obj := index.LookupObject(objectChecksum)
+	return obj
 }
 
-func (index *Index) GetObject(checksum [32]byte) *objects.Object {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (index *Index) GetChunkLength(checksum [32]byte) (uint32, bool) {
+	index.muChunks.Lock()
+	defer index.muChunks.Unlock()
 
-	checksumID, exists := index.ChecksumToId(checksum)
+	checksumID, exists := index.ChunksChecksumsMap[checksum]
 	if !exists {
-		return nil
+		return 0, false
 	}
 
-	objectChunks, exists := index.Objects[checksumID]
-	if !exists {
-		return nil
-	}
-
-	chunks := make([][32]byte, 0)
-	for _, checksumID := range objectChunks {
-		checksum, exists := index.IdToChecksum(checksumID)
-		if !exists {
-			panic("GetObject: corrupted index: could not find chunk checksum")
-		}
-		chunks = append(chunks, checksum)
-	}
-
-	return &objects.Object{
-		Checksum:    checksum,
-		Chunks:      chunks,
-		ContentType: "",
-	}
+	length, exists := index.Chunks[checksumID]
+	return length, exists
 }

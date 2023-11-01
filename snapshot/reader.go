@@ -115,12 +115,10 @@ func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 	chunksLengths := make([]uint32, 0)
 	size := int64(0)
 	for _, chunkChecksum := range object.Chunks {
-		chunkID, exists := snapshot.Index.ChecksumToId(chunkChecksum)
+		chunkLength, exists := snapshot.Index.GetChunkLength(chunkChecksum)
 		if !exists {
 			return nil, os.ErrNotExist
 		}
-		chunkLength := snapshot.Index.Chunks[chunkID]
-
 		chunksLengths = append(chunksLengths, chunkLength)
 		size += int64(chunkLength)
 	}

@@ -34,7 +34,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 			return false, nil
 		}
 	} else {
-		tmp := snapshot.Index.GetObject(checksum)
+		tmp := snapshot.Index.LookupObject(checksum)
 		if tmp != nil {
 			return false, nil
 		}
@@ -116,7 +116,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 		} else {
-			object := snapshot.Index.GetObject(checksum)
+			object := snapshot.Index.LookupObject(checksum)
 			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
 				indexChunk := snapshot.Index.LookupChunk(chunkChecksum)

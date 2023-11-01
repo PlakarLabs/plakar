@@ -187,7 +187,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					if !exists {
 						exists := copySnapshot.CheckObject(objectID)
 						if !exists {
-							object := sourceSnapshot.Index.GetObject(objectID)
+							object := sourceSnapshot.Index.LookupObject(objectID)
 							err = copySnapshot.PutObject(object)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)

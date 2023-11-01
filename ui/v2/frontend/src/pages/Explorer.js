@@ -1,5 +1,5 @@
 import {useParams, useSearchParams} from "react-router-dom";
-import {Typography} from "@mui/material";
+import {Link, Typography} from "@mui/material";
 import PathList from "../screens/PathList";
 import FileDetails from "../screens/FileDetails";
 import DefaultLayout from "../layouts/DefaultLayout";
@@ -27,6 +27,7 @@ function Explorer () {
 
     return (
         <DefaultLayout>
+            <Link>bob</Link>
             <Typography>Explorer</Typography>
             <Typography>{snapshotId}</Typography>
             <Typography>{path}</Typography>

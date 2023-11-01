@@ -32,6 +32,7 @@ export function generateRandomFilePath(userName) {
 
 export function createDummySnapshot() {
     const id = faker.string.uuid();
+    const shortId = id.split('-')[0];
     const fileDate = faker.date.anytime().toISOString();
     const userName = faker.internet.userName();
     const hostName = faker.internet.domainName();
@@ -45,6 +46,7 @@ export function createDummySnapshot() {
 
     return {
         id: id,
+        shortId: shortId,
         username: userName,
         hostName: hostName,
         rootPath: rootPath,

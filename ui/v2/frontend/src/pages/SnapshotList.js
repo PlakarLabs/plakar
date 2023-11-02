@@ -26,36 +26,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import {materialTheme} from "../Theme";
 import {fetchSnapshots, snapshots} from "../utils/PlakarApiClient";
 import {Link as RouterLink} from "react-router-dom";
-
-
-const StyledTableCell = styled(TableCell)(({theme}) => ({
-    [`&.${tableCellClasses.head}`]: {
-        backgroundColor: theme.palette.grey['50'],
-    },
-    [`&.${tableCellClasses.body}`]: {
-        // fontSize: 14,
-        // lineHeight: '20px',
-    },
-}));
-
-// change the color for intermediate rows if needed
-const StyledTableRow = styled(TableRow)(({theme}) => ({
-    '&:nth-of-type(odd)': {
-        backgroundColor: 'white',
-    },
-    // hide lines for all
-    '& td, & th': {
-        border: 0,
-    },
-}));
-
-const StyledLinked = styled(Link)(({theme}) => ({
-    '&:hover': {
-        color: 'green',
-        // merging wih mui styles
-        textDecoration: 'none',
-    },
-}));
+import TagList from "../components/TagList";
+import StyledTableCell from "../components/StyledTableCell";
+import StyledTableRow from "../components/StyledTableRow";
+import StyledPagination from "../components/StyledPagination";
 
 
 function SnapshotList({}) {
@@ -113,6 +87,11 @@ function SnapshotList({}) {
                                         Size
                                     </Typography>
                                 </StyledTableCell>
+                                <StyledTableCell align="right">
+                                    <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
+                                        Tags
+                                    </Typography>
+                                </StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -135,42 +114,18 @@ function SnapshotList({}) {
                                     <StyledTableCell align="right">
                                         <Typography variant='textsmregular'>{row.size}</Typography>
                                     </StyledTableCell>
+                                    <StyledTableCell align="right">
+                                        <TagList tags={row.tags}/>
+                                    </StyledTableCell>
                                 </StyledTableRow>
                             ))}
                         </TableBody>
                         <TableFooter>
                             <TableRow>
                                 <td colSpan={10}>
-                                    <Stack sx={{width: "100%"}} alignItems="stretch" direction={'row'}
-                                           justifyContent={"flex-start"} padding={2}>
-                                        <Pagination count={page.totalPages}
-                                                    color={'primary'}
-                                                    size={'small'}
-                                                    showFirstButton={true}
-                                                    showLastButton={true}
-                                                    onChange={(event, page) => {
-                                                        setPage(fetchSnapshots('', page, 10));
-                                                    }}
-                                        />
-
-                                        {/*<TablePagination*/}
-
-                                        {/*    showFirstButton*/}
-                                        {/*    showLastButton*/}
-                                        {/*    rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}*/}
-                                        {/*    colSpan={3}*/}
-                                        {/*    count={rows.length}*/}
-                                        {/*    rowsPerPage={10}*/}
-                                        {/*    page={page}*/}
-                                        {/*    SelectProps={{*/}
-                                        {/*        inputProps: {*/}
-                                        {/*            'aria-label': 'rows per page',*/}
-                                        {/*        },*/}
-                                        {/*        native: true,*/}
-                                        {/*    }}*/}
-
-                                        {/*/>*/}
-                                    </Stack>
+                                    <StyledPagination pageCount={page.totalPages} onChange={(event, page) => {
+                                        setPage(fetchSnapshots('', page, 10));
+                                    }}/>
                                 </td>
                             </TableRow>
                         </TableFooter>

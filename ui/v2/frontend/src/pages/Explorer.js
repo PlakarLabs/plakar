@@ -1,8 +1,12 @@
 import {useParams, useSearchParams} from "react-router-dom";
-import {Link, Typography} from "@mui/material";
+import {Breadcrumbs, Grid, Link, Stack, Typography} from "@mui/material";
 import PathList from "../screens/PathList";
 import FileDetails from "../screens/FileDetails";
 import DefaultLayout from "../layouts/DefaultLayout";
+import TwoColumnLayout from "../layouts/TwoColumnLayout";
+import TitleSubtitle from "../components/TitleSubtitle";
+import Tag from "../components/Tag";
+import TagList from "../components/TagList";
 
 function prepareParams({snapshotId, '*': path}) {
     let isDirectory = false
@@ -18,25 +22,35 @@ function prepareParams({snapshotId, '*': path}) {
     if (path.endsWith('/')) {
         isDirectory = true;
     }
-    return { snapshotId, path, isDirectory };
+    return {snapshotId, path, isDirectory};
 }
 
 
-function Explorer () {
+function Explorer() {
     const {snapshotId, path, isDirectory} = prepareParams(useParams());
 
     return (
-        <DefaultLayout>
-            <Link>bob</Link>
-            <Typography>Explorer</Typography>
-            <Typography>{snapshotId}</Typography>
-            <Typography>{path}</Typography>
-            <Typography>is Directory ? {isDirectory ? 'Yes' : 'No'}</Typography>
-            // shows FileDetails is isDirectory is false
+        <TwoColumnLayout leftComponent={<>
             {isDirectory && <PathList snapshotId={snapshotId} path={path}/>}
             {!isDirectory && <FileDetails snapshotId={snapshotId} path={path}/>}
+        </>}
+                         rightComponent={<Stack spacing={2} padding={3}>
+                             <Typography variant={'textlgmedium'}>Details</Typography>
+                             <TitleSubtitle/>
+                             <TitleSubtitle/>
+                             <TitleSubtitle/>
+                             <TitleSubtitle/>
+                             <TitleSubtitle/>
+                             <Stack>
+                                 <Typography variant={'textbasemedium'}>Snapshot Id</Typography>
+                                 <TagList tags={['fred', 'bob', 'hello',]}/>
+                             </Stack>
 
-        </DefaultLayout>
+                         </Stack>}
+        >
+
+
+        </TwoColumnLayout>
     )
 }
 

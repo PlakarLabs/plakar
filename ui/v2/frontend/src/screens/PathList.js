@@ -1,130 +1,122 @@
 // basic react function for a component
 
 import React from 'react';
-import {connect} from 'react-redux';
 import {useState, useEffect} from 'react';
-import {useDispatch, useSelector} from 'react-redux';
-import {selectSnapshots, fetchSnapshots} from '../state/Root';
-import {Typography, Stack, AppBar, Container} from '@mui/material';
-import {styled} from '@mui/material/styles';
+import {Typography, Stack, AppBar, Container, Link, Breadcrumbs} from '@mui/material';
+
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
-import TableCell, {tableCellClasses} from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import TableFooter from '@mui/material/TableFooter';
 import TablePagination from '@mui/material/TablePagination';
-import Tag from '../components/Tag'
-import DefaultLayout from "../layouts/DefaultLayout";
-import {useParams} from "react-router-dom";
+import {fetchSnapshots, fetchSnapshotsPath} from "../utils/PlakarApiClient";
+import {getFolderNameAndPathPairs} from "../utils/Path";
+import {materialTheme} from "../Theme";
+import StyledTableCell from "../components/StyledTableCell";
+import StyledTableRow from "../components/StyledTableRow";
+import {Link as RouterLink} from "react-router-dom";
+import StyledPagination from "../components/StyledPagination";
 
 
-const StyledTableCell = styled(TableCell)(({theme}) => ({
-    [`&.${tableCellClasses.head}`]: {
-        backgroundColor: theme.palette.common.black,
-        color: theme.palette.common.white,
-    },
-    [`&.${tableCellClasses.body}`]: {
-        fontSize: 14,
-    },
-}));
+function PathList({snapshotId, path}) {
+    const [page, setPage] = React.useState(null);
+    const [splittedPath, setSplittedPath] = React.useState([]);
+    // let {id, path} = useParams();
 
-const StyledTableRow = styled(TableRow)(({theme}) => ({
-    '&:nth-of-type(odd)': {
-        backgroundColor: theme.palette.action.hover,
-    },
-    // hide last border
-    '&:last-child td, &:last-child th': {
-        border: 0,
-    },
-}));
+    useEffect(() => {
+            let pathId = `${snapshotId}:${path}`;
+            let newPage = fetchSnapshotsPath('', pathId, 1, 10);
+            setPage(newPage);
+            setSplittedPath(getFolderNameAndPathPairs(newPage.snapshot.path))
 
-function createData(
-    name,
-    calories,
-    fat,
-    carbs,
-    protein,
-) {
-    return {name, calories, fat, carbs, protein};
-}
+        },
 
-const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-    createData('Cupcake', 305, 3.7, 67, 4.3),
-    createData('Gingerbread', 356, 16.0, 49, 3.9),
-];
-
-
-function PathList({}) {
-    const [page, setPage] = React.useState(0);
-    let {id, path} = useParams();
-
-    // useEffect(() => {
-    //         fetchSnapshots();
-    //
-    //     },
-    //
-    //     [fetchSnapshots]);
+        [fetchSnapshotsPath]);
 
 
     return (
         <>
-            <Typography variant="h3" component="h1">Path Listing</Typography>
-            <Typography >{id}</Typography>
-            <Typography >{path}</Typography>
+            <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
+                                                                   to={page && page.snapshot.uri}>{page && page.snapshot.shortId}</Link></Typography>
+            {/*<Typography>{page && page.snapshot && getFolders(page.snapshot.path).join('/')}</Typography>*/}
+            {/*<Typography>{page && page.items.length}</Typography>*/}
+
+            <Breadcrumbs aria-label="breadcrumb">
+                {splittedPath.map(({name, path}) => {
+                    return <Link key={name} component={RouterLink} underline="hover" color="inherit"
+                                 href={`${page.snapshot.id}:${path}`}>
+                        {name}
+                    </Link>
+                })}
+
+                {/*<Typography color="text.primary">Breadcrumbs</Typography>*/}
+            </Breadcrumbs>
+            {/*<Typography>{path}</Typography>*/}
 
             <TableContainer component={Paper}>
                 <Table sx={{minWidth: 700}} aria-label="customized table">
                     <TableHead>
                         <TableRow>
-                            <StyledTableCell>Dessert (100g serving)</StyledTableCell>
-                            <StyledTableCell align="right">Calories</StyledTableCell>
-                            <StyledTableCell align="right">Fat&nbsp;(g)</StyledTableCell>
-                            <StyledTableCell align="right">Carbs&nbsp;(g)</StyledTableCell>
-                            <StyledTableCell align="right">Protein&nbsp;(g)</StyledTableCell>
+                            <StyledTableCell><Typography variant={"textxsmedium"}
+                                                         color={materialTheme.palette.gray['600']}>
+                                Path
+                            </Typography>
+                            </StyledTableCell>
+                            <StyledTableCell>
+                                <Typography variant={"textxsmedium"}
+                                            color={materialTheme.palette.gray['600']}>
+                                    Mode
+                                </Typography>
+                            </StyledTableCell>
+
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Uid
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Gid
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Date
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Size
+                            </Typography></StyledTableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows.map((row) => (
-                            <StyledTableRow key={row.name}>
-                                <StyledTableCell component="th" scope="row">
-                                    {row.name}
+                        {page && page.items.map((row) => (
+                            <StyledTableRow key={row.path}>
+                                <StyledTableCell align="left">
+                                    <Typography
+                                        variant='textsmregular'>{row.path}</Typography>
                                 </StyledTableCell>
-                                <StyledTableCell align="right">{row.calories}</StyledTableCell>
-                                <StyledTableCell align="right">{row.fat}</StyledTableCell>
-                                <StyledTableCell align="right">{row.carbs}</StyledTableCell>
-                                <StyledTableCell align="right">{row.protein}</StyledTableCell>
+                                <StyledTableCell align="left"><Typography
+                                    variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.uid}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.date}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.size}</Typography></StyledTableCell>
                             </StyledTableRow>
                         ))}
                     </TableBody>
                     <TableFooter>
                         <TableRow>
-                            <TablePagination
-                                rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}
-                                colSpan={3}
-                                count={rows.length}
-                                rowsPerPage={10}
-                                page={page}
-                                SelectProps={{
-                                    inputProps: {
-                                        'aria-label': 'rows per page',
-                                    },
-                                    native: true,
-                                }}
-                                // onPageChange={handleChangePage}
-                                // onRowsPerPageChange={handleChangeRowsPerPage}
-                                // ActionsComponent={TablePaginationActions}
-                            />
+                            <td colSpan={10}>
+                                <StyledPagination pageCount={1} onChange={(event, page) => {
+                                    setPage(fetchSnapshots('', page, 10));
+                                }}/>
+                            </td>
                         </TableRow>
                     </TableFooter>
                 </Table>

@@ -2,10 +2,12 @@ import {createTheme as materialCreateTheme, styled} from '@mui/material/styles';
 
 const font = 'Inter';
 
-const gray = {
+export const gray = {
     50: '#F9FAFB',
+    100: '#F3F4F6',
     500: '#6B7280',
     600: '#4B5563',
+    700: '#3F3F46',
 }
 
 export const themeOptions = {
@@ -17,6 +19,9 @@ export const themeOptions = {
         secondary: {
             main: '#f50057',
         },
+        tertiary: {
+            main: '#D1F347',
+        },
         text: {
             primary: '#374151',
         },
@@ -25,8 +30,10 @@ export const themeOptions = {
         },
         gray: {
             50: gray[50],
+            100: gray[100],
             500: gray[500],
             600: gray[600],
+            700: gray[700],
         },
         background: {
             default: gray[50],
@@ -47,7 +54,17 @@ export const themeOptions = {
             fontSize: 12,
             fontWeight: 600,
             lineHeight: '16px',
-        }
+        },
+        textbasemedium: {
+            fontSize: 16,
+            fontWeight: 500,
+            lineHeight: '150%',
+        },
+        textlgmedium: {
+            fontSize: 18,
+            fontWeight: 500,
+            lineHeight: '28px',
+        },
     },
     spacing: 8,
     direction: 'ltr',
@@ -102,6 +119,19 @@ export const themeOptions = {
                     lineHeight: '20px',
                 }
             }
+        },
+        MuiChip: {
+            variants: [
+                {
+                    props: {variant: 'tag'},
+                    style: {
+                        fontSize: 12,
+                        fontWeight: 600,
+                        lineHeight: '16px',
+                        color: gray[700],
+                    },
+                },
+            ],
         }
     },
 };

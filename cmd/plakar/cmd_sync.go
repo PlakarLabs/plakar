@@ -66,6 +66,14 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
+		repositoryIndex, err := loadRepositoryIndex(dstRepository)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstRepository.Location, err)
+			return 1
+
+		}
+		dstRepository.SetRepositoryIndex(repositoryIndex)
+
 	} else if direction == "from" {
 		dstRepository = repository
 		srcRepository, err = storage.Open(syncRepository)
@@ -73,6 +81,12 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
+		repositoryIndex, err := loadRepositoryIndex(srcRepository)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcRepository.Location, err)
+			return 1
+		}
+		srcRepository.SetRepositoryIndex(repositoryIndex)
 	} else {
 		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
@@ -144,6 +158,9 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			copySnapshot.Header = sourceSnapshot.Header
 			copySnapshot.Filesystem = sourceSnapshot.Filesystem
 			copySnapshot.Index = sourceSnapshot.Index
+			copySnapshot.Metadata = sourceSnapshot.Metadata
+
+			fmt.Println(copySnapshot)
 
 			wg2 := sync.WaitGroup{}
 			for _, _chunkID := range sourceSnapshot.Index.ListChunks() {

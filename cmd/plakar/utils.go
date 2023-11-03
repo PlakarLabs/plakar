@@ -29,7 +29,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/PlakarLabs/plakar/vfs"
@@ -153,6 +152,7 @@ func getHeaders(repository *storage.Repository, prefixes []string) ([]*header.He
 	return result, nil
 }
 
+/*
 func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Index, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
@@ -251,6 +251,7 @@ func getIndexes(repository *storage.Repository, prefixes []string) ([]*index.Ind
 	}
 	return result, nil
 }
+*/
 
 func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.Filesystem, error) {
 	snapshotsList, err := getSnapshotsList(repository)
@@ -295,21 +296,11 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		found := false
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(snapshotUuid.String(), prefix) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			continue
-		}
-
 		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
+
 		for _, tag := range metadata.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
 				tags[tag] = snapshotUuid
@@ -444,15 +435,6 @@ func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 		return snapshots[i].Header.CreationTime.Before(snapshots[j].Header.CreationTime)
 	})
 	return snapshots
-}
-
-func arrayContains(a []string, x string) bool {
-	for _, n := range a {
-		if x == n {
-			return true
-		}
-	}
-	return false
 }
 
 func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {

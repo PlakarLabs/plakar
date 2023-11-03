@@ -9,7 +9,7 @@ import {
 import {materialTheme, themeUITheme} from '../Theme';
 import {connect} from "react-redux";
 import {confApp, selectConf} from "../state/Root";
-import { ReactComponent as Logo } from '../Logo/Full.svg';
+import {ReactComponent as Logo} from '../Logo/Full.svg';
 
 function DefaultLayout({children, conf}) {
 
@@ -19,7 +19,7 @@ function DefaultLayout({children, conf}) {
             <ThemeUIProvider theme={themeUITheme}>
                 <MaterialThemeProvider theme={{[THEME_ID]: materialTheme}}>
                     <CssBaseline/>
-                    <Stack>
+                    <Stack height={'100vh'}>
                         <AppBar position="static" color="transparent">
                             <Stack direction={{xs: 'column', sm: 'row'}}
                                    justifyContent="left"
@@ -30,7 +30,7 @@ function DefaultLayout({children, conf}) {
                                             sx={{padding: 1}}>on <strong>{conf.storeName ? conf.storeName : 'loading...'}</strong></Typography>
                             </Stack>
                         </AppBar>
-                            {children}
+                        {children}
                     </Stack>
                 </MaterialThemeProvider>
             </ThemeUIProvider>

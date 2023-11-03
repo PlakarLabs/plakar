@@ -19,6 +19,7 @@ import StyledTableCell from "../components/StyledTableCell";
 import StyledTableRow from "../components/StyledTableRow";
 import {Link as RouterLink} from "react-router-dom";
 import StyledPagination from "../components/StyledPagination";
+import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 
 
 function PathList({snapshotId, path}) {
@@ -30,7 +31,7 @@ function PathList({snapshotId, path}) {
             let pathId = `${snapshotId}:${path}`;
             let newPage = fetchSnapshotsPath('', pathId, 1, 10);
             setPage(newPage);
-            setSplittedPath(getFolderNameAndPathPairs(newPage.snapshot.path))
+            setSplittedPath(getFolderNameAndPathPairs(path))
 
         },
 
@@ -39,22 +40,26 @@ function PathList({snapshotId, path}) {
 
     return (
         <>
-            <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
-                                                                   to={page && page.snapshot.uri}>{page && page.snapshot.shortId}</Link></Typography>
-            {/*<Typography>{page && page.snapshot && getFolders(page.snapshot.path).join('/')}</Typography>*/}
-            {/*<Typography>{page && page.items.length}</Typography>*/}
+            <Stack spacing={1} py={2}>
 
-            <Breadcrumbs aria-label="breadcrumb">
-                {splittedPath.map(({name, path}) => {
-                    return <Link key={name} component={RouterLink} underline="hover" color="inherit"
-                                 href={`${page.snapshot.id}:${path}`}>
-                        {name}
-                    </Link>
-                })}
+                <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
+                                                                       to={page && page.snapshot.uri}>{page && page.snapshot.shortId}</Link></Typography>
+                {/*<Typography>{page && page.snapshot && getFolders(page.snapshot.path).join('/')}</Typography>*/}
+                {/*<Typography>{path}</Typography>*/}
 
-                {/*<Typography color="text.primary">Breadcrumbs</Typography>*/}
-            </Breadcrumbs>
-            {/*<Typography>{path}</Typography>*/}
+                <Breadcrumbs aria-label="breadcrumb">
+                    {path && getFolderNameAndPathPairs(path).map(({name, path}) => {
+                        return <Link key={name} component={RouterLink} underline="hover" color="inherit"
+                                     to={`${path}`}>
+                            {name}
+                        </Link>
+                    })}
+
+                    {/*<Typography color="text.primary">Breadcrumbs</Typography>*/}
+                </Breadcrumbs>
+            </Stack>
+            {/*<Typography>{path}</Typography>*/
+            }
 
             <TableContainer component={Paper}>
                 <Table sx={{minWidth: 700}} aria-label="customized table">
@@ -94,8 +99,12 @@ function PathList({snapshotId, path}) {
                         {page && page.items.map((row) => (
                             <StyledTableRow key={row.path}>
                                 <StyledTableCell align="left">
-                                    <Typography
-                                        variant='textsmregular'>{row.path}</Typography>
+                                    <Stack direction={'row'} spacing={1}>
+                                        <FolderIcon/>
+                                        <Typography
+                                            variant='textsmregular'>{row.path}
+                                        </Typography>
+                                    </Stack>
                                 </StyledTableCell>
                                 <StyledTableCell align="left"><Typography
                                     variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
@@ -124,7 +133,8 @@ function PathList({snapshotId, path}) {
 
 
         </>
-    );
+    )
+        ;
 
 };
 

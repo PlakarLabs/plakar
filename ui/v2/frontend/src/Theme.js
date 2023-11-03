@@ -24,6 +24,7 @@ export const themeOptions = {
         },
         text: {
             primary: '#374151',
+            secondary: '#FFFFFF'
         },
         success: {
             main: '#059669',
@@ -32,7 +33,7 @@ export const themeOptions = {
             50: gray[50],
             100: gray[100],
             500: gray[500],
-            600: gray[600],
+        600: gray[600],
             700: gray[700],
         },
         background: {
@@ -99,7 +100,7 @@ export const themeOptions = {
     components: {
         MuiButtonBase: {
             defaultProps: {
-                disableRipple: true,
+                disableRipple: false,
             },
             styleOverrides: {
                 root: {
@@ -127,7 +128,7 @@ export const themeOptions = {
                     style: {
                         fontSize: 12,
                         fontWeight: 600,
-                        lineHeight: '16px',
+                    lineHeight: '16px',
                         color: gray[700],
                     },
                 },

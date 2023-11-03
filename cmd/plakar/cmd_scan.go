@@ -66,6 +66,6 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 		logger.Error("%s", err)
 		return 1
 	}
-	fmt.Printf("scanned %d directories and %d files in %s\n", fs.NDirectories(), fs.NFiles(), time.Since(t0))
+	fmt.Printf("%d directories, %d files, %d symlinks in %s\n", fs.NDirectories(), fs.NFiles(), len(fs.ListNonRegular()), time.Since(t0))
 	return 0
 }

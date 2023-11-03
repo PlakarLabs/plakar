@@ -160,8 +160,6 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			copySnapshot.Index = sourceSnapshot.Index
 			copySnapshot.Metadata = sourceSnapshot.Metadata
 
-			fmt.Println(copySnapshot)
-
 			wg2 := sync.WaitGroup{}
 			for _, _chunkID := range sourceSnapshot.Index.ListChunks() {
 				wg2.Add(1)

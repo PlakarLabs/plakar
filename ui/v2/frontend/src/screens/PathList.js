@@ -20,6 +20,8 @@ import StyledTableRow from "../components/StyledTableRow";
 import {Link as RouterLink} from "react-router-dom";
 import StyledPagination from "../components/StyledPagination";
 import {ReactComponent as FolderIcon} from '../icons/folder.svg';
+import {ReactComponent as FileIcon} from '../icons/file.svg';
+import FileBreadcrumbs from "../components/FileBreadcrumb";
 
 
 function PathList({snapshotId, path}) {
@@ -29,8 +31,9 @@ function PathList({snapshotId, path}) {
 
     useEffect(() => {
             let pathId = `${snapshotId}:${path}`;
-            let newPage = fetchSnapshotsPath('', pathId, 1, 10);
-            setPage(newPage);
+            fetchSnapshotsPath('', pathId, 1, 10).then((newPage) => {
+                setPage(newPage)
+            });
             setSplittedPath(getFolderNameAndPathPairs(path))
 
         },
@@ -40,101 +43,95 @@ function PathList({snapshotId, path}) {
 
     return (
         <>
-            <Stack spacing={1} py={2}>
+        <Stack spacing={1} py={2}>
 
-                <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
-                                                                       to={page && page.snapshot.uri}>{page && page.snapshot.shortId}</Link></Typography>
-                {/*<Typography>{page && page.snapshot && getFolders(page.snapshot.path).join('/')}</Typography>*/}
-                {/*<Typography>{path}</Typography>*/}
+            {page && <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
+                                                                            to={'page.snapshot.rootPath'}>{page && page.snapshot.shortId}</Link>
+            </Typography>}
 
-                <Breadcrumbs aria-label="breadcrumb">
-                    {path && getFolderNameAndPathPairs(path).map(({name, path}) => {
-                        return <Link key={name} component={RouterLink} underline="hover" color="inherit"
-                                     to={`${path}`}>
-                            {name}
-                        </Link>
-                    })}
+            {page && <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/>}
+        </Stack>
+        {/*<Typography>{path}</Typography>*/
+        }
 
-                    {/*<Typography color="text.primary">Breadcrumbs</Typography>*/}
-                </Breadcrumbs>
-            </Stack>
-            {/*<Typography>{path}</Typography>*/
-            }
-
-            <TableContainer component={Paper}>
-                <Table sx={{minWidth: 700}} aria-label="customized table">
-                    <TableHead>
-                        <TableRow>
-                            <StyledTableCell><Typography variant={"textxsmedium"}
-                                                         color={materialTheme.palette.gray['600']}>
-                                Path
+        <TableContainer component={Paper}>
+            <Table sx={{minWidth: 700}} aria-label="customized table">
+                <TableHead>
+                    <TableRow>
+                        <StyledTableCell><Typography variant={"textxsmedium"}
+                                                     color={materialTheme.palette.gray['600']}>
+                            Path
+                        </Typography>
+                        </StyledTableCell>
+                        <StyledTableCell>
+                            <Typography variant={"textxsmedium"}
+                                        color={materialTheme.palette.gray['600']}>
+                                Mode
                             </Typography>
-                            </StyledTableCell>
-                            <StyledTableCell>
-                                <Typography variant={"textxsmedium"}
-                                            color={materialTheme.palette.gray['600']}>
-                                    Mode
-                                </Typography>
-                            </StyledTableCell>
+                        </StyledTableCell>
 
-                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                       color={materialTheme.palette.gray['600']}>
-                                Uid
-                            </Typography></StyledTableCell>
-                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                       color={materialTheme.palette.gray['600']}>
-                                Gid
-                            </Typography></StyledTableCell>
-                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                       color={materialTheme.palette.gray['600']}>
-                                Date
-                            </Typography></StyledTableCell>
-                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                       color={materialTheme.palette.gray['600']}>
-                                Size
-                            </Typography></StyledTableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {page && page.items.map((row) => (
-                            <StyledTableRow key={row.path}>
-                                <StyledTableCell align="left">
-                                    <Stack direction={'row'} spacing={1}>
-                                        <FolderIcon/>
-                                        <Typography
-                                            variant='textsmregular'>{row.path}
-                                        </Typography>
-                                    </Stack>
-                                </StyledTableCell>
-                                <StyledTableCell align="left"><Typography
-                                    variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography
-                                    variant='textsmregular'>{row.uid}</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography
-                                    variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography
-                                    variant='textsmregular'>{row.date}</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography
-                                    variant='textsmregular'>{row.size}</Typography></StyledTableCell>
-                            </StyledTableRow>
-                        ))}
-                    </TableBody>
-                    <TableFooter>
-                        <TableRow>
-                            <td colSpan={10}>
-                                <StyledPagination pageCount={1} onChange={(event, page) => {
-                                    setPage(fetchSnapshots('', page, 10));
-                                }}/>
-                            </td>
-                        </TableRow>
-                    </TableFooter>
-                </Table>
-            </TableContainer>
+                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                   color={materialTheme.palette.gray['600']}>
+                            Uid
+                        </Typography></StyledTableCell>
+                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                   color={materialTheme.palette.gray['600']}>
+                            Gid
+                        </Typography></StyledTableCell>
+                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                   color={materialTheme.palette.gray['600']}>
+                            Date
+                        </Typography></StyledTableCell>
+                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                   color={materialTheme.palette.gray['600']}>
+                            Size
+                        </Typography></StyledTableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {page && page.items.map((row) => (
+                        <StyledTableRow key={row.path}>
+                            <StyledTableCell align="left">
+                                <Link underline='none' component={RouterLink}
+                                      to={`/snapshot/${page.snapshot.id}${row.path}`}>
+                                <Stack direction={'row'} spacing={1} alignItems={'center'}>
+                                    {row.isDirectory && <FolderIcon/>}
+                                    {!row.isDirectory && <FileIcon/>}
+                                    <Typography
+                                        variant='textsmregular'>{row.name}
+                                    </Typography>
+                                </Stack>
+                            </Link>
+                        </StyledTableCell>
+                        <StyledTableCell align="left"><Typography
+                        variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
+            <StyledTableCell align="right"><Typography
+                variant='textsmregular'>{row.uid}</Typography></StyledTableCell>
+            <StyledTableCell align="right"><Typography
+                variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
+            <StyledTableCell align="right"><Typography
+                variant='textsmregular'>{row.date}</Typography></StyledTableCell>
+            <StyledTableCell align="right"><Typography
+                variant='textsmregular'>{row.size}</Typography></StyledTableCell>
+        </StyledTableRow>
+        ))}
+        </TableBody>
+    <TableFooter>
+        <TableRow>
+            <td colSpan={10}>
+                <StyledPagination pageCount={1} onChange={(event, page) => {
+                    setPage(fetchSnapshots('', page, 10));
+                }}/>
+            </td>
+        </TableRow>
+    </TableFooter>
+</Table>
+</TableContainer>
 
 
-        </>
-    )
-        ;
+</>
+)
+    ;
 
 };
 

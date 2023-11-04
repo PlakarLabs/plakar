@@ -3,7 +3,7 @@ import thunk from 'redux-thunk';
 import {persistStore, persistReducer} from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 import {reducer as formReducer} from 'redux-form';
-import {snapshotsReducer, confReducer} from '../state/Root';
+import {snapshotsReducer, confReducer, pathViewReducer} from '../state/Root';
 import {composeWithDevTools} from 'redux-devtools-extension';
 import {createBrowserHistory} from 'history'
 import {createRouterMiddleware, createRouterReducer} from "@lagunovsky/redux-react-router";
@@ -14,6 +14,7 @@ const rootReducer = combineReducers({
         // Add your reducers here
         form: formReducer,
         snapshots: snapshotsReducer,
+        pathView: pathViewReducer,
         conf: confReducer,
         navigator: createRouterReducer(history)
     }

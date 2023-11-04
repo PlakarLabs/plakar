@@ -1,10 +1,11 @@
-import {Stack, Typography} from "@mui/material";
+import {Skeleton, Stack, Typography} from "@mui/material";
+import React from "react";
 
-function TitleSubtitle({title, subtitle}) {
+function TitleSubtitle({title= null, subtitle=null}) {
     return (
         <Stack>
-            <Typography variant={'textbasemedium'}>Snapshot Id</Typography>
-            <Typography variant={'textsmregular'}>233334-123123123-123123123-123123</Typography>
+            <Typography variant={'textbasemedium'}>{title ? title : <Skeleton/>}</Typography>
+            <Typography variant={'textsmregular'}>{subtitle ? subtitle : <Skeleton/>}</Typography>
         </Stack>
     )
 }

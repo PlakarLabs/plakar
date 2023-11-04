@@ -1,6 +1,6 @@
 import {faker} from '@faker-js/faker';
 
-export function generateDirectoryPath( userName = faker.internet.userName()) {
+export function generateDirectoryPath(userName = faker.internet.userName()) {
     const directoryPath = faker.system.directoryPath()
     if (faker.datatype.boolean()) {
         return directoryPath;
@@ -39,6 +39,9 @@ export function createDummySnapshot() {
     const rootPath = generateDirectoryPath(userName)
     const fileSize = faker.number.int({min: 0, max: 1000}).toLocaleString();
     const sizeAbreviation = faker.helpers.arrayElement(['B', 'KB', 'MB', 'GB', 'TB']);
+    const os = faker.helpers.arrayElement(['linux', 'windows', 'mac']);
+    // hash signature
+    const signature = faker.string.uuid();
 
 
     // random array of words
@@ -49,12 +52,36 @@ export function createDummySnapshot() {
         shortId: shortId,
         username: userName,
         hostName: hostName,
+        location: `${userName}@${hostName}`,
         rootPath: rootPath,
         date: fileDate,
         size: `${fileSize} ${sizeAbreviation}`,
-        tags: words
+        tags: words,
+        os: os,
+        signature: signature,
     };
+}
 
+export function createDummySnapshotRepoTree() {
+    const files = [
+        "/Users/poolp/Documents/Projects/React/react-file-explorer/src/utils/Demo.js",
+        "/Users/poolp/Documents/Videos/YouTube/DemoVideo.mp4",
+        "/Users/poolp/Documents/Photos/20200101/small.jpeg",
+        "/Users/poolp/Documents/Photos/20200101/big.jpeg",
+    ]
+    const repo =
+        {
+            data: {
+                path: '/Users',
+                id: 'Users',
+            },
+            items: [{
+                data: {
+                    path: '/Users/poolp',
+                },
+                items: [{}]
+            }]
+        }
 }
 
 export function createDummySnapshotItems(repoSize) {

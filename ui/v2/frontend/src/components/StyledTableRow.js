@@ -9,6 +9,10 @@ const StyledTableRow = styled(TableRow)(({theme}) => ({
     '& td, & th': {
         border: 0,
     },
+    "&:hover": {
+        backgroundColor: theme.palette.gray[50],
+    },
+
 }));
 
 export default StyledTableRow;

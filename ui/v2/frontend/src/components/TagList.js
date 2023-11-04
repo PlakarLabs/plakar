@@ -1,7 +1,7 @@
 import Tag from "./Tag";
 import {Stack} from "@mui/material";
 
-function TagList({tags}) {
+function TagList({tags = []}) {
     return (
         <Stack direction={'row'} spacing={1} py={1} useFlexGap flexWrap="wrap">
             { tags.map((tag) => (

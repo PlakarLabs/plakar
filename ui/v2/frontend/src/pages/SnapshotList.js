@@ -96,9 +96,9 @@ function SnapshotList({}) {
                         </TableHead>
                         <TableBody>
                             {page.items.map((row) => (
-                                <StyledTableRow key={row.name}>
+                                <StyledTableRow key={row.id}>
                                     <StyledTableCell component="th" scope="row">
-                                        <Link component={RouterLink} to={`${row.id}:/`}>
+                                        <Link component={RouterLink} to={`${row.id}:${row.rootPath}/`}>
                                             <Typography variant='textsmregular'>{row.shortId}</Typography>
                                         </Link>
                                     </StyledTableCell>

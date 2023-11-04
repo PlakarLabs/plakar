@@ -7,6 +7,11 @@ import TwoColumnLayout from "../layouts/TwoColumnLayout";
 import TitleSubtitle from "../components/TitleSubtitle";
 import Tag from "../components/Tag";
 import TagList from "../components/TagList";
+import {useEffect} from "react";
+import {useDispatch, useSelector} from 'react-redux';
+import {fetchPath, selectSnapshot} from "../state/Root";
+import FileViewer from "../screens/FileViewer";
+import SnapshotDetails from "../screens/SnapshotDetails";
 
 function prepareParams({snapshotId, '*': path}) {
     let isDirectory = false
@@ -28,25 +33,22 @@ function prepareParams({snapshotId, '*': path}) {
 
 function Explorer() {
     const {snapshotId, path, isDirectory} = prepareParams(useParams());
+    const dispatch = useDispatch()
+    const snapshot = selectSnapshot(useSelector(state => state));
+
+    useEffect(() => {
+        dispatch(fetchPath({snapshotId, path, isDirectory}));
+    }, [dispatch]);
 
     return (
         <TwoColumnLayout leftComponent={<>
             {isDirectory && <PathList snapshotId={snapshotId} path={path}/>}
-            {!isDirectory && <FileDetails snapshotId={snapshotId} path={path}/>}
+            {!isDirectory && <FileViewer snapshotId={snapshotId} path={path}/>}
         </>}
-                         rightComponent={<Stack spacing={2} padding={3}>
-                             <Typography variant={'textlgmedium'}>Details</Typography>
-                             <TitleSubtitle/>
-                             <TitleSubtitle/>
-                             <TitleSubtitle/>
-                             <TitleSubtitle/>
-                             <TitleSubtitle/>
-                             <Stack>
-                                 <Typography variant={'textbasemedium'}>Snapshot Id</Typography>
-                                 <TagList tags={['fred', 'bob', 'hello',]}/>
-                             </Stack>
-
-                         </Stack>}
+                         rightComponent={<>
+                             {isDirectory && <SnapshotDetails/>}
+                             {!isDirectory && <FileDetails/>}
+                         </>}
         >
 
 

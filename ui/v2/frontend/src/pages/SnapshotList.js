@@ -1,7 +1,7 @@
 // basic react function for a component
 
 import React, {useEffect, useState} from 'react';
-import {Typography, Stack, TextField, Link} from '@mui/material';
+import {Typography, Stack, Link, InputBase} from '@mui/material';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableContainer from '@mui/material/TableContainer';
@@ -9,7 +9,6 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import TableFooter from '@mui/material/TableFooter';
-import InputAdornment from '@mui/material/InputAdornment';
 
 import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import SearchIcon from '@mui/icons-material/Search';
@@ -17,10 +16,6 @@ import {materialTheme} from "../Theme";
 import {fetchSnapshots, selectSnapshotsPage} from "../state/Root";
 import {
     Link as RouterLink,
-    useLoaderData,
-    useLocation,
-    useNavigate,
-    useParams,
     useSearchParams
 } from "react-router-dom";
 import TagList from "../components/TagList";
@@ -57,18 +52,17 @@ function SnapshotList({}) {
     return (
         <SingleScreenLayout>
             <Stack spacing={1}>
-                pageOffest: {pageOffset}
-                <TextField fullWidth
-                           label="Search..."
-                           id="search"
-                           sx={{boxShadow: 3, borderRadius: 1}}
-                           InputProps={{
-                               endAdornment: (
-                                   <InputAdornment position="start">
-                                       <SearchIcon/>
-                                   </InputAdornment>
-                               ),
-                           }}/>
+                <Stack direction={'row'} sx={{border: 2, borderColor: materialTheme.palette.gray['100'], borderRadius: 2}} padding={1} spacing={1} alignItems={'center'} >
+                    <SearchIcon color={'primary'} />
+                    <InputBase fullWidth
+                               placeholder="Search..."
+                               id="search"
+                               sx={{borderRadius: 1}}
+                        />
+                    <Stack sx={{backgroundColor: materialTheme.palette.primary.main,   border: 1, borderColor: materialTheme.palette.gray['100'], borderRadius: 2}} padding={1}>
+                        <Typography variant={'textxsmedium'} color={materialTheme.palette.gray['100']}>⌘K</Typography>
+                    </Stack>
+                </Stack>
                 <Typography variant="h3" component="h1">Snapshots</Typography>
                 <TableContainer component={Paper}>
                     <Table sx={{minWidth: 700}} size="small" aria-label="customized table">

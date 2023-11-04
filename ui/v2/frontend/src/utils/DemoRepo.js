@@ -1,5 +1,6 @@
 import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
 import {faker} from '@faker-js/faker';
+import {getDirectoryPath} from "./Path";
 
 export const dummmyFetchConfig = () => {
     return new Promise((resolve, reject) => {
@@ -55,10 +56,12 @@ export function demoJpegSmallFile(apiUrl, pathId, page, pageSize) {
     }
 }
 
+
+
 export function demoJpegFatFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo-small.jpg',
-        directoryPath: `${pathId}`,
+        directoryPath: `${getDirectoryPath(pathId)}/`,
         path: `${pathId}`,
         rawPath: `http://localhost:3000/demo-files/demo.jpeg`,
         mimeType: 'image/jpeg',
@@ -77,7 +80,7 @@ export function demoJpegFatFile(apiUrl, pathId, page, pageSize) {
 export function demoMp4File(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.mp4',
-        directoryPath: `${pathId}`,
+        directoryPath: `${getDirectoryPath(pathId)}/`,
         path: `${pathId}`,
         rawPath: `http://localhost:3000/demo-files/demo.mp4`,
         mimeType: 'video/mp4',
@@ -96,7 +99,7 @@ export function demoMp4File(apiUrl, pathId, page, pageSize) {
 export function demoAudioFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.mp3',
-        directoryPath: `${pathId}`,
+        directoryPath: `${getDirectoryPath(pathId)}/`,
         path: `${pathId}`,
         rawPath: `http://localhost:3000/demo-files/demo.mp3`,
         mimeType: 'audio/mp3',
@@ -116,7 +119,7 @@ export function demoAudioFile(apiUrl, pathId, page, pageSize) {
 export function demoJSFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.js',
-        directoryPath: `${pathId}`,
+        directoryPath: `${getDirectoryPath(pathId)}/`,
         path: `${pathId}`,
         rawPath: `http://localhost:3000/demo-files/demo.js`,
         mimeType: 'text/javascript',

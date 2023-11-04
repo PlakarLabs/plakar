@@ -24,3 +24,12 @@ export function getFolderNameAndPathPairs(path) {
 
   return result;
 }
+
+
+export function getDirectoryPath(pathId) {
+    return pathId.split('/').slice(0, -1).join('/');
+}
+
+export function getFileName(pathId) {
+    return pathId.split('/').slice(-1)[0];
+}

@@ -3,15 +3,15 @@ import FileBreadcrumbs from "../components/FileBreadcrumb";
 import {
     Button, Card,
     CardActions,
-    CardContent,
+    CardContent, CircularProgress,
     Skeleton, Stack,
     Typography
 } from "@mui/material";
 
 import React, {useState} from "react";
 
-import {selectFileDetails} from "../state/Root";
-import {useSelector} from "react-redux";
+import {fetchPath, selectFileDetails} from "../state/Root";
+import {useDispatch, useSelector} from "react-redux";
 import UnsupportedFileViewer from "../components/fileviewer/UnsupportedFileViewer";
 import TextFileViewer from "../components/fileviewer/TextFileViewer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -22,6 +22,7 @@ import {triggerDownload} from "../utils/BrowserInteraction";
 import ImageFileViewer from "../components/fileviewer/ImageFileViewer";
 import VideoFileViewer from "../components/fileviewer/VideoFileViewer";
 import AudioFileViewer from "../components/fileviewer/AudioFileViewer";
+import {getDirectoryPath, getFileName} from "../utils/Path";
 
 
 // how to imple hightlighting
@@ -31,13 +32,15 @@ import AudioFileViewer from "../components/fileviewer/AudioFileViewer";
 const PREVIEW_FROM_SIZE = 10485760;
 
 function FileDetails({snapshotId, path}) {
+    const dispatch = useDispatch();
     let {id} = useParams();
     let [searchParams] = useSearchParams();
     const fileDetails = selectFileDetails(useSelector(state => state));
     let [preview, setPreview] = useState(false);
 
     React.useEffect(() => {
-    }, []);
+        dispatch(fetchPath(snapshotId, path, 1, 1));
+    }, [dispatch]);
 
     const handlePreview = () => {
         setPreview(true);
@@ -48,11 +51,14 @@ function FileDetails({snapshotId, path}) {
     }
 
     return (<>
-            <Typography variant="h3" component="h1">{fileDetails ? fileDetails.name : <Skeleton/>}</Typography>
+            <Typography variant="h3" component="h1">{getFileName(path)}</Typography>
             {id}
             {searchParams.get('p')}
-            <FileBreadcrumbs path={path} snapshotid={snapshotId}/>
-            {!fileDetails && <Skeleton width={'100%'} height={'800px'}/>}
+            <FileBreadcrumbs path={`${getDirectoryPath(path)}/`} snapshotid={snapshotId}/>
+            <Stack alignItems={'center'}>
+                {!fileDetails && <CircularProgress />}
+            </Stack>
+
             {fileDetails && fileDetails.byteSize > PREVIEW_FROM_SIZE && !preview &&
             <Stack alignItems={'center'} padding={2}>
                 <Card variant="outlined" sx={{

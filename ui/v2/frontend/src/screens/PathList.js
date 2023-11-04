@@ -46,7 +46,7 @@ function PathList({snapshotId, path}) {
         <Stack spacing={1} py={2}>
 
             {page && <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
-                                                                            to={'page.snapshot.rootPath'}>{page && page.snapshot.shortId}</Link>
+                                                                            to={`/snapshot/${page.snapshot.id}:${page.snapshot.rootPath}/`}>{page && page.snapshot.shortId}</Link>
             </Typography>}
 
             {page && <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/>}

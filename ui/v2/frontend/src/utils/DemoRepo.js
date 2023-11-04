@@ -1,6 +1,19 @@
 import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
 import {faker} from '@faker-js/faker';
 
+export const dummmyFetchConfig = () => {
+    return new Promise((resolve, reject) => {
+        // Simulating a server request with a timeout
+        setTimeout(() => {
+            // Let's say the operation was successful
+            resolve({
+                repository: 'poolp.org'
+            });
+            // If something goes wrong, you would use reject(new Error('Error message'));
+        }, 1000);
+    });
+}
+
 export function createOrRestoreSnapshots(size) {
     let items = localStorage.getItem('snapshots')
     if (!items) {

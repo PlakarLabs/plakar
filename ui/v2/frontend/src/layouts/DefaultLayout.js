@@ -1,4 +1,4 @@
-import {AppBar, Container, Link, Stack, Typography} from "@mui/material";
+import {AppBar, Container, Link, Skeleton, Stack, Typography} from "@mui/material";
 import {Link as RouterLink} from "react-router-dom";
 import React from "react";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -30,7 +30,7 @@ function DefaultLayout({children, conf}) {
 
                                     <Logo padding="s"/>
                                     <Typography href="#"
-                                                sx={{padding: 1}}>on <strong>{conf.storeName ? conf.storeName : 'loading...'}</strong></Typography>
+                                                sx={{padding: 1}}>on <strong>{conf.repository ? conf.repository : <Skeleton/>}</strong></Typography>
                                 </Stack>
                             </Link>
                         </AppBar>

@@ -9,21 +9,24 @@ import {SNAPSHOT_ROUTE} from "../utils/Routes";
 
 function Config() {
     const [apiUrl, setApiUrlLocal] = useState('');
-    const [storageName, setStorageNameLocal] = useState('');
     const dispatch = useDispatch();
-    const {apiUrl: apiUrlRedux, storeName: storageNameRedux} = selectConf(useSelector(state => state));
+    const {apiUrl: apiUrlRedux, repository: repositoryRedux} = selectConf(useSelector(state => state));
     const navigate = useNavigate();
 
     useEffect(() => {
         // This code will run after the component has rendered
         setApiUrlLocal(apiUrlRedux);
-        setStorageNameLocal(storageNameRedux);
-    }, [apiUrlRedux, storageNameRedux]);
+
+        if (apiUrlRedux && repositoryRedux) {
+            navigate(SNAPSHOT_ROUTE);
+        }
+
+    }, [apiUrlRedux, repositoryRedux]);
 
     function handleSubmit(event) {
         event.preventDefault();
-        dispatch(confApp(apiUrl, storageName));
-        if (apiUrl && storageName) {
+        dispatch(confApp(apiUrl));
+        if (apiUrlRedux && repositoryRedux) {
             navigate(SNAPSHOT_ROUTE);
         }
     }
@@ -36,9 +39,6 @@ function Config() {
                     <form onSubmit={handleSubmit}>
                         <TextField id="api-url" label="API URL" variant="standard" value={apiUrl || apiUrlRedux}
                                    onChange={event => setApiUrlLocal(event.target.value)}/>
-                        <TextField id="storage-name" label="Storage Name" variant="standard"
-                                   value={storageName || storageNameRedux}
-                                   onChange={event => setStorageNameLocal(event.target.value)}/>
                         <Button variant="contained" type="submit">Save</Button>
                     </form>
                 </Container>

@@ -1,4 +1,5 @@
-import {fetchSnapshotsPath} from "../utils/PlakarApiClient";
+import {fetchConfig, fetchSnapshotsPath} from "../utils/PlakarApiClient";
+import {SNAPSHOT_ROUTE} from "../utils/Routes";
 
 export const fetchInitialData = () => async dispatch => {
     dispatch({type: 'FETCH_INITIAL_DATA_REQUEST'});
@@ -33,10 +34,38 @@ export const fetchSnapshots = () => async dispatch => {
     }
 };
 
+const confState = {
+    apiUrl: null,
+    repository: null,
+    loading: false,
+    error: null,
+};
+export const confReducer = (state = confState, action) => {
+    switch (action.type) {
+        case 'SET_API_URL':
+            return {...state, apiUrl: action.payload.apiUrl};
+        case 'FETCH_CONF_REQUEST':
+            return {...state, loading: true};
+        case 'FETCH_CONF_SUCCESS':
+            return {...state, loading: false, repository: action.payload.repository};
+        case 'FETCH_CONF_FAILURE':
+            return {...state, loading: false, error: action.error, repository: null};
+        default:
+            return state;
+    }
+};
 
-export const confApp = (apiUrl, storeName) => async dispatch => {
-    const data = {apiUrl: apiUrl, storeName: storeName}
-    dispatch({type: 'SET_CONF', payload: data});
+export const confApp = (apiUrl) => async dispatch => {
+    dispatch({type: 'SET_API_URL', payload: {apiUrl: apiUrl}});
+    dispatch({type: 'FETCH_CONF_REQUEST'});
+    try {
+        // sleep for 3 seconds to simluate a slow network
+        await fetchConfig(apiUrl).then((data) => {
+            dispatch({type: 'FETCH_CONF_SUCCESS', payload: data});
+        });
+    } catch (error) {
+        dispatch({type: 'FETCH_CONF_FAILURE', error});
+    }
 };
 
 // Example reducer
@@ -59,19 +88,6 @@ export const snapshotsReducer = (state = initialState, action) => {
     }
 };
 
-
-const confState = {
-    apiUrl: null,
-    storeName: null,
-};
-export const confReducer = (state = confState, action) => {
-    switch (action.type) {
-        case 'SET_CONF':
-            return {...state, apiUrl: action.payload.apiUrl, storeName: action.payload.storeName};
-        default:
-            return state;
-    }
-};
 
 // Example selector
 export const selectSnapshots = glState => glState.snapshots;

@@ -25,14 +25,14 @@ export function createOrRestoreSnapshots(size) {
     return JSON.parse(items);
 }
 
-const snapshots = createOrRestoreSnapshots(5);
+const snapshots = createOrRestoreSnapshots(54);
 // export const snapshotIndex = snapshots.reduce(
 //     (acc, snapshot) => {
 //         acc[snapshot.id] = snapshot;
 //         return acc;
 //     }, {});
 
-export function dummyFetchSnapshotPage(apiUrl, page, pageSize) {
+export async function dummyFetchSnapshotPage(apiUrl, page, pageSize) {
     return fetchSnapshotPage(snapshots, page, pageSize);
 }
 

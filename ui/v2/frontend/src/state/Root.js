@@ -1,4 +1,4 @@
-import {fetchConfig, fetchSnapshotsPath} from "../utils/PlakarApiClient";
+import {fetchConfig, fetchSnapshotsPath, fetchSnapshots as fetchSnapshotsPathWithApiClient} from "../utils/PlakarApiClient";
 
 export const fetchInitialData = () => async dispatch => {
     dispatch({type: 'FETCH_INITIAL_DATA_REQUEST'});
@@ -15,19 +15,14 @@ export const fetchInitialData = () => async dispatch => {
 };
 
 // Example action
-export const fetchSnapshots = () => async dispatch => {
+export const fetchSnapshots = (apiUrl, page=1, pageSize=10) => async dispatch => {
     dispatch({type: 'FETCH_SNAPSHOTS_REQUESTS'});
     try {
+        console.log('loading snapshots...');
         // sleep for 3 seconds to simluate a slow network
-        await new Promise(r => setTimeout(r, 3000));
-        //   const response = await fetch('/api/posts');
-        //   const data = await response.json();
-        const data = [
-            {'uuid': '435FEAC9-7FFC-45B1-8E9C-6122DF2C953D', 'hostname': 'poolp.local'},
-            {'uuid': '806C7584-2488-4F39-A639-CF617C5694C7', 'hostname': 'dummy.local'},
-            {'uuid': '90B077B5-1625-484F-8B23-D6D0B2A192AF', 'hostname': 'fred.local'},
-        ];
-        dispatch({type: 'FETCH_SNAPSHOTS_SUCCESS', payload: data});
+        await fetchSnapshotsPathWithApiClient(apiUrl, page, pageSize).then((data) => {
+            dispatch({type: 'FETCH_SNAPSHOTS_SUCCESS', payload: data});
+        });
     } catch (error) {
         dispatch({type: 'FETCH_SNAPSHOTS_FAILURE', error});
     }
@@ -69,7 +64,7 @@ export const confApp = (apiUrl) => async dispatch => {
 
 // Example reducer
 const initialState = {
-    snapshots: [],
+    snapshotsPage: null,
     loading: false,
     error: null,
 };
@@ -78,14 +73,16 @@ export const snapshotsReducer = (state = initialState, action) => {
     switch (action.type) {
         case 'FETCH_SNAPSHOTS_REQUESTS':
             return {...state, loading: true};
-        case 'FETCH_POSTS_SUCCESS':
-            return {...state, loading: false, posts: action.payload};
+        case 'FETCH_SNAPSHOTS_SUCCESS':
+            return {...state, loading: false, snapshotsPage: action.payload};
         case 'FETCH_SNAPSHOTS_FAILURE':
             return {...state, loading: false, error: action.error};
         default:
             return state;
     }
 };
+
+export const selectSnapshotsPage = glState => glState.snapshots.snapshotsPage;
 
 
 // Example selector

@@ -1,12 +1,23 @@
 import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
 import {faker} from '@faker-js/faker';
 
-export const snapshots = createDummySnapshotItems(384);
-export const snapshotIndex = snapshots.reduce(
-    (acc, snapshot) => {
-    acc[snapshot.id] = snapshot;
-    return acc;
-}, {});
+export function createOrRestoreSnapshots (size) {
+    let items = localStorage.getItem('snapshots')
+    if (!items) {
+        console.log('creating new snapshots')
+        items = JSON.stringify(createDummySnapshotItems(size))
+        localStorage.setItem('snapshots', items);
+    }
+    console.log('restoring snapshots')
+    return JSON.parse(items);
+}
+
+const snapshots = createOrRestoreSnapshots(5);
+// export const snapshotIndex = snapshots.reduce(
+//     (acc, snapshot) => {
+//         acc[snapshot.id] = snapshot;
+//         return acc;
+//     }, {});
 
 export function dummyFetchSnapshotPage(apiUrl, page, pageSize) {
     return fetchSnapshotPage(snapshots, page, pageSize);
@@ -34,10 +45,12 @@ export function demoJSFile(apiUrl, pathId, page, pageSize) {
         name: 'demo.js',
         directoryPath: `${pathId}`,
         path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.js`,
         mimeType: 'text/javascript',
         size: '3,4 Mb',
+        byteSize: 433,
         modificationDate: '2021-10-10 12:00:00Z',
-        Checksum: faker.git.commitSha({length: 40}),
+        checksum: faker.git.commitSha({length: 40}),
         mode: '-rwxr-xr-x',
         uid: '1000',
         gid: '1000',
@@ -48,10 +61,13 @@ export function demoJSFile(apiUrl, pathId, page, pageSize) {
 
 export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
     const snapshotId = pathId.split(':')[0];
+    // wait for 1 second
+
+
     console.log('snapshotId', snapshotId)
-    const s = snapshotIndex[snapshotId];
+    const r = snapshots.filter((elem) => elem.id == snapshotId);
+    const s = r.length > 0 ? r[0] : null;
     console.log('snapshot found ?', s)
-    console.log('index', snapshotIndex)
 
     let baseResponse = {
         page: page,
@@ -82,7 +98,7 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
             size: '100 B',
         }, {
             name: 'super-folder',
-            path: `${pathId}/super-folder/`,
+            path: `${pathId}super-folder/`,
             isDirectory: true,
             mode: 'drwxr-xr-x',
             uid: '1000',

@@ -78,6 +78,7 @@ export const selectSnapshots = glState => glState.snapshots;
 export const selectConf = glState => glState.conf;
 
 export const selectSnapshot = glState => glState.pathView.snapshot;
+export const selectFileDetails = glState => glState.pathView.items[0];
 
 const pathViewState = {
     snapshot: null,
@@ -91,7 +92,7 @@ const pathViewState = {
 export const pathViewReducer = (state = initialState, action) => {
     switch (action.type) {
         case 'FETCH_PATH_REQUEST':
-            return {...state, loading: true};
+            return {...state, loading: true, snapshot: null, items: []};
         case 'FETCH_PATH_SUCCESS':
             return {...state, loading: false, snapshot: action.payload.snapshot, items: action.payload.items};
         case 'FETCH_PATH_FAILURE':

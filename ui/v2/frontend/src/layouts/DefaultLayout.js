@@ -1,4 +1,5 @@
-import {AppBar, Container, Stack, Typography} from "@mui/material";
+import {AppBar, Container, Link, Stack, Typography} from "@mui/material";
+import {Link as RouterLink} from "react-router-dom";
 import React from "react";
 import CssBaseline from "@mui/material/CssBaseline";
 import {ThemeUIProvider} from 'theme-ui';
@@ -21,14 +22,17 @@ function DefaultLayout({children, conf}) {
                     <CssBaseline/>
                     <Stack height={'100vh'}>
                         <AppBar position="static" color="transparent">
-                            <Stack direction={{xs: 'column', sm: 'row'}}
-                                   justifyContent="left"
-                                   alignItems="center"
-                                   maxWidth="xl" sx={{padding: 2}}>
-                                <Logo padding="s"/>
-                                <Typography href="#"
-                                            sx={{padding: 1}}>on <strong>{conf.storeName ? conf.storeName : 'loading...'}</strong></Typography>
-                            </Stack>
+                            <Link component={RouterLink} to={'/snapshot'} underline={'none'}>
+                                <Stack direction={{xs: 'column', sm: 'row'}}
+                                       justifyContent="left"
+                                       alignItems="center"
+                                       maxWidth="xl" sx={{padding: 2}}>
+
+                                    <Logo padding="s"/>
+                                    <Typography href="#"
+                                                sx={{padding: 1}}>on <strong>{conf.storeName ? conf.storeName : 'loading...'}</strong></Typography>
+                                </Stack>
+                            </Link>
                         </AppBar>
                         {children}
                     </Stack>

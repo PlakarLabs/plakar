@@ -1,4 +1,4 @@
-import {useParams, useSearchParams} from "react-router-dom";
+import {useLocation, useParams, useSearchParams} from "react-router-dom";
 import {Breadcrumbs, Grid, Link, Stack, Typography} from "@mui/material";
 import PathList from "../screens/PathList";
 import FileDetails from "../screens/FileDetails";
@@ -34,11 +34,12 @@ function prepareParams({snapshotId, '*': path}) {
 function Explorer() {
     const {snapshotId, path, isDirectory} = prepareParams(useParams());
     const dispatch = useDispatch()
-    const snapshot = selectSnapshot(useSelector(state => state));
+    const location = useLocation();
 
     useEffect(() => {
+        console.log('effect triggered')
         dispatch(fetchPath({snapshotId, path, isDirectory}));
-    }, [dispatch]);
+    }, [dispatch, location]);
 
     return (
         <TwoColumnLayout leftComponent={<>

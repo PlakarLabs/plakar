@@ -97,24 +97,25 @@ function SnapshotList({}) {
                         <TableBody>
                             {page.items.map((row) => (
                                 <StyledTableRow key={row.id}>
-                                    <StyledTableCell component="th" scope="row">
-                                        <Link component={RouterLink} to={`${row.id}:${row.rootPath}/`}>
+                                    <StyledTableCell component="th" scope="row" sx={{whiteSpace: 'nowrap'}}>
+                                        <Link component={RouterLink} to={`/snapshot/${row.id}:${row.rootPath}/`}
+                                              underline={'none'} variant={'primary'}>
                                             <Typography variant='textsmregular'>{row.shortId}</Typography>
                                         </Link>
                                     </StyledTableCell>
-                                    <StyledTableCell align="right">
+                                    <StyledTableCell align="right" sx={{whiteSpace: 'nowrap'}}>
                                         <Typography variant='textsmregular'>{row.username}</Typography>
                                     </StyledTableCell>
-                                    <StyledTableCell align="right">
+                                    <StyledTableCell align="right" sx={{whiteSpace: 'nowrap'}}>
                                         <Typography variant='textsmregular'>{row.hostName}</Typography>
                                     </StyledTableCell>
-                                    <StyledTableCell align="right">
-                                        <Typography variant='textsmregular'>{row.date}</Typography>
+                                    <StyledTableCell sx={{whiteSpace: 'nowrap'}} align="right">
+                                            <Typography variant='textsmregular'>{row.date}</Typography>
                                     </StyledTableCell>
-                                    <StyledTableCell align="right">
+                                    <StyledTableCell align="right" sx={{whiteSpace: 'nowrap'}}>
                                         <Typography variant='textsmregular'>{row.size}</Typography>
                                     </StyledTableCell>
-                                    <StyledTableCell align="right">
+                                    <StyledTableCell align="right" sx={{maxWidth: '300px'}}>
                                         <TagList tags={row.tags}/>
                                     </StyledTableCell>
                                 </StyledTableRow>

@@ -93,7 +93,7 @@ function PathList({snapshotId, path}) {
                         <StyledTableRow key={row.path}>
                             <StyledTableCell align="left">
                                 <Link underline='none' component={RouterLink}
-                                      to={`/snapshot/${page.snapshot.id}${row.path}`}>
+                                      to={`/snapshot/${row.path}`}>
                                 <Stack direction={'row'} spacing={1} alignItems={'center'}>
                                     {row.isDirectory && <FolderIcon/>}
                                     {!row.isDirectory && <FileIcon/>}

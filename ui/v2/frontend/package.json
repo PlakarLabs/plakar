@@ -31,6 +31,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start-devtools": "REACT_APP_DEV_TOOLS_ENABLED=true react-scripts start",
     "build": "NODE_ENV=production react-scripts build",
     "build-preview": "CI=false NODE_ENV=production react-scripts build",
     "test": "react-scripts test",

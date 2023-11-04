@@ -32,7 +32,7 @@ const PREVIEW_FROM_SIZE = 10485760;
 
 function FileDetails({snapshotId, path}) {
     let {id} = useParams();
-    let [searchParams, setSearchParams] = useSearchParams();
+    let [searchParams] = useSearchParams();
     const fileDetails = selectFileDetails(useSelector(state => state));
     let [preview, setPreview] = useState(false);
 
@@ -92,7 +92,7 @@ function FileDetails({snapshotId, path}) {
             }
 
 
-            {fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || fileDetails.byteSize > PREVIEW_FROM_SIZE && preview ) && (() => {
+            {(fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || fileDetails.byteSize > PREVIEW_FROM_SIZE && preview )) && (() => {
                 switch (fileDetails.mimeType) {
                     case 'text/javascript':
                         return <TextFileViewer/>

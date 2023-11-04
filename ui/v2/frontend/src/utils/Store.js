@@ -27,17 +27,25 @@ const persistConfig = {
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-const enhancers = process.env.NODE_ENV === 'development' ?
+
+const enhancers = process.env.REACT_APP_DEV_TOOLS_ENABLED === 'true' ?
     compose(
         applyMiddleware(createRouterMiddleware(history), thunk),
         // createRouterMiddleware(history),
         composeWithDevTools(),
     )
     : compose(
-        applyMiddleware(thunk),
-        createRouterMiddleware(history),
+        applyMiddleware(createRouterMiddleware(history), thunk),
     );
-
-export const store = createStore(persistedReducer, enhancers);
+let s = null;
+try {
+    s = createStore(persistedReducer, {}, enhancers);
+} catch (error) {
+    console.log('Error creating store', error);
+    if (process.env.REACT_APP_DEV_TOOLS_ENABLED) {
+        console.warn('Warning: if you get some error creating your store, make sure you have installed redux dev tools extension');
+    }
+}
+export const store = s;
 export const persistor = persistStore(store);
 export const routerSelector = (state) => state.navigator

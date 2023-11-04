@@ -1,12 +1,10 @@
-import {Link, Stack, Typography} from "@mui/material";
+import {Stack, Typography} from "@mui/material";
 import TitleSubtitle from "../components/TitleSubtitle";
-import TagList from "../components/TagList";
 import {selectFileDetails, selectSnapshot} from "../state/Root";
 import {useSelector} from "react-redux";
-import {Link as RouterLink} from "react-router-dom";
 
 
-const FileDetails = ({navigation}) => {
+const FileDetails = () => {
     const snapshot = selectSnapshot(useSelector(state => state));
     const fileDetails = selectFileDetails(useSelector(state => state));
 

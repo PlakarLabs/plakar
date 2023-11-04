@@ -1,7 +1,7 @@
-import React, {useCallback, useEffect} from 'react';
+import React, {useEffect} from 'react';
 
-import {confApp, fetchSnapshots, selectConf, selectSnapshots} from "../state/Root";
-import {connect, useDispatch, useSelector} from "react-redux";
+import {confApp, selectConf} from "../state/Root";
+import {useDispatch, useSelector} from "react-redux";
 import DefaultLayout from "../layouts/DefaultLayout";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {CONFIG_ROUTE, SNAPSHOT_ROUTE} from "../utils/Routes";
@@ -9,12 +9,12 @@ import {CONFIG_ROUTE, SNAPSHOT_ROUTE} from "../utils/Routes";
 function Welcome(props) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    let [searchParams, setSearchParams] = useSearchParams();
-    const {apiUrl: apiUrlRedux, repository: storageNameRedux} = selectConf(useSelector(state => state));
+    let [searchParams] = useSearchParams();
+    const {apiUrl: apiUrlRedux, repository: repositoryRedux} = selectConf(useSelector(state => state));
 
     useEffect(() => {
 
-        if (apiUrlRedux && storageNameRedux) {
+        if (apiUrlRedux && repositoryRedux) {
             navigate(SNAPSHOT_ROUTE);
         } else {
             // Get the URLSearchParams object from the current URL
@@ -38,7 +38,7 @@ function Welcome(props) {
         }
         // Remove the 'api_url' parameter from the URL
 
-    }, [confApp]);
+    }, [apiUrlRedux, dispatch, navigate, searchParams, repositoryRedux]);
 
     return (
         <DefaultLayout>

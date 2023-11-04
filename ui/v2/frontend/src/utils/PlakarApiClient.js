@@ -1,5 +1,4 @@
-import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
-import {dummmyFetchConfig, dummyFetchSnapshotPage, dummyFetchSnapshotsPath, snapshots} from "./DemoRepo";
+import {dummmyFetchConfig, dummyFetchSnapshotPage, dummyFetchSnapshotsPath} from "./DemoRepo";
 
 export function fetchConfig(apiUrl) {
     return dummmyFetchConfig();
@@ -14,6 +13,6 @@ export function fetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
 }
 
 
-function search(searchParams) {
+export function search(searchParams) {
     return [];
 }

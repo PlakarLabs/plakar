@@ -62,28 +62,6 @@ export function createDummySnapshot() {
     };
 }
 
-export function createDummySnapshotRepoTree() {
-    const files = [
-        "/Users/poolp/Documents/Projects/React/react-file-explorer/src/utils/Demo.js",
-        "/Users/poolp/Documents/Videos/YouTube/DemoVideo.mp4",
-        "/Users/poolp/Documents/Photos/20200101/small.jpeg",
-        "/Users/poolp/Documents/Photos/20200101/big.jpeg",
-    ]
-    const repo =
-        {
-            data: {
-                path: '/Users',
-                id: 'Users',
-            },
-            items: [{
-                data: {
-                    path: '/Users/poolp',
-                },
-                items: [{}]
-            }]
-        }
-}
-
 export function createDummySnapshotItems(repoSize) {
     // create pageSize dummy items
     return Array.from(Array(repoSize).keys()).map((i) => {

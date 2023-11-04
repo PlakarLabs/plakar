@@ -1,8 +1,7 @@
 // basic react function for a component
 
 import React from 'react';
-import {useState, useEffect} from 'react';
-import {Typography, Stack, AppBar, Container, Link, Breadcrumbs, Skeleton} from '@mui/material';
+import {Typography, Stack, Link, Skeleton} from '@mui/material';
 
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -11,9 +10,6 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import TableFooter from '@mui/material/TableFooter';
-import TablePagination from '@mui/material/TablePagination';
-import {fetchSnapshots, fetchSnapshotsPath} from "../utils/PlakarApiClient";
-import {getFolderNameAndPathPairs} from "../utils/Path";
 import {materialTheme} from "../Theme";
 import StyledTableCell from "../components/StyledTableCell";
 import StyledTableRow from "../components/StyledTableRow";
@@ -22,30 +18,19 @@ import StyledPagination from "../components/StyledPagination";
 import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
+import {useDispatch, useSelector} from "react-redux";
+import {fetchPath, selectPathPage} from "../state/Root";
 
 
 function PathList({snapshotId, path}) {
-    const [page, setPage] = React.useState(null);
-    const [splittedPath, setSplittedPath] = React.useState([]);
-    // let {id, path} = useParams();
-
-    useEffect(() => {
-            let pathId = `${snapshotId}:${path}`;
-            fetchSnapshotsPath('', pathId, 1, 10).then((newPage) => {
-                setPage(newPage)
-            });
-            setSplittedPath(getFolderNameAndPathPairs(path))
-
-        },
-
-        [fetchSnapshotsPath]);
-
+    const dispatch = useDispatch();
+    const page = selectPathPage(useSelector(state => state));
 
     return (
         <>
             <Stack spacing={1} py={2}>
 
-                {page ?
+                {page.snapshot ?
                     <Stack direction={'row'} spacing={1} alignItems={'center'}>
                         <Typography variant="h3" component="h1">Snapshot</Typography>
                         <Link component={RouterLink}
@@ -58,7 +43,7 @@ function PathList({snapshotId, path}) {
                     <Skeleton width={'300px'}/>
                 }
 
-                {page ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> : <Skeleton width={'300px'}/>}
+                {page.snapshot ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> : <Skeleton width={'300px'}/>}
             </Stack>
 
             <TableContainer component={Paper}>
@@ -126,16 +111,14 @@ function PathList({snapshotId, path}) {
                     <TableFooter>
                         <TableRow>
                             <td colSpan={10}>
-                                <StyledPagination pageCount={1} onChange={(event, page) => {
-                                    setPage(fetchSnapshots('', page, 10));
+                                <StyledPagination pageCount={page.totalPages} onChange={(event, page) => {
+                                    dispatch(fetchPath({snapshotId, path, page, pageSize: 10}));
                                 }}/>
                             </td>
                         </TableRow>
                     </TableFooter>
                 </Table>
             </TableContainer>
-
-
         </>
     )
         ;

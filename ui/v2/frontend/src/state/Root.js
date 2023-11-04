@@ -1,5 +1,4 @@
 import {fetchConfig, fetchSnapshotsPath} from "../utils/PlakarApiClient";
-import {SNAPSHOT_ROUTE} from "../utils/Routes";
 
 export const fetchInitialData = () => async dispatch => {
     dispatch({type: 'FETCH_INITIAL_DATA_REQUEST'});
@@ -95,30 +94,41 @@ export const selectConf = glState => glState.conf;
 
 export const selectSnapshot = glState => glState.pathView.snapshot;
 export const selectFileDetails = glState => glState.pathView.items[0];
+export const selectPathPage = glState => glState.pathView;
 
 const pathViewState = {
     snapshot: null,
-    isFile: false,
-    file: null,
     items: [],
+    page: 1,
+    pageSize: 10,
+    totalPages: 1,
     loading: false,
     error: null,
 }
 
-export const pathViewReducer = (state = initialState, action) => {
-    switch (action.type) {
-        case 'FETCH_PATH_REQUEST':
-            return {...state, loading: true, snapshot: null, items: []};
-        case 'FETCH_PATH_SUCCESS':
-            return {...state, loading: false, snapshot: action.payload.snapshot, items: action.payload.items};
-        case 'FETCH_PATH_FAILURE':
-            return {...state, loading: false, error: action.error};
-        default:
-            return state;
+export const pathViewReducer = (state = pathViewState, action) => {
+        switch (action.type) {
+            case 'FETCH_PATH_REQUEST':
+                return {...state, loading: true, snapshot: null, items: []};
+            case 'FETCH_PATH_SUCCESS':
+                return {
+                    ...state,
+                    loading: false,
+                    snapshot: action.payload.snapshot,
+                    items: action.payload.items,
+                    page: action.payload.page,
+                    pageSize: action.payload.pageSize,
+                    totalPages: action.payload.totalPages,
+                }
+            case 'FETCH_PATH_FAILURE':
+                return {...state, loading: false, error: action.error};
+            default:
+                return state;
+        }
     }
-};
+;
 
-export const fetchPath = ({snapshotId, path}) => async dispatch => {
+export const fetchPath = ({snapshotId, path, page = 1, pageSize = 10}) => async dispatch => {
     dispatch({type: 'FETCH_PATH_REQUEST'});
     try {
         console.log('fetchPath', {snapshotId, path});

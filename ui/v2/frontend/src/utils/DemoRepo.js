@@ -138,7 +138,7 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
 
 
     console.log('snapshotId', snapshotId)
-    const r = snapshots.filter((elem) => elem.id == snapshotId);
+    const r = snapshots.filter((elem) => elem.id === snapshotId);
     const s = r.length > 0 ? r[0] : null;
     console.log('snapshot found ?', s)
 
@@ -146,7 +146,7 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         page: page,
         pageSize: pageSize,
         totalItems: 1,
-        totalPages: 1,
+        totalPages: 10,
         hasPreviousPage: false,
         hasNextPage: false,
         snapshot: s,

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {useState, useEffect} from 'react';
-import {Typography, Stack, AppBar, Container, Link, Breadcrumbs} from '@mui/material';
+import {Typography, Stack, AppBar, Container, Link, Breadcrumbs, Skeleton} from '@mui/material';
 
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -43,95 +43,102 @@ function PathList({snapshotId, path}) {
 
     return (
         <>
-        <Stack spacing={1} py={2}>
+            <Stack spacing={1} py={2}>
 
-            {page && <Typography variant="h3" component="h1">Snapshot <Link component={RouterLink}
-                                                                            to={`/snapshot/${page.snapshot.id}:${page.snapshot.rootPath}/`}>{page && page.snapshot.shortId}</Link>
-            </Typography>}
+                {page ?
+                    <Stack direction={'row'} spacing={1} alignItems={'center'}>
+                        <Typography variant="h3" component="h1">Snapshot</Typography>
+                        <Link component={RouterLink}
+                              to={`/snapshot/${page.snapshot.id}:${page.snapshot.rootPath}/`}>
+                            <Typography variant="h3" component="h1">{page.snapshot.shortId}</Typography>
+                        </Link>
 
-            {page && <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/>}
-        </Stack>
-        {/*<Typography>{path}</Typography>*/
-        }
+                    </Stack>
+                    :
+                    <Skeleton width={'300px'}/>
+                }
 
-        <TableContainer component={Paper}>
-            <Table sx={{minWidth: 700}} aria-label="customized table">
-                <TableHead>
-                    <TableRow>
-                        <StyledTableCell><Typography variant={"textxsmedium"}
-                                                     color={materialTheme.palette.gray['600']}>
-                            Path
-                        </Typography>
-                        </StyledTableCell>
-                        <StyledTableCell>
-                            <Typography variant={"textxsmedium"}
-                                        color={materialTheme.palette.gray['600']}>
-                                Mode
+                {page ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> : <Skeleton width={'300px'}/>}
+            </Stack>
+
+            <TableContainer component={Paper}>
+                <Table sx={{minWidth: 700}} aria-label="customized table">
+                    <TableHead>
+                        <TableRow>
+                            <StyledTableCell><Typography variant={"textxsmedium"}
+                                                         color={materialTheme.palette.gray['600']}>
+                                Path
                             </Typography>
-                        </StyledTableCell>
+                            </StyledTableCell>
+                            <StyledTableCell>
+                                <Typography variant={"textxsmedium"}
+                                            color={materialTheme.palette.gray['600']}>
+                                    Mode
+                                </Typography>
+                            </StyledTableCell>
 
-                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                   color={materialTheme.palette.gray['600']}>
-                            Uid
-                        </Typography></StyledTableCell>
-                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                   color={materialTheme.palette.gray['600']}>
-                            Gid
-                        </Typography></StyledTableCell>
-                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                   color={materialTheme.palette.gray['600']}>
-                            Date
-                        </Typography></StyledTableCell>
-                        <StyledTableCell align="right"><Typography variant={"textxsmedium"}
-                                                                   color={materialTheme.palette.gray['600']}>
-                            Size
-                        </Typography></StyledTableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {page && page.items.map((row) => (
-                        <StyledTableRow key={row.path}>
-                            <StyledTableCell align="left">
-                                <Link underline='none' component={RouterLink}
-                                      to={`/snapshot/${row.path}`}>
-                                <Stack direction={'row'} spacing={1} alignItems={'center'}>
-                                    {row.isDirectory && <FolderIcon/>}
-                                    {!row.isDirectory && <FileIcon/>}
-                                    <Typography
-                                        variant='textsmregular'>{row.name}
-                                    </Typography>
-                                </Stack>
-                            </Link>
-                        </StyledTableCell>
-                        <StyledTableCell align="left"><Typography
-                        variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
-            <StyledTableCell align="right"><Typography
-                variant='textsmregular'>{row.uid}</Typography></StyledTableCell>
-            <StyledTableCell align="right"><Typography
-                variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
-            <StyledTableCell align="right"><Typography
-                variant='textsmregular'>{row.date}</Typography></StyledTableCell>
-            <StyledTableCell align="right"><Typography
-                variant='textsmregular'>{row.size}</Typography></StyledTableCell>
-        </StyledTableRow>
-        ))}
-        </TableBody>
-    <TableFooter>
-        <TableRow>
-            <td colSpan={10}>
-                <StyledPagination pageCount={1} onChange={(event, page) => {
-                    setPage(fetchSnapshots('', page, 10));
-                }}/>
-            </td>
-        </TableRow>
-    </TableFooter>
-</Table>
-</TableContainer>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Uid
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Gid
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Date
+                            </Typography></StyledTableCell>
+                            <StyledTableCell align="right"><Typography variant={"textxsmedium"}
+                                                                       color={materialTheme.palette.gray['600']}>
+                                Size
+                            </Typography></StyledTableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {page && page.items.map((row) => (
+                            <StyledTableRow key={row.path}>
+                                <StyledTableCell align="left">
+                                    <Link underline='none' component={RouterLink}
+                                          to={`/snapshot/${row.path}`}>
+                                        <Stack direction={'row'} spacing={1} alignItems={'center'}>
+                                            {row.isDirectory && <FolderIcon/>}
+                                            {!row.isDirectory && <FileIcon/>}
+                                            <Typography
+                                                variant='textsmregular'>{row.name}
+                                            </Typography>
+                                        </Stack>
+                                    </Link>
+                                </StyledTableCell>
+                                <StyledTableCell align="left"><Typography
+                                    variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.uid}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.date}</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography
+                                    variant='textsmregular'>{row.size}</Typography></StyledTableCell>
+                            </StyledTableRow>
+                        ))}
+                    </TableBody>
+                    <TableFooter>
+                        <TableRow>
+                            <td colSpan={10}>
+                                <StyledPagination pageCount={1} onChange={(event, page) => {
+                                    setPage(fetchSnapshots('', page, 10));
+                                }}/>
+                            </td>
+                        </TableRow>
+                    </TableFooter>
+                </Table>
+            </TableContainer>
 
 
-</>
-)
-    ;
+        </>
+    )
+        ;
 
 };
 

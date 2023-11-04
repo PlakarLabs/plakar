@@ -17,11 +17,18 @@ import TextFileViewer from "../components/fileviewer/TextFileViewer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import {materialTheme as theme} from "../Theme";
 import DownloadIcon from "@mui/icons-material/Download";
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import {triggerDownload} from "../utils/BrowserInteraction";
+import ImageFileViewer from "../components/fileviewer/ImageFileViewer";
+import VideoFileViewer from "../components/fileviewer/VideoFileViewer";
+import AudioFileViewer from "../components/fileviewer/AudioFileViewer";
 
 
 // how to imple hightlighting
 // https://blog.logrocket.com/guide-syntax-highlighting-react/
 
+// 10 MB
+const PREVIEW_FROM_SIZE = 10485760;
 
 function FileDetails({snapshotId, path}) {
     let {id} = useParams();
@@ -36,13 +43,17 @@ function FileDetails({snapshotId, path}) {
         setPreview(true);
     }
 
+    const handleDownloadFile = () => {
+        triggerDownload(fileDetails.rawPath, fileDetails.name);
+    }
+
     return (<>
             <Typography variant="h3" component="h1">{fileDetails ? fileDetails.name : <Skeleton/>}</Typography>
             {id}
             {searchParams.get('p')}
             <FileBreadcrumbs path={path} snapshotid={snapshotId}/>
             {!fileDetails && <Skeleton width={'100%'} height={'800px'}/>}
-            {fileDetails && fileDetails.byteSize > 300 && !preview &&
+            {fileDetails && fileDetails.byteSize > PREVIEW_FROM_SIZE && !preview &&
             <Stack alignItems={'center'} padding={2}>
                 <Card variant="outlined" sx={{
                     width: '474px',
@@ -64,11 +75,13 @@ function FileDetails({snapshotId, path}) {
                     <CardActions>
                         <Stack sx={{flex: 1}} alignItems='center'>
                             <Stack direction={'row'} spacing={2}>
-                                <Button size="large" color="primary" variant={'outlined'} endIcon={<DownloadIcon/>}
+                                <Button size="large" color="primary" variant={'outlined'} endIcon={<VisibilityIcon/>}
                                 onClick={handlePreview}>
                                     <Typography variant={'textsmregular'}>Preview Anyway</Typography>
                                 </Button>
-                                <Button size="large" color="primary" variant={'contained'} endIcon={<DownloadIcon/>}>
+                                <Button size="large" color="primary" variant={'contained'} endIcon={<DownloadIcon/>}
+                                onClick={handleDownloadFile}
+                                >
                                     <Typography variant={'textsmregular'}>Download Raw File</Typography>
                                 </Button>
                             </Stack>
@@ -79,10 +92,16 @@ function FileDetails({snapshotId, path}) {
             }
 
 
-            {fileDetails && (fileDetails.size < 300 || preview ) && (() => {
+            {fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || fileDetails.byteSize > PREVIEW_FROM_SIZE && preview ) && (() => {
                 switch (fileDetails.mimeType) {
                     case 'text/javascript':
                         return <TextFileViewer/>
+                    case 'image/jpeg':
+                        return <ImageFileViewer />
+                    case 'video/mp4':
+                        return <VideoFileViewer />
+                    case 'audio/mp3':
+                        return <AudioFileViewer />
                     default:
                         return <UnsupportedFileViewer/>
                 }

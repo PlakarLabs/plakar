@@ -26,6 +26,7 @@ import {materialTheme as theme} from "../../Theme";
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {selectFileDetails} from "../../state/Root";
 import {useSelector} from "react-redux";
+import {triggerDownload, copyToClipboard} from "../../utils/BrowserInteraction";
 
 
 const fadeIn = keyframes`
@@ -99,16 +100,11 @@ function TextFileViewer({snapshotId, path}) {
     const [fileData, setFileData] = useState(null);
 
     const handleDownloadClick = () => {
-        const link = document.createElement('a');
-        link.href = fileDetails.rawPath
-        link.download = 'demo.js';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        triggerDownload(fileDetails.rawPath, fileDetails.name);
     };
 
-    const copyToClipboard = () => {
-        navigator.clipboard.writeText(text);
+    const handleCopyToClipboard = () => {
+        copyToClipboard(text);
         setVisible(true);
     }
 
@@ -159,7 +155,7 @@ function TextFileViewer({snapshotId, path}) {
                             </Tooltip>
                             <Box sx={{borderRight: '2px solid', borderLeft: '1px solid'}}>
                                 <Tooltip title={"Copy to Clipboard"} placement="top">
-                                    <Button sx={{color: 'white'}} onClick={copyToClipboard}><ContentCopyIcon/></Button>
+                                    <Button sx={{color: 'white'}} onClick={handleCopyToClipboard}><ContentCopyIcon/></Button>
                                 </Tooltip>
                             </Box>
                             <Tooltip title={"Download File"}>

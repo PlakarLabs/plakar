@@ -1,7 +1,7 @@
 import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
 import {faker} from '@faker-js/faker';
 
-export function createOrRestoreSnapshots (size) {
+export function createOrRestoreSnapshots(size) {
     let items = localStorage.getItem('snapshots')
     if (!items) {
         console.log('creating new snapshots')
@@ -23,14 +23,74 @@ export function dummyFetchSnapshotPage(apiUrl, page, pageSize) {
     return fetchSnapshotPage(snapshots, page, pageSize);
 }
 
-export function demoJpegFile(apiUrl, pathId, page, pageSize) {
+export function demoJpegSmallFile(apiUrl, pathId, page, pageSize) {
     return {
-        name: 'demo.jpeg',
-        path: '/demo.jpeg',
+        name: 'demo-small.jpg',
+        directoryPath: `${pathId}`,
+        path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.jpeg`,
         mimeType: 'image/jpeg',
-        size: '3,4 Mb',
+        size: '95 Kb',
+        byteSize: 97271,
         modificationDate: '2021-10-10 12:00:00Z',
-        Checksum: faker.git.commitSha({length: 40}),
+        checksum: faker.git.commitSha({length: 40}),
+        mode: '-rwxr-xr-x',
+        uid: '1000',
+        gid: '1000',
+        device: '123333',
+        inode: '123333',
+    }
+}
+
+export function demoJpegFatFile(apiUrl, pathId, page, pageSize) {
+    return {
+        name: 'demo-small.jpg',
+        directoryPath: `${pathId}`,
+        path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.jpeg`,
+        mimeType: 'image/jpeg',
+        size: '300 Mb',
+        byteSize: 314572800,
+        modificationDate: '2021-10-10 12:00:00Z',
+        checksum: faker.git.commitSha({length: 40}),
+        mode: '-rwxr-xr-x',
+        uid: '1000',
+        gid: '1000',
+        device: '123333',
+        inode: '123333',
+    }
+}
+
+export function demoMp4File(apiUrl, pathId, page, pageSize) {
+    return {
+        name: 'demo.mp4',
+        directoryPath: `${pathId}`,
+        path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.mp4`,
+        mimeType: 'video/mp4',
+        size: '590 KB',
+        byteSize: 604534,
+        modificationDate: '2021-10-10 12:00:00Z',
+        checksum: faker.git.commitSha({length: 40}),
+        mode: '-rwxr-xr-x',
+        uid: '1000',
+        gid: '1000',
+        device: '123333',
+        inode: '123333',
+    }
+}
+
+export function demoAudioFile(apiUrl, pathId, page, pageSize) {
+    return {
+        name: 'demo.mp3',
+        directoryPath: `${pathId}`,
+        path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.mp3`,
+        mimeType: 'audio/mp3',
+        size: '144 KB',
+        byteSize: 147961,
+        modificationDate: '2021-10-10 12:00:00Z',
+        checksum: faker.git.commitSha({length: 40}),
         mode: '-rwxr-xr-x',
         uid: '1000',
         gid: '1000',
@@ -47,7 +107,7 @@ export function demoJSFile(apiUrl, pathId, page, pageSize) {
         path: `${pathId}`,
         rawPath: `http://localhost:3000/demo-files/demo.js`,
         mimeType: 'text/javascript',
-        size: '3,4 Mb',
+        size: '433 B',
         byteSize: 433,
         modificationDate: '2021-10-10 12:00:00Z',
         checksum: faker.git.commitSha({length: 40}),
@@ -81,11 +141,16 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
     };
 
 
-    if (pathId.endsWith('demo.jpeg')) {
-        baseResponse.items.push(demoJpegFile(apiUrl, pathId, page, pageSize));
-    }
-    if (pathId.endsWith('demo.js')) {
-        baseResponse.items.push(demoJSFile(apiUrl, pathId, page, pageSize));
+    if (pathId.endsWith('demo-small.jpg')) {
+        baseResponse.items = [demoJpegSmallFile(apiUrl, pathId, page, pageSize)];
+    } else if (pathId.endsWith('demo-fat.jpg')) {
+        baseResponse.items = [demoJpegFatFile(apiUrl, pathId, page, pageSize)];
+    } else if (pathId.endsWith('demo.mp4')) {
+        baseResponse.items = [demoMp4File(apiUrl, pathId, page, pageSize)];
+    } else if (pathId.endsWith('demo.mp3')) {
+        baseResponse.items = [demoAudioFile(apiUrl, pathId, page, pageSize)];
+    } else if (pathId.endsWith('demo.js')) {
+        baseResponse.items = [demoJSFile(apiUrl, pathId, page, pageSize)];
     } else {
         baseResponse.items = [{
             name: 'home',
@@ -113,43 +178,43 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
             uid: '1000',
             gid: '1000',
             date: '2021-10-10 12:00:00Z',
-            size: '100 B',
+            size: '433 B',
         }, {
             name: 'demo.mp4',
-            path: '/home/demo.mp4',
+            path: `${pathId}demo.mp4`,
             isDirectory: false,
             mode: 'drw-r--r--',
             uid: '1000',
             gid: '1000',
             date: '2021-10-10 12:00:00Z',
-            size: '100 B',
+            size: '590 Kb',
         }, {
             name: 'demo.mp3',
-            path: '/home/demo.mp3',
+            path: `${pathId}demo.mp3`,
             isDirectory: false,
             mode: 'drw-r--r--',
             uid: '1000',
             gid: '1000',
             date: '2021-10-10 12:00:00Z',
-            size: '100 B',
+            size: '144 Kb',
         }, {
-            name: 'demo-small.jpeg',
-            path: '/home/demo-small.jpeg',
+            name: 'demo-small.jpg',
+            path: `${pathId}demo-small.jpg`,
             isDirectory: false,
             mode: 'drw-r--r--',
             uid: '1000',
             gid: '1000',
             date: '2021-10-10 12:00:00Z',
-            size: '100 B',
+            size: '95 Kb',
         }, {
             name: 'demo-fat.jpeg',
-            path: '/home/demo-fat.jpeg',
+            path: `${pathId}demo-fat.jpg`,
             isDirectory: false,
             mode: 'drw-r--r--',
             uid: '1000',
             gid: '1000',
             date: '2021-10-10 12:00:00Z',
-            size: '100 B',
+            size: '300 Mb',
         },]
     }
     // return a promise

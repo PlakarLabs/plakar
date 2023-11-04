@@ -9,7 +9,7 @@ import {triggerDownload} from "../../utils/BrowserInteraction";
 import {Image} from "theme-ui";
 
 
-const ImageFileViewer = () => {
+const VideoFileViewer = () => {
 
     const fileDetails = selectFileDetails(useSelector(state => state));
 
@@ -19,9 +19,12 @@ const ImageFileViewer = () => {
 
     return (
         <Stack alignItems={'center'} padding={2}>
-            <Image src={fileDetails.rawPath} sx={{width: '100%', height: '100%'}} alt={fileDetails.name}/>
+            <audio controls>
+                <source src={fileDetails.rawPath} type="audio/mp3"/>
+                Your browser does not support the audio element.
+            </audio>
         </Stack>
     )
 }
 
-export default ImageFileViewer;
+export default VideoFileViewer;

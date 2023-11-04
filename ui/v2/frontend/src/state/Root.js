@@ -125,7 +125,7 @@ export const pathViewReducer = (state = pathViewState, action) => {
     }
 ;
 
-export const fetchPath = ({snapshotId, path, page = 1, pageSize = 10}) => async dispatch => {
+export const fetchPath = (snapshotId, path, page = 1, pageSize = 10) => async dispatch => {
     dispatch({type: 'FETCH_PATH_REQUEST'});
     try {
         console.log('fetchPath', {snapshotId, path});

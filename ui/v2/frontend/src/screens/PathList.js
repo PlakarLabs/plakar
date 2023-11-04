@@ -1,6 +1,6 @@
 // basic react function for a component
 
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {Typography, Stack, Link, Skeleton} from '@mui/material';
 
 import Table from '@mui/material/Table';
@@ -13,18 +13,38 @@ import TableFooter from '@mui/material/TableFooter';
 import {materialTheme} from "../Theme";
 import StyledTableCell from "../components/StyledTableCell";
 import StyledTableRow from "../components/StyledTableRow";
-import {Link as RouterLink} from "react-router-dom";
+import {Link as RouterLink, useSearchParams} from "react-router-dom";
 import StyledPagination from "../components/StyledPagination";
 import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
 import {useDispatch, useSelector} from "react-redux";
-import {fetchPath, selectPathPage} from "../state/Root";
+import {fetchPath, selectPathPage, selectSnapshotsPage} from "../state/Root";
 
 
 function PathList({snapshotId, path}) {
     const dispatch = useDispatch();
+    let [searchParams, setSearchParams] = useSearchParams();
     const page = selectPathPage(useSelector(state => state));
+    const [pageOffset, setPageOffset] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    useEffect(() => {
+        if (searchParams.get('page') !== pageOffset.toString()) {
+            setSearchParams({page: pageOffset, pageSize: pageSize});
+        }
+        if (searchParams.get('pageSize') !== pageSize.toString()) {
+            setSearchParams({page: pageOffset, pageSize: pageSize});
+        }
+        console.log('fetching path', {snapshotId, path, pageOffset, pageSize})
+        dispatch(fetchPath(snapshotId, path, pageOffset, pageSize));
+    }, [dispatch, setSearchParams]);
+
+    const handlePageChange = (event, page) => {
+        setPageOffset(page);
+        setSearchParams({page: page, pageSize: pageSize});
+
+    }
 
     return (
         <>
@@ -43,7 +63,8 @@ function PathList({snapshotId, path}) {
                     <Skeleton width={'300px'}/>
                 }
 
-                {page.snapshot ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> : <Skeleton width={'300px'}/>}
+                {page.snapshot ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> :
+                    <Skeleton width={'300px'}/>}
             </Stack>
 
             <TableContainer component={Paper}>
@@ -111,9 +132,7 @@ function PathList({snapshotId, path}) {
                     <TableFooter>
                         <TableRow>
                             <td colSpan={10}>
-                                <StyledPagination pageCount={page.totalPages} onChange={(event, page) => {
-                                    dispatch(fetchPath({snapshotId, path, page, pageSize: 10}));
-                                }}/>
+                                <StyledPagination pageCount={page.totalPages} onChange={handlePageChange}/>
                             </td>
                         </TableRow>
                     </TableFooter>

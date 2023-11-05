@@ -2,11 +2,11 @@ import {InputAdornment, InputBase, Stack, Tooltip, Typography} from "@mui/materi
 import SearchIcon from "@mui/icons-material/Search";
 import KeyboardCommandKeyIcon from '@mui/icons-material/KeyboardCommandKey';
 import {materialTheme} from "../Theme";
-import {useEffect, useRef} from "react";
+import {useEffect, useRef, useState} from "react";
 import WindowsIcon from "./WindowsIcon";
 import {getOS, OS} from "../utils/BrowserInteraction";
 
-const SearchBar = ({onSearch}) => {
+const SearchBar = ({onSearch = null, inputState = null, setInputState= null}) => {
     const inputRef = useRef(null);
 
     useEffect(() => {
@@ -17,10 +17,14 @@ const SearchBar = ({onSearch}) => {
                 inputRef.current.focus();
             }
             if (event.key === "Enter") {
-                console.log('return press');
                 event.preventDefault();
+                console.log('return press', inputRef.current.value);
+                if (onSearch) {
+                    onSearch(inputRef.current.value);
+                }
                 // perform search
             }
+
 
         };
 
@@ -29,7 +33,7 @@ const SearchBar = ({onSearch}) => {
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, []);
+    }, [onSearch, inputState]);
 
     return (
         <Stack direction={'row'} sx={{border: 2, borderColor: materialTheme.palette.gray['100'], borderRadius: 2}}
@@ -39,7 +43,10 @@ const SearchBar = ({onSearch}) => {
                 inputRef={inputRef}
                 fullWidth
                 placeholder="Search..."
+                value={inputState}
+                defaultValue={inputState}
                 id="search"
+                onChange={(event) => { if (setInputState) { setInputState(event.target.value); }}}
                 sx={{borderRadius: 1}}
                 endAdornment={
                     <InputAdornment position="end">
@@ -53,7 +60,8 @@ const SearchBar = ({onSearch}) => {
                                 {(() => {
                                     switch (getOS()) {
                                         case OS.MAC:
-                                            return <KeyboardCommandKeyIcon sx={{ fontSize: 14, color: 'white' }} style={{cursor: 'help'}}/>
+                                            return <KeyboardCommandKeyIcon sx={{fontSize: 14, color: 'white'}}
+                                                                           style={{cursor: 'help'}}/>
                                         case OS.WINDOWS:
                                             return <WindowsIcon variant={'primary'} fontSize="tiny"
                                                                 style={{cursor: 'help'}}/>

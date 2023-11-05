@@ -243,3 +243,26 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         }, 1000);
     });
 }
+
+export const dummySearch = async (searchParams) => {
+    return [{
+        snapshot: {
+            id: '123',
+            shortId: '123',
+            rootPath: '/home/',
+        },
+        date: '2021-10-10 12:00:00Z',
+        type: 'file',
+        path: '/home/fred.jpg',
+    },
+        {
+        snapshot: {
+            id: '123',
+            shortId: '123',
+            rootPath: '/home/',
+        },
+        date: '2021-10-10 12:00:00Z',
+        type: 'folder',
+        path: '/home/other-folder/',
+    }]
+}

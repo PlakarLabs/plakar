@@ -1,4 +1,4 @@
-import {dummmyFetchConfig, dummyFetchSnapshotPage, dummyFetchSnapshotsPath} from "./DemoRepo";
+import {dummmyFetchConfig, dummyFetchSnapshotPage, dummyFetchSnapshotsPath, dummySearch} from "./DemoRepo";
 
 export function fetchConfig(apiUrl) {
     return dummmyFetchConfig();
@@ -13,6 +13,6 @@ export function fetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
 }
 
 
-export function search(searchParams) {
-    return [];
+export function search(apiUrl, searchParams) {
+    return dummySearch(apiUrl, searchParams);
 }

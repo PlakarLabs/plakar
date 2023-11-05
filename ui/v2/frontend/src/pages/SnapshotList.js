@@ -14,7 +14,7 @@ import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import {materialTheme} from "../Theme";
 import {fetchSnapshots, selectSnapshotsPage} from "../state/Root";
 import {
-    Link as RouterLink,
+    Link as RouterLink, useNavigate,
     useSearchParams
 } from "react-router-dom";
 import TagList from "../components/TagList";
@@ -28,6 +28,7 @@ import SearchBar from "../components/SearchBar";
 function SnapshotList({}) {
     const dispatch = useDispatch();
     let [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const page = selectSnapshotsPage(useSelector(state => state));
     const [pageOffset, setPageOffset] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -49,10 +50,14 @@ function SnapshotList({}) {
 
     }
 
+    const onSearch = (searchQuery) => {
+        navigate(`/search?q=${searchQuery}`);
+    }
+
     return (
         <SingleScreenLayout>
             <Stack spacing={1}>
-                <SearchBar/>
+                <SearchBar onSearch={onSearch}/>
                 <Typography variant="h3" component="h1">Snapshots</Typography>
                 <TableContainer component={Paper}>
                     <Table sx={{minWidth: 700}} size="small" aria-label="customized table">

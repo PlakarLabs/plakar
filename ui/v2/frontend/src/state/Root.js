@@ -1,4 +1,9 @@
-import {fetchConfig, fetchSnapshotsPath, fetchSnapshots as fetchSnapshotsPathWithApiClient} from "../utils/PlakarApiClient";
+import {
+    fetchConfig,
+    fetchSnapshotsPath,
+    fetchSnapshots as fetchSnapshotsPathWithApiClient,
+    search as searchWithApiClient
+} from "../utils/PlakarApiClient";
 
 export const fetchInitialData = () => async dispatch => {
     dispatch({type: 'FETCH_INITIAL_DATA_REQUEST'});
@@ -15,7 +20,7 @@ export const fetchInitialData = () => async dispatch => {
 };
 
 // Example action
-export const fetchSnapshots = (apiUrl, page=1, pageSize=10) => async dispatch => {
+export const fetchSnapshots = (apiUrl, page = 1, pageSize = 10) => async dispatch => {
     dispatch({type: 'FETCH_SNAPSHOTS_REQUESTS'});
     try {
         console.log('loading snapshots...');
@@ -140,3 +145,47 @@ export const fetchPath = (snapshotId, path, page = 1, pageSize = 10) => async di
         dispatch({type: 'FETCH_PATH_FAILURE', error});
     }
 };
+
+const searchState = {
+    items: [],
+    searchParams: '',
+    loading: false,
+    error: null,
+}
+
+export const searchReducer = (state = searchState, action) => {
+    switch (action.type) {
+        case 'SEARCH_REQUEST':
+            return {...state, loading: true, items: [], searchParams: action.searchParams};
+        case 'SEARCH_SUCCESS':
+            return {
+                ...state,
+                loading: false,
+                items: action.payload,
+            }
+        case 'SEARCH_FAILURE':
+            return {...state, loading: false, error: action.error};
+        default:
+            return state;
+    }
+};
+
+export const search = (searchParams) => async dispatch => {
+    dispatch({type: 'SEARCH_REQUEST', searchParams: searchParams});
+    try {
+        // sleep for 3 seconds to simluate a slow network
+        await searchWithApiClient('', searchParams).then((searchResult) => {
+            setTimeout(() => {
+                dispatch({type: 'SEARCH_SUCCESS', payload: searchResult});
+            }, 3000);
+
+        });
+    } catch (error) {
+        console.log('Error:', error);
+        dispatch({type: 'SEARCH_FAILURE', error});
+    }
+}
+
+export const selectSearchResult = glState => glState.search.items;
+export const selectSearchParams = glState => glState.search.searchParams;
+export const selectSearchLoading = glState => glState.search.loading;

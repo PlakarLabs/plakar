@@ -1,4 +1,4 @@
-import {CircularProgress, Link, Skeleton, Stack, Typography} from "@mui/material";
+import {Link, Skeleton, Stack, Typography} from "@mui/material";
 import SearchBar from "../components/SearchBar";
 import TableContainer from "@mui/material/TableContainer";
 import Paper from "@mui/material/Paper";
@@ -9,26 +9,25 @@ import StyledTableCell from "../components/StyledTableCell";
 import {materialTheme} from "../Theme";
 import TableBody from "@mui/material/TableBody";
 import StyledTableRow from "../components/StyledTableRow";
-import {Link as RouterLink, useLocation, useSearchParams} from "react-router-dom";
+import {Link as RouterLink, useSearchParams} from "react-router-dom";
 import TableFooter from "@mui/material/TableFooter";
 import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import React, {useEffect, useState} from "react";
 import {search, selectSearchLoading, selectSearchParams, selectSearchResult} from "../state/Root";
 import {useDispatch, useSelector} from "react-redux";
+import {snapshotURL} from "../utils/Routes";
 
 const SearchResults = () => {
     const dispatch = useDispatch();
     const searchResult = selectSearchResult(useSelector(state => state));
     const submittedSearchParams = selectSearchParams(useSelector(state => state));
     const isSearchLoading = selectSearchLoading(useSelector(state => state));
-    // const submittedSearchParams = 'fred';
     let [searchParams, setSearchParams] = useSearchParams();
     let [searchQuery, setSearchQuery] = useState('');
 
 
     const onSearch = (searchQuery) => {
         setSearchParams({q: searchQuery})
-        console.log('parent called');
     }
 
     useEffect(() => {
@@ -88,7 +87,7 @@ const SearchResults = () => {
                             {searchResult && searchResult.map((row, index) => (
                                 <StyledTableRow key={`search-item-${index}`}>
                                     <StyledTableCell component="th" scope="row" sx={{whiteSpace: 'nowrap'}}>
-                                        <Link component={RouterLink} to={`/snapshot/${row.snapshot.id}:${row.snapshot.rootPath}`}
+                                        <Link component={RouterLink} to={snapshotURL(row.snapshot.id, row.snapshot.rootPath)}
                                               underline={'none'} variant={'primary'}>
                                             <Typography variant='textsmregular'>{row.snapshot.shortId}</Typography>
                                         </Link>
@@ -100,7 +99,7 @@ const SearchResults = () => {
                                         <Typography variant='textsmregular'>{row.type}</Typography>
                                     </StyledTableCell>
                                     <StyledTableCell sx={{whiteSpace: 'nowrap'}} align="right">
-                                        <Link component={RouterLink} to={`/snapshot/${row.snapshot.id}:${row.path}`}
+                                        <Link component={RouterLink} to={snapshotURL(row.snapshot.id, row.path)}
                                               underline={'none'} variant={'primary'}>
                                         <Typography variant='textsmregular'>{row.path}</Typography>
                                             </Link>

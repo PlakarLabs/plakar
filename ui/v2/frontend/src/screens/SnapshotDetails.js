@@ -4,9 +4,10 @@ import TagList from "../components/TagList";
 import {selectSnapshot} from "../state/Root";
 import {useSelector} from "react-redux";
 import {Link as RouterLink} from "react-router-dom";
+import {snapshotURL} from "../utils/Routes";
 
 
-const SnapshotDetails = ({navigation}) => {
+const SnapshotDetails = () => {
     const snapshot = selectSnapshot(useSelector(state => state));
 
     return (
@@ -15,7 +16,7 @@ const SnapshotDetails = ({navigation}) => {
             <TitleSubtitle subtitle={snapshot && snapshot.id} title={"Snapshot Id"}/>
             <TitleSubtitle subtitle={snapshot && snapshot.location} title={"Location"}/>
             <TitleSubtitle subtitle={snapshot && snapshot.date} title={"Snapshot Date"}/>
-            <TitleSubtitle subtitle={snapshot && <Link component={RouterLink} to={`/snapshot/${snapshot.id}:${snapshot.rootPath}/`}>{snapshot.rootPath}</Link>} title={"Top Directory"}/>
+            <TitleSubtitle subtitle={snapshot && <Link component={RouterLink} to={snapshotURL(snapshot.id, snapshot.rootPath + '/')}>{snapshot.rootPath}</Link>} title={"Top Directory"}/>
             <TitleSubtitle subtitle={snapshot && snapshot.os} title={"OS"}/>
             <TitleSubtitle subtitle={snapshot && snapshot.signature} title={"Signature"}/>
             <Stack>

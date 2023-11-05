@@ -1,4 +1,4 @@
-import {createTheme as materialCreateTheme, styled} from '@mui/material/styles';
+import {createTheme as materialCreateTheme} from '@mui/material/styles';
 
 const font = 'Inter';
 

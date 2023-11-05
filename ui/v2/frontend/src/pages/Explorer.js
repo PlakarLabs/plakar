@@ -1,4 +1,4 @@
-import {useLocation, useParams, useSearchParams} from "react-router-dom";
+import {useParams} from "react-router-dom";
 import PathList from "../screens/PathList";
 import FileDetails from "../screens/FileDetails";
 import TwoColumnLayout from "../layouts/TwoColumnLayout";

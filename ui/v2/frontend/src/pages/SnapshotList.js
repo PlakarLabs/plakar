@@ -23,6 +23,7 @@ import StyledTableRow from "../components/StyledTableRow";
 import StyledPagination from "../components/StyledPagination";
 import {useDispatch, useSelector} from "react-redux";
 import SearchBar from "../components/SearchBar";
+import {snapshotURL} from "../utils/Routes";
 
 
 function SnapshotList({}) {
@@ -99,7 +100,7 @@ function SnapshotList({}) {
                             {page && page.items.map((row) => (
                                 <StyledTableRow key={row.id}>
                                     <StyledTableCell component="th" scope="row" sx={{whiteSpace: 'nowrap'}}>
-                                        <Link component={RouterLink} to={`/snapshot/${row.id}:${row.rootPath}/`}
+                                        <Link component={RouterLink} to={snapshotURL(row.id, row.rootPath + '/')}
                                               underline={'none'} variant={'primary'}>
                                             <Typography variant='textsmregular'>{row.shortId}</Typography>
                                         </Link>

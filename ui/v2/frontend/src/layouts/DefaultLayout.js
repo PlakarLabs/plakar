@@ -1,4 +1,4 @@
-import {AppBar, Container, Link, Skeleton, Stack, Typography} from "@mui/material";
+import {AppBar, Link, Skeleton, Stack, Typography} from "@mui/material";
 import {Link as RouterLink} from "react-router-dom";
 import React from "react";
 import CssBaseline from "@mui/material/CssBaseline";

@@ -1,4 +1,3 @@
-import styled from "styled-components";
 import {Chip} from "@mui/material";
 
 const Tag = ({text}) => {

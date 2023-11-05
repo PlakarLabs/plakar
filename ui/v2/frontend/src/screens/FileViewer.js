@@ -4,7 +4,7 @@ import {
     Button, Card,
     CardActions,
     CardContent, CircularProgress,
-    Skeleton, Stack,
+    Stack,
     Typography
 } from "@mui/material";
 
@@ -98,7 +98,7 @@ function FileDetails({snapshotId, path}) {
             }
 
 
-            {(fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || fileDetails.byteSize > PREVIEW_FROM_SIZE && preview )) && (() => {
+            {(fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || (fileDetails.byteSize > PREVIEW_FROM_SIZE && preview ))) && (() => {
                 switch (fileDetails.mimeType) {
                     case 'text/javascript':
                         return <TextFileViewer/>

@@ -123,7 +123,7 @@ export const pathViewReducer = (state = pathViewState, action) => {
                     totalPages: action.payload.totalPages,
                 }
             case 'FETCH_PATH_FAILURE':
-                return {...state, loading: false, error: action.error};
+                return {...state, loading: false, error: action.error, items: []};
             default:
                 return state;
         }

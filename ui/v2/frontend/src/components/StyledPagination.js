@@ -1,5 +1,4 @@
-import {Pagination, Stack, Typography} from "@mui/material";
-import {fetchSnapshots} from "../utils/PlakarApiClient";
+import {Pagination, Stack} from "@mui/material";
 import React from "react";
 
 const empty = () => {}

@@ -1,29 +1,19 @@
-import {Link as RouterLink, useParams, useSearchParams} from "react-router-dom";
-import FileBreadcrumbs from "../FileBreadcrumb";
 import {
     Alert,
     Box,
-    Button, Card, CardActionArea, CardActions, CardContent,
-    Fab,
+    Button,
     keyframes,
-    Link, Skeleton,
-    Snackbar,
     Stack,
-    TextareaAutosize,
     Tooltip,
-    Typography
 } from "@mui/material";
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import {a11yDark} from 'react-syntax-highlighter/dist/esm/styles/prism';
-import {javascript} from 'react-syntax-highlighter/dist/esm/languages/prism';
 import React, {useState} from "react";
 import {styled} from "@mui/material/styles";
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import {IconButton, Textarea} from "theme-ui";
 import DownloadIcon from '@mui/icons-material/Download';
 import DOMPurify from 'dompurify';
 import {materialTheme as theme} from "../../Theme";
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {selectFileDetails} from "../../state/Root";
 import {useSelector} from "react-redux";
 import {triggerDownload, copyToClipboard} from "../../utils/BrowserInteraction";
@@ -89,15 +79,12 @@ const loadFile = (url = 'http://localhost:3000/demo-files/demo.js', callback) =>
 // https://blog.logrocket.com/guide-syntax-highlighting-react/
 
 function TextFileViewer({snapshotId, path}) {
-    let {id} = useParams();
-    let [searchParams, setSearchParams] = useSearchParams();
     const fileDetails = selectFileDetails(useSelector(state => state));
 
     const [text, setText] = useState('Loading...');
     const [hovered, setHovered] = React.useState(false);
     const [visible, setVisible] = useState(false);
     const [showRaw, setShowRaw] = useState(false);
-    const [fileData, setFileData] = useState(null);
 
     const handleDownloadClick = () => {
         triggerDownload(fileDetails.rawPath, fileDetails.name);

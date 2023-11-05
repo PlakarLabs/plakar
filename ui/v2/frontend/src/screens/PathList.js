@@ -19,7 +19,8 @@ import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
 import {useDispatch, useSelector} from "react-redux";
-import {fetchPath, selectPathPage, selectSnapshotsPage} from "../state/Root";
+import {fetchPath, selectPathPage} from "../state/Root";
+import {SNAPSHOT_ROUTE, snapshotURL} from "../utils/Routes";
 
 
 function PathList({snapshotId, path}) {
@@ -54,7 +55,7 @@ function PathList({snapshotId, path}) {
                     <Stack direction={'row'} spacing={1} alignItems={'center'}>
                         <Typography variant="h3" component="h1">Snapshot</Typography>
                         <Link component={RouterLink}
-                              to={`/snapshot/${page.snapshot.id}:${page.snapshot.rootPath}/`}>
+                              to={snapshotURL(page.snapshot.id, page.snapshot.rootPath + '/')}>
                             <Typography variant="h3" component="h1">{page.snapshot.shortId}</Typography>
                         </Link>
 
@@ -106,7 +107,7 @@ function PathList({snapshotId, path}) {
                             <StyledTableRow key={row.path}>
                                 <StyledTableCell align="left">
                                     <Link underline='none' component={RouterLink}
-                                          to={`/snapshot/${row.path}`}>
+                                          to={`${SNAPSHOT_ROUTE}/${row.path}`}>
                                         <Stack direction={'row'} spacing={1} alignItems={'center'}>
                                             {row.isDirectory && <FolderIcon/>}
                                             {!row.isDirectory && <FileIcon/>}

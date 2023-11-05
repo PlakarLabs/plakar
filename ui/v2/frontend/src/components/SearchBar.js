@@ -2,7 +2,7 @@ import {InputAdornment, InputBase, Stack, Tooltip, Typography} from "@mui/materi
 import SearchIcon from "@mui/icons-material/Search";
 import KeyboardCommandKeyIcon from '@mui/icons-material/KeyboardCommandKey';
 import {materialTheme} from "../Theme";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useRef} from "react";
 import WindowsIcon from "./WindowsIcon";
 import {getOS, OS} from "../utils/BrowserInteraction";
 

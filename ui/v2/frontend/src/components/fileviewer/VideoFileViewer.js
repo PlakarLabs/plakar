@@ -6,7 +6,7 @@ import {useSelector} from "react-redux";
 
 const VideoFileViewer = () => {
 
-    const fileDetails = selectFileDetails(useSelector(state => state));
+    const fileDetails = useSelector(selectFileDetails);
 
     return (
         <Stack alignItems={'center'} padding={2}>

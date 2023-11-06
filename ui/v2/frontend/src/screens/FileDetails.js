@@ -1,12 +1,12 @@
 import {Stack, Typography} from "@mui/material";
 import TitleSubtitle from "../components/TitleSubtitle";
 import {selectFileDetails, selectSnapshot} from "../state/Root";
-import {useSelector} from "react-redux";
+import {shallowEqual, useSelector} from "react-redux";
 
 
 const FileDetails = () => {
-    const snapshot = selectSnapshot(useSelector(state => state));
-    const fileDetails = selectFileDetails(useSelector(state => state));
+    const snapshot = useSelector(selectSnapshot, shallowEqual);
+    const fileDetails = useSelector(selectFileDetails, shallowEqual);
 
     return (
         <Stack spacing={2} padding={3}>

@@ -3,11 +3,12 @@ import React from "react";
 
 const empty = () => {}
 
-const StyledPagination = ({pageCount=0, showFirstButton=true, showLastButton=true, onChange=empty}) => {
+const StyledPagination = ({page=1, pageCount=0, showFirstButton=true, showLastButton=true, onChange=empty}) => {
     return (
         <Stack sx={{width: "100%"}} alignItems="stretch" direction={'row'}
                justifyContent={"flex-start"} padding={2}>
             <Pagination count={pageCount}
+                        page={page}
                         color={'primary'}
                         size={'small'}
                         showFirstButton={showFirstButton}

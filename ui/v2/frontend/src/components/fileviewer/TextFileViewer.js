@@ -8,14 +8,14 @@ import {
 } from "@mui/material";
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
 import {a11yDark} from 'react-syntax-highlighter/dist/esm/styles/prism';
-import React, {useState} from "react";
+import React, {useCallback, useState} from "react";
 import {styled} from "@mui/material/styles";
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import DOMPurify from 'dompurify';
 import {materialTheme as theme} from "../../Theme";
-import {selectFileDetails} from "../../state/Root";
-import {useSelector} from "react-redux";
+import {confApp, selectFileDetails} from "../../state/Root";
+import {connect} from "react-redux";
 import {triggerDownload, copyToClipboard} from "../../utils/BrowserInteraction";
 
 
@@ -78,17 +78,15 @@ const loadFile = (url = 'http://localhost:3000/demo-files/demo.js', callback) =>
 // how to imple hightlighting
 // https://blog.logrocket.com/guide-syntax-highlighting-react/
 
-function TextFileViewer({snapshotId, path}) {
-    const fileDetails = selectFileDetails(useSelector(state => state));
-
+function TextFileViewer({fileDetails}) {
     const [text, setText] = useState('Loading...');
     const [hovered, setHovered] = React.useState(false);
     const [visible, setVisible] = useState(false);
     const [showRaw, setShowRaw] = useState(false);
 
-    const handleDownloadClick = () => {
+    const handleDownloadClick = useCallback(() => {
         triggerDownload(fileDetails.rawPath, fileDetails.name);
-    };
+    }, [fileDetails.rawPath, fileDetails.name]);
 
     const handleCopyToClipboard = () => {
         copyToClipboard(text);
@@ -102,11 +100,9 @@ function TextFileViewer({snapshotId, path}) {
 
 
     React.useEffect(() => {
-        console.log('loading text file viewer.')
         loadFile(fileDetails.rawPath, setText);
         let timeoutId;
         if (visible) {
-            console.log('notification should go visible')
             // Hide after 6 seconds
             timeoutId = setTimeout(() => {
                 setVisible(false);
@@ -115,7 +111,7 @@ function TextFileViewer({snapshotId, path}) {
         return () => {
             clearTimeout(timeoutId);
         };
-    }, [loadFile, visible]);
+    }, [visible, fileDetails.rawPath]);
 
     return (<>
             <Stack sx={{
@@ -166,7 +162,7 @@ function TextFileViewer({snapshotId, path}) {
                             <SyntaxHighlighter
                                 // customStyle={{'flex-grow': 1, 'overflow-y': 'auto', 'display': 'flex'}}
                                 showLineNumbers={true}
-                                language="javascript"
+                                language={fileDetails.mimeType.split('/')[1]}
                                 style={a11yDark}>
                                 {text}
                             </SyntaxHighlighter>
@@ -179,5 +175,12 @@ function TextFileViewer({snapshotId, path}) {
     )
 }
 
+const mapStateToProps = state => ({
+    fileDetails: selectFileDetails(state),
+});
 
-export default TextFileViewer;
+const mapDispatchToProps = {
+    confApp,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(TextFileViewer);

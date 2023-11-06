@@ -2,13 +2,13 @@ import {Link, Stack, Typography} from "@mui/material";
 import TitleSubtitle from "../components/TitleSubtitle";
 import TagList from "../components/TagList";
 import {selectSnapshot} from "../state/Root";
-import {useSelector} from "react-redux";
+import {shallowEqual, useSelector} from "react-redux";
 import {Link as RouterLink} from "react-router-dom";
 import {snapshotURL} from "../utils/Routes";
 
 
 const SnapshotDetails = () => {
-    const snapshot = selectSnapshot(useSelector(state => state));
+    const snapshot = useSelector(selectSnapshot, shallowEqual);
 
     return (
         <Stack spacing={2} padding={3}>

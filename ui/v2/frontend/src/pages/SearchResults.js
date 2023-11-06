@@ -14,16 +14,17 @@ import TableFooter from "@mui/material/TableFooter";
 import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import React, {useEffect, useState} from "react";
 import {search, selectSearchLoading, selectSearchParams, selectSearchResult} from "../state/Root";
-import {useDispatch, useSelector} from "react-redux";
+import {shallowEqual, useDispatch, useSelector} from "react-redux";
 import {snapshotURL} from "../utils/Routes";
 
 const SearchResults = () => {
     const dispatch = useDispatch();
-    const searchResult = selectSearchResult(useSelector(state => state));
-    const submittedSearchParams = selectSearchParams(useSelector(state => state));
-    const isSearchLoading = selectSearchLoading(useSelector(state => state));
     let [searchParams, setSearchParams] = useSearchParams();
     let [searchQuery, setSearchQuery] = useState('');
+
+    const searchResult = useSelector(selectSearchResult, shallowEqual);
+    const submittedSearchParams = useSelector(selectSearchParams, shallowEqual);
+    const isSearchLoading = useSelector(selectSearchLoading, shallowEqual);
 
 
     const onSearch = (searchQuery) => {
@@ -34,7 +35,7 @@ const SearchResults = () => {
         const query = searchParams.get('q');
         searchQuery !== query && setSearchQuery(query);
         dispatch(search(query));
-    }, [dispatch, setSearchParams]);
+    }, [dispatch, setSearchParams, searchParams, searchQuery]);
 
 
     return (

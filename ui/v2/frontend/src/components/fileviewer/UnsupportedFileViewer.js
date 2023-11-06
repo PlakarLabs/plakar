@@ -4,13 +4,13 @@ import {materialTheme as theme} from "../../Theme";
 import DownloadIcon from "@mui/icons-material/Download";
 import React from "react";
 import {selectFileDetails} from "../../state/Root";
-import {useSelector} from "react-redux";
+import {shallowEqual, useSelector} from "react-redux";
 import {triggerDownload} from "../../utils/BrowserInteraction";
 
 
 const UnsupportedFileViewer = () => {
 
-    const fileDetails = selectFileDetails(useSelector(state => state));
+    const fileDetails = useSelector(selectFileDetails, shallowEqual);
 
     const handleDownloadFile = () => {
         triggerDownload(fileDetails.rawPath, fileDetails.name);

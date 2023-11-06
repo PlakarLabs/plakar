@@ -4,8 +4,9 @@ import FileDetails from "../screens/FileDetails";
 import TwoColumnLayout from "../layouts/TwoColumnLayout";
 import FileViewer from "../screens/FileViewer";
 import SnapshotDetails from "../screens/SnapshotDetails";
+import {useEffect, useMemo} from "react";
 
-function prepareParams({snapshotId, '*': path}) {
+export function prepareParams({snapshotId, '*': path}) {
     let isDirectory = false
     // remove : at end of snapshotId
     if (snapshotId.endsWith(':')) {
@@ -24,7 +25,12 @@ function prepareParams({snapshotId, '*': path}) {
 
 
 function Explorer() {
-    const {snapshotId, path, isDirectory} = prepareParams(useParams());
+    let params = useParams();
+    const {snapshotId, path, isDirectory} = useMemo(() => prepareParams(params), [params]);
+
+    useEffect(() => {
+        console.log('Explorer useEffect');
+    },[]);
 
     return (
         <TwoColumnLayout leftComponent={<>

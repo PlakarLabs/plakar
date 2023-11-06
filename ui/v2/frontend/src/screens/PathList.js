@@ -1,6 +1,6 @@
 // basic react function for a component
 
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Typography, Stack, Link, Skeleton} from '@mui/material';
 
 import Table from '@mui/material/Table';
@@ -13,45 +13,58 @@ import TableFooter from '@mui/material/TableFooter';
 import {materialTheme} from "../Theme";
 import StyledTableCell from "../components/StyledTableCell";
 import StyledTableRow from "../components/StyledTableRow";
-import {Link as RouterLink, useSearchParams} from "react-router-dom";
+import {Link as RouterLink, useParams, useSearchParams} from "react-router-dom";
 import StyledPagination from "../components/StyledPagination";
 import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
-import {useDispatch, useSelector} from "react-redux";
-import {fetchPath, selectPathPage} from "../state/Root";
+import {shallowEqual, useDispatch, useSelector} from "react-redux";
+import {fetchPath, selectApiUrl, selectPathPage} from "../state/Root";
 import {SNAPSHOT_ROUTE, snapshotURL} from "../utils/Routes";
+import {prepareParams} from "../pages/Explorer";
 
 
-function PathList({snapshotId, path}) {
+function PathList() {
+    const params = useParams();
     const dispatch = useDispatch();
-    let [searchParams, setSearchParams] = useSearchParams();
-    const page = selectPathPage(useSelector(state => state));
+
+    const {snapshotId, path} = useMemo(() => prepareParams(params), [params]);
+
     const [pageOffset, setPageOffset] = useState(1);
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = useSelector(selectPathPage, shallowEqual);
     const [pageSize, setPageSize] = useState(10);
+    const apiUrl = useSelector(selectApiUrl, shallowEqual);
 
     useEffect(() => {
         if (searchParams.get('page') !== pageOffset.toString()) {
-            setSearchParams({page: pageOffset, pageSize: pageSize});
+            setPageOffset(parseInt(searchParams.get('page')));
+            return;
         }
         if (searchParams.get('pageSize') !== pageSize.toString()) {
-            setSearchParams({page: pageOffset, pageSize: pageSize});
+            setPageSize(parseInt(searchParams.get('pageSize')));
+            return;
         }
-        console.log('fetching path', {snapshotId, path, pageOffset, pageSize})
-        dispatch(fetchPath(snapshotId, path, pageOffset, pageSize));
-    }, [dispatch, setSearchParams]);
 
-    const handlePageChange = (event, page) => {
+        console.log('useEffect', {pageOffset, pageSize});
+        dispatch(fetchPath(apiUrl, snapshotId, path, pageOffset, pageSize));
+
+    }, [setSearchParams, apiUrl, path, snapshotId, searchParams, dispatch, pageSize, pageOffset]);
+
+    const handlePageChange = useCallback((event, page) => {
+        console.log('handlePageChange', {page});
         setPageOffset(page);
         setSearchParams({page: page, pageSize: pageSize});
-
-    }
+    } ,[setSearchParams, pageSize]);
 
     return (
         <>
             <Stack spacing={1} py={2}>
 
-                {page.snapshot ?
+                {page.loading ?
+                    <Skeleton width={'300px'}/>
+                    :
                     <Stack direction={'row'} spacing={1} alignItems={'center'}>
                         <Typography variant="h3" component="h1">Snapshot</Typography>
                         <Link component={RouterLink}
@@ -60,12 +73,9 @@ function PathList({snapshotId, path}) {
                         </Link>
 
                     </Stack>
-                    :
-                    <Skeleton width={'300px'}/>
                 }
 
-                {page.snapshot ? <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/> :
-                    <Skeleton width={'300px'}/>}
+                {page.loading ? <Skeleton width={'300px'}/>: <FileBreadcrumbs path={path} snapshotid={page.snapshot.id}/>}
             </Stack>
 
             <TableContainer component={Paper}>
@@ -133,7 +143,7 @@ function PathList({snapshotId, path}) {
                     <TableFooter>
                         <TableRow>
                             <td colSpan={10}>
-                                <StyledPagination pageCount={page.totalPages} onChange={handlePageChange}/>
+                                <StyledPagination page={pageOffset} pageCount={page.totalPages} onChange={handlePageChange}/>
                             </td>
                         </TableRow>
                     </TableFooter>

@@ -8,10 +8,10 @@ import {
     Typography
 } from "@mui/material";
 
-import React, {useState} from "react";
+import React, {useCallback, useState} from "react";
 
-import {fetchPath, selectFileDetails} from "../state/Root";
-import {useDispatch, useSelector} from "react-redux";
+import {confApp, fetchPath, selectApiUrl, selectFileDetails} from "../state/Root";
+import {connect, shallowEqual, useDispatch, useSelector} from "react-redux";
 import UnsupportedFileViewer from "../components/fileviewer/UnsupportedFileViewer";
 import TextFileViewer from "../components/fileviewer/TextFileViewer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -31,24 +31,24 @@ import {getDirectoryPath, getFileName} from "../utils/Path";
 // 10 MB
 const PREVIEW_FROM_SIZE = 10485760;
 
-function FileDetails({snapshotId, path}) {
+function FileDetails({snapshotId, path, fileDetails}) {
     const dispatch = useDispatch();
     let {id} = useParams();
     let [searchParams] = useSearchParams();
-    const fileDetails = selectFileDetails(useSelector(state => state));
     let [preview, setPreview] = useState(false);
+    const apiUrl = useSelector(selectApiUrl, shallowEqual);
 
     React.useEffect(() => {
-        dispatch(fetchPath(snapshotId, path, 1, 1));
-    }, [dispatch]);
+        dispatch(fetchPath(apiUrl, snapshotId, path, 1, 1));
+    }, [dispatch, apiUrl, snapshotId, path]);
 
-    const handlePreview = () => {
+    const handlePreview = useCallback(() => {
         setPreview(true);
-    }
+    }, [setPreview]);
 
-    const handleDownloadFile = () => {
+    const handleDownloadFile = useCallback(() => {
         triggerDownload(fileDetails.rawPath, fileDetails.name);
-    }
+    }, [fileDetails]);
 
     return (<>
             <Typography variant="h3" component="h1">{getFileName(path)}</Typography>
@@ -101,6 +101,7 @@ function FileDetails({snapshotId, path}) {
             {(fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || (fileDetails.byteSize > PREVIEW_FROM_SIZE && preview ))) && (() => {
                 switch (fileDetails.mimeType) {
                     case 'text/javascript':
+                    case 'text/plain':
                         return <TextFileViewer/>
                     case 'image/jpeg':
                         return <ImageFileViewer />
@@ -116,5 +117,12 @@ function FileDetails({snapshotId, path}) {
     )
 }
 
+const mapStateToProps = state => ({
+    fileDetails: selectFileDetails(state),
+});
 
-export default FileDetails;
+const mapDispatchToProps = {
+    confApp,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(FileDetails);

@@ -44,7 +44,6 @@ const SearchBar = ({onSearch = null, inputState = null, setInputState= null}) =>
                 fullWidth
                 placeholder="Search..."
                 value={inputState}
-                defaultValue={inputState}
                 id="search"
                 onChange={(event) => { if (setInputState) { setInputState(event.target.value); }}}
                 sx={{borderRadius: 1}}

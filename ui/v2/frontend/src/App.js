@@ -16,6 +16,7 @@ import SearchResults from "./pages/SearchResults";
 // http://localhost:3000?api_url=http://localhost:8000&store_name=plakar
 
 function App() {
+
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>

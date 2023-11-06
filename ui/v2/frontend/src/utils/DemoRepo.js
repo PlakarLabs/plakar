@@ -135,15 +135,32 @@ export function demoJSFile(apiUrl, pathId, page, pageSize) {
     }
 }
 
-export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
+export function demoTextFile(apiUrl, pathId, page, pageSize) {
+    return {
+        name: 'demo.js',
+        directoryPath: `${getDirectoryPath(pathId)}/`,
+        path: `${pathId}`,
+        rawPath: `http://localhost:3000/demo-files/demo.txt`,
+        mimeType: 'text/plain',
+        size: '433 B',
+        byteSize: 433,
+        modificationDate: '2021-10-10 12:00:00Z',
+        checksum: faker.git.commitSha({length: 40}),
+        mode: '-rwxr-xr-x',
+        uid: '1000',
+        gid: '1000',
+        device: '123333',
+        inode: '123333',
+    }
+}
+
+export const dummyFetchSnapshotsPath = async (apiUrl, pathId, page, pageSize) => {
     const snapshotId = pathId.split(':')[0];
+    const path = pathId.split(':')[1];
     // wait for 1 second
 
-
-    console.log('snapshotId', snapshotId)
     const r = snapshots.filter((elem) => elem.id === snapshotId);
     const s = r.length > 0 ? r[0] : null;
-    console.log('snapshot found ?', s)
 
     let baseResponse = {
         page: page,
@@ -153,6 +170,7 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         hasPreviousPage: false,
         hasNextPage: false,
         snapshot: s,
+        path: path,
         items: [],
     };
 
@@ -167,6 +185,8 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         baseResponse.items = [demoAudioFile(apiUrl, pathId, page, pageSize)];
     } else if (pathId.endsWith('demo.js')) {
         baseResponse.items = [demoJSFile(apiUrl, pathId, page, pageSize)];
+    } else if (pathId.endsWith('demo.txt')) {
+        baseResponse.items = [demoTextFile(apiUrl, pathId, page, pageSize)];
     } else {
         baseResponse.items = [{
             name: 'home',
@@ -189,6 +209,15 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         }, {
             name: 'demo.js',
             path: `${pathId}demo.js`,
+            isDirectory: false,
+            mode: 'drw-r--r--',
+            uid: '1000',
+            gid: '1000',
+            date: '2021-10-10 12:00:00Z',
+            size: '433 B',
+        }, {
+            name: 'demo.txt',
+            path: `${pathId}demo.txt`,
             isDirectory: false,
             mode: 'drw-r--r--',
             uid: '1000',
@@ -234,14 +263,7 @@ export function dummyFetchSnapshotsPath(apiUrl, pathId, page, pageSize) {
         },]
     }
     // return a promise
-    return new Promise((resolve, reject) => {
-        // Simulating a server request with a timeout
-        setTimeout(() => {
-            // Let's say the operation was successful
-            resolve(baseResponse);
-            // If something goes wrong, you would use reject(new Error('Error message'));
-        }, 1000);
-    });
+    return baseResponse;
 }
 
 export const dummySearch = async (searchParams) => {

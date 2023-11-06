@@ -8,21 +8,21 @@ import {
     ThemeProvider as MaterialThemeProvider
 } from '@mui/material/styles';
 import {materialTheme, themeUITheme} from '../Theme';
-import {connect} from "react-redux";
-import {confApp, selectConf} from "../state/Root";
+import {confApp, selectConf, selectSnapshotsPage} from "../state/Root";
 import {ReactComponent as Logo} from '../Logo/Full.svg';
+import {connect} from "react-redux";
+import {snapshotListPageURL} from "../utils/Routes";
 
-function DefaultLayout({children, conf}) {
+function DefaultLayout({children, conf, snapshots}) {
 
     return (
         <>
-
             <ThemeUIProvider theme={themeUITheme}>
                 <MaterialThemeProvider theme={{[THEME_ID]: materialTheme}}>
                     <CssBaseline/>
                     <Stack height={'100vh'}>
                         <AppBar position="static" color="transparent">
-                            <Link component={RouterLink} to={'/snapshot'} underline={'none'}>
+                            <Link component={RouterLink} to={snapshotListPageURL(snapshots.page, conf.pageSize)} underline={'none'}>
                                 <Stack direction={{xs: 'column', sm: 'row'}}
                                        justifyContent="left"
                                        alignItems="center"
@@ -30,7 +30,8 @@ function DefaultLayout({children, conf}) {
 
                                     <Logo padding="s"/>
                                     <Typography href="#"
-                                                sx={{padding: 1}}>on <strong>{conf.repository ? conf.repository : <Skeleton/>}</strong></Typography>
+                                                sx={{padding: 1}}>on <strong>{conf.repository ? conf.repository :
+                                        <Skeleton/>}</strong></Typography>
                                 </Stack>
                             </Link>
                         </AppBar>
@@ -45,6 +46,7 @@ function DefaultLayout({children, conf}) {
 
 const mapStateToProps = state => ({
     conf: selectConf(state),
+    snapshots: selectSnapshotsPage(state),
 });
 
 const mapDispatchToProps = {

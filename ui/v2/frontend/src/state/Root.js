@@ -36,6 +36,7 @@ export const fetchSnapshots = (apiUrl, page = 1, pageSize = 10) => async dispatc
 const confState = {
     apiUrl: null,
     repository: null,
+    pageSize: 10,
     loading: false,
     error: null,
 };
@@ -92,14 +93,21 @@ export const selectSnapshotsPage = glState => glState.snapshots.snapshotsPage;
 
 // Example selector
 export const selectSnapshots = glState => glState.snapshots;
+export const selectRepository = glState => glState.conf.repository;
 export const selectConf = glState => glState.conf;
+export const selectApiUrl = glState => glState.conf.apiUrl;
+export const selectPageSize = glState => glState.conf.pageSize;
+
 
 export const selectSnapshot = glState => glState.pathView.snapshot;
 export const selectFileDetails = glState => glState.pathView.items[0];
 export const selectPathPage = glState => glState.pathView;
 
 const pathViewState = {
-    snapshot: null,
+    snapshot: {
+        id: null,
+    },
+    path: null,
     items: [],
     page: 1,
     pageSize: 10,
@@ -111,12 +119,21 @@ const pathViewState = {
 export const pathViewReducer = (state = pathViewState, action) => {
         switch (action.type) {
             case 'FETCH_PATH_REQUEST':
-                return {...state, loading: true, snapshot: null, items: []};
+                return {
+                    ...state,
+                    loading: true,
+                    snapshot: {id: action.payload.snapshotId},
+                    items: [],
+                    path: action.payload.path,
+                    page: action.payload.page,
+                    pageSize: action.payload.pageSize,
+                };
             case 'FETCH_PATH_SUCCESS':
                 return {
                     ...state,
                     loading: false,
                     snapshot: action.payload.snapshot,
+                    path: action.payload.path,
                     items: action.payload.items,
                     page: action.payload.page,
                     pageSize: action.payload.pageSize,
@@ -130,14 +147,13 @@ export const pathViewReducer = (state = pathViewState, action) => {
     }
 ;
 
-export const fetchPath = (snapshotId, path, page = 1, pageSize = 10) => async dispatch => {
-    dispatch({type: 'FETCH_PATH_REQUEST'});
+export const fetchPath = (apiUrl = '', snapshotId, path, pageOffset = 1, pageSize = 10) => async dispatch => {
+    dispatch({type: 'FETCH_PATH_REQUEST', payload: {snapshotId, path, pageOffset, pageSize}});
     try {
         console.log('fetchPath', {snapshotId, path});
         // sleep for 3 seconds to simluate a slow network
-        await fetchSnapshotsPath('', `${snapshotId}:${path}`, 1, 10).then((page) => {
-            console.log('file data', page.items[0]);
-            console.log('snapshot', page.snapshot);
+        await fetchSnapshotsPath(apiUrl, `${snapshotId}:${path}`, pageOffset, pageSize).then(
+            (page) => {
             dispatch({type: 'FETCH_PATH_SUCCESS', payload: page});
         });
     } catch (error) {

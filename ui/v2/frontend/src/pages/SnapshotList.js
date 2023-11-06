@@ -12,7 +12,7 @@ import TableFooter from '@mui/material/TableFooter';
 
 import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import {materialTheme} from "../Theme";
-import {fetchSnapshots, selectSnapshotsPage} from "../state/Root";
+import {fetchSnapshots, selectApiUrl, selectSnapshotsPage} from "../state/Root";
 import {
     Link as RouterLink, useNavigate,
     useSearchParams
@@ -21,29 +21,34 @@ import TagList from "../components/TagList";
 import StyledTableCell from "../components/StyledTableCell";
 import StyledTableRow from "../components/StyledTableRow";
 import StyledPagination from "../components/StyledPagination";
-import {useDispatch, useSelector} from "react-redux";
+import {shallowEqual, useDispatch, useSelector} from "react-redux";
 import SearchBar from "../components/SearchBar";
 import {snapshotURL} from "../utils/Routes";
 
 
-function SnapshotList({}) {
+function SnapshotList() {
     const dispatch = useDispatch();
     let [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const page = selectSnapshotsPage(useSelector(state => state));
+    const page = useSelector(selectSnapshotsPage, shallowEqual);
     const [pageOffset, setPageOffset] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const apiUrl = useSelector(selectApiUrl, shallowEqual)
+    let [searchQuery, setSearchQuery] = useState('');
 
 
     useEffect(() => {
         if (searchParams.get('page') !== pageOffset.toString()) {
-            setSearchParams({page: pageOffset, pageSize: pageSize});
+            setPageOffset(parseInt(searchParams.get('page')));
+            return;
         }
         if (searchParams.get('pageSize') !== pageSize.toString()) {
-            setSearchParams({page: pageOffset, pageSize: pageSize});
+            setPageSize(parseInt(searchParams.get('pageSize')));
+            return;
         }
-        dispatch(fetchSnapshots('http://localhost:3000', pageOffset, pageSize));
-    }, [dispatch, setSearchParams]);
+        console.log('refresh');
+        dispatch(fetchSnapshots(apiUrl, pageOffset, pageSize));
+    }, [dispatch, setPageOffset, searchParams, setSearchParams, apiUrl, pageOffset, pageSize]);
 
     const handlePageChange = (event, page) => {
         setPageOffset(page);
@@ -58,7 +63,7 @@ function SnapshotList({}) {
     return (
         <SingleScreenLayout>
             <Stack spacing={1}>
-                <SearchBar onSearch={onSearch}/>
+                <SearchBar onSearch={onSearch} setInputState={setSearchQuery} inputState={searchQuery}/>
                 <Typography variant="h3" component="h1">Snapshots</Typography>
                 <TableContainer component={Paper}>
                     <Table sx={{minWidth: 700}} size="small" aria-label="customized table">
@@ -126,7 +131,7 @@ function SnapshotList({}) {
                         <TableFooter>
                             <TableRow>
                                 <td colSpan={10}>
-                                    <StyledPagination pageCount={page ? page.totalPages : 0}
+                                    <StyledPagination page={pageOffset} pageCount={page ? page.totalPages : 0}
                                                       onChange={handlePageChange}/>
                                 </td>
                             </TableRow>

@@ -1,13 +1,13 @@
 import {Stack} from "@mui/material";
 import React from "react";
 import {selectFileDetails} from "../../state/Root";
-import {useSelector} from "react-redux";
+import {shallowEqual, useSelector} from "react-redux";
 import {Image} from "theme-ui";
 
 
 const ImageFileViewer = () => {
 
-    const fileDetails = selectFileDetails(useSelector(state => state));
+    const fileDetails = useSelector(selectFileDetails, shallowEqual);
 
     return (
         <Stack alignItems={'center'} padding={2}>

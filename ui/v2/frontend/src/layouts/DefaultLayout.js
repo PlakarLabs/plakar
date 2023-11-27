@@ -22,7 +22,7 @@ function DefaultLayout({children, conf, snapshots}) {
                     <CssBaseline/>
                     <Stack height={'100vh'}>
                         <AppBar position="static" color="transparent">
-                            <Link component={RouterLink} to={snapshotListPageURL(snapshots.page, conf.pageSize)} underline={'none'}>
+                            <Link component={RouterLink} to={snapshots ? snapshotListPageURL(snapshots.page, conf.pageSize) : '/config'} underline={'none'}>
                                 <Stack direction={{xs: 'column', sm: 'row'}}
                                        justifyContent="left"
                                        alignItems="center"

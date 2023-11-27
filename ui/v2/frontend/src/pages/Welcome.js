@@ -10,8 +10,8 @@ function Welcome(props) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     let [searchParams] = useSearchParams();
-    const {apiUrl: apiUrlRedux} = useSelector(selectApiUrl, shallowEqual);
-    const {repository: repositoryRedux} = useSelector(selectRepository, shallowEqual);
+    const apiUrlRedux = useSelector(selectApiUrl, shallowEqual);
+    const repositoryRedux = useSelector(selectRepository, shallowEqual);
 
     useEffect(() => {
 

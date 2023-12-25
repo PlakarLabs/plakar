@@ -26,7 +26,6 @@ function App() {
                         <Route path={'/search'} element={<SearchResults/>}/>
                         <Route path={SNAPSHOT_ROUTE} element={<SnapshotList/>}/>
                         <Route path={'snapshot/:snapshotId/*'} element={<Explorer/>}/>
-
                         <Route path={CONFIG_ROUTE} element={<Config/>}/>
                     </Routes>
                 </ReduxRouter>

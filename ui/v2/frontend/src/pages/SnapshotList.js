@@ -71,7 +71,7 @@ function SnapshotList() {
                             <TableRow>
                                 <StyledTableCell>
                                     <Typography variant={"textxsmedium"} color={materialTheme.palette.gray['600']}>
-                                        Snapshot Id
+                                        Snapshot
                                     </Typography>
                                 </StyledTableCell>
                                 <StyledTableCell align="right">

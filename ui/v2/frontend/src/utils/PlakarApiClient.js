@@ -1,7 +1,10 @@
 import {dummmyFetchConfig, dummyFetchSnapshotPage, dummyFetchSnapshotsPath, dummySearch} from "./DemoRepo";
 
 export function fetchConfig(apiUrl) {
-    return dummmyFetchConfig();
+    return {
+        repository: 'poolp.org'
+    };
+//    return dummmyFetchConfig();
 }
 
 export function fetchSnapshots(apiUrl, page, pageSize) {

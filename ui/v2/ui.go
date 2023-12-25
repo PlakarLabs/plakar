@@ -18,7 +18,7 @@ package v2
 
 import (
 	"embed"
-	_ "embed"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -26,7 +26,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -34,6 +36,32 @@ var lrepository *storage.Repository
 
 //go:embed frontend/build/*
 var content embed.FS
+
+func getConfigHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("received get config request")
+
+	var res network.ResOpen
+	config := lrepository.Configuration()
+	res.RepositoryConfig = &config
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("received get snapshots request")
+
+	snapshotsIDs, err := lrepository.GetSnapshots()
+
+	var res network.ResGetSnapshots
+	res.Snapshots = snapshotsIDs
+	res.Err = err
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
 
 func Ui(repository *storage.Repository, addr string, spawn bool) error {
 	lrepository = repository
@@ -69,6 +97,9 @@ func Ui(repository *storage.Repository, addr string, spawn bool) error {
 	}
 
 	r := mux.NewRouter()
+
+	r.PathPrefix("/api/config").HandlerFunc(getConfigHandler).Methods("GET")
+	r.PathPrefix("/api/snapshots").HandlerFunc(getSnapshotsHandler).Methods("GET")
 
 	r.PathPrefix("/static/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Strip the "/static/" prefix from the request path
@@ -115,5 +146,5 @@ func Ui(repository *storage.Repository, addr string, spawn bool) error {
 		w.Write(data)
 	})
 
-	return http.ListenAndServe(addr, r)
+	return http.ListenAndServe(addr, handlers.CORS()(r))
 }

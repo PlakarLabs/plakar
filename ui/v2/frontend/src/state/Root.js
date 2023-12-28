@@ -5,26 +5,11 @@ import {
     search as searchWithApiClient
 } from "../utils/PlakarApiClient";
 
-export const fetchInitialData = () => async dispatch => {
-    dispatch({type: 'FETCH_INITIAL_DATA_REQUEST'});
-    try {
-        // Fetch the initial data from the API
-        const response = await fetch('/api/initial-data');
-        const data = await response.json();
-        // Dispatch the success action with the data
-        dispatch({type: 'FETCH_INITIAL_DATA_SUCCESS', payload: data});
-    } catch (error) {
-        // Dispatch the failure action with the error
-        dispatch({type: 'FETCH_INITIAL_DATA_FAILURE', error});
-    }
-};
 
-// Example action
 export const fetchSnapshots = (apiUrl, page = 1, pageSize = 10) => async dispatch => {
     dispatch({type: 'FETCH_SNAPSHOTS_REQUESTS'});
     try {
         console.log('loading snapshots...');
-        // sleep for 3 seconds to simluate a slow network
         await fetchSnapshotsPathWithApiClient(apiUrl, page, pageSize).then((data) => {
             dispatch({type: 'FETCH_SNAPSHOTS_SUCCESS', payload: data});
         });
@@ -102,6 +87,16 @@ export const selectPageSize = glState => glState.conf.pageSize;
 export const selectSnapshot = glState => glState.pathView.snapshot;
 export const selectFileDetails = glState => glState.pathView.items[0];
 export const selectPathPage = glState => glState.pathView;
+
+
+export const lookupFileDetails = (glState, path) => {
+    console.log('lookupFileDetails', glState.pathView.items);
+    return glState.pathView.items.find((item) => {
+        console.log('lookupFileDetails', item.path, path);
+        return item.path === path
+    });
+};
+
 
 const pathViewState = {
     snapshot: {

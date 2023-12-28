@@ -1,5 +1,3 @@
-import {dummyFetchSnapshotsPath, dummySearch} from "./DemoRepo";
-
 export function fetchConfig(apiUrl) {
     apiUrl = 'http://localhost:3010';
     return fetch(apiUrl+'/api/config')

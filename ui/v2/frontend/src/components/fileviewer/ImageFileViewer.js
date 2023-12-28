@@ -1,13 +1,17 @@
 import {Stack} from "@mui/material";
 import React from "react";
-import {selectFileDetails} from "../../state/Root";
-import {shallowEqual, useSelector} from "react-redux";
 import {Image} from "theme-ui";
+import {useMemo} from 'react';
+import {useSelector} from "react-redux";
 
+import {prepareParams} from "../../pages/Explorer";
+import {useParams} from "react-router-dom";
+import {lookupFileDetails} from "../../state/Root";
 
 const ImageFileViewer = () => {
-
-    const fileDetails = useSelector(selectFileDetails, shallowEqual);
+    const params = useParams();
+    const { snapshotId, path } = useMemo(() => prepareParams(params), [params]);
+    const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId + ":" + path));
 
     return (
         <Stack alignItems={'center'} padding={2}>

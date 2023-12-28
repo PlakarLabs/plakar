@@ -3,37 +3,29 @@ import React, {useEffect} from 'react';
 import {confApp, selectApiUrl, selectRepository} from "../state/Root";
 import {shallowEqual, useDispatch, useSelector} from "react-redux";
 import DefaultLayout from "../layouts/DefaultLayout";
-import {useNavigate, useSearchParams} from "react-router-dom";
-import {CONFIG_ROUTE, SNAPSHOT_ROUTE} from "../utils/Routes";
+import {useNavigate} from "react-router-dom";
+import {SNAPSHOT_ROUTE} from "../utils/Routes";
 
 function Welcome(props) {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    let [searchParams] = useSearchParams();
     const apiUrlRedux = useSelector(selectApiUrl, shallowEqual);
     const repositoryRedux = useSelector(selectRepository, shallowEqual);
 
     useEffect(() => {
+        navigate(SNAPSHOT_ROUTE);
 
         if (apiUrlRedux && repositoryRedux) {
             navigate(SNAPSHOT_ROUTE);
         } else {
-            // Get the URLSearchParams object from the current URL
-            // const searchParams = new URLSearchParams(window.location.search);
+            // Set the API URL directly
+            const fixedApiUrl = 'http://localhost:3010';
 
-            // Get the value of the 'api' parameter
-            const apiUrl = searchParams.get('apiUrl');
-
-            // Store the 'api' value in local storage
-            if (apiUrl != null) {
-                dispatch(confApp(apiUrl));
-            } else {
-                navigate(CONFIG_ROUTE);
-            }
+            // Dispatch the fixed API URL
+            dispatch(confApp(fixedApiUrl));
         }
-        // Remove the 'api_url' parameter from the URL
 
-    }, [apiUrlRedux, dispatch, navigate, searchParams, repositoryRedux]);
+    }, [apiUrlRedux, dispatch, navigate, repositoryRedux]);
 
     return (
         <DefaultLayout>

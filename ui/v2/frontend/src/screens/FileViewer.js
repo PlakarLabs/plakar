@@ -10,7 +10,7 @@ import {
 
 import React, {useCallback, useState} from "react";
 
-import {confApp, fetchPath, selectApiUrl, selectFileDetails} from "../state/Root";
+import {confApp, fetchPath, lookupFileDetails, selectApiUrl} from "../state/Root";
 import {connect, shallowEqual, useDispatch, useSelector} from "react-redux";
 import UnsupportedFileViewer from "../components/fileviewer/UnsupportedFileViewer";
 import TextFileViewer from "../components/fileviewer/TextFileViewer";
@@ -22,6 +22,7 @@ import {triggerDownload} from "../utils/BrowserInteraction";
 import ImageFileViewer from "../components/fileviewer/ImageFileViewer";
 import VideoFileViewer from "../components/fileviewer/VideoFileViewer";
 import AudioFileViewer from "../components/fileviewer/AudioFileViewer";
+import PDFViewer from "../components/fileviewer/PDFViewer";
 import {getDirectoryPath, getFileName} from "../utils/Path";
 
 
@@ -40,7 +41,8 @@ function FileDetails({snapshotId, path, fileDetails}) {
     const apiUrl = useSelector(selectApiUrl, shallowEqual);
 
     React.useEffect(() => {
-        dispatch(fetchPath(apiUrl, snapshotId, path, 1, 1));
+        console.log('FileDetails useEffect', {snapshotId, path});
+        dispatch(fetchPath(apiUrl, snapshotId, path, 1000, 1000));
     }, [dispatch, apiUrl, snapshotId, path]);
 
     const handlePreview = useCallback(() => {
@@ -100,27 +102,31 @@ function FileDetails({snapshotId, path, fileDetails}) {
 
 
             {(fileDetails && (fileDetails.byteSize < PREVIEW_FROM_SIZE || (fileDetails.byteSize > PREVIEW_FROM_SIZE && preview ))) && (() => {
-                switch (fileDetails.mimeType) {
-                    case 'text/javascript':
-                    case 'text/plain':
-                        return <TextFileViewer/>
-                    case 'image/jpeg':
-                        return <ImageFileViewer />
-                    case 'video/mp4':
-                        return <VideoFileViewer />
-                    case 'audio/mp3':
-                        return <AudioFileViewer />
-                    default:
-                        return <UnsupportedFileViewer/>
+                if (fileDetails.mimeType.startsWith('text/')) {
+                    return <TextFileViewer/>
+                } else if (fileDetails.mimeType.startsWith('image/')) {
+                    return <ImageFileViewer />
+                } else if (fileDetails.mimeType.startsWith('video/')) {
+                    return <VideoFileViewer />
+                } else if (fileDetails.mimeType.startsWith('audio/')) {
+                    return <AudioFileViewer />
+                } else if (fileDetails.mimeType === "application/pdf") {
+                    return <PDFViewer />
+                } else {
+                    return <UnsupportedFileViewer/>
                 }
             })()}
         </>
     )
 }
 
-const mapStateToProps = state => ({
-    fileDetails: selectFileDetails(state),
-});
+const mapStateToProps = (state, ownProps) => {
+    console.log('mapStateToProps', ownProps.snapshotId+":"+ownProps.path)
+    return {
+        fileDetails: lookupFileDetails(state, ownProps.snapshotId+":"+ownProps.path),
+    }
+};
+
 
 const mapDispatchToProps = {
     confApp,

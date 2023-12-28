@@ -18,6 +18,15 @@ import {confApp, selectFileDetails} from "../../state/Root";
 import {connect} from "react-redux";
 import {triggerDownload, copyToClipboard} from "../../utils/BrowserInteraction";
 
+import { useMemo } from 'react';
+import { useSelector } from "react-redux";
+import { useParams } from "react-router-dom";
+
+import { prepareParams } from "../../pages/Explorer";
+import { lookupFileDetails } from "../../state/Root";
+
+import Prism from "prismjs";
+
 
 const fadeIn = keyframes`
   from {
@@ -66,7 +75,7 @@ const ConfirmationAlert = styled(Alert)(({theme}) => ({
 }));
 
 
-const loadFile = (url = 'http://localhost:3000/demo-files/demo.js', callback) => {
+const loadFile = (url, callback) => {
     fetch(url)
         .then((r) => r.text())
         .then((rawText) => {
@@ -75,11 +84,14 @@ const loadFile = (url = 'http://localhost:3000/demo-files/demo.js', callback) =>
         });
 }
 
-// how to imple hightlighting
-// https://blog.logrocket.com/guide-syntax-highlighting-react/
+function TextFileViewer() {
+    const params = useParams();
+    const { snapshotId, path } = useMemo(() => prepareParams(params), [params]);
+    const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId + ":" + path));
 
-function TextFileViewer({fileDetails}) {
-    const [text, setText] = useState('Loading...');
+
+    //const [text, setText] = useState('Loading...');
+    const [text, setText] = useState('');
     const [hovered, setHovered] = React.useState(false);
     const [visible, setVisible] = useState(false);
     const [showRaw, setShowRaw] = useState(false);
@@ -100,6 +112,9 @@ function TextFileViewer({fileDetails}) {
 
 
     React.useEffect(() => {
+        
+        Prism.highlightAll();
+          
         loadFile(fileDetails.rawPath, setText);
         let timeoutId;
         if (visible) {
@@ -162,7 +177,7 @@ function TextFileViewer({fileDetails}) {
                             <SyntaxHighlighter
                                 // customStyle={{'flex-grow': 1, 'overflow-y': 'auto', 'display': 'flex'}}
                                 showLineNumbers={true}
-                                language={fileDetails.mimeType.split('/')[1]}
+                                language={fileDetails.name.split('.')[1]}
                                 style={a11yDark}>
                                 {text}
                             </SyntaxHighlighter>

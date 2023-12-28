@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -129,9 +130,6 @@ func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 10
 	}
 
-	fmt.Println(len(snapshotsIDs), offset, limit)
-	fmt.Println("Decoded payload", offsetStr, limitStr)
-
 	var res ResGetSnapshots
 	res.Page = offset
 	res.PageSize = limit
@@ -159,7 +157,7 @@ func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
 			Username:  index.Username,
 			Hostname:  index.Hostname,
 			RootPath:  index.ScannedDirectories[0],
-			Date:      index.CreationTime.String(),
+			Date:      index.CreationTime.UTC().Format(time.RFC3339),
 			Size:      humanize.Bytes(index.ScanSize),
 			Tags:      index.Tags,
 			Os:        index.OperatingSystem,
@@ -197,7 +195,7 @@ type ResGetSnapshotItem struct {
 	Mode          string `json:"mode"`
 	Uid           string `json:"uid"`
 	Gid           string `json:"gid"`
-	Date          string `json:"date"`
+	Mtime         string `json:"modificationTime"`
 	Size          string `json:"size"`
 	ByteSize      uint64 `json:"byteSize"`
 	Checksum      string `json:"checksum"`
@@ -225,7 +223,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 		Username:  header.Username,
 		Hostname:  header.Hostname,
 		RootPath:  header.ScannedDirectories[0],
-		Date:      header.CreationTime.String(),
+		Date:      header.CreationTime.UTC().Format(time.RFC3339),
 		Size:      humanize.Bytes(header.ScanSize),
 		Tags:      header.Tags,
 		Os:        header.OperatingSystem,
@@ -309,7 +307,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 			Mode:  st.Inode.Lmode.String(),
 			Uid:   fmt.Sprintf("%d", st.Inode.Uid()),
 			Gid:   fmt.Sprintf("%d", st.Inode.Gid()),
-			Date:  st.Inode.LmodTime.String(),
+			Mtime: st.Inode.ModTime().UTC().Format(time.RFC3339),
 			Size:  humanize.Bytes(uint64(st.Inode.Size())),
 		}
 		if !ResGetSnapshotItem.IsDir {
@@ -320,17 +318,22 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 				if mimeType != "" {
 					ResGetSnapshotItem.MimeType = strings.Split(mimeType, ";")[0]
 				}
-				fmt.Println("mime: [", ResGetSnapshotItem.MimeType, "]")
+				//fmt.Println("mime: [", ResGetSnapshotItem.MimeType, "]")
+				ResGetSnapshotItem.Checksum = fmt.Sprintf("%064x", object.Checksum)
 			}
 
 			ResGetSnapshotItem.Path = filepath.Join(id+":"+path, entry)
 			ResGetSnapshotItem.DirectoryPath = id + ":" + path
 			ResGetSnapshotItem.RawPath = fmt.Sprintf("http://localhost:3010/api/raw/%s:%s", id, filepath.Join(path, entry))
 			ResGetSnapshotItem.ByteSize = uint64(st.Inode.Size())
+
 		} else {
 			ResGetSnapshotItem.Path = filepath.Join(id+":"+path, entry, "") + "/"
 		}
-		fmt.Println("adding", ResGetSnapshotItem)
+		ResGetSnapshotItem.Device = fmt.Sprintf("%d", st.Inode.Dev())
+		ResGetSnapshotItem.Inode = fmt.Sprintf("%d", st.Inode.Ino())
+
+		//fmt.Println("adding", ResGetSnapshotItem)
 		res.Items = append(res.Items, ResGetSnapshotItem)
 	}
 

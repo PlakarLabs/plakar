@@ -20,7 +20,7 @@ import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
 import {shallowEqual, useDispatch, useSelector} from "react-redux";
 import {fetchPath, selectApiUrl, selectPathPage} from "../state/Root";
-import {SNAPSHOT_ROUTE, snapshotURL} from "../utils/Routes";
+import {directoryURL, snapshotURL} from "../utils/Routes";
 import {prepareParams} from "../pages/Explorer";
 
 
@@ -116,16 +116,13 @@ function PathList() {
                         {page && page.items.map((row) => (
                             <StyledTableRow key={row.path}>
                                 <StyledTableCell align="left">
-                                    <Link underline='none' component={RouterLink}
-                                          to={`${SNAPSHOT_ROUTE}/${row.path}`}>
+                                <Link underline='none' component={RouterLink}
+                                        to={directoryURL(`${row.path}`)}>
                                         <Stack direction={'row'} spacing={1} alignItems={'center'}>
-                                            {row.isDirectory && <FolderIcon/>}
-                                            {!row.isDirectory && <FileIcon/>}
-                                            <Typography
-                                                variant='textsmregular'>{row.name}
-                                            </Typography>
+                                            {row.isDirectory ? ( <FolderIcon/> ) : ( <FileIcon/> )}
+                                            <Typography variant='textsmregular'>{row.name}</Typography>
                                         </Stack>
-                                    </Link>
+                                </Link>
                                 </StyledTableCell>
                                 <StyledTableCell align="left"><Typography
                                     variant='textsmregular'>{row.mode}</Typography></StyledTableCell>
@@ -134,7 +131,7 @@ function PathList() {
                                 <StyledTableCell align="right"><Typography
                                     variant='textsmregular'>{row.gid}</Typography></StyledTableCell>
                                 <StyledTableCell align="right"><Typography
-                                    variant='textsmregular'>{row.date}</Typography></StyledTableCell>
+                                    variant='textsmregular'>{row.modificationTime}</Typography></StyledTableCell>
                                 <StyledTableCell align="right"><Typography
                                     variant='textsmregular'>{row.size}</Typography></StyledTableCell>
                             </StyledTableRow>

@@ -1,3 +1,4 @@
+import React from 'react';
 import {InputAdornment, InputBase, Stack, Tooltip, Typography} from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import KeyboardCommandKeyIcon from '@mui/icons-material/KeyboardCommandKey';

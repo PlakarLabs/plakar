@@ -1,3 +1,4 @@
+import React from 'react';
 import {useParams} from "react-router-dom";
 import PathList from "../screens/PathList";
 import FileDetails from "../screens/FileDetails";
@@ -29,8 +30,8 @@ function Explorer() {
     const {snapshotId, path, isDirectory} = useMemo(() => prepareParams(params), [params]);
 
     useEffect(() => {
-        console.log('Explorer useEffect');
-    },[]);
+        console.log('Explorer useEffect', {snapshotId, path, isDirectory});
+    },[snapshotId, path, isDirectory]);
 
     return (
         <TwoColumnLayout leftComponent={<>

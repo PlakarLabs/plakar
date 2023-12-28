@@ -7,16 +7,13 @@ import Welcome from "./pages/Welcome";
 import {PersistGate} from "redux-persist/integration/react";
 import {ReduxRouter} from "@lagunovsky/redux-react-router";
 import Config from "./pages/Config";
-import SnapshotList from "./pages/SnapshotList";
+import Snapshots from "./pages/Snapshots";
 import {CONFIG_ROUTE, SNAPSHOT_ROUTE} from "./utils/Routes";
 import Explorer from "./pages/Explorer";
 import SearchResults from "./pages/SearchResults";
 
 
-// http://localhost:3000?api_url=http://localhost:8000&store_name=plakar
-
 function App() {
-
     return (
         <Provider store={store}>
             <PersistGate loading={null} persistor={persistor}>
@@ -24,7 +21,7 @@ function App() {
                     <Routes>
                         <Route path={'/'} element={<Welcome/>}/>
                         <Route path={'/search'} element={<SearchResults/>}/>
-                        <Route path={SNAPSHOT_ROUTE} element={<SnapshotList/>}/>
+                        <Route path={SNAPSHOT_ROUTE} element={<Snapshots/>}/>
                         <Route path={'snapshot/:snapshotId/*'} element={<Explorer/>}/>
                         <Route path={CONFIG_ROUTE} element={<Config/>}/>
                     </Routes>

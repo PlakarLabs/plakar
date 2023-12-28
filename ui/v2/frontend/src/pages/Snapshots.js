@@ -26,7 +26,7 @@ import SearchBar from "../components/SearchBar";
 import {snapshotURL} from "../utils/Routes";
 
 
-function SnapshotList() {
+function Snapshots() {
     const dispatch = useDispatch();
     let [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -145,4 +145,4 @@ function SnapshotList() {
 
 };
 
-export default SnapshotList;
+export default Snapshots;

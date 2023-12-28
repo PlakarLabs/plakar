@@ -1,7 +1,8 @@
-import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
-import {faker} from '@faker-js/faker';
-import {getDirectoryPath} from "./Path";
+//import {createDummySnapshotItems, fetchSnapshotPage} from "./DataGenerator";
+//import {faker} from '@faker-js/faker';
+//import {getDirectoryPath} from "./Path";
 
+/*
 export const dummmyFetchConfig = () => {
     return new Promise((resolve, reject) => {
         // Simulating a server request with a timeout
@@ -14,7 +15,9 @@ export const dummmyFetchConfig = () => {
         }, 1000);
     });
 }
+*/
 
+/*
 export function createOrRestoreSnapshots(size) {
     let items = localStorage.getItem('snapshots')
     if (!items) {
@@ -25,18 +28,15 @@ export function createOrRestoreSnapshots(size) {
     console.log('restoring snapshots')
     return JSON.parse(items);
 }
-
-const snapshots = createOrRestoreSnapshots(54);
-// export const snapshotIndex = snapshots.reduce(
-//     (acc, snapshot) => {
-//         acc[snapshot.id] = snapshot;
-//         return acc;
-//     }, {});
+//const snapshots = createOrRestoreSnapshots(54);
 
 export async function dummyFetchSnapshotPage(apiUrl, page, pageSize) {
+    var snapshots = createOrRestoreSnapshots(54);
     return fetchSnapshotPage(snapshots, page, pageSize);
 }
+*/
 
+/*
 export function demoJpegSmallFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo-small.jpg',
@@ -55,9 +55,10 @@ export function demoJpegSmallFile(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
 
-
+/*
 export function demoJpegFatFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo-small.jpg',
@@ -76,7 +77,9 @@ export function demoJpegFatFile(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
+/*
 export function demoMp4File(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.mp4',
@@ -95,7 +98,9 @@ export function demoMp4File(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
+/*
 export function demoAudioFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.mp3',
@@ -114,8 +119,9 @@ export function demoAudioFile(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
-
+/*
 export function demoJSFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.js',
@@ -134,7 +140,9 @@ export function demoJSFile(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
+/*
 export function demoTextFile(apiUrl, pathId, page, pageSize) {
     return {
         name: 'demo.js',
@@ -153,11 +161,14 @@ export function demoTextFile(apiUrl, pathId, page, pageSize) {
         inode: '123333',
     }
 }
+*/
 
+/*
 export const dummyFetchSnapshotsPath = async (apiUrl, pathId, page, pageSize) => {
     const snapshotId = pathId.split(':')[0];
     const path = pathId.split(':')[1];
     // wait for 1 second
+    var snapshots = createOrRestoreSnapshots(54);
 
     const r = snapshots.filter((elem) => elem.id === snapshotId);
     const s = r.length > 0 ? r[0] : null;
@@ -174,6 +185,7 @@ export const dummyFetchSnapshotsPath = async (apiUrl, pathId, page, pageSize) =>
         items: [],
     };
 
+    return baseResponse;
 
     if (pathId.endsWith('demo-small.jpg')) {
         baseResponse.items = [demoJpegSmallFile(apiUrl, pathId, page, pageSize)];
@@ -264,7 +276,9 @@ export const dummyFetchSnapshotsPath = async (apiUrl, pathId, page, pageSize) =>
     }
     // return a promise
     return baseResponse;
+ 
 }
+   */
 
 export const dummySearch = async (searchParams) => {
     return [{

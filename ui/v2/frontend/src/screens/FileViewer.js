@@ -25,7 +25,7 @@ import AudioFileViewer from "../components/fileviewer/AudioFileViewer";
 import {getDirectoryPath, getFileName} from "../utils/Path";
 
 
-// how to imple hightlighting
+// how to imple,e hightlighting
 // https://blog.logrocket.com/guide-syntax-highlighting-react/
 
 // 10 MB
@@ -35,6 +35,7 @@ function FileDetails({snapshotId, path, fileDetails}) {
     const dispatch = useDispatch();
     let {id} = useParams();
     let [searchParams] = useSearchParams();
+    //let [preview, setPreview] = useState(false);
     let [preview, setPreview] = useState(false);
     const apiUrl = useSelector(selectApiUrl, shallowEqual);
 

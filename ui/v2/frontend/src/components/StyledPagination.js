@@ -17,24 +17,6 @@ const StyledPagination = ({page=1, pageCount=0, showFirstButton=true, showLastBu
                             onChange(event, page)
                         }}
             />
-
-            {/*<TablePagination*/}
-
-            {/*    showFirstButton*/}
-            {/*    showLastButton*/}
-            {/*    rowsPerPageOptions={[5, 10, 25, {label: 'All', value: -1}]}*/}
-            {/*    colSpan={3}*/}
-            {/*    count={rows.length}*/}
-            {/*    rowsPerPage={10}*/}
-            {/*    page={page}*/}
-            {/*    SelectProps={{*/}
-            {/*        inputProps: {*/}
-            {/*            'aria-label': 'rows per page',*/}
-            {/*        },*/}
-            {/*        native: true,*/}
-            {/*    }}*/}
-
-            {/*/>*/}
         </Stack>)
 }
 

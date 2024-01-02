@@ -12,7 +12,7 @@ import TableFooter from '@mui/material/TableFooter';
 
 import SingleScreenLayout from "../layouts/SingleScreenLayout";
 import {materialTheme} from "../Theme";
-import {fetchSnapshots, selectApiUrl, selectSnapshotsPage} from "../state/Root";
+import {fetchSnapshots, selectSnapshotsPage} from "../state/Root";
 import {
     Link as RouterLink, useNavigate,
     useSearchParams
@@ -28,32 +28,49 @@ import {snapshotURL} from "../utils/Routes";
 
 function Snapshots() {
     const dispatch = useDispatch();
-    let [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+
+    let defaultPageOffset = 1;
+    let defaultPageSize = 10;
+
+    let [searchParams, setSearchParams] = useSearchParams();
+
     const page = useSelector(selectSnapshotsPage, shallowEqual);
-    const [pageOffset, setPageOffset] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const apiUrl = useSelector(selectApiUrl, shallowEqual)
+    const [pageOffset, setPageOffset] = useState(defaultPageOffset);
+    const [pageSize, setPageSize] = useState(defaultPageSize);
     let [searchQuery, setSearchQuery] = useState('');
 
-
     useEffect(() => {
-        if (searchParams.get('page') !== pageOffset.toString()) {
-            setPageOffset(parseInt(searchParams.get('page')));
-            return;
+        let qsPageOffset = searchParams.get('page');
+        let qsPageSize = searchParams.get('pageSize');
+        let parsedPageOffset;
+        let parsedPageSize;
+
+        if (qsPageOffset == null || qsPageOffset === '' || isNaN(parsedPageOffset = parseInt(qsPageOffset))) {
+            setPageOffset(defaultPageOffset);
+        } else if (parsedPageOffset !== pageOffset) {
+            setPageOffset(parsedPageOffset);
         }
-        if (searchParams.get('pageSize') !== pageSize.toString()) {
-            setPageSize(parseInt(searchParams.get('pageSize')));
-            return;
+        if (qsPageSize == null || qsPageSize === '' || isNaN(parsedPageSize = parseInt(qsPageSize))) {
+            setPageSize(defaultPageSize);
+        } else if (parsedPageSize !== pageSize) {
+            setPageSize(parsedPageSize);
         }
-        console.log('refresh');
-        dispatch(fetchSnapshots(apiUrl, pageOffset, pageSize));
-    }, [dispatch, setPageOffset, searchParams, setSearchParams, apiUrl, pageOffset, pageSize]);
+        dispatch(fetchSnapshots(pageOffset, pageSize));
+    }, [searchParams, pageOffset, pageSize, defaultPageOffset, defaultPageSize, dispatch]);  // Incluez les dépendances manquantes
+
+
+
 
     const handlePageChange = (event, page) => {
-        setPageOffset(page);
-        setSearchParams({page: page, pageSize: pageSize});
-
+        let searchParams = {};
+        if (page !== defaultPageOffset) {
+            searchParams.page = page;
+        }
+        if (pageSize !== defaultPageSize) {
+            searchParams.pageSize = pageSize;
+        }
+        setSearchParams(searchParams);
     }
 
     const onSearch = (searchQuery) => {

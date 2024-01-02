@@ -49,4 +49,9 @@ try {
 }
 export const store = s;
 export const persistor = persistStore(store);
+
+// XXX - debug remove state from local storage, it's painful when working on the app
+persistor.purge();
+
+
 export const routerSelector = (state) => state.navigator

@@ -114,16 +114,18 @@ func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
 		limitStr = "10"
 	}
 
-	var offset, limit uint64
-	if offset, err = strconv.ParseUint(offsetStr, 10, 64); err != nil {
+	var offset, limit int64
+	if offset, err = strconv.ParseInt(offsetStr, 10, 64); err != nil || offset < 0 {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if limit, err = strconv.ParseUint(limitStr, 10, 64); err != nil {
+
+	if limit, err = strconv.ParseInt(limitStr, 10, 64); err != nil || limit <= 0 {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if offset >= uint64(len(snapshotsIDs)) {
+
+	if offset >= int64(len(snapshotsIDs)) {
 		offset = 0
 	}
 	if limit == 0 {
@@ -131,11 +133,11 @@ func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var res ResGetSnapshots
-	res.Page = offset
-	res.PageSize = limit
+	res.Page = uint64(offset)
+	res.PageSize = uint64(limit)
 	res.TotalItems = uint64(len(snapshotsIDs))
-	res.TotalPages = uint64(len(snapshotsIDs)) / limit
-	if uint64(len(snapshotsIDs))%limit != 0 {
+	res.TotalPages = uint64(len(snapshotsIDs)) / uint64(limit)
+	if uint64(len(snapshotsIDs))%uint64(limit) != 0 {
 		res.TotalPages++
 	}
 	res.HasPreviousPage = false
@@ -144,8 +146,8 @@ func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
 	res.Path = ""
 	res.Items = []SnapshotSummary{}
 
-	begin := offset
-	end := offset + limit
+	begin := uint64(offset)
+	end := uint64(offset) + uint64(limit)
 	if end >= uint64(len(snapshotsIDs)) {
 		end = uint64(len(snapshotsIDs))
 	}
@@ -454,7 +456,6 @@ func Ui(repository *storage.Repository, addr string, spawn bool) error {
 		if contentType != "" {
 			w.Header().Set("Content-Type", contentType)
 		}
-
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	})

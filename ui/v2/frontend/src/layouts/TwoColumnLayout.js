@@ -1,7 +1,6 @@
 import React from 'react';
 import DefaultLayout from "./DefaultLayout";
 import {Stack} from "@mui/material";
-//import ConfigShield from "../components/ConfigShield";
 
 function TwoColumnLayout({leftComponent, rightComponent, conf}) {
     return (

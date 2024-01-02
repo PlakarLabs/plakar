@@ -1,7 +1,9 @@
+import React from "react";
+
 import {Breadcrumbs, Link, Stack, Typography} from "@mui/material";
 import {getFolderNameAndPathPairs} from "../utils/Path";
 import {Link as RouterLink} from "react-router-dom";
-import React from "react";
+
 import {snapshotURL} from "../utils/Routes";
 
 function FileBreadcrumbs({snapshotid, path}) {

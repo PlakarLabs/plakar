@@ -11,7 +11,6 @@ import {materialTheme, themeUITheme} from '../Theme';
 import {confApp, selectConf, selectSnapshotsPage} from "../state/Root";
 import {ReactComponent as Logo} from '../Logo/Full.svg';
 import {connect} from "react-redux";
-import {snapshotListPageURL} from "../utils/Routes";
 
 function DefaultLayout({children, conf, snapshots}) {
 
@@ -22,7 +21,7 @@ function DefaultLayout({children, conf, snapshots}) {
                     <CssBaseline/>
                     <Stack height={'100vh'}>
                         <AppBar position="static" color="transparent">
-                            <Link component={RouterLink} to={snapshots ? snapshotListPageURL(snapshots.page, conf.pageSize) : '/config'} underline={'none'}>
+                            <Link component={RouterLink} to='/' underline={'none'}>
                                 <Stack direction={{xs: 'column', sm: 'row'}}
                                        justifyContent="left"
                                        alignItems="center"

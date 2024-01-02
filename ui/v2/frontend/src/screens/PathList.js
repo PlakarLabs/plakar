@@ -19,7 +19,7 @@ import {ReactComponent as FolderIcon} from '../icons/folder.svg';
 import {ReactComponent as FileIcon} from '../icons/file.svg';
 import FileBreadcrumbs from "../components/FileBreadcrumb";
 import {shallowEqual, useDispatch, useSelector} from "react-redux";
-import {fetchPath, selectApiUrl, selectPathPage} from "../state/Root";
+import {fetchPath, selectPathPage} from "../state/Root";
 import {directoryURL, snapshotURL} from "../utils/Routes";
 import {prepareParams} from "../pages/Explorer";
 
@@ -28,6 +28,9 @@ function PathList() {
     const params = useParams();
     const dispatch = useDispatch();
 
+    let defaultPageOffset = 1;
+    let defaultPageSize = 10;
+
     const {snapshotId, path} = useMemo(() => prepareParams(params), [params]);
 
     const [pageOffset, setPageOffset] = useState(1);
@@ -35,28 +38,40 @@ function PathList() {
     const [searchParams, setSearchParams] = useSearchParams();
     const page = useSelector(selectPathPage, shallowEqual);
     const [pageSize, setPageSize] = useState(10);
-    const apiUrl = useSelector(selectApiUrl, shallowEqual);
-
+    
     useEffect(() => {
-        if (searchParams.get('page') !== pageOffset.toString()) {
-            setPageOffset(parseInt(searchParams.get('page')));
-            return;
-        }
-        if (searchParams.get('pageSize') !== pageSize.toString()) {
-            setPageSize(parseInt(searchParams.get('pageSize')));
-            return;
+
+        let qsPageOffset = searchParams.get('page');
+        let qsPageSize = searchParams.get('pageSize');
+        let parsedPageOffset;
+        let parsedPageSize;
+
+        if (qsPageOffset == null || qsPageOffset === '' || isNaN(parsedPageOffset = parseInt(qsPageOffset))) {
+            setPageOffset(defaultPageOffset);
+        } else if (parsedPageOffset !== pageOffset) {
+            setPageOffset(parsedPageOffset);
         }
 
-        console.log('useEffect', {pageOffset, pageSize});
-        dispatch(fetchPath(apiUrl, snapshotId, path, pageOffset, pageSize));
+        if (qsPageSize == null || qsPageSize === '' || isNaN(parsedPageSize = parseInt(qsPageSize))) {
+            setPageSize(defaultPageSize);
+        } else if (parsedPageSize !== pageSize) {
+            setPageSize(parsedPageSize);
+        }
+        dispatch(fetchPath(snapshotId, path, pageOffset, pageSize));
+    }, [setSearchParams, path, snapshotId, searchParams, dispatch, pageSize, pageOffset, defaultPageOffset, defaultPageSize]);
 
-    }, [setSearchParams, apiUrl, path, snapshotId, searchParams, dispatch, pageSize, pageOffset]);
 
     const handlePageChange = useCallback((event, page) => {
-        console.log('handlePageChange', {page});
-        setPageOffset(page);
-        setSearchParams({page: page, pageSize: pageSize});
-    } ,[setSearchParams, pageSize]);
+        let searchParams = {};
+        if (page !== defaultPageOffset) {
+            searchParams.page = page;
+        }
+        if (pageSize !== defaultPageSize) {
+            searchParams.pageSize = pageSize;
+        }
+        setSearchParams(searchParams);
+    } ,[setSearchParams, pageSize, defaultPageOffset, defaultPageSize]);
+
 
     return (
         <>

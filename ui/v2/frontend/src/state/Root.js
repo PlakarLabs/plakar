@@ -80,7 +80,7 @@ export const selectSnapshotsPage = glState => glState.snapshots.snapshotsPage;
 export const selectSnapshots = glState => glState.snapshots;
 export const selectRepository = glState => glState.conf.repository;
 export const selectConf = glState => glState.conf;
-export const selectApiUrl = glState => glState.conf.apiUrl;
+//export const selectApiUrl = glState => glState.conf.apiUrl;
 export const selectPageSize = glState => glState.conf.pageSize;
 
 
@@ -142,12 +142,10 @@ export const pathViewReducer = (state = pathViewState, action) => {
     }
 ;
 
-export const fetchPath = (apiUrl = '', snapshotId, path, pageOffset = 1, pageSize = 10) => async dispatch => {
+export const fetchPath = (snapshotId, path, pageOffset = 1, pageSize = 10) => async dispatch => {
     dispatch({type: 'FETCH_PATH_REQUEST', payload: {snapshotId, path, pageOffset, pageSize}});
     try {
-        console.log('fetchPath', {snapshotId, path});
-        // sleep for 3 seconds to simluate a slow network
-        await fetchSnapshotsPath(apiUrl, `${snapshotId}:${path}`, pageOffset, pageSize).then(
+        await fetchSnapshotsPath(`${snapshotId}:${path}`, pageOffset, pageSize).then(
             (page) => {
             dispatch({type: 'FETCH_PATH_SUCCESS', payload: page});
         });

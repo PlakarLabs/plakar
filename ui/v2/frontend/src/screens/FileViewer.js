@@ -10,8 +10,8 @@ import {
 
 import React, {useCallback, useState} from "react";
 
-import {confApp, fetchPath, lookupFileDetails, selectApiUrl} from "../state/Root";
-import {connect, shallowEqual, useDispatch, useSelector} from "react-redux";
+import {confApp, fetchPath, lookupFileDetails} from "../state/Root";
+import {connect, useDispatch} from "react-redux";
 import UnsupportedFileViewer from "../components/fileviewer/UnsupportedFileViewer";
 import TextFileViewer from "../components/fileviewer/TextFileViewer";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -38,12 +38,11 @@ function FileDetails({snapshotId, path, fileDetails}) {
     let [searchParams] = useSearchParams();
     //let [preview, setPreview] = useState(false);
     let [preview, setPreview] = useState(false);
-    const apiUrl = useSelector(selectApiUrl, shallowEqual);
 
     React.useEffect(() => {
         console.log('FileDetails useEffect', {snapshotId, path});
-        dispatch(fetchPath(apiUrl, snapshotId, path, 1000, 1000));
-    }, [dispatch, apiUrl, snapshotId, path]);
+        dispatch(fetchPath(snapshotId, path, 1000, 1000));
+    }, [dispatch, snapshotId, path]);
 
     const handlePreview = useCallback(() => {
         setPreview(true);

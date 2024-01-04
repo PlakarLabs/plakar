@@ -30,6 +30,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PlakarLabs/plakar/network"
@@ -43,6 +44,9 @@ import (
 )
 
 var lrepository *storage.Repository
+
+var lcache *snapshot.Snapshot
+var lcacheMtx sync.Mutex
 
 //go:embed frontend/build/*
 var content embed.FS
@@ -212,11 +216,20 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("received get snapshot request", id, path)
 
-	header, _, err := snapshot.GetSnapshot(lrepository, uuid.MustParse(id))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	lcacheMtx.Lock()
+	if lcache == nil || lcache.Header.IndexID.String() != id {
+		tmp, err := snapshot.Load(lrepository, uuid.MustParse(id))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			lcacheMtx.Unlock()
+			return
+		}
+		lcache = tmp
 	}
+	currSnapshot := lcache
+	lcacheMtx.Unlock()
+
+	header := currSnapshot.Header
 
 	var res ResGetSnapshot
 	res.Snapshot = SnapshotSummary{
@@ -234,25 +247,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 	res.Path = path
 	res.Items = []ResGetSnapshotItem{}
 
-	fs, _, err := snapshot.GetFilesystem(lrepository, header.VFS[0].Checksum)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	md, _, err := snapshot.GetMetadata(lrepository, header.Metadata[0].Checksum)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	index, _, err := snapshot.GetIndex(lrepository, header.Index[0].Checksum)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	children, err := fs.LookupChildren(path)
+	children, err := currSnapshot.Filesystem.LookupChildren(path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -298,7 +293,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 	res.HasNextPage = false
 
 	for _, entry := range children[begin:end] {
-		st, err := fs.Lookup(filepath.Join(path, entry))
+		st, err := currSnapshot.Filesystem.Lookup(filepath.Join(path, entry))
 		if err != nil {
 			continue
 		}
@@ -314,9 +309,9 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if !ResGetSnapshotItem.IsDir {
 			pathChecksum := sha256.Sum256([]byte(filepath.Join(path, entry)))
-			object := index.LookupObjectForPathnameChecksum(pathChecksum)
+			object := currSnapshot.Index.LookupObjectForPathnameChecksum(pathChecksum)
 			if object != nil {
-				mimeType, _ := md.LookupKeyForValue(object.Checksum)
+				mimeType, _ := currSnapshot.Metadata.LookupKeyForValue(object.Checksum)
 				if mimeType != "" {
 					ResGetSnapshotItem.MimeType = strings.Split(mimeType, ";")[0]
 				}
@@ -350,14 +345,20 @@ func getRawHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["snapshot"]
 	path := vars["path"]
+	download := r.URL.Query().Get("download")
 
-	fmt.Println("received get raw request", id, path)
-
-	snap, err := snapshot.Load(lrepository, uuid.MustParse(id))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	lcacheMtx.Lock()
+	if lcache == nil || lcache.Header.IndexID.String() != id {
+		tmp, err := snapshot.Load(lrepository, uuid.MustParse(id))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			lcacheMtx.Unlock()
+			return
+		}
+		lcache = tmp
 	}
+	snap := lcache
+	lcacheMtx.Unlock()
 
 	var mimeType string
 
@@ -368,7 +369,7 @@ func getRawHandler(w http.ResponseWriter, r *http.Request) {
 		if mimeType != "" {
 			mimeType = strings.Split(mimeType, ";")[0]
 		}
-		fmt.Println("mime:", mimeType)
+		//fmt.Println("mime:", mimeType)
 	}
 
 	rd, err := snapshot.NewReader(snap, path)
@@ -378,7 +379,6 @@ func getRawHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Add("Content-Type", mimeType)
-	download := ""
 	if download != "" {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 	}

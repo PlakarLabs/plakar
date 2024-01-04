@@ -13,11 +13,10 @@ function FileBreadcrumbs({snapshotid, path}) {
                 <Typography color="text.primary">/</Typography>
                 <Breadcrumbs color={'primary'} aria-label="breadcrumb">
                     {path && getFolderNameAndPathPairs(path).map(({name, path}) => {
-                        return <Link key={name} component={RouterLink} underline="hover"
-                                     to={snapshotURL(snapshotid, path)}>
-                            {name}
-                        </Link>
-
+                        return (
+                        <Link key={name} component={RouterLink} underline="hover"
+                            to={snapshotURL(snapshotid, path)}>{name}</Link>
+                        );
                     })}
                 </Breadcrumbs>
             </Stack>

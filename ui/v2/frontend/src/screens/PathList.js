@@ -25,6 +25,7 @@ import {prepareParams} from "../pages/Explorer";
 
 
 function PathList() {
+
     const params = useParams();
     const dispatch = useDispatch();
 
@@ -39,6 +40,8 @@ function PathList() {
     const page = useSelector(selectPathPage, shallowEqual);
     const [pageSize, setPageSize] = useState(10);
     
+
+
     useEffect(() => {
 
         let qsPageOffset = searchParams.get('page');

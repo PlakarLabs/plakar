@@ -7,7 +7,7 @@ import {
     Tooltip,
 } from "@mui/material";
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
-import {a11yDark} from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { dracula} from 'react-syntax-highlighter/dist/esm/styles/prism';
 import React, {useCallback, useState} from "react";
 import {styled} from "@mui/material/styles";
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -26,6 +26,7 @@ import { prepareParams } from "../../pages/Explorer";
 import { lookupFileDetails } from "../../state/Root";
 
 import Prism from "prismjs";
+//import style from "react-syntax-highlighter/dist/esm/styles/hljs/dracula";
 
 
 const fadeIn = keyframes`
@@ -97,17 +98,15 @@ function TextFileViewer() {
     const [showRaw, setShowRaw] = useState(false);
 
     const handleDownloadClick = useCallback(() => {
-        triggerDownload(fileDetails.rawPath, fileDetails.name);
+        triggerDownload(fileDetails.rawPath + "?download=true", fileDetails.name);
     }, [fileDetails.rawPath, fileDetails.name]);
 
     const handleCopyToClipboard = () => {
-        copyToClipboard(text);
-        setVisible(true);
+        copyToClipboard(text);        
     }
 
     const handleRawClick = () => {
         setShowRaw(!showRaw);
-        console.log('showRaw', showRaw)
     }
 
 
@@ -178,7 +177,7 @@ function TextFileViewer() {
                                 // customStyle={{'flex-grow': 1, 'overflow-y': 'auto', 'display': 'flex'}}
                                 showLineNumbers={true}
                                 language={fileDetails.name.split('.')[1]}
-                                style={a11yDark}>
+                                style={dracula}>
                                 {text}
                             </SyntaxHighlighter>
                             // </Stack>

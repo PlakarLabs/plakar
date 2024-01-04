@@ -13,7 +13,6 @@ const FileDetails = () => {
     const params = useParams();
     const {snapshotId, path} = useMemo(() => prepareParams(params), [params]);
 
-
     const snapshot = useSelector(selectSnapshot, shallowEqual);
     const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId+":"+path));
 

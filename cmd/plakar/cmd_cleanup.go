@@ -57,14 +57,10 @@ func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int 
 		if lockID == currentLockID {
 			continue
 		}
-		if lock, err := snapshot.GetLock(repository, lockID); err != nil {
-			if os.IsNotExist(err) {
-				// was removed since we got the list
-				continue
-			}
+		if lock, err := snapshot.GetLock(repository, lockID); err != nil && !os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
 			return 1
-		} else {
+		} else if err == nil {
 			if !lock.Expired(time.Minute * 15) {
 				fmt.Fprintf(os.Stderr, "can't put exclusive lock: %s has ongoing operations\n", repository.Location)
 				return 1

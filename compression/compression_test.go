@@ -40,3 +40,25 @@ func TestCompressionLZ4(t *testing.T) {
 		t.Errorf("Inflate(Deflate(%q)) != %q", inflated, token)
 	}
 }
+
+func BenchmarkDeflateInflateGzip(b *testing.B) {
+	token := make([]byte, 65*1024)
+	_, _ = rand.Read(token)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		deflated, _ := Deflate("gzip", token)
+		_, _ = Inflate("gzip", deflated)
+	}
+}
+
+func BenchmarkDeflateInflateLZ4(b *testing.B) {
+	token := make([]byte, 65*1024)
+	_, _ = rand.Read(token)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		deflated, _ := Deflate("lz4", token)
+		_, _ = Inflate("lz4", deflated)
+	}
+}

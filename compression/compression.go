@@ -27,28 +27,48 @@ import (
 
 func Deflate(name string, buf []byte) ([]byte, error) {
 	if name == "gzip" {
-		return DeflateGzip(buf), nil
+		return DeflateGzip(buf)
 	}
 	if name == "lz4" {
-		return DeflateLZ4(buf), nil
+		return DeflateLZ4(buf)
 	}
 	return nil, fmt.Errorf("unsupported compression method %q", name)
 }
 
-func DeflateLZ4(buf []byte) []byte {
-	var b bytes.Buffer
-	w := lz4.NewWriter(&b)
-	w.Write(buf)
-	w.Close()
-	return b.Bytes()
+func DeflateLZ4(buf []byte) ([]byte, error) {
+	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
+	w := lz4.NewWriter(b)
+	defer func() {
+		_ = w.Close()
+	}()
+
+	if _, err := w.Write(buf); err != nil {
+		return nil, err
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }
 
-func DeflateGzip(buf []byte) []byte {
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-	w.Write(buf)
-	w.Close()
-	return b.Bytes()
+func DeflateGzip(buf []byte) ([]byte, error) {
+	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
+	w := gzip.NewWriter(b)
+	defer func() {
+		_ = w.Close()
+	}()
+
+	if _, err := w.Write(buf); err != nil {
+		return nil, err
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }
 
 func Inflate(name string, buf []byte) ([]byte, error) {
@@ -62,13 +82,7 @@ func Inflate(name string, buf []byte) ([]byte, error) {
 }
 
 func InflateLZ4(buf []byte) ([]byte, error) {
-	w := lz4.NewReader(bytes.NewBuffer(buf))
-
-	data, err := io.ReadAll(w)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return io.ReadAll(lz4.NewReader(bytes.NewBuffer(buf)))
 }
 
 func InflateGzip(buf []byte) ([]byte, error) {
@@ -76,11 +90,8 @@ func InflateGzip(buf []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer w.Close()
-
-	data, err := io.ReadAll(w)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	defer func() {
+		_ = w.Close()
+	}()
+	return io.ReadAll(w)
 }

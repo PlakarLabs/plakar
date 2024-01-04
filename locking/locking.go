@@ -30,14 +30,13 @@ type SharedLock struct {
 }
 
 func NewSharedLock(name string, capacity int) *SharedLock {
+	if capacity <= 0 {
+		panic("capacity must be a positive integer")
+	}
 	return &SharedLock{
 		name:     name,
 		capacity: make(chan bool, capacity),
 	}
-}
-
-func (lock *SharedLock) WouldBlock() bool {
-	return len(lock.capacity) == cap(lock.capacity)
 }
 
 func (lock *SharedLock) Lock() {

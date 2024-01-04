@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"mime"
 	"net/http"
 	"os/exec"
 	"path/filepath"
@@ -314,6 +315,20 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 				mimeType, _ := currSnapshot.Metadata.LookupKeyForValue(object.Checksum)
 				if mimeType != "" {
 					ResGetSnapshotItem.MimeType = strings.Split(mimeType, ";")[0]
+				} else if mimeType == "" {
+					object.ContentType, _ = currSnapshot.Metadata.LookupKeyForValue(object.Checksum)
+
+					contentType := mime.TypeByExtension(filepath.Ext(entry))
+					if contentType == "" {
+						contentType = object.ContentType
+					}
+
+					if contentType == "application/x-tex" {
+						contentType = "text/plain"
+					}
+
+					ResGetSnapshotItem.MimeType = contentType
+
 				}
 				//fmt.Println("mime: [", ResGetSnapshotItem.MimeType, "]")
 				ResGetSnapshotItem.Checksum = fmt.Sprintf("%064x", object.Checksum)
@@ -368,9 +383,25 @@ func getRawHandler(w http.ResponseWriter, r *http.Request) {
 		mimeType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 		if mimeType != "" {
 			mimeType = strings.Split(mimeType, ";")[0]
+		} else {
+			object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
+
+			contentType := mime.TypeByExtension(filepath.Ext(path))
+			if contentType == "" {
+				contentType = object.ContentType
+			}
+
+			if contentType == "application/x-tex" {
+				contentType = "text/plain"
+			}
+
+			mimeType = contentType
 		}
 		//fmt.Println("mime:", mimeType)
 	}
+
+	//fmt.Println("mime: [", ResGetSnapshotItem.MimeType, "]")
+	//ResGetSnapshotItem.Checksum = fmt.Sprintf("%064x", object.Checksum)
 
 	rd, err := snapshot.NewReader(snap, path)
 	if err != nil {

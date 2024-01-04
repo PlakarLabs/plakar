@@ -2,18 +2,21 @@ import {Button, Card, CardActions, CardContent, Stack, Typography} from "@mui/ma
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import {materialTheme as theme} from "../../Theme";
 import DownloadIcon from "@mui/icons-material/Download";
-import React from "react";
-import {selectFileDetails} from "../../state/Root";
-import {shallowEqual, useSelector} from "react-redux";
+import React, {useMemo} from 'react';
+import {useSelector} from "react-redux";
 import {triggerDownload} from "../../utils/BrowserInteraction";
+import {useParams} from "react-router-dom";
+import { prepareParams } from "../../pages/Explorer";
+import {lookupFileDetails} from "../../state/Root";
 
 
 const UnsupportedFileViewer = () => {
-
-    const fileDetails = useSelector(selectFileDetails, shallowEqual);
+    const params = useParams();
+    const {snapshotId, path} = useMemo(() => prepareParams(params), [params]);
+    const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId+":"+path));
 
     const handleDownloadFile = () => {
-        triggerDownload(fileDetails.rawPath, fileDetails.name);
+        triggerDownload(fileDetails.rawPath + "?download=true", fileDetails.name);
     }
 
     return (

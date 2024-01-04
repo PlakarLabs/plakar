@@ -9,8 +9,9 @@ import {lookupFileDetails} from "../../state/Root";
 
 const VideoFileViewer = () => {
     const params = useParams();
-    const { snapshotId, path } = useMemo(() => prepareParams(params), [params]);
-    const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId + ":" + path));
+    const {snapshotId, path} = useMemo(() => prepareParams(params), [params]);
+    const fileDetails = useSelector(state => lookupFileDetails(state, snapshotId+":"+path));
+
 
     return (
         <Stack alignItems={'center'} padding={2}>

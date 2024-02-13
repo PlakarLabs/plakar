@@ -91,7 +91,7 @@ type SnapshotSummary struct {
 }
 
 func getSnapshotsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("received get snapshots request")
+	//fmt.Println("received get snapshots request")
 
 	snapshotsIDs, err := lrepository.GetSnapshots()
 	if err != nil {
@@ -215,7 +215,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 	id := vars["snapshot"]
 	path := vars["path"]
 
-	fmt.Println("received get snapshot request", id, path)
+	//fmt.Println("received get snapshot request", id, path)
 
 	lcacheMtx.Lock()
 	if lcache == nil || lcache.Header.IndexID.String() != id {
@@ -336,7 +336,7 @@ func getSnapshotHandler(w http.ResponseWriter, r *http.Request) {
 
 			ResGetSnapshotItem.Path = filepath.Join(id+":"+path, entry)
 			ResGetSnapshotItem.DirectoryPath = id + ":" + path
-			ResGetSnapshotItem.RawPath = fmt.Sprintf("http://localhost:3010/api/raw/%s:%s", id, filepath.Join(path, entry))
+			ResGetSnapshotItem.RawPath = fmt.Sprintf("/api/raw/%s:%s", id, filepath.Join(path, entry))
 			ResGetSnapshotItem.ByteSize = uint64(st.Inode.Size())
 
 		} else {

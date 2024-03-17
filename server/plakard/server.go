@@ -17,7 +17,7 @@ import (
 
 var lrepository *storage.Repository
 
-func Server(repository *storage.Repository, addr string) {
+func Server(repository *storage.Repository, addr string, noDelete bool) {
 
 	lrepository = repository
 	network.ProtocolRegister()
@@ -33,19 +33,19 @@ func Server(repository *storage.Repository, addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(c, c)
+		go handleConnection(c, c, noDelete)
 	}
 }
 
-func Stdio(repository *storage.Repository) error {
+func Stdio(repository *storage.Repository, noDelete bool) error {
 	lrepository = repository
 	network.ProtocolRegister()
 
-	handleConnection(os.Stdin, os.Stdout)
+	handleConnection(os.Stdin, os.Stdout, noDelete)
 	return nil
 }
 
-func handleConnection(rd io.Reader, wr io.Writer) {
+func handleConnection(rd io.Reader, wr io.Writer, noDelete bool) {
 	decoder := gob.NewDecoder(rd)
 	encoder := gob.NewEncoder(wr)
 
@@ -193,7 +193,12 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 
 				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).IndexID)
-				err := lrepository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).IndexID)
+				var err error
+				if noDelete {
+					err = fmt.Errorf("not allowed to delete")
+				} else {
+					err = lrepository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).IndexID)
+				}
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteSnapshot",
@@ -373,7 +378,13 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 
 				logger.Trace("server", "%s: DeleteBlob(%s)", clientUuid, request.Payload.(network.ReqDeleteBlob).Checksum)
-				err := lrepository.DeleteBlob(request.Payload.(network.ReqDeleteBlob).Checksum)
+
+				var err error
+				if noDelete {
+					err = fmt.Errorf("not allowed to delete")
+				} else {
+					err = lrepository.DeleteBlob(request.Payload.(network.ReqDeleteBlob).Checksum)
+				}
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteBlob",
@@ -453,7 +464,13 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 
 				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(network.ReqDeleteIndex).Checksum)
-				err := lrepository.DeleteIndex(request.Payload.(network.ReqDeleteIndex).Checksum)
+
+				var err error
+				if noDelete {
+					err = fmt.Errorf("not allowed to delete")
+				} else {
+					err = lrepository.DeleteIndex(request.Payload.(network.ReqDeleteIndex).Checksum)
+				}
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeleteIndex",
@@ -558,7 +575,14 @@ func handleConnection(rd io.Reader, wr io.Writer) {
 				defer wg.Done()
 
 				logger.Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(network.ReqDeletePackfile).Checksum)
-				err := lrepository.DeletePackfile(request.Payload.(network.ReqDeletePackfile).Checksum)
+
+				var err error
+				if noDelete {
+					err = fmt.Errorf("not allowed to delete")
+				} else {
+					err = lrepository.DeletePackfile(request.Payload.(network.ReqDeletePackfile).Checksum)
+				}
+
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResDeletePackfile",

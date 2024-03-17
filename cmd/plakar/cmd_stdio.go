@@ -28,10 +28,13 @@ func init() {
 }
 
 func cmd_stdio(ctx Plakar, repository *storage.Repository, args []string) int {
+	var noDelete bool
+
 	flags := flag.NewFlagSet("stdio", flag.ExitOnError)
+	flags.BoolVar(&noDelete, "no-delete", false, "disable delete operations")
 	flags.Parse(args)
 
-	if err := plakard.Stdio(repository); err != nil {
+	if err := plakard.Stdio(repository, noDelete); err != nil {
 		return 1
 	}
 	return 0

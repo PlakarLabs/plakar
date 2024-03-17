@@ -2,6 +2,7 @@ package httpd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
@@ -10,6 +11,7 @@ import (
 )
 
 var lrepository *storage.Repository
+var lNoDelete bool
 
 func openRepository(w http.ResponseWriter, r *http.Request) {
 	var reqOpen network.ReqOpen
@@ -106,6 +108,11 @@ func getSnapshot(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
+	if lNoDelete {
+		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
+		return
+	}
+
 	var reqDeleteSnapshot network.ReqDeleteSnapshot
 	if err := json.NewDecoder(r.Body).Decode(&reqDeleteSnapshot); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -283,6 +290,11 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteBlob(w http.ResponseWriter, r *http.Request) {
+	if lNoDelete {
+		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
+		return
+	}
+
 	var reqDeleteBlob network.ReqDeleteBlob
 	if err := json.NewDecoder(r.Body).Decode(&reqDeleteBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -354,6 +366,11 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteIndex(w http.ResponseWriter, r *http.Request) {
+	if lNoDelete {
+		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
+		return
+	}
+
 	var reqDeleteIndex network.ReqDeleteIndex
 	if err := json.NewDecoder(r.Body).Decode(&reqDeleteIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -445,6 +462,11 @@ func getPackfileSubpart(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePackfile(w http.ResponseWriter, r *http.Request) {
+	if lNoDelete {
+		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
+		return
+	}
+
 	var reqDeletePackfile network.ReqDeletePackfile
 	if err := json.NewDecoder(r.Body).Decode(&reqDeletePackfile); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -459,7 +481,9 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Server(repository *storage.Repository, addr string) error {
+func Server(repository *storage.Repository, addr string, noDelete bool) error {
+
+	lNoDelete = noDelete
 
 	lrepository = repository
 	network.ProtocolRegister()

@@ -223,6 +223,10 @@ func entryPoint() int {
 		return cmd_config(ctx, args)
 	}
 
+	if command == "version" {
+		return cmd_version(ctx, args)
+	}
+
 	// special case, server does not need a cache but does not return immediately either
 	skipPassphrase := false
 	if command == "server" || command == "stdio" {

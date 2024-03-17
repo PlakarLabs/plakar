@@ -19,17 +19,11 @@ package main
 import (
 	"flag"
 	"fmt"
-
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 const VERSION = "0.4.16-alpha"
 
-func init() {
-	registerCommand("version", cmd_version)
-}
-
-func cmd_version(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_version(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

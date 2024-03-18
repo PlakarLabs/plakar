@@ -7,6 +7,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -178,7 +179,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDir string) error {
+func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp) error {
 	if err := snapshot.Lock(); err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func (snapshot *Snapshot) Push(scanDir string) error {
 
 	snapshot.Header.ScannedDirectories = make([]string, 0)
 
-	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir)
+	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir, excludes)
 	if err != nil {
 		logger.Warn("%s", err)
 	}

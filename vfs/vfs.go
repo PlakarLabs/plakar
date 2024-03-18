@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -117,7 +118,7 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	return &filesystem, nil
 }
 
-func NewFilesystemFromScan(repository string, directory string) (*Filesystem, error) {
+func NewFilesystemFromScan(repository string, directory string, excludes []*regexp.Regexp) (*Filesystem, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.NewFilesystemFromScan", time.Since(t0))
@@ -147,6 +148,17 @@ func NewFilesystemFromScan(repository string, directory string) (*Filesystem, er
 	for msg := range schan {
 		pathname := filepath.Clean(msg.Pathname)
 		if pathname == repository || strings.HasPrefix(filepath.ToSlash(pathname), filepath.ToSlash(repository)+"/") {
+			continue
+		}
+
+		doExclude := false
+		for _, exclude := range excludes {
+			if exclude.Match([]byte(pathname)) {
+				doExclude = true
+				break
+			}
+		}
+		if doExclude {
 			continue
 		}
 

@@ -17,11 +17,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -37,8 +39,10 @@ func init() {
 
 func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_tags string
+	var opt_excludes string
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
+	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Parse(args)
 
 	dir, err := os.Getwd()
@@ -46,6 +50,31 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 1
 	}
+
+	excludes := []*regexp.Regexp{}
+	if opt_excludes != "" {
+		fp, err := os.Open(opt_excludes)
+		if err != nil {
+			logger.Error("%s", err)
+			return 1
+		}
+		defer fp.Close()
+
+		scanner := bufio.NewScanner(fp)
+		for scanner.Scan() {
+			pattern, err := regexp.Compile(scanner.Text())
+			if err != nil {
+				logger.Error("%s", err)
+				return 1
+			}
+			excludes = append(excludes, pattern)
+		}
+		if err := scanner.Err(); err != nil {
+			logger.Error("%s", err)
+			return 1
+		}
+	}
+	_ = excludes
 
 	snap, err := snapshot.New(repository, uuid.Must(uuid.NewRandom()))
 	if err != nil {
@@ -69,7 +98,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	snap.Header.Tags = tags
 
 	if flags.NArg() == 0 {
-		err = snap.Push(dir)
+		err = snap.Push(dir, excludes)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -78,7 +107,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath)
+		err = snap.Push(cleanPath, excludes)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

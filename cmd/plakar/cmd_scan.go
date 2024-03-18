@@ -17,11 +17,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,8 +37,34 @@ func init() {
 }
 
 func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_excludes string
 	flags := flag.NewFlagSet("scan", flag.ExitOnError)
+	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Parse(args)
+
+	excludes := []*regexp.Regexp{}
+	if opt_excludes != "" {
+		fp, err := os.Open(opt_excludes)
+		if err != nil {
+			logger.Error("%s", err)
+			return 1
+		}
+		defer fp.Close()
+
+		scanner := bufio.NewScanner(fp)
+		for scanner.Scan() {
+			pattern, err := regexp.Compile(scanner.Text())
+			if err != nil {
+				logger.Error("%s", err)
+				return 1
+			}
+			excludes = append(excludes, pattern)
+		}
+		if err := scanner.Err(); err != nil {
+			logger.Error("%s", err)
+			return 1
+		}
+	}
 
 	dir, err := os.Getwd()
 	if err != nil {
@@ -48,7 +76,7 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 	var t0 time.Time
 	if flags.NArg() == 0 {
 		t0 = time.Now()
-		fs, err = vfs.NewFilesystemFromScan(repository.Location, dir)
+		fs, err = vfs.NewFilesystemFromScan(repository.Location, dir, excludes)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -58,7 +86,7 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
 		t0 = time.Now()
-		fs, err = vfs.NewFilesystemFromScan(repository.Location, cleanPath)
+		fs, err = vfs.NewFilesystemFromScan(repository.Location, cleanPath, excludes)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

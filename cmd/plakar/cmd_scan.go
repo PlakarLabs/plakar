@@ -37,12 +37,20 @@ func init() {
 }
 
 func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
+	var opt_exclude excludeFlags
 	var opt_excludes string
+
+	excludes := []*regexp.Regexp{}
+
 	flags := flag.NewFlagSet("scan", flag.ExitOnError)
+	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Parse(args)
 
-	excludes := []*regexp.Regexp{}
+	for _, item := range opt_exclude {
+		excludes = append(excludes, regexp.MustCompile(item))
+	}
+
 	if opt_excludes != "" {
 		fp, err := os.Open(opt_excludes)
 		if err != nil {

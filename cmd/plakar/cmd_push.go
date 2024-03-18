@@ -37,13 +37,33 @@ func init() {
 	registerCommand("push", cmd_push)
 }
 
+type excludeFlags []string
+
+func (e *excludeFlags) String() string {
+	return strings.Join(*e, ",")
+}
+
+func (e *excludeFlags) Set(value string) error {
+	*e = append(*e, value)
+	return nil
+}
+
 func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
+	var opt_exclude excludeFlags
+
+	excludes := []*regexp.Regexp{}
+
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
+	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
 	flags.Parse(args)
+
+	for _, item := range opt_exclude {
+		excludes = append(excludes, regexp.MustCompile(item))
+	}
 
 	dir, err := os.Getwd()
 	if err != nil {
@@ -51,7 +71,6 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	excludes := []*regexp.Regexp{}
 	if opt_excludes != "" {
 		fp, err := os.Open(opt_excludes)
 		if err != nil {

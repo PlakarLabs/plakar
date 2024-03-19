@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -159,7 +158,7 @@ func entryPoint() int {
 
 	var secretFromKeyfile string
 	if opt_keyfile != "" {
-		data, err := ioutil.ReadFile(opt_keyfile)
+		data, err := os.ReadFile(opt_keyfile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not read key file: %s\n", flag.CommandLine.Name(), err)
 			return 1

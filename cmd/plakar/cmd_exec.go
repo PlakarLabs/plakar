@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -62,7 +61,7 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 0
 	}
 
-	file, err := ioutil.TempFile(os.TempDir(), "plakar")
+	file, err := os.CreateTemp(os.TempDir(), "plakar")
 	if err != nil {
 		log.Fatal(err)
 	}

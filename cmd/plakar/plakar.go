@@ -118,6 +118,7 @@ func entryPoint() int {
 	var opt_profiling bool
 	var opt_keyfile string
 	var opt_stats int
+	var opt_dumpstats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
@@ -133,7 +134,49 @@ func entryPoint() int {
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
+	flag.IntVar(&opt_dumpstats, "dumpstats", 0, "dump statistics")
 	flag.Parse()
+
+	dumpstatsChanExit := make(chan bool, 1)
+	if opt_dumpstats > 0 {
+		go func() {
+			maxGoroutines := 0
+			maxCgoCalls := int64(0)
+			macMemAlloc := uint64(0)
+
+			for {
+				var memStats runtime.MemStats
+				runtime.ReadMemStats(&memStats)
+
+				if runtime.NumGoroutine() > maxGoroutines {
+					maxGoroutines = runtime.NumGoroutine()
+				}
+				if runtime.NumCgoCall() > maxCgoCalls {
+					maxCgoCalls = runtime.NumCgoCall()
+				}
+				if memStats.Alloc > macMemAlloc {
+					macMemAlloc = memStats.Alloc
+				}
+
+				logger.Info("goroutines: %d (max: %d), cgo calls: %d (max: %d), mem current: %s (max: %s, total: %s), gc: %d, cpu: %d",
+					runtime.NumGoroutine(),
+					maxGoroutines,
+					runtime.NumCgoCall(),
+					maxCgoCalls,
+					humanize.Bytes(memStats.Alloc),
+					humanize.Bytes(macMemAlloc),
+					humanize.Bytes(memStats.TotalAlloc),
+					memStats.NumGC,
+					runtime.NumCPU())
+				select {
+				case <-time.After(time.Duration(opt_dumpstats) * time.Second):
+					continue
+				case <-dumpstatsChanExit:
+					return
+				}
+			}
+		}()
+	}
 
 	// setup from default + override
 	if opt_cpuCount > runtime.NumCPU() {
@@ -362,6 +405,10 @@ func entryPoint() int {
 			fmt.Fprintf(os.Stderr, "%s: could not write MEM profile: %d\n", flag.CommandLine.Name(), err)
 			return 1
 		}
+	}
+
+	if opt_dumpstats > 0 {
+		dumpstatsChanExit <- true
 	}
 
 	return status

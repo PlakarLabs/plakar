@@ -62,7 +62,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		Filesystem: vfs.NewFilesystem(),
 		Metadata:   metadata.New(),
 
-		packerChan:     make(chan interface{}),
+		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
 

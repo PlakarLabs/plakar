@@ -47,6 +47,8 @@ type Plakar struct {
 	Config *config.ConfigAPI
 
 	KeyFromFile string
+
+	maxConcurrency chan struct{}
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
@@ -118,7 +120,6 @@ func entryPoint() int {
 	var opt_profiling bool
 	var opt_keyfile string
 	var opt_stats int
-	var opt_dumpstats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
@@ -134,55 +135,14 @@ func entryPoint() int {
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
-	flag.IntVar(&opt_dumpstats, "dumpstats", 0, "dump statistics")
 	flag.Parse()
-
-	dumpstatsChanExit := make(chan bool, 1)
-	if opt_dumpstats > 0 {
-		go func() {
-			maxGoroutines := 0
-			maxCgoCalls := int64(0)
-			macMemAlloc := uint64(0)
-
-			for {
-				var memStats runtime.MemStats
-				runtime.ReadMemStats(&memStats)
-
-				if runtime.NumGoroutine() > maxGoroutines {
-					maxGoroutines = runtime.NumGoroutine()
-				}
-				if runtime.NumCgoCall() > maxCgoCalls {
-					maxCgoCalls = runtime.NumCgoCall()
-				}
-				if memStats.Alloc > macMemAlloc {
-					macMemAlloc = memStats.Alloc
-				}
-
-				logger.Info("goroutines: %d (max: %d), cgo calls: %d (max: %d), mem current: %s (max: %s, total: %s), gc: %d, cpu: %d",
-					runtime.NumGoroutine(),
-					maxGoroutines,
-					runtime.NumCgoCall(),
-					maxCgoCalls,
-					humanize.Bytes(memStats.Alloc),
-					humanize.Bytes(macMemAlloc),
-					humanize.Bytes(memStats.TotalAlloc),
-					memStats.NumGC,
-					runtime.NumCPU())
-				select {
-				case <-time.After(time.Duration(opt_dumpstats) * time.Second):
-					continue
-				case <-dumpstatsChanExit:
-					return
-				}
-			}
-		}()
-	}
 
 	// setup from default + override
 	if opt_cpuCount > runtime.NumCPU() {
 		fmt.Fprintf(os.Stderr, "%s: can't use more cores than available: %d\n", flag.CommandLine.Name(), runtime.NumCPU())
 		return 1
 	}
+
 	runtime.GOMAXPROCS(opt_cpuCount)
 
 	if opt_cpuProfile != "" {
@@ -333,31 +293,77 @@ func entryPoint() int {
 	done := make(chan bool, 1)
 	if opt_stats > 0 {
 		go func() {
-			t0 := time.Now()
-			ticker := time.NewTicker(time.Duration(opt_stats) * time.Second)
-			defer ticker.Stop()
+			iterCount := 0
 
-			var m runtime.MemStats
+			avgGoroutines := 0
+			maxGoroutines := 0
+			totalGoroutines := 0
+
+			maxCgoCalls := int64(0)
+			maxMemAlloc := uint64(0)
+			avgMemAlloc := uint64(0)
+
+			t0 := time.Now()
+
+			lastrbytes := uint64(0)
+			lastwbytes := uint64(0)
+
 			for {
-				select {
-				case <-ticker.C:
+				if iterCount != 0 {
+
 					elapsedSeconds := time.Since(t0).Seconds()
 
 					rbytes := repository.GetRBytes()
 					wbytes := repository.GetWBytes()
+
 					rbytesAvg := rbytes / uint64(elapsedSeconds)
 					wbytesAvg := wbytes / uint64(elapsedSeconds)
 
-					runtime.ReadMemStats(&m)
-					fmt.Printf("[stats] memory = alloc: %s, total_alloc: %s, sys: %s, num_gc: %d\n",
-						humanize.Bytes(m.Alloc),
-						humanize.Bytes(m.TotalAlloc),
-						humanize.Bytes(m.Sys),
-						m.NumGC)
+					diffrbytes := rbytes - lastrbytes
+					diffwbytes := wbytes - lastwbytes
+					lastrbytes = rbytes
+					lastwbytes = wbytes
 
-					fmt.Printf("[stats] storage = read: %s / %s, write: %s / %s\n",
-						humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
-						humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
+					var memStats runtime.MemStats
+					runtime.ReadMemStats(&memStats)
+
+					if runtime.NumGoroutine() > maxGoroutines {
+						maxGoroutines = runtime.NumGoroutine()
+					}
+					totalGoroutines += runtime.NumGoroutine()
+					avgGoroutines = totalGoroutines / int(elapsedSeconds)
+
+					if runtime.NumCgoCall() > maxCgoCalls {
+						maxCgoCalls = runtime.NumCgoCall()
+					}
+					if memStats.Alloc > maxMemAlloc {
+						maxMemAlloc = memStats.Alloc
+					}
+					avgMemAlloc = memStats.TotalAlloc / uint64(iterCount)
+
+					logger.Printf("[stats] cpu:  goroutines: %d (μ %d, <= %d), cgo calls: %d (<= %d)",
+						runtime.NumGoroutine(),
+						avgGoroutines,
+						maxGoroutines,
+						runtime.NumCgoCall(),
+						maxCgoCalls)
+
+					logger.Printf("[stats] memory: %s (μ %s, <= %s, += %s), numgc: %d",
+						humanize.Bytes(memStats.Alloc),
+						humanize.Bytes(avgMemAlloc),
+						humanize.Bytes(maxMemAlloc),
+						humanize.Bytes(memStats.TotalAlloc),
+						memStats.NumGC)
+
+					logger.Printf("[stats] storage: read: %s (μ %s, += %s), write: %s (μ %s, += %s)",
+						humanize.Bytes(diffrbytes), humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
+						humanize.Bytes(diffwbytes), humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
+				}
+
+				select {
+				case <-time.After(time.Duration(opt_stats) * time.Second):
+					iterCount++
+					continue
 				case <-done:
 					return
 				}
@@ -405,10 +411,6 @@ func entryPoint() int {
 			fmt.Fprintf(os.Stderr, "%s: could not write MEM profile: %d\n", flag.CommandLine.Name(), err)
 			return 1
 		}
-	}
-
-	if opt_dumpstats > 0 {
-		dumpstatsChanExit <- true
 	}
 
 	return status

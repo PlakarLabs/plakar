@@ -119,6 +119,8 @@ type Repository struct {
 
 	writeSharedLock *locking.SharedLock
 	readSharedLock  *locking.SharedLock
+
+	bufferedPackfiles chan struct{}
 }
 
 func Register(name string, backend func() RepositoryBackend) {
@@ -192,6 +194,7 @@ func New(location string) (*Repository, error) {
 		repository.backend = backend()
 		repository.writeSharedLock = locking.NewSharedLock("storage.write", runtime.NumCPU()*8+1)
 		repository.readSharedLock = locking.NewSharedLock("storage.read", runtime.NumCPU()*8+1)
+		repository.bufferedPackfiles = make(chan struct{}, runtime.NumCPU()*2+1)
 		return repository, nil
 	}
 }
@@ -487,6 +490,10 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 		profiler.RecordEvent("storage.PutPackfile", time.Since(t0))
 		logger.Trace("storage", "PutPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
+
+	repository.bufferedPackfiles <- struct{}{}
+	defer func() { <-repository.bufferedPackfiles }()
+
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 	return repository.backend.PutPackfile(checksum, data)
 }

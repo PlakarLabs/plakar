@@ -52,10 +52,12 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags
+	var opt_concurrency uint64
 
 	excludes := []*regexp.Regexp{}
 
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
+	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
@@ -116,8 +118,12 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 	snap.Header.Tags = tags
 
+	opts := &snapshot.PushOptions{
+		MaxConcurrency: opt_concurrency,
+	}
+
 	if flags.NArg() == 0 {
-		err = snap.Push(dir, excludes)
+		err = snap.Push(dir, excludes, opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -126,7 +132,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath, excludes)
+		err = snap.Push(cleanPath, excludes, opts)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

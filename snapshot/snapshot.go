@@ -39,13 +39,15 @@ type Snapshot struct {
 }
 
 type PackerChunkMsg struct {
-	Checksum [32]byte
-	Data     []byte
+	Timestamp time.Time
+	Checksum  [32]byte
+	Data      []byte
 }
 
 type PackerObjectMsg struct {
-	Checksum [32]byte
-	Data     []byte
+	Timestamp time.Time
+	Checksum  [32]byte
+	Data      []byte
 }
 
 func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
@@ -84,10 +86,12 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 					}
 					switch msg := msg.(type) {
 					case *PackerObjectMsg:
+						logger.Trace("packer", "%s: PackerObjectMsg(%064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Checksum, time.Since(msg.Timestamp))
 						pack.AddData(packfile.TYPE_OBJECT, msg.Checksum, msg.Data)
 						objects[msg.Checksum] = struct{}{}
 
 					case *PackerChunkMsg:
+						logger.Trace("packer", "%s: PackerChunkMsg(%064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Checksum, time.Since(msg.Timestamp))
 						pack.AddData(packfile.TYPE_CHUNK, msg.Checksum, msg.Data)
 						chunks[msg.Checksum] = struct{}{}
 
@@ -560,7 +564,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 		buffer = tmp
 	}
 
-	snapshot.packerChan <- &PackerChunkMsg{Checksum: checksum, Data: buffer}
+	snapshot.packerChan <- &PackerChunkMsg{Timestamp: time.Now(), Checksum: checksum, Data: buffer}
 	return nil
 }
 
@@ -598,7 +602,7 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 		buffer = tmp
 	}
 
-	snapshot.packerChan <- &PackerObjectMsg{Checksum: object.Checksum, Data: buffer}
+	snapshot.packerChan <- &PackerObjectMsg{Timestamp: time.Now(), Checksum: object.Checksum, Data: buffer}
 	return nil
 }
 

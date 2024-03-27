@@ -341,21 +341,17 @@ func entryPoint() int {
 					}
 					avgMemAlloc = memStats.TotalAlloc / uint64(iterCount)
 
-					logger.Printf("[stats] cpu:  goroutines: %d (μ %d, <= %d), cgo calls: %d (<= %d)",
+					logger.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
 						runtime.NumGoroutine(),
 						avgGoroutines,
 						maxGoroutines,
 						runtime.NumCgoCall(),
-						maxCgoCalls)
-
-					logger.Printf("[stats] memory: %s (μ %s, <= %s, += %s), numgc: %d",
+						maxCgoCalls,
 						humanize.Bytes(memStats.Alloc),
 						humanize.Bytes(avgMemAlloc),
 						humanize.Bytes(maxMemAlloc),
 						humanize.Bytes(memStats.TotalAlloc),
-						memStats.NumGC)
-
-					logger.Printf("[stats] storage: read: %s (μ %s, += %s), write: %s (μ %s, += %s)",
+						memStats.NumGC,
 						humanize.Bytes(diffrbytes), humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
 						humanize.Bytes(diffwbytes), humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
 				}

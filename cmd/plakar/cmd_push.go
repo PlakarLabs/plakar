@@ -120,10 +120,11 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	opts := &snapshot.PushOptions{
 		MaxConcurrency: opt_concurrency,
+		Excludes:       excludes,
 	}
 
 	if flags.NArg() == 0 {
-		err = snap.Push(dir, excludes, opts)
+		err = snap.Push(dir, opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -132,7 +133,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath, excludes, opts)
+		err = snap.Push(cleanPath, opts)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

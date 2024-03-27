@@ -25,6 +25,7 @@ import (
 
 type PushOptions struct {
 	MaxConcurrency uint64
+	Excludes       []*regexp.Regexp
 }
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
@@ -182,7 +183,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp, options *PushOptions) error {
+func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	if err := snapshot.Lock(); err != nil {
 		return err
 	}
@@ -222,7 +223,7 @@ func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp, option
 		}
 	}()
 
-	maxConcurrency := make(chan bool, options.MaxConcurrency)
+	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
 
 	wg := sync.WaitGroup{}
 
@@ -232,7 +233,7 @@ func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp, option
 
 	snapshot.Header.ScannedDirectories = make([]string, 0)
 
-	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir, excludes)
+	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir, options.Excludes)
 	if err != nil {
 		logger.Warn("%s", err)
 	}
@@ -248,7 +249,7 @@ func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp, option
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
 	for _, filename := range snapshot.Filesystem.ListFiles() {
-		maxConcurrency <- true
+		maxConcurrency <- struct{}{}
 		wg.Add(1)
 		go func(_filename string) {
 			defer func() { wg.Done() }()

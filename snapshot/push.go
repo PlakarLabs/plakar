@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +22,10 @@ import (
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
 )
+
+type PushOptions struct {
+	MaxConcurrency uint64
+}
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
 	cache := snapshot.repository.GetCache()
@@ -179,7 +182,7 @@ func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.O
 	return object, nil
 }
 
-func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp) error {
+func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp, options *PushOptions) error {
 	if err := snapshot.Lock(); err != nil {
 		return err
 	}
@@ -219,7 +222,8 @@ func (snapshot *Snapshot) Push(scanDir string, excludes []*regexp.Regexp) error 
 		}
 	}()
 
-	maxConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxConcurrency := make(chan bool, options.MaxConcurrency)
+
 	wg := sync.WaitGroup{}
 
 	t0 := time.Now()

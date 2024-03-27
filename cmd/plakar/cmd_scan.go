@@ -23,13 +23,13 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/gobwas/glob"
 )
 
 func init() {
@@ -40,7 +40,7 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_exclude excludeFlags
 	var opt_excludes string
 
-	excludes := []*regexp.Regexp{}
+	excludes := []glob.Glob{}
 
 	flags := flag.NewFlagSet("scan", flag.ExitOnError)
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
@@ -48,7 +48,7 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	for _, item := range opt_exclude {
-		excludes = append(excludes, regexp.MustCompile(item))
+		excludes = append(excludes, glob.MustCompile(item))
 	}
 
 	if opt_excludes != "" {
@@ -61,7 +61,7 @@ func cmd_scan(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		scanner := bufio.NewScanner(fp)
 		for scanner.Scan() {
-			pattern, err := regexp.Compile(scanner.Text())
+			pattern, err := glob.Compile(scanner.Text())
 			if err != nil {
 				logger.Error("%s", err)
 				return 1

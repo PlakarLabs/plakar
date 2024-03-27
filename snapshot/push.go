@@ -7,7 +7,6 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -21,11 +20,12 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gobwas/glob"
 )
 
 type PushOptions struct {
 	MaxConcurrency uint64
-	Excludes       []*regexp.Regexp
+	Excludes       []glob.Glob
 }
 
 func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {

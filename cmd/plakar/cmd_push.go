@@ -23,13 +23,13 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"runtime"
 	"strings"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/gobwas/glob"
 	"github.com/google/uuid"
 )
 
@@ -54,7 +54,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_exclude excludeFlags
 	var opt_concurrency uint64
 
-	excludes := []*regexp.Regexp{}
+	excludes := []glob.Glob{}
 
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
@@ -64,7 +64,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	for _, item := range opt_exclude {
-		excludes = append(excludes, regexp.MustCompile(item))
+		excludes = append(excludes, glob.MustCompile(item))
 	}
 
 	dir, err := os.Getwd()
@@ -83,7 +83,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		scanner := bufio.NewScanner(fp)
 		for scanner.Scan() {
-			pattern, err := regexp.Compile(scanner.Text())
+			pattern, err := glob.Compile(scanner.Text())
 			if err != nil {
 				logger.Error("%s", err)
 				return 1

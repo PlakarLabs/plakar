@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -31,6 +30,7 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/vfs/importer"
+	"github.com/gobwas/glob"
 	"github.com/iafan/cwalk"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -118,7 +118,7 @@ func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
 	return &filesystem, nil
 }
 
-func NewFilesystemFromScan(repository string, directory string, excludes []*regexp.Regexp) (*Filesystem, error) {
+func NewFilesystemFromScan(repository string, directory string, excludes []glob.Glob) (*Filesystem, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.NewFilesystemFromScan", time.Since(t0))
@@ -153,7 +153,7 @@ func NewFilesystemFromScan(repository string, directory string, excludes []*rege
 
 		doExclude := false
 		for _, exclude := range excludes {
-			if exclude.Match([]byte(pathname)) {
+			if exclude.Match(pathname) {
 				doExclude = true
 				break
 			}

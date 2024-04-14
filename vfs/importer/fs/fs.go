@@ -19,6 +19,7 @@ package fs
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/PlakarLabs/plakar/vfs/importer"
-	"github.com/iafan/cwalk"
 )
 
 type FSImporter struct {
@@ -65,18 +65,23 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 			c <- importer.ImporterRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
 		}
 
-		err := cwalk.Walk(directory, func(path string, f os.FileInfo, err error) error {
+		err := filepath.WalkDir(directory, func(path string, di fs.DirEntry, err error) error {
 			if err != nil {
 				cerr <- err
 				return nil
 			}
-			pathname := filepath.Join(directory, path)
 
-			fileinfo := vfs.FileInfoFromStat(f)
-			c <- importer.ImporterRecord{Pathname: filepath.ToSlash(pathname), Stat: fileinfo}
+			info, err := di.Info()
+			if err != nil {
+				cerr <- err
+				return nil
+			}
+
+			fileinfo := vfs.FileInfoFromStat(info)
+			c <- importer.ImporterRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
 
 			if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
-				lstat, err := os.Lstat(pathname)
+				lstat, err := os.Lstat(path)
 				if err != nil {
 					cerr <- err
 					return nil
@@ -91,7 +96,7 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 					}
 					_ = originFile
 
-					c <- importer.ImporterRecord{Pathname: filepath.ToSlash(pathname), Stat: lfileinfo}
+					c <- importer.ImporterRecord{Pathname: filepath.ToSlash(path), Stat: lfileinfo}
 
 					// need to figure out how to notidy fakefs
 					// that a pathname actually link to another

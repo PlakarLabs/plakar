@@ -197,6 +197,11 @@ func entryPoint() int {
 	loggerWait := logger.Start()
 
 	command, args := flag.Args()[0], flag.Args()[1:]
+
+	if command == "agent" {
+		return cmd_agent(ctx, args)
+	}
+
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
 			log.Fatalf("%s: missing plakar repository", flag.CommandLine.Name())

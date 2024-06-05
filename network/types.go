@@ -326,5 +326,4 @@ func ProtocolRegister() {
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})
-
 }

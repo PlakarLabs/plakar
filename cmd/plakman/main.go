@@ -1,33 +1,65 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/PlakarLabs/plakar/agent/server"
 )
 
-// handler for the root route
-func homeHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the Plakman Control Center!")
+var uptime = time.Now()
+var publicKey, privateKey []byte = nil, nil
+var srv *server.Server
+
+func init() {
+	_publicKey, _privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		log.Fatalf("Could not generate keys: %s\n", err.Error())
+	}
+	publicKey = _publicKey
+	privateKey = _privateKey
 }
 
-// handler for a health check route
+type GetStatsResponse struct {
+	PublicKey []byte         `json:"public_key"`
+	Uptime    time.Time      `json:"uptime"`
+	Agents    []server.Agent `json:"agents"`
+}
+
+func statsHandler(w http.ResponseWriter, r *http.Request) {
+	var response GetStatsResponse
+	response.PublicKey = publicKey
+	response.Uptime = uptime
+	response.Agents = srv.Agents()
+
+	json.NewEncoder(w).Encode(&response)
+}
+
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "OK")
 }
 
+type GetAgentsResponse struct {
+	Agents []server.Agent `json:"agents"`
+}
+
 func agentsHandler(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(server.Sessions())
+	var response GetAgentsResponse
+	response.Agents = srv.Agents()
+
+	json.NewEncoder(w).Encode(&response)
 }
 
 func main() {
-	go server.Server(":8081")
+	srv = server.NewServer(":8081", publicKey, privateKey)
+	go srv.Run()
 
 	// define routes and handlers
-	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/", statsHandler)
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/agents", agentsHandler)
 

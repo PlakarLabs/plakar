@@ -1,9 +1,9 @@
 package server
 
 import (
-	"encoding/gob"
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -17,44 +17,86 @@ func init() {
 	agent.ProtocolRegister()
 }
 
-var sessions = make(map[string]*Agent)
-var sessionsMutex sync.Mutex
+type Agent struct {
+	PublicKey       []byte        `json:"public_key"`
+	Uptime          time.Time     `json:"uptime"`
+	Ping            time.Time     `json:"ping"`
+	Latency         time.Duration `json:"latency"`
+	TimeDelta       time.Duration `json:"time_delta"`
+	Address         string        `json:"address"`
+	OperatingSystem string        `json:"operating_system"`
+	Architecture    string        `json:"architecture"`
+	ProtocolVersion string        `json:"protocol_version"`
+	Hostname        string        `json:"hostname"`
+	NumCPU          int           `json:"num_cpu"`
+}
 
-func Sessions() []Agent {
-	sessionsMutex.Lock()
-	defer sessionsMutex.Unlock()
-	var result []Agent
-	for k := range sessions {
-		result = append(result, *sessions[k])
+func NewAgent(conn net.Conn) *Agent {
+	return &Agent{
+		Uptime:  time.Now(),
+		Address: conn.RemoteAddr().String(),
+	}
+}
+
+type Server struct {
+	localAddr  string
+	publicKey  ed25519.PublicKey
+	privateKey ed25519.PrivateKey
+
+	sessions      map[string]*Session
+	sessionsMutex sync.Mutex
+}
+
+func NewServer(addr string, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) *Server {
+	return &Server{
+		localAddr:  addr,
+		publicKey:  publicKey,
+		privateKey: privateKey,
+
+		sessions: make(map[string]*Session),
+	}
+}
+
+func (s *Server) Agents() []Agent {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+
+	var result []Agent = make([]Agent, 0, len(s.sessions))
+	for k := range s.sessions {
+		result = append(result, *s.sessions[k].Agent)
 	}
 	return result
 }
 
-func addAgent(a *Agent) {
-	sessionsMutex.Lock()
-	defer sessionsMutex.Unlock()
-	sessions[a.AgentID] = a
+func (s *Server) Sessions() []Session {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+
+	var result []Session = make([]Session, 0, len(s.sessions))
+	for k := range s.sessions {
+		result = append(result, *s.sessions[k])
+	}
+	return result
 }
 
-type Agent struct {
-	conn    net.Conn
-	encoder *gob.Encoder
-	decoder *gob.Decoder
-	mu      sync.Mutex
-
-	inflightRequests map[uuid.UUID]chan agent.Request
-	notifications    chan agent.Request
-	disconnect       chan struct{}
-
-	AgentID         string    `json:"agent_id"`
-	Uptime          time.Time `json:"uptime"`
-	Address         string    `json:"address"`
-	OperatingSystem string    `json:"operating_system"`
-	Architecture    string    `json:"architecture"`
+func (s *Server) registerSession(session *Session) error {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+	if _, ok := s.sessions[string(session.Agent.PublicKey)]; ok {
+		return fmt.Errorf("agent already connected: %s", session.Agent.PublicKey)
+	}
+	s.sessions[string(session.Agent.PublicKey)] = session
+	return nil
 }
 
-func Server(addr string) {
-	l, err := net.Listen("tcp", addr)
+func (s *Server) unregisterSession(session *Session) {
+	s.sessionsMutex.Lock()
+	defer s.sessionsMutex.Unlock()
+	delete(s.sessions, string(session.Agent.PublicKey))
+}
+
+func (s *Server) Run() {
+	l, err := net.Listen("tcp", s.localAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,122 +107,133 @@ func Server(addr string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		a := NewAgent(c, c, c)
-		go a.Handle()
+		session := s.newSession(c, s.publicKey, s.privateKey)
+		go session.Handle()
 	}
 }
 
-func NewAgent(conn net.Conn, rd io.Reader, wr io.Writer) *Agent {
-	return &Agent{
-		AgentID:          uuid.NewString(),
-		Uptime:           time.Now(),
-		Address:          conn.RemoteAddr().String(),
-		conn:             conn,
-		decoder:          gob.NewDecoder(rd),
-		encoder:          gob.NewEncoder(wr),
-		inflightRequests: make(map[uuid.UUID]chan agent.Request),
-		notifications:    make(chan agent.Request),
-		disconnect:       make(chan struct{}),
+func (s *Server) newSession(conn net.Conn, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) *Session {
+	return &Session{
+		server:     s,
+		sessionID:  uuid.NewString(),
+		conn:       conn,
+		protocol:   agent.NewProtocol(conn),
+		publicKey:  publicKey,
+		privateKey: privateKey,
+		remoteAddr: conn.RemoteAddr().String(),
 	}
 }
 
-func (a *Agent) Handle() {
-	fmt.Printf("[%s] connected\n", a.AgentID)
-	go func() {
-		for m := range a.notifications {
-			a.mu.Lock()
-			notify := a.inflightRequests[m.Uuid]
-			a.mu.Unlock()
-			notify <- m
-		}
-	}()
+type Session struct {
+	server     *Server
+	sessionID  string
+	conn       net.Conn
+	protocol   *agent.Protocol
+	remoteAddr string
 
-	go func() {
-		for {
-			result := agent.Request{}
-			err := a.decoder.Decode(&result)
-			if err != nil {
-				a.conn.Close()
-				a.disconnect <- struct{}{}
-				return
-			}
-			a.notifications <- result
-		}
-	}()
+	publicKey  ed25519.PublicKey
+	privateKey ed25519.PrivateKey
 
-	disonnected := false
-	err := a.Info()
-	if err != nil {
-		fmt.Println(err)
-		disonnected = true
+	Agent *Agent
+}
+
+func (s *Session) Request(payload interface{}) error {
+	return s.protocol.Request(payload)
+}
+
+func (s *Session) Query(payload interface{}, cb func(interface{}) error) error {
+	return s.protocol.Query(payload, cb)
+}
+
+func (s *Session) Handle() {
+	fmt.Printf("[%s] connected\n", s.conn.RemoteAddr().String())
+
+	s.Agent = NewAgent(s.conn)
+	incoming := s.protocol.Incoming()
+
+	exit := false
+
+	if err := s.ping(); err != nil {
+		fmt.Printf("[%s] ping error: %s\n", s.sessionID, err)
+		exit = true
+	} else if err := s.identify(); err != nil {
+		fmt.Printf("[%s] identify error: %s\n", s.sessionID, err)
+		exit = true
 	}
-	if !disonnected {
-		addAgent(a)
-		for {
-			select {
-			case <-time.After(10 * time.Second):
-				a.Ping()
-			case <-a.disconnect:
-				disonnected = true
-			}
-			if disonnected {
+	s.server.registerSession(s)
+
+	for {
+		if exit {
+			break
+		}
+		select {
+		case packet, ok := <-incoming:
+			if !ok {
+				exit = true
 				break
 			}
+			//switch payload := packet.Payload.(type) {
+			//case agent.ResPing:
+			//	fmt.Printf("[%s] -> ping reply at %s\n", s.conn.RemoteAddr(), payload.Timestamp)
+			//	s.protocol.Response(packet.Uuid, agent.ResPing{})
+			//}
+			_ = packet
+		case <-time.After(300 * time.Second):
+			if err := s.ping(); err != nil {
+				fmt.Printf("[%s] ping error: %s\n", s.sessionID, err)
+				exit = true
+			}
 		}
 	}
-	fmt.Printf("[%s] disconnected\n", a.AgentID)
+	s.server.unregisterSession(s)
+	fmt.Printf("[%s] disconnected\n", s.conn.RemoteAddr().String())
 }
 
-func (a *Agent) sendRequest(Type string, Payload interface{}) (*agent.Request, error) {
-	Uuid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	request := agent.Request{
-		Uuid:    Uuid,
-		Type:    Type,
-		Payload: Payload,
-	}
-
-	notify := make(chan agent.Request)
-	a.mu.Lock()
-	a.inflightRequests[request.Uuid] = notify
-	a.mu.Unlock()
-
-	err = a.encoder.Encode(&request)
-	if err != nil {
-		return nil, err
-	}
-
-	result := <-notify
-	a.mu.Lock()
-	delete(a.inflightRequests, request.Uuid)
-	a.mu.Unlock()
-	close(notify)
-	return &result, nil
+func (s *Session) ping() error {
+	sentTime := time.Now()
+	fmt.Printf("[%s] <- ping request at %s\n", s.remoteAddr, sentTime)
+	return s.protocol.Query(agent.ReqPing{Timestamp: time.Now()}, func(res interface{}) error {
+		if res, ok := res.(agent.ResPing); !ok {
+			return fmt.Errorf("invalid response")
+		} else {
+			recvTime := time.Now()
+			latency := recvTime.Sub(sentTime)
+			timeDelta := res.Timestamp.Sub(sentTime) - time.Duration(latency/2)
+			s.Agent.Ping = recvTime
+			s.Agent.Latency = latency
+			s.Agent.TimeDelta = timeDelta
+			fmt.Printf("[%s] -> ping response (latency: %s, timedelta: %s)\n",
+				s.remoteAddr,
+				latency,
+				timeDelta)
+			return nil
+		}
+	})
 }
 
-func (a *Agent) Ping() error {
-	fmt.Printf("[%s] <- ping request\n", a.AgentID)
-	_, err := a.sendRequest("ReqPing", agent.ReqPing{})
-	if err != nil {
-		return err
-	}
-	fmt.Printf("[%s] -> ping response\n", a.AgentID)
-	return nil
-}
+func (s *Session) identify() error {
+	sentTime := time.Now()
+	fmt.Printf("[%s] <- identify request at %s\n", s.remoteAddr, sentTime)
+	return s.protocol.Query(agent.ReqIdentify{PublicKey: s.publicKey}, func(res interface{}) error {
+		if res, ok := res.(agent.ResIdentify); !ok {
+			return fmt.Errorf("invalid response")
+		} else {
+			recvTime := time.Now()
+			latency := recvTime.Sub(sentTime)
+			s.Agent.PublicKey = res.PublicKey
+			s.Agent.OperatingSystem = res.OperatingSystem
+			s.Agent.Architecture = res.Architecture
+			s.Agent.ProtocolVersion = res.ProtocolVersion
+			s.Agent.Hostname = res.Hostname
+			s.Agent.NumCPU = res.NumCPU
+			s.Agent.Ping = recvTime
+			s.Agent.Latency = latency
 
-func (a *Agent) Info() error {
-	fmt.Printf("[%s] <- info request\n", a.AgentID)
-	info, err := a.sendRequest("ReqInfo", agent.ReqInfo{})
-	if err != nil {
-		return err
-	}
-
-	a.OperatingSystem = info.Payload.(agent.ResInfo).OperatingSystem
-	a.Architecture = info.Payload.(agent.ResInfo).Architecture
-
-	fmt.Printf("[%s] -> info response\n", a.AgentID)
-	return nil
+			fmt.Printf("[%s] -> identify response from %s (latency: %s)\n",
+				s.remoteAddr,
+				base64.RawStdEncoding.EncodeToString(res.PublicKey),
+				latency)
+			return nil
+		}
+	})
 }

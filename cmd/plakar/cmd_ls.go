@@ -40,15 +40,17 @@ func init() {
 
 func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_recursive bool
+	var opt_tag string
 	var opt_uuid bool
 
 	flags := flag.NewFlagSet("ls", flag.ExitOnError)
 	flags.BoolVar(&opt_uuid, "uuid", false, "display uuid instead of short ID")
+	flags.StringVar(&opt_tag, "tag", "", "filter by tag")
 	flags.BoolVar(&opt_recursive, "recursive", false, "recursive listing")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(repository, opt_uuid)
+		list_snapshots(repository, opt_uuid, opt_tag)
 		return 0
 	}
 
@@ -60,13 +62,25 @@ func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 	return 0
 }
 
-func list_snapshots(repository *storage.Repository, useUuid bool) {
+func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
 	metadatas, err := getHeaders(repository, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
 
 	for _, metadata := range metadatas {
+		if tag != "" {
+			found := false
+			for _, t := range metadata.Tags {
+				if tag == t {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
 		if !useUuid {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),

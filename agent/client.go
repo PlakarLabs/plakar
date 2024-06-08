@@ -60,6 +60,13 @@ func (c *Client) ConfigureTasks(tasks []Task) error {
 				case <-time.After(_task.Interval):
 					fmt.Printf("[%s] %s: %s\n", time.Now().UTC(), _task.Name, _task.Origin)
 					exec.Command(os.Args[0], "push", "-tag", _task.Name, _task.Origin).Run()
+
+					if _task.Keep > 0 {
+						now := time.Now()
+						olderParam := now.Add(-_task.Keep).Format(time.RFC3339)
+						exec.Command(os.Args[0], "rm", "-older", olderParam, "-tag", _task.Name).Run()
+					}
+
 				}
 			}
 		}(task)

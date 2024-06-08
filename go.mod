@@ -20,7 +20,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608075627-0817edf6cb47
+	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608080245-153b04ffcafe
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeebo/blake3 v0.2.3
@@ -50,3 +50,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
+
+replace github.com/poolpOrg/go-agentbuilder => /Users/gilles/Wip/github.com/poolpOrg/go-agentbuilder

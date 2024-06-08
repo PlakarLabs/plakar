@@ -16,39 +16,55 @@ type ReqIdentify struct {
 	Timestamp time.Time
 	PublicKey ed25519.PublicKey
 	Version   string
+	Challenge []byte
 }
 
-func NewReqIdentify(publicKey ed25519.PublicKey) ReqIdentify {
+func NewReqIdentify(publicKey ed25519.PublicKey, challenge []byte) ReqIdentify {
 	return ReqIdentify{
 		Timestamp: time.Now(),
 		PublicKey: publicKey,
 		Version:   VERSION,
+		Challenge: challenge,
 	}
 }
 
 type ResIdentify struct {
-	Timestamp       time.Time
-	PublicKey       ed25519.PublicKey
-	Version         string
+	Timestamp         time.Time
+	PublicKey         ed25519.PublicKey
+	Version           string
+	ChallengeResponse []byte
+
 	OperatingSystem string
 	Architecture    string
 	Hostname        string
 	NumCPU          int
 }
 
-func NewResIdentify(publicKey ed25519.PublicKey) ResIdentify {
+func NewResIdentify(publicKey ed25519.PublicKey, challengeResponse []byte) ResIdentify {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "unknown"
 	}
 	return ResIdentify{
-		Timestamp:       time.Now(),
-		PublicKey:       publicKey,
-		Version:         VERSION,
+		Timestamp:         time.Now(),
+		PublicKey:         publicKey,
+		Version:           VERSION,
+		ChallengeResponse: challengeResponse,
+
 		OperatingSystem: runtime.GOOS,
 		Architecture:    runtime.GOARCH,
 		Hostname:        hostname,
 		NumCPU:          runtime.NumCPU(),
+	}
+}
+
+type ResIdentifyChallenge struct {
+	ChallengeResponse []byte
+}
+
+func NewResIdentifyChallenge(challengeResponse []byte) ResIdentifyChallenge {
+	return ResIdentifyChallenge{
+		ChallengeResponse: challengeResponse,
 	}
 }
 
@@ -108,6 +124,18 @@ func NewReqPushConfiguration(tasks []Task) ReqPushConfiguration {
 	}
 }
 
+type ReqTaskEvent struct {
+	Name  string
+	Event string
+}
+
+func NewReqTaskEvent(name string, event string) ReqTaskEvent {
+	return ReqTaskEvent{
+		Name:  name,
+		Event: event,
+	}
+}
+
 type ResOK struct {
 }
 
@@ -128,6 +156,9 @@ func NewResKO(err error) ResKO {
 func init() {
 	protocol.Register(ReqIdentify{})
 	protocol.Register(ResIdentify{})
+
+	protocol.Register(ResIdentifyChallenge{})
+	protocol.Register(ReqTaskEvent{})
 
 	protocol.Register(ReqPing{})
 	protocol.Register(ResPing{})

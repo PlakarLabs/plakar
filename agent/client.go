@@ -4,11 +4,8 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
-	"os"
-	"os/exec"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/poolpOrg/go-agentbuilder/client"
 	"github.com/poolpOrg/go-agentbuilder/protocol"
 )
@@ -18,7 +15,7 @@ type Client struct {
 	publicKey  ed25519.PublicKey
 	privateKey ed25519.PrivateKey
 
-	scheduler map[uuid.UUID]chan bool
+	scheduler *Scheduler
 }
 
 func NewClient(address string, publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) *Client {
@@ -27,7 +24,7 @@ func NewClient(address string, publicKey ed25519.PublicKey, privateKey ed25519.P
 		publicKey:  publicKey,
 		privateKey: privateKey,
 
-		scheduler: make(map[uuid.UUID]chan bool),
+		scheduler: NewScheduler(),
 	}
 }
 
@@ -40,42 +37,17 @@ func (c *Client) Run() {
 	}
 }
 
-func (c *Client) ConfigureTasks(tasks []Task) error {
+func (c *Client) ConfigureTasks(tasks []Task, notify chan<- SchedulerEvent) error {
 	// replace all existing tasks
-	tasksMap := make(map[uuid.UUID]struct{})
-
+	tasksMap := make(map[string]struct{})
 	for _, task := range tasks {
-		tasksMap[task.ID] = struct{}{}
-		if _, ok := c.scheduler[task.ID]; ok {
-			close(c.scheduler[task.ID])
-		}
-		c.scheduler[task.ID] = make(chan bool)
-		go func(_task Task) {
-			fmt.Println("scheduling task", _task.Name, "every", _task.Interval.String(), "keep for", _task.Keep.String(), "=>", _task.Source)
-			<-time.After(time.Until(_task.StartAT))
-			for {
-				select {
-				case <-c.scheduler[_task.ID]:
-					return
-				case <-time.After(_task.Interval):
-					fmt.Printf("[%s] %s: %s\n", time.Now().UTC(), _task.Name, _task.Source)
-					exec.Command(os.Args[0], "push", "-tag", _task.Name, _task.Source).Run()
-
-					if _task.Keep > 0 {
-						now := time.Now()
-						olderParam := now.Add(-_task.Keep).Format(time.RFC3339)
-						exec.Command(os.Args[0], "rm", "-older", olderParam, "-tag", _task.Name).Run()
-					}
-
-				}
-			}
-		}(task)
+		tasksMap[task.Name] = struct{}{}
+		c.scheduler.Schedule(task, notify)
 	}
 
-	for taskID := range c.scheduler {
+	for taskID := range c.scheduler.tasks {
 		if _, ok := tasksMap[taskID]; !ok {
-			close(c.scheduler[taskID])
-			delete(c.scheduler, taskID)
+			c.scheduler.Cancel(taskID)
 		}
 	}
 
@@ -83,16 +55,32 @@ func (c *Client) ConfigureTasks(tasks []Task) error {
 }
 
 func (c *Client) clientHandler(session *client.Session, incoming <-chan protocol.Packet) error {
+	var serverPublicKey ed25519.PublicKey
+
+	notify := make(chan SchedulerEvent)
+	go func() {
+		for event := range notify {
+			switch event.(type) {
+			case TaskCompleted:
+				session.Request(NewReqTaskEvent(event.(TaskCompleted).Name, "success"))
+			}
+		}
+	}()
+
 	for packet := range incoming {
 		switch req := packet.Payload.(type) {
 		case ReqIdentify:
+			serverPublicKey = req.PublicKey
 			fmt.Println("server identified as", base64.RawStdEncoding.EncodeToString(req.PublicKey))
-			packet.Response(NewResIdentify(c.publicKey))
+			packet.Response(NewResIdentify(c.publicKey, ed25519.Sign(c.privateKey, req.Challenge)))
+			_ = serverPublicKey
+
 		case ReqPing:
 			fmt.Println("server sent ping request")
 			packet.Response(NewResPing(req))
+
 		case ReqPushConfiguration:
-			if err := c.ConfigureTasks(req.Tasks); err != nil {
+			if err := c.ConfigureTasks(req.Tasks, notify); err != nil {
 				packet.Response(NewResKO(err))
 			} else {
 				packet.Response(NewResOK())

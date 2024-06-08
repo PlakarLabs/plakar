@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/poolpOrg/go-agentbuilder/protocol"
 )
 
@@ -73,11 +74,38 @@ func NewResPing(ping ReqPing) ResPing {
 	}
 }
 
-type ReqPushConfiguration struct {
+type Task struct {
+	ID          uuid.UUID
+	Name        string
+	Origin      string
+	Destination string
+
+	StartAT  time.Time
+	Interval time.Duration
+	Keep     time.Duration
 }
 
-func NewReqPushConfiguration() ReqPushConfiguration {
-	return ReqPushConfiguration{}
+func NewTask(id uuid.UUID, name string, origin string, destination string, startAt time.Time, interval time.Duration, keep time.Duration) Task {
+	return Task{
+		ID:          uuid.New(),
+		Name:        name,
+		Origin:      origin,
+		Destination: destination,
+
+		StartAT:  startAt,
+		Interval: interval,
+		Keep:     keep,
+	}
+}
+
+type ReqPushConfiguration struct {
+	Tasks []Task
+}
+
+func NewReqPushConfiguration(tasks []Task) ReqPushConfiguration {
+	return ReqPushConfiguration{
+		Tasks: tasks,
+	}
 }
 
 type ResOK struct {

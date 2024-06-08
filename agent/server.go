@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/poolpOrg/go-agentbuilder/protocol"
 	"github.com/poolpOrg/go-agentbuilder/server"
 )
@@ -79,11 +78,12 @@ func (s *Server) serverHandler(session *server.Session, incoming <-chan protocol
 		return err
 	}
 
-	tasks := []Task{
-		NewTask(uuid.Must(uuid.NewRandom()), "configurations", "/private/etc", "", time.Now(), 10*time.Second, time.Minute),
-		NewTask(uuid.Must(uuid.NewRandom()), "home directory", "/Users/gilles", "", time.Now(), time.Minute, time.Hour),
-		NewTask(uuid.Must(uuid.NewRandom()), "work directory", "/Users/gilles/Wip", "", time.Now(), 30*time.Second, 5*time.Minute),
-	}
+	//	tasks := []Task{
+	//		NewTask(uuid.Must(uuid.NewRandom()), "configurations", "/private/etc", "", time.Now(), 10*time.Second, time.Minute),
+	//		NewTask(uuid.Must(uuid.NewRandom()), "home directory", "/Users/gilles", "", time.Now(), time.Minute, time.Hour),
+	//		NewTask(uuid.Must(uuid.NewRandom()), "work directory", "/Users/gilles/Wip", "", time.Now(), 30*time.Second, 5*time.Minute),
+	//	}
+	tasks := []Task{}
 
 	// push configuration
 	err = session.Query(NewReqPushConfiguration(tasks), func(response interface{}) error {

@@ -2,150 +2,110 @@ package agent
 
 import (
 	"crypto/ed25519"
-	"encoding/gob"
-	"net"
-	"sync"
+	"os"
+	"runtime"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/poolpOrg/go-agentbuilder/protocol"
 )
 
 const VERSION = "1.0.0"
 
-type Protocol struct {
-	conn    net.Conn
-	encoder *gob.Encoder
-	decoder *gob.Decoder
-	mu      sync.Mutex
-
-	inflightRequests map[uuid.UUID]chan Packet
-	notifications    chan Packet
+type ReqIdentify struct {
+	Timestamp time.Time
+	PublicKey ed25519.PublicKey
+	Version   string
 }
 
-func NewProtocol(conn net.Conn) *Protocol {
-	return &Protocol{
-		conn:             conn,
-		encoder:          gob.NewEncoder(conn),
-		decoder:          gob.NewDecoder(conn),
-		inflightRequests: make(map[uuid.UUID]chan Packet),
-		notifications:    make(chan Packet),
+func NewReqIdentify(publicKey ed25519.PublicKey) ReqIdentify {
+	return ReqIdentify{
+		Timestamp: time.Now(),
+		PublicKey: publicKey,
+		Version:   VERSION,
 	}
 }
 
-func (p *Protocol) Request(Payload interface{}) error {
-	request := p.NewRequest(Payload)
-	return p.encoder.Encode(&request)
+type ResIdentify struct {
+	Timestamp       time.Time
+	PublicKey       ed25519.PublicKey
+	Version         string
+	OperatingSystem string
+	Architecture    string
+	Hostname        string
+	NumCPU          int
 }
 
-func (p *Protocol) Query(Payload interface{}, cb func(interface{}) error) error {
-	request := p.NewRequest(Payload)
-
-	notify := make(chan Packet)
-	p.mu.Lock()
-	p.inflightRequests[request.Uuid] = notify
-	p.mu.Unlock()
-
-	err := p.encoder.Encode(&request)
+func NewResIdentify(publicKey ed25519.PublicKey) ResIdentify {
+	hostname, err := os.Hostname()
 	if err != nil {
-		return err
+		hostname = "unknown"
 	}
-
-	result := <-notify
-	p.mu.Lock()
-	delete(p.inflightRequests, request.Uuid)
-	p.mu.Unlock()
-	close(notify)
-
-	return cb(result.Payload)
-}
-
-func (p *Protocol) Incoming() <-chan Packet {
-	pchan := make(chan Packet)
-	go func() {
-		for m := range p.notifications {
-			p.mu.Lock()
-			notify := p.inflightRequests[m.Uuid]
-			p.mu.Unlock()
-			notify <- m
-		}
-	}()
-
-	go func() {
-		defer p.conn.Close()
-		defer close(pchan)
-		for {
-			result := Packet{}
-			err := p.decoder.Decode(&result)
-			if err != nil {
-				return
-			}
-			result.protocol = p
-			p.mu.Lock()
-			_, ok := p.inflightRequests[result.Uuid]
-			p.mu.Unlock()
-			if ok {
-				p.notifications <- result
-			} else {
-				pchan <- result
-			}
-		}
-	}()
-
-	return pchan
-}
-
-func (p *Protocol) NewRequest(payload interface{}) Packet {
-	Uuid, err := uuid.NewRandom()
-	if err != nil {
-		return Packet{}
+	return ResIdentify{
+		Timestamp:       time.Now(),
+		PublicKey:       publicKey,
+		Version:         VERSION,
+		OperatingSystem: runtime.GOOS,
+		Architecture:    runtime.GOARCH,
+		Hostname:        hostname,
+		NumCPU:          runtime.NumCPU(),
 	}
-	return Packet{
-		protocol: p,
-		Uuid:     Uuid,
-		Payload:  payload,
-	}
-}
-
-type Packet struct {
-	protocol *Protocol
-	Uuid     uuid.UUID
-	Payload  interface{}
-}
-
-func (p Packet) Response(payload interface{}) error {
-	return p.protocol.encoder.Encode(&Packet{
-		Uuid:    p.Uuid,
-		Payload: payload,
-	})
 }
 
 type ReqPing struct {
 	Timestamp time.Time
 }
 
+func NewReqPing() ReqPing {
+	return ReqPing{
+		Timestamp: time.Now(),
+	}
+}
+
 type ResPing struct {
 	Timestamp time.Time
+	Latency   time.Duration
 }
 
-type ReqIdentify struct {
-	PublicKey ed25519.PublicKey
+func NewResPing(ping ReqPing) ResPing {
+	return ResPing{
+		Timestamp: time.Now(),
+		Latency:   time.Since(ping.Timestamp),
+	}
 }
 
-type ResIdentify struct {
-	PublicKey       ed25519.PublicKey
-	OperatingSystem string
-	Architecture    string
-	ProtocolVersion string
-	Hostname        string
-	NumCPU          int
+type ReqPushConfiguration struct {
 }
 
-func ProtocolRegister() {
-	gob.Register(Packet{})
+func NewReqPushConfiguration() ReqPushConfiguration {
+	return ReqPushConfiguration{}
+}
 
-	gob.Register(ReqPing{})
-	gob.Register(ResPing{})
+type ResOK struct {
+}
 
-	gob.Register(ReqIdentify{})
-	gob.Register(ResIdentify{})
+func NewResOK() ResOK {
+	return ResOK{}
+}
+
+type ResKO struct {
+	Err string
+}
+
+func NewResKO(err error) ResKO {
+	return ResKO{
+		Err: err.Error(),
+	}
+}
+
+func init() {
+	protocol.Register(ReqIdentify{})
+	protocol.Register(ResIdentify{})
+
+	protocol.Register(ReqPing{})
+	protocol.Register(ResPing{})
+
+	protocol.Register(ReqPushConfiguration{})
+
+	protocol.Register(ResOK{})
+	protocol.Register(ResKO{})
 }

@@ -480,3 +480,20 @@ func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, e
 	repositoryIndex.ResetDirty()
 	return repositoryIndex, nil
 }
+
+func HumanToDuration(human string) (time.Duration, error) {
+	// support either one of the following:
+	// - time.Duration string
+	// - human readable string (e.g. 1h, 1d, 1w, 1m, 1y)
+	// - human readable string with time.Duration suffix (e.g. 1h30m, 1d12h, 1w3d, 1m2w, 1y1m)
+
+	// first we check if it's a time.Duration string
+	duration, err := time.ParseDuration(human)
+	if err == nil {
+		return duration, nil
+	}
+
+	// TODO-handle iteratively constructed human readable strings
+
+	return 0, fmt.Errorf("invalid duration: %s", human)
+}

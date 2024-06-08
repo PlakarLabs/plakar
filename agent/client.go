@@ -51,15 +51,15 @@ func (c *Client) ConfigureTasks(tasks []Task) error {
 		}
 		c.scheduler[task.ID] = make(chan bool)
 		go func(_task Task) {
-			fmt.Println("scheduling task", _task.Name, "every", _task.Interval.String(), "keep for", _task.Keep.String(), "=>", _task.Origin)
+			fmt.Println("scheduling task", _task.Name, "every", _task.Interval.String(), "keep for", _task.Keep.String(), "=>", _task.Source)
 			<-time.After(time.Until(_task.StartAT))
 			for {
 				select {
 				case <-c.scheduler[_task.ID]:
 					return
 				case <-time.After(_task.Interval):
-					fmt.Printf("[%s] %s: %s\n", time.Now().UTC(), _task.Name, _task.Origin)
-					exec.Command(os.Args[0], "push", "-tag", _task.Name, _task.Origin).Run()
+					fmt.Printf("[%s] %s: %s\n", time.Now().UTC(), _task.Name, _task.Source)
+					exec.Command(os.Args[0], "push", "-tag", _task.Name, _task.Source).Run()
 
 					if _task.Keep > 0 {
 						now := time.Now()

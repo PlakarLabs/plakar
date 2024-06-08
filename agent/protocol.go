@@ -77,7 +77,7 @@ func NewResPing(ping ReqPing) ResPing {
 type Task struct {
 	ID          uuid.UUID
 	Name        string
-	Origin      string
+	Source      string
 	Destination string
 
 	StartAT  time.Time
@@ -85,11 +85,11 @@ type Task struct {
 	Keep     time.Duration
 }
 
-func NewTask(id uuid.UUID, name string, origin string, destination string, startAt time.Time, interval time.Duration, keep time.Duration) Task {
+func NewTask(id uuid.UUID, name string, source string, destination string, startAt time.Time, interval time.Duration, keep time.Duration) Task {
 	return Task{
 		ID:          uuid.New(),
 		Name:        name,
-		Origin:      origin,
+		Source:      source,
 		Destination: destination,
 
 		StartAT:  startAt,

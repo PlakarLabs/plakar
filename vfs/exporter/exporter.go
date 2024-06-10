@@ -17,7 +17,7 @@ type ExporterBackend interface {
 	Begin(config string) error
 	Root() string
 	CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error
-	StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error
+	StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error
 	End() error
 }
 
@@ -118,7 +118,7 @@ func (exporter *Exporter) CreateDirectory(pathname string, fileinfo *vfs.FileInf
 	return exporter.backend.CreateDirectory(pathname, fileinfo)
 }
 
-func (exporter *Exporter) Store(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error {
+func (exporter *Exporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.exporter.Store", time.Since(t0))

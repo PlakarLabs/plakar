@@ -17,7 +17,6 @@
 package fs
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -61,15 +60,17 @@ func (p *FSExporter) CreateDirectory(pathname string, fileinfo *vfs.FileInfo) er
 	return nil
 }
 
-func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error {
+func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error {
 	f, err := os.Create(pathname)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	fmt.Println(pathname, fp)
-
+	if _, err := io.Copy(f, fp); err != nil {
+		logger.Warn("copy failure: %s: %s", pathname, err)
+		f.Close()
+		return err
+	}
 	if err := f.Sync(); err != nil {
 		logger.Warn("sync failure: %s: %s", pathname, err)
 	}
@@ -84,7 +85,6 @@ func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Re
 			logger.Warn("chown failure: %s: %s", pathname, err)
 		}
 	}
-
 	return nil
 }
 

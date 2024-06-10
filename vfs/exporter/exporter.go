@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,27 +58,21 @@ func NewExporter(location string) (*Exporter, error) {
 	defer muBackends.Unlock()
 
 	var backendName string
-	backendName = "fs"
-	/*
-		var backendName string
-		if !strings.HasPrefix(location, "/") {
-			if strings.HasPrefix(location, "s3://") {
-				backendName = "s3"
-			} else if strings.HasPrefix(location, "imap://") {
-				backendName = "imap"
-			} else if strings.HasPrefix(location, "fs://") {
-				backendName = "fs"
-			} else {
-				if strings.Contains(location, "://") {
-					return nil, fmt.Errorf("unsupported importer protocol")
-				} else {
-					backendName = "fs"
-				}
-			}
-		} else {
+	if !strings.HasPrefix(location, "/") {
+		if strings.HasPrefix(location, "s3://") {
+			backendName = "s3"
+		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
+		} else {
+			if strings.Contains(location, "://") {
+				return nil, fmt.Errorf("unsupported importer protocol")
+			} else {
+				backendName = "fs"
+			}
 		}
-	*/
+	} else {
+		backendName = "fs"
+	}
 
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)

@@ -43,7 +43,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	flags := flag.NewFlagSet("pull", flag.ExitOnError)
-	flags.StringVar(&pullPath, "path", "", "base directory where pull will restore")
+	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
 
@@ -52,14 +52,17 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 		if err != nil {
 			log.Fatal(err)
 		}
-		exporterInstance.Begin(dir)
+		if err := exporterInstance.Begin(dir); err != nil {
+			log.Fatal(err)
+		}
 	} else {
-		exporterInstance, err = exporter.NewExporter("fs")
+		exporterInstance, err = exporter.NewExporter(pullPath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		exporterInstance.Begin(dir)
-		return 0
+		if err := exporterInstance.Begin(pullPath); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if flags.NArg() == 0 {

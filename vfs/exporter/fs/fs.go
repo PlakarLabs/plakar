@@ -19,8 +19,11 @@ package fs
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
@@ -51,8 +54,37 @@ func (p *FSExporter) Root() string {
 	return p.rootDir
 }
 
-func (p *FSExporter) Store(pathname string, fp io.ReadCloser) error {
+func (p *FSExporter) CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error {
+	os.MkdirAll(pathname, 0700)
+	os.Chmod(pathname, fileinfo.Mode())
+	os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid()))
+	return nil
+}
+
+func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error {
+	f, err := os.Create(pathname)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
 	fmt.Println(pathname, fp)
+
+	if err := f.Sync(); err != nil {
+		logger.Warn("sync failure: %s: %s", pathname, err)
+	}
+	if err := f.Close(); err != nil {
+		logger.Warn("close failure: %s: %s", pathname, err)
+	}
+	if err := os.Chmod(pathname, fileinfo.Mode()); err != nil {
+		logger.Warn("chmod failure: %s: %s", pathname, err)
+	}
+	if err := os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid())); err != nil {
+		if err == os.ErrPermission {
+			logger.Warn("chown failure: %s: %s", pathname, err)
+		}
+	}
+
 	return nil
 }
 

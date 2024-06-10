@@ -67,10 +67,9 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			dest = filepath.FromSlash(dest)
-
-			os.MkdirAll(dest, 0700)
-			os.Chmod(dest, fi.Mode())
-			os.Chown(dest, int(fi.Uid()), int(fi.Gid()))
+			if err := exp.CreateDirectory(dest, fi); err != nil {
+				logger.Warn("failed to create restored directory %s: %s", dest, err)
+			}
 			directoriesCount++
 		}(directory)
 	}

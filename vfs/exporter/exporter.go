@@ -10,12 +10,14 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/vfs"
 )
 
 type ExporterBackend interface {
 	Begin(config string) error
 	Root() string
-	Store(pathname string, fp io.ReadCloser) error
+	CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error
+	StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error
 	End() error
 }
 
@@ -106,14 +108,24 @@ func (exporter *Exporter) Root() string {
 	return exporter.backend.Root()
 }
 
-func (exporter *Exporter) Store(pathname string, fp io.ReadCloser) error {
+func (exporter *Exporter) CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.exporter.CreateDirectory", time.Since(t0))
+		logger.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
+	}()
+
+	return exporter.backend.CreateDirectory(pathname, fileinfo)
+}
+
+func (exporter *Exporter) Store(pathname string, fileinfo *vfs.FileInfo, fp io.ReadCloser) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.exporter.Store", time.Since(t0))
 		logger.Trace("vfs", "exporter.Store(%s): %s", pathname, time.Since(t0))
 	}()
 
-	return exporter.backend.Store(pathname, fp)
+	return exporter.backend.StoreFile(pathname, fileinfo, fp)
 }
 
 func (exporter *Exporter) End() error {

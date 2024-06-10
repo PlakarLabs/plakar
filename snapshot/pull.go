@@ -15,7 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
-func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
+func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -31,7 +31,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 
 	/* if pattern is a file, we rebase dpattern to parent */
 	//patternIsFile := false
-	if _, ok := snapshot.Filesystem.LookupInodeForFile(fpattern); ok {
+	if _, ok := s.Filesystem.LookupInodeForFile(fpattern); ok {
 		//patternIsFile = true
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
@@ -40,7 +40,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 	}
 
 	directoriesCount := 0
-	for _, directory := range snapshot.Filesystem.ListDirectories() {
+	for _, directory := range s.Filesystem.ListDirectories() {
 		if dpattern != "" {
 			if directory != dpattern &&
 				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
@@ -56,7 +56,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 
 			var dest string
 
-			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
+			fi, _ := s.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(filepath.Join(".", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
 				dest = filepath.Join(exp.Root(), directory[len(dpattern):])
@@ -64,7 +64,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 				dest = filepath.Join(exp.Root(), directory)
 			}
 
-			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", s.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			dest = filepath.FromSlash(dest)
 			if err := exp.CreateDirectory(dest, fi); err != nil {
@@ -77,7 +77,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, filename := range snapshot.Filesystem.ListFiles() {
+	for _, filename := range s.Filesystem.ListFiles() {
 		if fpattern != "" {
 			if filename != fpattern &&
 				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
@@ -92,7 +92,7 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 
 			var dest string
 
-			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
+			fi, _ := s.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(filepath.Join(".", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = filepath.Join(exp.Root(), file[len(dpattern):])
@@ -101,18 +101,18 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 			}
 			dest = filepath.Clean(dest)
 
-			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+			hasher := encryption.GetHasher(s.repository.Configuration().Hashing)
 			hasher.Write([]byte(file))
 			pathnameChecksum := hasher.Sum(nil)
 			key := [32]byte{}
 			copy(key[:], pathnameChecksum)
-			object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+			object := s.Index.LookupObjectForPathnameChecksum(key)
 			if object == nil {
 				logger.Warn("skipping %s", rel)
 				return
 			}
 
-			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
+			logger.Trace("snapshot", "snapshot %s: create %s, mode=%s, uid=%d, gid=%d", s.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
 
 			dest = filepath.FromSlash(dest)
 
@@ -122,23 +122,23 @@ func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern stri
 				return
 			}
 
-			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+			objectHasher := encryption.GetHasher(s.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
-				data, err := snapshot.GetChunk(chunkChecksum)
+				data, err := s.GetChunk(chunkChecksum)
 				if err != nil {
 					logger.Warn("failed to obtain chunk %064x for %s: %s", chunkChecksum, dest, err)
 					f.Close()
 					continue
 				}
 
-				chunk := snapshot.Index.LookupChunk(chunkChecksum)
+				chunk := s.Index.LookupChunk(chunkChecksum)
 
 				if len(data) != int(chunk.Length) {
 					logger.Warn("chunk length mismatch: got=%d, expected=%d", len(data), int(chunk.Length))
 					f.Close()
 					continue
 				} else {
-					chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+					chunkHasher := encryption.GetHasher(s.repository.Configuration().Hashing)
 					chunkHasher.Write(data)
 					if !bytes.Equal(chunk.Checksum[:], chunkHasher.Sum(nil)) {
 						logger.Warn("chunk checksums mismatch: got=%064x, expected=%064x", chunkHasher.Sum(nil), chunk.Checksum[:])

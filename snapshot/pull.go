@@ -12,9 +12,10 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
-func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
+func (snapshot *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -58,9 +59,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			fi, _ := snapshot.Filesystem.LookupInodeForDirectory(directory)
 			rel := path.Clean(filepath.Join(".", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
-				dest = filepath.Join(root, directory[len(dpattern):])
+				dest = filepath.Join(exp.Root(), directory[len(dpattern):])
 			} else {
-				dest = filepath.Join(root, directory)
+				dest = filepath.Join(exp.Root(), directory)
 			}
 
 			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", snapshot.Header.GetIndexShortID(), rel, fi.Mode().String(), fi.Uid, fi.Gid)
@@ -95,9 +96,9 @@ func (snapshot *Snapshot) Pull(root string, rebase bool, pattern string) {
 			fi, _ := snapshot.Filesystem.LookupInodeForFile(file)
 			rel := path.Clean(filepath.Join(".", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
-				dest = filepath.Join(root, file[len(dpattern):])
+				dest = filepath.Join(exp.Root(), file[len(dpattern):])
 			} else {
-				dest = filepath.Join(root, file)
+				dest = filepath.Join(exp.Root(), file)
 			}
 			dest = filepath.Clean(dest)
 

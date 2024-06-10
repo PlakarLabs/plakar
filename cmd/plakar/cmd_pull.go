@@ -25,6 +25,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
 func init() {
@@ -34,6 +35,7 @@ func init() {
 func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
+	var exporterInstance *exporter.Exporter
 
 	dir, err := os.Getwd()
 	if err != nil {
@@ -41,9 +43,24 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	flags := flag.NewFlagSet("pull", flag.ExitOnError)
-	flags.StringVar(&pullPath, "path", dir, "base directory where pull will restore")
+	flags.StringVar(&pullPath, "path", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
+
+	if pullPath == "" {
+		exporterInstance, err = exporter.NewExporter("fs")
+		if err != nil {
+			log.Fatal(err)
+		}
+		exporterInstance.Begin(dir)
+	} else {
+		exporterInstance, err = exporter.NewExporter("fs")
+		if err != nil {
+			log.Fatal(err)
+		}
+		exporterInstance.Begin(dir)
+		return 0
+	}
 
 	if flags.NArg() == 0 {
 		metadatas, err := getHeaders(repository, nil)
@@ -59,7 +76,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 					if err != nil {
 						return 1
 					}
-					snap.Pull(pullPath, true, dir)
+					snap.Pull(exporterInstance, true, dir)
 					return 0
 				}
 			}
@@ -75,7 +92,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 
 	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snap.Pull(pullPath, pullRebase, pattern)
+		snap.Pull(exporterInstance, pullRebase, pattern)
 	}
 
 	return 0

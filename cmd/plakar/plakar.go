@@ -33,6 +33,8 @@ import (
 	_ "github.com/PlakarLabs/plakar/vfs/importer/fs"
 	_ "github.com/PlakarLabs/plakar/vfs/importer/imap"
 	_ "github.com/PlakarLabs/plakar/vfs/importer/s3"
+
+	_ "github.com/PlakarLabs/plakar/vfs/exporter/fs"
 )
 
 type Plakar struct {

@@ -20,7 +20,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608080245-153b04ffcafe
+	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608155005-a8f77b2e95e5
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeebo/blake3 v0.2.3

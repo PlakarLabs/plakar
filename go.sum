@@ -79,6 +79,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/poolpOrg/go-agentbuilder v0.0.0-20240608080245-153b04ffcafe h1:Oa5C5I8XusbTmpkSA2zblNwJq+Kz0c+EywNzRZt7DdM=
 github.com/poolpOrg/go-agentbuilder v0.0.0-20240608080245-153b04ffcafe/go.mod h1:BxSQ7A1lCcaYfRw5u9iEeb97h2fw7lYji8qACYUxzm0=
+github.com/poolpOrg/go-agentbuilder v0.0.0-20240608155005-a8f77b2e95e5 h1:fsrlgpzo91NF/XyVkHb9DN8lT3nxMWcYgaiQDuiOiWk=
+github.com/poolpOrg/go-agentbuilder v0.0.0-20240608155005-a8f77b2e95e5/go.mod h1:BxSQ7A1lCcaYfRw5u9iEeb97h2fw7lYji8qACYUxzm0=
 github.com/rs/xid v1.5.0 h1:mKX4bl4iPYJtEIxp6CYiUuLQ/8DYMoz0PUdtGgMFRVc=
 github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=

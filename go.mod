@@ -50,5 +50,3 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
-
-replace github.com/poolpOrg/go-agentbuilder => /Users/gilles/Wip/github.com/poolpOrg/go-agentbuilder

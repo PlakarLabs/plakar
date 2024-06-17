@@ -24,7 +24,7 @@ func openRepository(w http.ResponseWriter, r *http.Request) {
 
 	var resOpen network.ResOpen
 	resOpen.RepositoryConfig = &config
-	resOpen.Err = nil
+	resOpen.Err = ""
 	if err := json.NewEncoder(w).Encode(resOpen); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -44,7 +44,7 @@ func closeRepository(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resClose network.ResClose
-	resClose.Err = nil
+	resClose.Err = ""
 	if err := json.NewEncoder(w).Encode(resClose); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -62,7 +62,7 @@ func getSnapshots(w http.ResponseWriter, r *http.Request) {
 	var resGetSnapshots network.ResGetSnapshots
 	snapshots, err := lrepository.GetSnapshots()
 	if err != nil {
-		resGetSnapshots.Err = err
+		resGetSnapshots.Err = err.Error()
 	} else {
 		resGetSnapshots.Snapshots = snapshots
 	}
@@ -80,7 +80,10 @@ func putSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutSnapshot network.ResPutSnapshot
-	resPutSnapshot.Err = lrepository.PutSnapshot(reqPutSnapshot.IndexID, reqPutSnapshot.Data)
+	err := lrepository.PutSnapshot(reqPutSnapshot.IndexID, reqPutSnapshot.Data)
+	if err != nil {
+		resPutSnapshot.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resPutSnapshot); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -97,7 +100,7 @@ func getSnapshot(w http.ResponseWriter, r *http.Request) {
 	var resGetSnapshot network.ResGetSnapshot
 	data, err := lrepository.GetSnapshot(reqGetSnapshot.IndexID)
 	if err != nil {
-		resGetSnapshot.Err = err
+		resGetSnapshot.Err = err.Error()
 	} else {
 		resGetSnapshot.Data = data
 	}
@@ -120,7 +123,10 @@ func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteSnapshot network.ResDeleteSnapshot
-	resDeleteSnapshot.Err = lrepository.DeleteSnapshot(reqDeleteSnapshot.IndexID)
+	err := lrepository.DeleteSnapshot(reqDeleteSnapshot.IndexID)
+	if err != nil {
+		resDeleteSnapshot.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resDeleteSnapshot); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -135,7 +141,11 @@ func commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var ResCommit network.ResCommit
-	ResCommit.Err = lrepository.Commit(ReqCommit.IndexID, ReqCommit.Data)
+	err := lrepository.Commit(ReqCommit.IndexID, ReqCommit.Data)
+	if err != nil {
+		ResCommit.Err = err.Error()
+	}
+
 	if err := json.NewEncoder(w).Encode(ResCommit); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -153,7 +163,7 @@ func getLocks(w http.ResponseWriter, r *http.Request) {
 	var resGetLocks network.ResGetLocks
 	locks, err := lrepository.GetLocks()
 	if err != nil {
-		resGetLocks.Err = err
+		resGetLocks.Err = err.Error()
 	} else {
 		resGetLocks.Locks = locks
 	}
@@ -171,7 +181,10 @@ func putLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutLock network.ResPutLock
-	resPutLock.Err = lrepository.PutLock(reqPutLock.IndexID, reqPutLock.Data)
+	err := lrepository.PutLock(reqPutLock.IndexID, reqPutLock.Data)
+	if err != nil {
+		resPutLock.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resPutLock); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -188,7 +201,7 @@ func getLock(w http.ResponseWriter, r *http.Request) {
 	var resGetLock network.ResGetLock
 	data, err := lrepository.GetLock(reqGetLock.IndexID)
 	if err != nil {
-		resGetLock.Err = err
+		resGetLock.Err = err.Error()
 	} else {
 		resGetLock.Data = data
 	}
@@ -206,7 +219,10 @@ func deleteLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteLock network.ResDeleteLock
-	resDeleteLock.Err = lrepository.DeleteLock(reqDeleteLock.IndexID)
+	err := lrepository.DeleteLock(reqDeleteLock.IndexID)
+	if err != nil {
+		resDeleteLock.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resDeleteLock); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -224,7 +240,7 @@ func getBlobs(w http.ResponseWriter, r *http.Request) {
 	var resGetBlobs network.ResGetBlobs
 	checksums, err := lrepository.GetBlobs()
 	if err != nil {
-		resGetBlobs.Err = err
+		resGetBlobs.Err = err.Error()
 	} else {
 		resGetBlobs.Checksums = checksums
 	}
@@ -242,7 +258,10 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutBlob network.ResPutBlob
-	resPutBlob.Err = lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
+	err := lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
+	if err != nil {
+		resPutBlob.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resPutBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -259,7 +278,7 @@ func checkBlob(w http.ResponseWriter, r *http.Request) {
 	var resCheckBlob network.ResCheckBlob
 	exists, err := lrepository.CheckBlob(reqCheckBlob.Checksum)
 	if err != nil {
-		resCheckBlob.Err = err
+		resCheckBlob.Err = err.Error()
 	} else {
 		resCheckBlob.Exists = exists
 	}
@@ -279,7 +298,7 @@ func getBlob(w http.ResponseWriter, r *http.Request) {
 	var resGetBlob network.ResGetBlob
 	data, err := lrepository.GetBlob(reqGetBlob.Checksum)
 	if err != nil {
-		resGetBlob.Err = err
+		resGetBlob.Err = err.Error()
 	} else {
 		resGetBlob.Data = data
 	}
@@ -302,7 +321,10 @@ func deleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteBlob network.ResDeleteBlob
-	resDeleteBlob.Err = lrepository.DeleteBlob(reqDeleteBlob.Checksum)
+	err := lrepository.DeleteBlob(reqDeleteBlob.Checksum)
+	if err != nil {
+		resDeleteBlob.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resDeleteBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -320,7 +342,7 @@ func getIndexes(w http.ResponseWriter, r *http.Request) {
 	var resGetIndexes network.ResGetIndexes
 	indexes, err := lrepository.GetIndexes()
 	if err != nil {
-		resGetIndexes.Err = err
+		resGetIndexes.Err = err.Error()
 	} else {
 		resGetIndexes.Checksums = indexes
 	}
@@ -338,7 +360,10 @@ func putIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutIndex network.ResPutIndex
-	resPutIndex.Err = lrepository.PutIndex(reqPutIndex.Checksum, reqPutIndex.Data)
+	err := lrepository.PutIndex(reqPutIndex.Checksum, reqPutIndex.Data)
+	if err != nil {
+		resPutIndex.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resPutIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -355,7 +380,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	var resGetIndex network.ResGetIndex
 	data, err := lrepository.GetIndex(reqGetIndex.Checksum)
 	if err != nil {
-		resGetIndex.Err = err
+		resGetIndex.Err = err.Error()
 	} else {
 		resGetIndex.Data = data
 	}
@@ -378,7 +403,10 @@ func deleteIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteIndex network.ResDeleteIndex
-	resDeleteIndex.Err = lrepository.DeleteIndex(reqDeleteIndex.Checksum)
+	err := lrepository.DeleteIndex(reqDeleteIndex.Checksum)
+	if err != nil {
+		resDeleteIndex.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resDeleteIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -396,7 +424,7 @@ func getPackfiles(w http.ResponseWriter, r *http.Request) {
 	var resGetPackfiles network.ResGetPackfiles
 	packfiles, err := lrepository.GetPackfiles()
 	if err != nil {
-		resGetPackfiles.Err = err
+		resGetPackfiles.Err = err.Error()
 	} else {
 		resGetPackfiles.Checksums = packfiles
 	}
@@ -414,7 +442,10 @@ func putPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutPackfile network.ResPutPackfile
-	resPutPackfile.Err = lrepository.PutPackfile(reqPutPackfile.Checksum, reqPutPackfile.Data)
+	err := lrepository.PutPackfile(reqPutPackfile.Checksum, reqPutPackfile.Data)
+	if err != nil {
+		resPutPackfile.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resPutPackfile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -431,7 +462,7 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	var resGetPackfile network.ResGetPackfile
 	data, err := lrepository.GetPackfile(reqGetPackfile.Checksum)
 	if err != nil {
-		resGetPackfile.Err = err
+		resGetPackfile.Err = err.Error()
 	} else {
 		resGetPackfile.Data = data
 	}
@@ -451,7 +482,7 @@ func getPackfileSubpart(w http.ResponseWriter, r *http.Request) {
 	var resGetPackfileSubpart network.ResGetPackfileSubpart
 	data, err := lrepository.GetPackfileSubpart(reqGetPackfileSubpart.Checksum, reqGetPackfileSubpart.Offset, reqGetPackfileSubpart.Length)
 	if err != nil {
-		resGetPackfileSubpart.Err = err
+		resGetPackfileSubpart.Err = err.Error()
 	} else {
 		resGetPackfileSubpart.Data = data
 	}
@@ -474,7 +505,10 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeletePackfile network.ResDeletePackfile
-	resDeletePackfile.Err = lrepository.DeletePackfile(reqDeletePackfile.Checksum)
+	err := lrepository.DeletePackfile(reqDeletePackfile.Checksum)
+	if err != nil {
+		resDeletePackfile.Err = err.Error()
+	}
 	if err := json.NewEncoder(w).Encode(resDeletePackfile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

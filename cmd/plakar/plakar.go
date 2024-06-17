@@ -33,6 +33,9 @@ import (
 	_ "github.com/PlakarLabs/plakar/vfs/importer/fs"
 	_ "github.com/PlakarLabs/plakar/vfs/importer/imap"
 	_ "github.com/PlakarLabs/plakar/vfs/importer/s3"
+
+	_ "github.com/PlakarLabs/plakar/vfs/exporter/fs"
+	_ "github.com/PlakarLabs/plakar/vfs/exporter/s3"
 )
 
 type Plakar struct {
@@ -49,6 +52,7 @@ type Plakar struct {
 	KeyFromFile string
 
 	maxConcurrency chan struct{}
+	onProvided     bool
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
@@ -197,6 +201,11 @@ func entryPoint() int {
 	loggerWait := logger.Start()
 
 	command, args := flag.Args()[0], flag.Args()[1:]
+
+	if command == "agent" {
+		return cmd_agent(ctx, args)
+	}
+
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
 			log.Fatalf("%s: missing plakar repository", flag.CommandLine.Name())
@@ -205,6 +214,7 @@ func entryPoint() int {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())
 		}
 		ctx.Repository = flag.Arg(1)
+		ctx.onProvided = true
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
@@ -229,9 +239,13 @@ func entryPoint() int {
 		return cmd_version(ctx, args)
 	}
 
+	if command == "stdio" {
+		return cmd_stdio(ctx, args)
+	}
+
 	// special case, server does not need a cache but does not return immediately either
 	skipPassphrase := false
-	if command == "server" || command == "stdio" {
+	if command == "server" {
 		opt_nocache = true
 		skipPassphrase = true
 	}

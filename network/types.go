@@ -19,7 +19,7 @@ type ReqCreate struct {
 }
 
 type ResCreate struct {
-	Err error
+	Err string
 }
 
 type ReqOpen struct {
@@ -28,7 +28,7 @@ type ReqOpen struct {
 
 type ResOpen struct {
 	RepositoryConfig *storage.RepositoryConfig
-	Err              error
+	Err              string
 }
 
 type ReqClose struct {
@@ -36,7 +36,7 @@ type ReqClose struct {
 }
 
 type ResClose struct {
-	Err error
+	Err string
 }
 
 type ReqCommit struct {
@@ -45,7 +45,7 @@ type ReqCommit struct {
 }
 
 type ResCommit struct {
-	Err error
+	Err string
 }
 
 // snapshots
@@ -54,7 +54,7 @@ type ReqGetSnapshots struct {
 
 type ResGetSnapshots struct {
 	Snapshots []uuid.UUID
-	Err       error
+	Err       string
 }
 
 type ReqPutSnapshot struct {
@@ -63,7 +63,7 @@ type ReqPutSnapshot struct {
 }
 
 type ResPutSnapshot struct {
-	Err error
+	Err string
 }
 
 type ReqGetSnapshot struct {
@@ -72,7 +72,7 @@ type ReqGetSnapshot struct {
 
 type ResGetSnapshot struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqDeleteSnapshot struct {
@@ -80,7 +80,7 @@ type ReqDeleteSnapshot struct {
 }
 
 type ResDeleteSnapshot struct {
-	Err error
+	Err string
 }
 
 // snapshots
@@ -89,7 +89,7 @@ type ReqGetLocks struct {
 
 type ResGetLocks struct {
 	Locks []uuid.UUID
-	Err   error
+	Err   string
 }
 
 type ReqPutLock struct {
@@ -98,7 +98,7 @@ type ReqPutLock struct {
 }
 
 type ResPutLock struct {
-	Err error
+	Err string
 }
 
 type ReqGetLock struct {
@@ -107,7 +107,7 @@ type ReqGetLock struct {
 
 type ResGetLock struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqDeleteLock struct {
@@ -115,7 +115,7 @@ type ReqDeleteLock struct {
 }
 
 type ResDeleteLock struct {
-	Err error
+	Err string
 }
 
 // blobs
@@ -124,7 +124,7 @@ type ReqGetBlobs struct {
 
 type ResGetBlobs struct {
 	Checksums [][32]byte
-	Err       error
+	Err       string
 }
 
 type ReqPutBlob struct {
@@ -133,7 +133,7 @@ type ReqPutBlob struct {
 }
 
 type ResPutBlob struct {
-	Err error
+	Err string
 }
 
 type ReqCheckBlob struct {
@@ -142,7 +142,7 @@ type ReqCheckBlob struct {
 
 type ResCheckBlob struct {
 	Exists bool
-	Err    error
+	Err    string
 }
 
 type ReqGetBlob struct {
@@ -151,7 +151,7 @@ type ReqGetBlob struct {
 
 type ResGetBlob struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqDeleteBlob struct {
@@ -159,7 +159,7 @@ type ReqDeleteBlob struct {
 	Data     []byte
 }
 type ResDeleteBlob struct {
-	Err error
+	Err string
 }
 
 // indexes
@@ -168,7 +168,7 @@ type ReqGetIndexes struct {
 
 type ResGetIndexes struct {
 	Checksums [][32]byte
-	Err       error
+	Err       string
 }
 
 type ReqPutIndex struct {
@@ -177,7 +177,7 @@ type ReqPutIndex struct {
 }
 
 type ResPutIndex struct {
-	Err error
+	Err string
 }
 
 type ReqGetIndex struct {
@@ -186,14 +186,14 @@ type ReqGetIndex struct {
 
 type ResGetIndex struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqDeleteIndex struct {
 	Checksum [32]byte
 }
 type ResDeleteIndex struct {
-	Err error
+	Err string
 }
 
 // packfiles
@@ -202,7 +202,7 @@ type ReqGetPackfiles struct {
 
 type ResGetPackfiles struct {
 	Checksums [][32]byte
-	Err       error
+	Err       string
 }
 
 type ReqPutPackfile struct {
@@ -211,7 +211,7 @@ type ReqPutPackfile struct {
 }
 
 type ResPutPackfile struct {
-	Err error
+	Err string
 }
 
 type ReqGetPackfile struct {
@@ -220,7 +220,7 @@ type ReqGetPackfile struct {
 
 type ResGetPackfile struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqGetPackfileSubpart struct {
@@ -231,14 +231,14 @@ type ReqGetPackfileSubpart struct {
 
 type ResGetPackfileSubpart struct {
 	Data []byte
-	Err  error
+	Err  string
 }
 
 type ReqDeletePackfile struct {
 	Checksum [32]byte
 }
 type ResDeletePackfile struct {
-	Err error
+	Err string
 }
 
 func ProtocolRegister() {
@@ -326,5 +326,4 @@ func ProtocolRegister() {
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})
-
 }

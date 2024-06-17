@@ -19,6 +19,7 @@ package http
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
@@ -71,8 +72,8 @@ func (repository *Repository) Open(location string) error {
 	if err := json.NewDecoder(r.Body).Decode(&resOpen); err != nil {
 		return err
 	}
-	if resOpen.Err != nil {
-		return resOpen.Err
+	if resOpen.Err != "" {
+		return fmt.Errorf("%s", resOpen.Err)
 	}
 
 	repository.config = *resOpen.RepositoryConfig
@@ -91,9 +92,10 @@ func (repository *Repository) Close() error {
 	if err := json.NewDecoder(r.Body).Decode(&resClose); err != nil {
 		return err
 	}
-	if resClose.Err != nil {
-		return resClose.Err
+	if resClose.Err != "" {
+		return fmt.Errorf("%s", resClose.Err)
 	}
+
 	return nil
 }
 
@@ -112,8 +114,8 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetSnapshots); err != nil {
 		return nil, err
 	}
-	if resGetSnapshots.Err != nil {
-		return nil, resGetSnapshots.Err
+	if resGetSnapshots.Err != "" {
+		return nil, fmt.Errorf("%s", resGetSnapshots.Err)
 	}
 	return resGetSnapshots.Snapshots, nil
 }
@@ -131,8 +133,8 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	if err := json.NewDecoder(r.Body).Decode(&resPutSnapshot); err != nil {
 		return err
 	}
-	if resPutSnapshot.Err != nil {
-		return resPutSnapshot.Err
+	if resPutSnapshot.Err != "" {
+		return fmt.Errorf("%s", resPutSnapshot.Err)
 	}
 	return nil
 }
@@ -149,8 +151,8 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetSnapshot); err != nil {
 		return nil, err
 	}
-	if resGetSnapshot.Err != nil {
-		return nil, resGetSnapshot.Err
+	if resGetSnapshot.Err != "" {
+		return nil, fmt.Errorf("%s", resGetSnapshot.Err)
 	}
 	return resGetSnapshot.Data, nil
 }
@@ -167,8 +169,8 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	if err := json.NewDecoder(r.Body).Decode(&resDeleteSnapshot); err != nil {
 		return err
 	}
-	if resDeleteSnapshot.Err != nil {
-		return resDeleteSnapshot.Err
+	if resDeleteSnapshot.Err != "" {
+		return fmt.Errorf("%s", resDeleteSnapshot.Err)
 	}
 	return nil
 }
@@ -184,8 +186,8 @@ func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetLocks); err != nil {
 		return nil, err
 	}
-	if resGetLocks.Err != nil {
-		return nil, resGetLocks.Err
+	if resGetLocks.Err != "" {
+		return nil, fmt.Errorf("%s", resGetLocks.Err)
 	}
 	return resGetLocks.Locks, nil
 }
@@ -203,8 +205,8 @@ func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resPutLock); err != nil {
 		return err
 	}
-	if resPutLock.Err != nil {
-		return resPutLock.Err
+	if resPutLock.Err != "" {
+		return fmt.Errorf("%s", resPutLock.Err)
 	}
 	return nil
 }
@@ -221,8 +223,8 @@ func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetLock); err != nil {
 		return nil, err
 	}
-	if resGetLock.Err != nil {
-		return nil, resGetLock.Err
+	if resGetLock.Err != "" {
+		return nil, fmt.Errorf("%s", resGetLock.Err)
 	}
 	return resGetLock.Data, nil
 }
@@ -239,8 +241,8 @@ func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
 	if err := json.NewDecoder(r.Body).Decode(&resDeleteLock); err != nil {
 		return err
 	}
-	if resDeleteLock.Err != nil {
-		return resDeleteLock.Err
+	if resDeleteLock.Err != "" {
+		return fmt.Errorf("%s", resDeleteLock.Err)
 	}
 	return nil
 }
@@ -256,8 +258,8 @@ func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetBlobs); err != nil {
 		return nil, err
 	}
-	if resGetBlobs.Err != nil {
-		return nil, resGetBlobs.Err
+	if resGetBlobs.Err != "" {
+		return nil, fmt.Errorf("%s", resGetBlobs.Err)
 	}
 	return resGetBlobs.Checksums, nil
 }
@@ -275,8 +277,8 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resPutBlob); err != nil {
 		return err
 	}
-	if resPutBlob.Err != nil {
-		return resPutBlob.Err
+	if resPutBlob.Err != "" {
+		return fmt.Errorf("%s", resPutBlob.Err)
 	}
 	return nil
 }
@@ -293,8 +295,8 @@ func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resCheckBlob); err != nil {
 		return false, err
 	}
-	if resCheckBlob.Err != nil {
-		return false, resCheckBlob.Err
+	if resCheckBlob.Err != "" {
+		return false, fmt.Errorf("%s", resCheckBlob.Err)
 	}
 	return resCheckBlob.Exists, nil
 }
@@ -311,8 +313,8 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetBlob); err != nil {
 		return nil, err
 	}
-	if resGetBlob.Err != nil {
-		return nil, resGetBlob.Err
+	if resGetBlob.Err != "" {
+		return nil, fmt.Errorf("%s", resGetBlob.Err)
 	}
 	return resGetBlob.Data, nil
 }
@@ -329,8 +331,8 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resDeleteBlob); err != nil {
 		return err
 	}
-	if resDeleteBlob.Err != nil {
-		return resDeleteBlob.Err
+	if resDeleteBlob.Err != "" {
+		return fmt.Errorf("%s", resDeleteBlob.Err)
 	}
 	return nil
 }
@@ -346,8 +348,8 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetIndexes); err != nil {
 		return nil, err
 	}
-	if resGetIndexes.Err != nil {
-		return nil, resGetIndexes.Err
+	if resGetIndexes.Err != "" {
+		return nil, fmt.Errorf("%s", resGetIndexes.Err)
 	}
 	return resGetIndexes.Checksums, nil
 }
@@ -365,8 +367,8 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resPutIndex); err != nil {
 		return err
 	}
-	if resPutIndex.Err != nil {
-		return resPutIndex.Err
+	if resPutIndex.Err != "" {
+		return fmt.Errorf("%s", resPutIndex.Err)
 	}
 	return nil
 }
@@ -383,8 +385,8 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetIndex); err != nil {
 		return nil, err
 	}
-	if resGetIndex.Err != nil {
-		return nil, resGetIndex.Err
+	if resGetIndex.Err != "" {
+		return nil, fmt.Errorf("%s", resGetIndex.Err)
 	}
 	return resGetIndex.Data, nil
 }
@@ -401,8 +403,8 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resDeleteIndex); err != nil {
 		return err
 	}
-	if resDeleteIndex.Err != nil {
-		return resDeleteIndex.Err
+	if resDeleteIndex.Err != "" {
+		return fmt.Errorf("%s", resDeleteIndex.Err)
 	}
 	return nil
 }
@@ -418,8 +420,8 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetPackfiles); err != nil {
 		return nil, err
 	}
-	if resGetPackfiles.Err != nil {
-		return nil, resGetPackfiles.Err
+	if resGetPackfiles.Err != "" {
+		return nil, fmt.Errorf("%s", resGetPackfiles.Err)
 	}
 	return resGetPackfiles.Checksums, nil
 }
@@ -437,8 +439,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	if err := json.NewDecoder(r.Body).Decode(&resPutPackfile); err != nil {
 		return err
 	}
-	if resPutPackfile.Err != nil {
-		return resPutPackfile.Err
+	if resPutPackfile.Err != "" {
+		return fmt.Errorf("%s", resPutPackfile.Err)
 	}
 	return nil
 }
@@ -455,8 +457,8 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	if err := json.NewDecoder(r.Body).Decode(&resGetPackfile); err != nil {
 		return nil, err
 	}
-	if resGetPackfile.Err != nil {
-		return nil, resGetPackfile.Err
+	if resGetPackfile.Err != "" {
+		return nil, fmt.Errorf("%s", resGetPackfile.Err)
 	}
 	return resGetPackfile.Data, nil
 }
@@ -475,8 +477,8 @@ func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint3
 	if err := json.NewDecoder(r.Body).Decode(&resGetPackfileSubpart); err != nil {
 		return nil, err
 	}
-	if resGetPackfileSubpart.Err != nil {
-		return nil, resGetPackfileSubpart.Err
+	if resGetPackfileSubpart.Err != "" {
+		return nil, fmt.Errorf("%s", resGetPackfileSubpart.Err)
 	}
 	return resGetPackfileSubpart.Data, nil
 }
@@ -493,8 +495,8 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&resDeletePackfile); err != nil {
 		return err
 	}
-	if resDeletePackfile.Err != nil {
-		return resDeletePackfile.Err
+	if resDeletePackfile.Err != "" {
+		return fmt.Errorf("%s", resDeletePackfile.Err)
 	}
 	return nil
 }
@@ -512,8 +514,8 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	if err := json.NewDecoder(r.Body).Decode(&ResCommit); err != nil {
 		return err
 	}
-	if ResCommit.Err != nil {
-		return ResCommit.Err
+	if ResCommit.Err != "" {
+		return fmt.Errorf("%s", ResCommit.Err)
 	}
 	return nil
 }

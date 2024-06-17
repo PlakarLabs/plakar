@@ -348,7 +348,7 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 		return nil, err
 	}
 
-	if result.Payload.(network.ResPutSnapshot).Err != "" {
+	if result.Payload.(network.ResGetSnapshots).Err != "" {
 		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetSnapshots).Err)
 	}
 	return result.Payload.(network.ResGetSnapshots).Snapshots, nil

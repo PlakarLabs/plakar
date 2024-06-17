@@ -239,15 +239,13 @@ func entryPoint() int {
 		return cmd_version(ctx, args)
 	}
 
-	// special case, server does not need a cache but does not return immediately either
-	skipPassphrase := false
 	if command == "stdio" {
-		opt_nocache = true
-		skipPassphrase = true
 		return cmd_stdio(ctx, args)
 	}
 
-	if command == "server" || command == "stdio" {
+	// special case, server does not need a cache but does not return immediately either
+	skipPassphrase := false
+	if command == "server" {
 		opt_nocache = true
 		skipPassphrase = true
 	}

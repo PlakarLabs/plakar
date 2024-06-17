@@ -75,11 +75,11 @@ func handleConnection(rd io.Reader, wr io.Writer, options *ServerOptions) {
 
 				location := request.Payload.(network.ReqOpen).Repository
 				repo, err := storage.Open(location)
-				config := repo.Configuration()
 				var payload network.ResOpen
 				if err != nil {
 					payload = network.ResOpen{RepositoryConfig: nil, Err: err}
 				} else {
+					config := repo.Configuration()
 					payload = network.ResOpen{RepositoryConfig: &config, Err: nil}
 				}
 				lrepository = repo

@@ -306,8 +306,6 @@ func (repository *Repository) Open(location string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(parsed.Host, parsed.Port())
-	fmt.Println(parsed.Path)
 
 	err = repository.connect(parsed)
 	if err != nil {

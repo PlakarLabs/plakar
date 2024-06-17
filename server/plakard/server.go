@@ -73,13 +73,16 @@ func handleConnection(rd io.Reader, wr io.Writer, options *ServerOptions) {
 
 				logger.Trace("server", "%s: Open()", clientUuid)
 
-				config := lrepository.Configuration()
+				location := request.Payload.(network.ReqOpen).Repository
+				repo, err := storage.Open(location)
+				config := repo.Configuration()
 				var payload network.ResOpen
 				if err != nil {
 					payload = network.ResOpen{RepositoryConfig: nil, Err: err}
 				} else {
 					payload = network.ResOpen{RepositoryConfig: &config, Err: nil}
 				}
+				lrepository = repo
 				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",

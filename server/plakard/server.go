@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -14,8 +15,6 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
-
-var lrepository *storage.Repository
 
 type ServerOptions struct {
 	NoOpen   bool
@@ -25,7 +24,6 @@ type ServerOptions struct {
 
 func Server(repository *storage.Repository, addr string, options *ServerOptions) {
 
-	lrepository = repository
 	network.ProtocolRegister()
 
 	l, err := net.Listen("tcp", addr)
@@ -39,24 +37,30 @@ func Server(repository *storage.Repository, addr string, options *ServerOptions)
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(c, c, options)
+		go handleConnection(repository, c, c, options)
 	}
 }
 
 func Stdio(options *ServerOptions) error {
 	network.ProtocolRegister()
 
-	handleConnection(os.Stdin, os.Stdout, options)
+	handleConnection(nil, os.Stdin, os.Stdout, options)
 	return nil
 }
 
-func handleConnection(rd io.Reader, wr io.Writer, options *ServerOptions) {
+func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
+	var lrepository *storage.Repository
+
+	lrepository = repo
+
 	decoder := gob.NewDecoder(rd)
 	encoder := gob.NewEncoder(wr)
 
 	var wg sync.WaitGroup
 	Uuid, _ := uuid.NewRandom()
 	clientUuid := Uuid.String()
+
+	homeDir := os.Getenv("HOME")
 
 	for {
 		request := network.Request{}
@@ -66,6 +70,30 @@ func handleConnection(rd io.Reader, wr io.Writer, options *ServerOptions) {
 		}
 
 		switch request.Type {
+		case "ReqCreate":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				dirPath := request.Payload.(network.ReqCreate).Repository
+				if dirPath == "" {
+					dirPath = filepath.Join(homeDir, ".plakar")
+				}
+
+				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				repo, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				result := network.Request{
+					Uuid:    request.Uuid,
+					Type:    "ResCreate",
+					Payload: network.ResCreate{Err: err},
+				}
+				lrepository = repo
+				err = encoder.Encode(&result)
+				if err != nil {
+					logger.Warn("%s", err)
+				}
+			}()
+
 		case "ReqOpen":
 			wg.Add(1)
 			go func() {

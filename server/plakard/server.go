@@ -552,7 +552,7 @@ func handleConnection(rd io.Reader, wr io.Writer, noDelete bool) {
 					request.Payload.(network.ReqGetPackfileSubpart).Checksum,
 					request.Payload.(network.ReqGetPackfileSubpart).Offset,
 					request.Payload.(network.ReqGetPackfileSubpart).Length)
-				data, err := lrepository.GetPackfileSubpart(request.Payload.(network.ReqGetPackfile).Checksum,
+				data, err := lrepository.GetPackfileSubpart(request.Payload.(network.ReqGetPackfileSubpart).Checksum,
 					request.Payload.(network.ReqGetPackfileSubpart).Offset,
 					request.Payload.(network.ReqGetPackfileSubpart).Length)
 				result := network.Request{

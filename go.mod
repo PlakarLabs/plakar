@@ -1,6 +1,6 @@
 module github.com/PlakarLabs/plakar
 
-go 1.22.2
+go 1.22
 
 require (
 	github.com/PlakarLabs/go-cdc-chunkers v0.0.5
@@ -23,6 +23,7 @@ require (
 	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608155005-a8f77b2e95e5
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
+	github.com/whilp/git-urls v1.0.0
 	github.com/zeebo/blake3 v0.2.3
 	golang.org/x/crypto v0.17.0
 	golang.org/x/term v0.15.0
@@ -44,7 +45,6 @@ require (
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/whilp/git-urls v1.0.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

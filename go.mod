@@ -25,8 +25,8 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/whilp/git-urls v1.0.0
 	github.com/zeebo/blake3 v0.2.3
-	golang.org/x/crypto v0.17.0
-	golang.org/x/term v0.15.0
+	golang.org/x/crypto v0.21.0
+	golang.org/x/term v0.18.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -45,8 +45,8 @@ require (
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect

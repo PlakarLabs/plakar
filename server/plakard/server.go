@@ -162,11 +162,21 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				defer wg.Done()
 
 				logger.Trace("server", "%s: Close()", clientUuid)
+
+				var err error
+				if repo == nil {
+					err = lrepository.Close()
+				}
+				retErr := ""
+				if err != nil {
+					retErr = err.Error()
+				}
+
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResClose",
 					Payload: network.ResClose{
-						Err: "",
+						Err: retErr,
 					},
 				}
 				err = encoder.Encode(&result)

@@ -293,8 +293,8 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 		return err
 	}
 
-	if result.Payload.(network.ResCreate).Err != nil {
-		return result.Payload.(network.ResCreate).Err
+	if result.Payload.(network.ResCreate).Err != "" {
+		return fmt.Errorf("%s", result.Payload.(network.ResCreate).Err)
 	}
 
 	repository.config = config
@@ -319,8 +319,8 @@ func (repository *Repository) Open(location string) error {
 		return err
 	}
 
-	if result.Payload.(network.ResOpen).Err != nil {
-		return result.Payload.(network.ResOpen).Err
+	if result.Payload.(network.ResOpen).Err != "" {
+		return fmt.Errorf("%s", result.Payload.(network.ResOpen).Err)
 	}
 
 	repository.config = *result.Payload.(network.ResOpen).RepositoryConfig
@@ -333,7 +333,7 @@ func (repository *Repository) Close() error {
 		return err
 	}
 
-	return result.Payload.(network.ResClose).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResClose).Err)
 }
 
 func (repository *Repository) Configuration() storage.RepositoryConfig {
@@ -346,7 +346,7 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetSnapshots).Snapshots, result.Payload.(network.ResGetSnapshots).Err
+	return result.Payload.(network.ResGetSnapshots).Snapshots, fmt.Errorf("%s", result.Payload.(network.ResGetSnapshots).Err)
 }
 
 func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
@@ -357,7 +357,7 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResPutSnapshot).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResPutSnapshot).Err)
 }
 
 func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
@@ -367,7 +367,7 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetSnapshot).Data, result.Payload.(network.ResGetSnapshot).Err
+	return result.Payload.(network.ResGetSnapshot).Data, fmt.Errorf("%s", result.Payload.(network.ResGetSnapshot).Err)
 }
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
@@ -378,7 +378,7 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 		return err
 	}
 
-	return result.Payload.(network.ResDeleteSnapshot).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResDeleteSnapshot).Err)
 }
 
 // locks
@@ -387,7 +387,7 @@ func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetLocks).Locks, result.Payload.(network.ResGetLocks).Err
+	return result.Payload.(network.ResGetLocks).Locks, fmt.Errorf("%s", result.Payload.(network.ResGetLocks).Err)
 }
 
 func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
@@ -398,7 +398,7 @@ func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResPutLock).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResPutLock).Err)
 }
 
 func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
@@ -408,7 +408,7 @@ func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetLock).Data, result.Payload.(network.ResGetLock).Err
+	return result.Payload.(network.ResGetLock).Data, fmt.Errorf("%s", result.Payload.(network.ResGetLock).Err)
 }
 
 func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
@@ -419,7 +419,7 @@ func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
 		return err
 	}
 
-	return result.Payload.(network.ResDeleteLock).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResDeleteLock).Err)
 }
 
 // blobs
@@ -428,7 +428,7 @@ func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetBlobs).Checksums, result.Payload.(network.ResGetBlobs).Err
+	return result.Payload.(network.ResGetBlobs).Checksums, fmt.Errorf("%s", result.Payload.(network.ResGetBlobs).Err)
 }
 
 func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
@@ -439,7 +439,7 @@ func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResPutBlob).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResPutBlob).Err)
 }
 
 func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
@@ -449,7 +449,7 @@ func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return result.Payload.(network.ResCheckBlob).Exists, result.Payload.(network.ResCheckBlob).Err
+	return result.Payload.(network.ResCheckBlob).Exists, fmt.Errorf("%s", result.Payload.(network.ResCheckBlob).Err)
 }
 
 func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
@@ -459,7 +459,7 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetBlob).Data, result.Payload.(network.ResGetBlob).Err
+	return result.Payload.(network.ResGetBlob).Data, fmt.Errorf("%s", result.Payload.(network.ResGetBlob).Err)
 }
 
 func (repository *Repository) DeleteBlob(checksum [32]byte) error {
@@ -469,7 +469,7 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResDeleteBlob).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResDeleteBlob).Err)
 }
 
 // indexes
@@ -478,7 +478,7 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetIndexes).Checksums, result.Payload.(network.ResGetIndexes).Err
+	return result.Payload.(network.ResGetIndexes).Checksums, fmt.Errorf("%s", result.Payload.(network.ResGetIndexes).Err)
 }
 
 func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
@@ -489,7 +489,7 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResPutIndex).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResPutIndex).Err)
 }
 
 func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
@@ -499,7 +499,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetIndex).Data, result.Payload.(network.ResGetIndex).Err
+	return result.Payload.(network.ResGetIndex).Data, fmt.Errorf("%s", result.Payload.(network.ResGetIndex).Err)
 }
 
 func (repository *Repository) DeleteIndex(checksum [32]byte) error {
@@ -509,7 +509,7 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResDeleteIndex).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResDeleteIndex).Err)
 }
 
 // packfiles
@@ -518,7 +518,7 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetPackfiles).Checksums, result.Payload.(network.ResGetPackfiles).Err
+	return result.Payload.(network.ResGetPackfiles).Checksums, fmt.Errorf("%s", result.Payload.(network.ResGetPackfiles).Err)
 }
 
 func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
@@ -529,7 +529,7 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResPutPackfile).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResPutPackfile).Err)
 }
 
 func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
@@ -539,7 +539,7 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetPackfile).Data, result.Payload.(network.ResGetPackfile).Err
+	return result.Payload.(network.ResGetPackfile).Data, fmt.Errorf("%s", result.Payload.(network.ResGetPackfile).Err)
 }
 
 func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
@@ -551,7 +551,7 @@ func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint3
 	if err != nil {
 		return nil, err
 	}
-	return result.Payload.(network.ResGetPackfileSubpart).Data, result.Payload.(network.ResGetPackfileSubpart).Err
+	return result.Payload.(network.ResGetPackfileSubpart).Data, fmt.Errorf("%s", result.Payload.(network.ResGetPackfileSubpart).Err)
 }
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	result, err := repository.sendRequest("ReqDeletePackfile", network.ReqDeletePackfile{
@@ -560,7 +560,7 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResDeletePackfile).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResDeletePackfile).Err)
 }
 
 func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
@@ -571,5 +571,5 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return result.Payload.(network.ResCommit).Err
+	return fmt.Errorf("%s", result.Payload.(network.ResCommit).Err)
 }

@@ -52,6 +52,7 @@ type Plakar struct {
 	KeyFromFile string
 
 	maxConcurrency chan struct{}
+	onProvided     bool
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
@@ -213,6 +214,7 @@ func entryPoint() int {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())
 		}
 		ctx.Repository = flag.Arg(1)
+		ctx.onProvided = true
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
@@ -239,6 +241,12 @@ func entryPoint() int {
 
 	// special case, server does not need a cache but does not return immediately either
 	skipPassphrase := false
+	if command == "stdio" {
+		opt_nocache = true
+		skipPassphrase = true
+		return cmd_stdio(ctx, args)
+	}
+
 	if command == "server" || command == "stdio" {
 		opt_nocache = true
 		skipPassphrase = true

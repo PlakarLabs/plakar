@@ -20,21 +20,23 @@ import (
 	"flag"
 
 	"github.com/PlakarLabs/plakar/server/plakard"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
-	registerCommand("stdio", cmd_stdio)
+	// registerCommand("stdio", cmd_stdio)
 }
 
-func cmd_stdio(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_stdio(ctx Plakar, args []string) int {
 	var noDelete bool
 
 	flags := flag.NewFlagSet("stdio", flag.ExitOnError)
 	flags.BoolVar(&noDelete, "no-delete", false, "disable delete operations")
 	flags.Parse(args)
 
-	if err := plakard.Stdio(repository, noDelete); err != nil {
+	options := &plakard.ServerOptions{
+		NoDelete: noDelete,
+	}
+	if err := plakard.Stdio(options); err != nil {
 		return 1
 	}
 	return 0

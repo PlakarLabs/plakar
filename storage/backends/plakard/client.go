@@ -28,6 +28,7 @@ import (
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
+	giturls "github.com/whilp/git-urls"
 
 	"sync"
 
@@ -272,10 +273,12 @@ func (repository *Repository) sendRequest(Type string, Payload interface{}) (*ne
 }
 
 func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
-	parsed, err := url.Parse(location)
+	parsed, err := giturls.Parse(location)
 	if err != nil {
 		return err
 	}
+	fmt.Println(parsed.Host)
+	fmt.Println(parsed.Path)
 
 	err = repository.connect(parsed)
 	if err != nil {
@@ -299,10 +302,12 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 }
 
 func (repository *Repository) Open(location string) error {
-	parsed, err := url.Parse(location)
+	parsed, err := giturls.Parse(location)
 	if err != nil {
 		return err
 	}
+	fmt.Println(parsed.Host, parsed.Port())
+	fmt.Println(parsed.Path)
 
 	err = repository.connect(parsed)
 	if err != nil {

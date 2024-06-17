@@ -33,7 +33,7 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_protocol string
 	var opt_nodelete bool
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
-	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (http, stdio or plakar)")
+	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (http or plakar)")
 	flags.BoolVar(&opt_nodelete, "no-delete", false, "disable delete operations")
 	flags.Parse(args)
 
@@ -46,9 +46,12 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 	case "http":
 		httpd.Server(repository, addr, opt_nodelete)
 	case "plakar":
-		plakard.Server(repository, addr, opt_nodelete)
-	case "stdio":
-		plakard.Stdio(repository, opt_nodelete)
+		options := &plakard.ServerOptions{
+			NoOpen:   true,
+			NoCreate: true,
+			NoDelete: opt_nodelete,
+		}
+		plakard.Server(repository, addr, options)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

@@ -27,6 +27,8 @@ func init() {
 }
 
 func cmd_stdio(ctx Plakar, args []string) int {
+	_ = ctx
+
 	var noDelete bool
 
 	flags := flag.NewFlagSet("stdio", flag.ExitOnError)

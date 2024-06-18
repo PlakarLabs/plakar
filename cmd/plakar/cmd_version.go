@@ -24,6 +24,8 @@ import (
 const VERSION = "0.4.16-alpha"
 
 func cmd_version(ctx Plakar, args []string) int {
+	_ = ctx
+
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

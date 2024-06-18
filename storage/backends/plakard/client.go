@@ -73,7 +73,7 @@ func (repository *Repository) connect(location *url.URL) error {
 			return err
 		}
 	case "stdio":
-		err := repository.connectStdio(location)
+		err := repository.connectStdio()
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (repository *Repository) connectTCP(location *url.URL) error {
 	return err
 }
 
-func (repository *Repository) connectStdio(location *url.URL) error {
+func (repository *Repository) connectStdio() error {
 	subProcess := exec.Command("plakar", "-no-cache", "stdio")
 
 	stdin, err := subProcess.StdinPipe()

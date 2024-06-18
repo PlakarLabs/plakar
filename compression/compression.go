@@ -26,31 +26,15 @@ import (
 )
 
 func Deflate(name string, buf []byte) ([]byte, error) {
-	if name == "gzip" {
-		return DeflateGzip(buf)
+	m := map[string]func([]byte) ([]byte, error){
+		"gzip": DeflateGzip,
+		"lz4":  DeflateLZ4,
 	}
-	if name == "lz4" {
-		return DeflateLZ4(buf)
+	if fn, exists := m[name]; exists {
+		return fn(buf)
+	} else {
+		return nil, fmt.Errorf("unsupported compression method %q", name)
 	}
-	return nil, fmt.Errorf("unsupported compression method %q", name)
-}
-
-func DeflateLZ4(buf []byte) ([]byte, error) {
-	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
-	w := lz4.NewWriter(b)
-	defer func() {
-		_ = w.Close()
-	}()
-
-	if _, err := w.Write(buf); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
 }
 
 func DeflateGzip(buf []byte) ([]byte, error) {
@@ -71,18 +55,34 @@ func DeflateGzip(buf []byte) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func Inflate(name string, buf []byte) ([]byte, error) {
-	if name == "gzip" {
-		return InflateGzip(buf)
+func DeflateLZ4(buf []byte) ([]byte, error) {
+	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
+	w := lz4.NewWriter(b)
+	defer func() {
+		_ = w.Close()
+	}()
+
+	if _, err := w.Write(buf); err != nil {
+		return nil, err
 	}
-	if name == "lz4" {
-		return InflateLZ4(buf)
+
+	if err := w.Close(); err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("unsupported compression method %q", name)
+
+	return b.Bytes(), nil
 }
 
-func InflateLZ4(buf []byte) ([]byte, error) {
-	return io.ReadAll(lz4.NewReader(bytes.NewBuffer(buf)))
+func Inflate(name string, buf []byte) ([]byte, error) {
+	m := map[string]func([]byte) ([]byte, error){
+		"gzip": InflateGzip,
+		"lz4":  InflateLZ4,
+	}
+	if fn, exists := m[name]; exists {
+		return fn(buf)
+	} else {
+		return nil, fmt.Errorf("unsupported compression method %q", name)
+	}
 }
 
 func InflateGzip(buf []byte) ([]byte, error) {
@@ -94,4 +94,8 @@ func InflateGzip(buf []byte) ([]byte, error) {
 		_ = w.Close()
 	}()
 	return io.ReadAll(w)
+}
+
+func InflateLZ4(buf []byte) ([]byte, error) {
+	return io.ReadAll(lz4.NewReader(bytes.NewBuffer(buf)))
 }

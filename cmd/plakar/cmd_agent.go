@@ -70,6 +70,8 @@ func parseConfig(filename string) (*Config, error) {
 }
 
 func cmd_agent(ctx Plakar, args []string) int {
+	_ = ctx
+
 	var opt_config string
 	flags := flag.NewFlagSet("agent", flag.ExitOnError)
 	flags.StringVar(&opt_config, "config", "", "plakar agent configuration")
@@ -98,9 +100,9 @@ func cmd_agent(ctx Plakar, args []string) int {
 
 		go func() {
 			for event := range notify {
-				switch event.(type) {
+				switch event := event.(type) {
 				case agent.TaskCompleted:
-					fmt.Printf("task completed: %s\n", event.(agent.TaskCompleted).Name)
+					fmt.Printf("task completed: %s\n", event.Name)
 				}
 			}
 		}()

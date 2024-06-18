@@ -51,8 +51,8 @@ type Plakar struct {
 
 	KeyFromFile string
 
-	maxConcurrency chan struct{}
-	onProvided     bool
+	//	maxConcurrency chan struct{}
+	onProvided bool
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)

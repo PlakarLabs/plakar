@@ -31,7 +31,6 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/vfs/importer"
 	"github.com/gobwas/glob"
-	"github.com/iafan/cwalk"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -276,80 +275,6 @@ func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
 		return
 	}
 
-}
-
-func (filesystem *Filesystem) Scan(c chan<- int64, directory string, skip []string) error {
-	directory = filepath.Clean(directory)
-
-	for _, scanned := range filesystem.scannedDirectories {
-		if scanned == directory {
-			return nil
-		}
-	}
-	filesystem.muScannedDirectories.Lock()
-	filesystem.scannedDirectories = append(filesystem.scannedDirectories, directory)
-	filesystem.muScannedDirectories.Unlock()
-
-	atoms := strings.Split(directory, "/")
-	for i := len(atoms) - 1; i != 0; i-- {
-		path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
-		f, err := os.Stat(path)
-		if err != nil {
-			return err
-		}
-		fi := FileInfoFromStat(f)
-		filesystem.buildTree(path, &fi)
-	}
-
-	err := cwalk.Walk(directory, func(path string, f os.FileInfo, err error) error {
-		if err != nil {
-			logger.Warn("%s", err)
-			return nil
-		}
-
-		for _, skipPath := range skip {
-			if strings.HasPrefix(filepath.Join(directory, path), skipPath) {
-				return nil
-			}
-		}
-
-		pathname := fmt.Sprintf("%s/%s", directory, path)
-
-		fileinfo := FileInfoFromStat(f)
-		filesystem.buildTree(pathname, &fileinfo)
-
-		if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
-			lstat, err := os.Lstat(pathname)
-			if err != nil {
-				logger.Warn("%s", err)
-				return nil
-			}
-
-			lfileinfo := FileInfoFromStat(lstat)
-			if lfileinfo.Mode()&os.ModeSymlink != 0 {
-				originFile, err := os.Readlink(lfileinfo.Name())
-				if err != nil {
-					logger.Warn("%s", err)
-					return nil
-				}
-
-				filesystem.muStat.Lock()
-				filesystem.statInfo[pathname] = &lfileinfo
-				filesystem.muStat.Unlock()
-
-				filesystem.muSymlinks.Lock()
-				filesystem.Symlinks = sortedSymlinkInsert(filesystem.Symlinks, SymlinkEntry{Origin: pathname, Target: originFile})
-				filesystem.symlinks[pathname] = originFile
-				filesystem.muSymlinks.Unlock()
-			}
-		}
-		c <- 1
-		return nil
-	})
-	if err != nil {
-		logger.Warn("%s", err)
-	}
-	return err
 }
 
 func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {

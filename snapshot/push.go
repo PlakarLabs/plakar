@@ -248,7 +248,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	}
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
-	for _, filename := range snapshot.Filesystem.ListFiles() {
+	for filename := range snapshot.Filesystem.ListFiles() {
 		maxConcurrency <- struct{}{}
 		wg.Add(1)
 		go func(_filename string) {
@@ -344,7 +344,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Metadata.ListValues(key)))
 	}
 
-	for _, key := range snapshot.Filesystem.ListStat() {
+	for key := range snapshot.Filesystem.ListStat() {
 		extension := strings.ToLower(filepath.Ext(key))
 		if extension == "" {
 			extension = "none"

@@ -142,15 +142,15 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		}
 	}
 
-	for _, file := range snapshot.Filesystem.ListFiles() {
+	for filename := range snapshot.Filesystem.ListFiles() {
 		hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
-		hasher.Write([]byte(file))
+		hasher.Write([]byte(filename))
 		pathnameChecksum := hasher.Sum(nil)
 		key := [32]byte{}
 		copy(key[:], pathnameChecksum)
 		object := snapshot.Index.LookupObjectForPathnameChecksum(key)
 		if object == nil {
-			logger.Warn("%s: unlisted object for file %s", snapshot.Header.GetIndexShortID(), file)
+			logger.Warn("%s: unlisted object for file %s", snapshot.Header.GetIndexShortID(), filename)
 			ret = false
 			continue
 		}

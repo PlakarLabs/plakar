@@ -37,7 +37,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for _, directory := range s.Filesystem.ListDirectories() {
+	for directory := range s.Filesystem.ListDirectories() {
 		if dpattern != "" {
 			if directory != dpattern &&
 				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
@@ -74,7 +74,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for _, filename := range s.Filesystem.ListFiles() {
+	for filename := range s.Filesystem.ListFiles() {
 		if fpattern != "" {
 			if filename != fpattern &&
 				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {

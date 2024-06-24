@@ -75,7 +75,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for _, dir1 := range snapshot1.Filesystem.ListDirectories() {
+			for dir1 := range snapshot1.Filesystem.ListDirectories() {
 				fi1, _ := snapshot1.Filesystem.LookupInodeForDirectory(dir1)
 				fi2, ok := snapshot2.Filesystem.LookupInodeForDirectory(dir1)
 				if !ok {
@@ -88,7 +88,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for _, dir2 := range snapshot2.Filesystem.ListDirectories() {
+			for dir2 := range snapshot2.Filesystem.ListDirectories() {
 				fi2, _ := snapshot2.Filesystem.LookupInodeForDirectory(dir2)
 				_, ok := snapshot1.Filesystem.LookupInodeForDirectory(dir2)
 				if !ok {
@@ -96,7 +96,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for _, file1 := range snapshot1.Filesystem.ListFiles() {
+			for file1 := range snapshot1.Filesystem.ListFiles() {
 				fi1, _ := snapshot1.Filesystem.LookupInode(file1)
 				fi2, ok := snapshot2.Filesystem.LookupInode(file1)
 				if !ok {
@@ -109,7 +109,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for _, file2 := range snapshot2.Filesystem.ListFiles() {
+			for file2 := range snapshot2.Filesystem.ListFiles() {
 				fi2, _ := snapshot2.Filesystem.LookupInode(file2)
 				_, ok := snapshot1.Filesystem.LookupInode(file2)
 				if !ok {

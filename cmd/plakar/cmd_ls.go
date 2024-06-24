@@ -174,7 +174,9 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		directories := make([]string, 0)
-		directories = append(directories, pvfs.ListDirectories()...)
+		for name := range pvfs.ListDirectories() {
+			directories = append(directories, name)
+		}
 		sort.Slice(directories, func(i, j int) bool {
 			return strings.Compare(directories[i], directories[j]) < 0
 		})
@@ -187,7 +189,9 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		filenames = append(filenames, pvfs.ListFiles()...)
+		for filename := range pvfs.ListFiles() {
+			filenames = append(filenames, filename)
+		}
 		sort.Slice(filenames, func(i, j int) bool {
 			return strings.Compare(filenames[i], filenames[j]) < 0
 		})
@@ -222,7 +226,10 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 
 func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	directories := make([]string, 0)
-	directories = append(directories, pvfs.ListDirectories()...)
+	for name := range pvfs.ListDirectories() {
+		directories = append(directories, name)
+	}
+
 	sort.Slice(directories, func(i, j int) bool {
 		return strings.Compare(directories[i], directories[j]) < 0
 	})
@@ -258,7 +265,9 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	}
 
 	filenames := make([]string, 0)
-	filenames = append(filenames, pvfs.ListFiles()...)
+	for filename := range pvfs.ListFiles() {
+		filenames = append(filenames, filename)
+	}
 	sort.Slice(filenames, func(i, j int) bool {
 		return strings.Compare(filenames[i], filenames[j]) < 0
 	})

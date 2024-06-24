@@ -566,7 +566,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	}, 0)
 	for _, snap := range snapshotsList {
 		if kind == "" && mime == "" && ext == "" {
-			for _, directory := range snap.Filesystem.ListDirectories() {
+			for directory := range snap.Filesystem.ListDirectories() {
 				if strings.Contains(directory, q) {
 					directories = append(directories, struct {
 						Snapshot string
@@ -576,7 +576,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		for _, file := range snap.Filesystem.ListStat() {
+		for file := range snap.Filesystem.ListStat() {
 			if strings.Contains(file, q) {
 				hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
 				hasher.Write([]byte(file))

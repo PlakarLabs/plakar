@@ -404,40 +404,54 @@ func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) 
 
 }
 
-func (filesystem *Filesystem) ListFiles() []string {
+func (filesystem *Filesystem) ListFiles() <-chan string {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.ListFiles", time.Since(t0))
 		logger.Trace("vfs", "ListFiles(): %s", time.Since(t0))
 	}()
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
 
-	list := make([]string, 0)
-	for pathname, stat := range filesystem.statInfo {
-		if stat.Mode().IsRegular() {
-			list = append(list, pathname)
+	ch := make(chan string)
+	go func() {
+		defer close(ch)
+		filesystem.muStat.Lock()
+		l := make([]string, 0)
+		for pathname, stat := range filesystem.statInfo {
+			if stat.Mode().IsRegular() {
+				l = append(l, pathname)
+			}
 		}
-	}
-	return list
+		filesystem.muStat.Unlock()
+		for _, pathname := range l {
+			ch <- pathname
+		}
+	}()
+	return ch
 }
 
-func (filesystem *Filesystem) ListDirectories() []string {
+func (filesystem *Filesystem) ListDirectories() <-chan string {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.ListDirectories", time.Since(t0))
 		logger.Trace("vfs", "ListDirectories(): %s", time.Since(t0))
 	}()
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
 
-	list := make([]string, 0)
-	for pathname, stat := range filesystem.statInfo {
-		if stat.Mode().IsDir() {
-			list = append(list, pathname)
+	ch := make(chan string)
+	go func() {
+		defer close(ch)
+		filesystem.muStat.Lock()
+		l := make([]string, 0)
+		for pathname, stat := range filesystem.statInfo {
+			if stat.Mode().IsDir() {
+				l = append(l, pathname)
+			}
 		}
-	}
-	return list
+		filesystem.muStat.Unlock()
+		for _, pathname := range l {
+			ch <- pathname
+		}
+	}()
+	return ch
 }
 
 func (filesystem *Filesystem) ListNonRegular() []string {
@@ -459,21 +473,27 @@ func (filesystem *Filesystem) ListNonRegular() []string {
 	return list
 }
 
-func (filesystem *Filesystem) ListStat() []string {
+func (filesystem *Filesystem) ListStat() <-chan string {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.ListStat", time.Since(t0))
 		logger.Trace("vfs", "ListStat(): %s", time.Since(t0))
 	}()
 
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
-
-	list := make([]string, 0)
-	for pathname := range filesystem.statInfo {
-		list = append(list, pathname)
-	}
-	return list
+	ch := make(chan string)
+	go func() {
+		defer close(ch)
+		filesystem.muStat.Lock()
+		l := make([]string, 0)
+		for pathname := range filesystem.statInfo {
+			l = append(l, pathname)
+		}
+		filesystem.muStat.Unlock()
+		for _, pathname := range l {
+			ch <- pathname
+		}
+	}()
+	return ch
 }
 
 func (filesystem *Filesystem) _reindex(pathname string) {

@@ -30,7 +30,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/vfs2"
 	"github.com/google/uuid"
 )
 
@@ -151,12 +151,12 @@ func getHeaders(repository *storage.Repository, prefixes []string) ([]*header.He
 	return result, nil
 }
 
-func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.Filesystem, error) {
+func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs2.Filesystem, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*vfs.Filesystem, 0)
+	result := make([]*vfs2.Filesystem, 0)
 
 	// no prefixes, this is a full fetch
 	if prefixes == nil {

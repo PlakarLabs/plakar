@@ -28,7 +28,9 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 	/* if pattern is a file, we rebase dpattern to parent */
 	//patternIsFile := false
-	if _, ok := s.Filesystem.LookupInodeForFile(fpattern); ok {
+	s.Filesystem.Stat(fpattern)
+
+	if _, err := s.Filesystem.Stat(fpattern); err != nil {
 		//patternIsFile = true
 		tmp := strings.Split(dpattern, "/")
 		if len(tmp) > 1 {
@@ -37,7 +39,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 	}
 
 	directoriesCount := 0
-	for directory := range s.Filesystem.ListDirectories() {
+	for directory := range s.Filesystem.Directories() {
 		if dpattern != "" {
 			if directory != dpattern &&
 				(!strings.HasPrefix(directory, fmt.Sprintf("%s/", dpattern)) ||
@@ -53,7 +55,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 			var dest string
 
-			fi, _ := s.Filesystem.LookupInodeForDirectory(directory)
+			fi, _ := s.Filesystem.Stat(directory)
 			rel := path.Clean(filepath.Join(".", directory))
 			if rebase && strings.HasPrefix(directory, dpattern) {
 				dest = filepath.Join(exp.Root(), directory[len(dpattern):])
@@ -74,7 +76,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 	filesCount := 0
 	var filesSize uint64 = 0
-	for filename := range s.Filesystem.ListFiles() {
+	for filename := range s.Filesystem.Files() {
 		if fpattern != "" {
 			if filename != fpattern &&
 				!strings.HasPrefix(filename, fmt.Sprintf("%s/", fpattern)) {
@@ -89,7 +91,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 			var dest string
 
-			fi, _ := s.Filesystem.LookupInodeForFile(file)
+			fi, _ := s.Filesystem.Stat(file)
 			//rel := path.Clean(filepath.Join(".", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = filepath.Join(exp.Root(), file[len(dpattern):])

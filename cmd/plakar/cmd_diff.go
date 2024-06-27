@@ -27,9 +27,9 @@ import (
 	"strings"
 
 	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
 )
@@ -75,10 +75,10 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1 := range snapshot1.Filesystem.ListDirectories() {
-				fi1, _ := snapshot1.Filesystem.LookupInodeForDirectory(dir1)
-				fi2, ok := snapshot2.Filesystem.LookupInodeForDirectory(dir1)
-				if !ok {
+			for dir1 := range snapshot1.Filesystem.Directories() {
+				fi1, _ := snapshot1.Filesystem.Stat(dir1)
+				fi2, err := snapshot2.Filesystem.Stat(dir1)
+				if err != nil {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
 					continue
 				}
@@ -88,18 +88,18 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for dir2 := range snapshot2.Filesystem.ListDirectories() {
-				fi2, _ := snapshot2.Filesystem.LookupInodeForDirectory(dir2)
-				_, ok := snapshot1.Filesystem.LookupInodeForDirectory(dir2)
-				if !ok {
+			for dir2 := range snapshot2.Filesystem.Directories() {
+				fi2, _ := snapshot2.Filesystem.Stat(dir2)
+				_, err := snapshot1.Filesystem.Stat(dir2)
+				if err != nil {
 					fmt.Println("+ ", fiToDiff(*fi2), dir2)
 				}
 			}
 
-			for file1 := range snapshot1.Filesystem.ListFiles() {
-				fi1, _ := snapshot1.Filesystem.LookupInode(file1)
-				fi2, ok := snapshot2.Filesystem.LookupInode(file1)
-				if !ok {
+			for file1 := range snapshot1.Filesystem.Files() {
+				fi1, _ := snapshot1.Filesystem.Stat(file1)
+				fi2, err := snapshot2.Filesystem.Stat(file1)
+				if err != nil {
 					fmt.Println("- ", fiToDiff(*fi1), file1)
 					continue
 				}
@@ -109,10 +109,10 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			}
 
-			for file2 := range snapshot2.Filesystem.ListFiles() {
-				fi2, _ := snapshot2.Filesystem.LookupInode(file2)
-				_, ok := snapshot1.Filesystem.LookupInode(file2)
-				if !ok {
+			for file2 := range snapshot2.Filesystem.Files() {
+				fi2, _ := snapshot2.Filesystem.Stat(file2)
+				_, err := snapshot1.Filesystem.Stat(file2)
+				if err != nil {
 					fmt.Println("+ ", fiToDiff(*fi2), file2)
 				}
 			}
@@ -169,7 +169,7 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 	return 0
 }
 
-func fiToDiff(fi vfs.FileInfo) string {
+func fiToDiff(fi objects.FileInfo) string {
 	pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
 	username := fmt.Sprintf("%d", fi.Uid())
 	if err == nil {

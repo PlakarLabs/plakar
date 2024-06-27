@@ -8,7 +8,6 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -17,7 +16,7 @@ type CachedObject struct {
 	Checksum    [32]byte
 	Chunks      []*objects.Chunk
 	ContentType string
-	Info        vfs.FileInfo
+	Info        objects.FileInfo
 }
 
 func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error) {
@@ -46,7 +45,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	return &cacheObject, nil
 }
 
-func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object, fi vfs.FileInfo) error {
+func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object, fi objects.FileInfo) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))

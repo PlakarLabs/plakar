@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/importer"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )
@@ -82,10 +82,10 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 	c := make(chan importer.ScanResult)
 
 	go func() {
-		directories := make(map[string]vfs.FileInfo)
-		files := make(map[string]vfs.FileInfo)
+		directories := make(map[string]objects.FileInfo)
+		files := make(map[string]objects.FileInfo)
 		ino := uint64(0)
-		fi := vfs.NewFileInfo(
+		fi := objects.NewFileInfo(
 			"/",
 			0,
 			0700|fs.ModeDir,
@@ -109,7 +109,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 			for i := 0; i < len(atoms)-1; i++ {
 				dir := strings.Join(atoms[0:i+1], "/")
 				if _, exists := directories[dir]; !exists {
-					fi := vfs.NewFileInfo(
+					fi := objects.NewFileInfo(
 						atoms[i],
 						0,
 						0700|fs.ModeDir,
@@ -123,7 +123,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 					ino++
 				}
 			}
-			stat := vfs.NewFileInfo(
+			stat := objects.NewFileInfo(
 				atoms[len(atoms)-1],
 				0,
 				0700|fs.ModeDir,
@@ -158,7 +158,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 			}()
 
 			for msg := range messages {
-				stat := vfs.NewFileInfo(
+				stat := objects.NewFileInfo(
 					fmt.Sprint(msg.Uid),
 					int64(msg.Size),
 					0700,

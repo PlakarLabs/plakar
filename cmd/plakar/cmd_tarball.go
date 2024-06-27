@@ -77,14 +77,14 @@ func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int 
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file := range snapshot.Filesystem.ListStat() {
+		for file := range snapshot.Filesystem.Pathnames() {
 
 			if prefix != "" {
 				if !helpers.PathIsWithin(file, prefix) {
 					continue
 				}
 			}
-			info, _ := snapshot.Filesystem.LookupInode(file)
+			info, _ := snapshot.Filesystem.Stat(file)
 			filepath := file
 			if tarballRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)

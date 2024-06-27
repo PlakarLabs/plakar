@@ -19,7 +19,6 @@ package importer
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"sort"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
 )
 
@@ -36,7 +36,7 @@ type ScanResult interface {
 
 type ScanRecord struct {
 	Pathname string
-	Stat     fs.FileInfo
+	Stat     objects.FileInfo
 }
 
 func (r ScanRecord) scanResult() {}
@@ -47,11 +47,6 @@ type ScanError struct {
 }
 
 func (r ScanError) scanResult() {}
-
-type ImporterRecord struct {
-	Pathname string
-	Stat     fs.FileInfo
-}
 
 type ImporterBackend interface {
 	Scan() (<-chan ScanResult, error)

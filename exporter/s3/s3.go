@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/PlakarLabs/plakar/exporter"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -80,11 +80,11 @@ func (p *S3Exporter) Root() string {
 	return p.rootDir
 }
 
-func (p *S3Exporter) CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error {
+func (p *S3Exporter) CreateDirectory(pathname string, fileinfo *objects.FileInfo) error {
 	return nil
 }
 
-func (p *S3Exporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error {
+func (p *S3Exporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error {
 	_, err := p.minioClient.PutObject(context.Background(),
 		strings.TrimPrefix(p.rootDir, "/"),
 		strings.TrimPrefix(pathname, p.rootDir+"/"),

@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/PlakarLabs/plakar/importer"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/objects"
 )
 
 type FSImporter struct {
@@ -64,7 +64,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 				c <- importer.ScanError{Pathname: path, Err: err}
 				return
 			}
-			fileinfo := vfs.FileInfoFromStat(f)
+			fileinfo := objects.FileInfoFromStat(f)
 			c <- importer.ScanRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
 		}
 
@@ -80,7 +80,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 				return nil
 			}
 
-			fileinfo := vfs.FileInfoFromStat(info)
+			fileinfo := objects.FileInfoFromStat(info)
 			c <- importer.ScanRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
 
 			if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
@@ -90,7 +90,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 					return nil
 				}
 
-				lfileinfo := vfs.FileInfoFromStat(lstat)
+				lfileinfo := objects.FileInfoFromStat(lstat)
 				if lfileinfo.Mode()&os.ModeSymlink != 0 {
 					originFile, err := os.Readlink(lfileinfo.Name())
 					if err != nil {

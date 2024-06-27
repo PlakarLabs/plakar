@@ -142,7 +142,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		}
 	}
 
-	for filename := range snapshot.Filesystem.ListFiles() {
+	for filename := range snapshot.Filesystem.Files() {
 		hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 		hasher.Write([]byte(filename))
 		pathnameChecksum := hasher.Sum(nil)

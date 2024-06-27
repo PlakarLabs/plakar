@@ -16,9 +16,9 @@ import (
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
 )
@@ -28,7 +28,7 @@ type PushOptions struct {
 	Excludes       []glob.Glob
 }
 
-func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*objects.Object, error) {
+func pathnameCached(snapshot *Snapshot, fi objects.FileInfo, pathname string) (*objects.Object, error) {
 	cache := snapshot.repository.GetCache()
 
 	if cache == nil {
@@ -63,8 +63,8 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 	return &object, nil
 }
 
-func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.Object, error) {
-	rd, err := snapshot.Filesystem.ImporterNewReader(filepath.FromSlash(pathname))
+func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi objects.FileInfo) (*objects.Object, error) {
+	rd, err := imp.NewReader(filepath.FromSlash(pathname))
 	if err != nil {
 		return nil, err
 	}
@@ -223,21 +223,26 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		}
 	}()
 
-	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
+	imp, err := importer.NewImporter(scanDir)
+	if err != nil {
+		return err
+	}
+	defer imp.Close()
+
+	t0 := time.Now()
 
 	wg := sync.WaitGroup{}
 
-	t0 := time.Now()
+	scanner, err := imp.Scan()
+	if err != nil {
+		return err
+	}
+
+	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
 
 	cache := snapshot.repository.Cache
 
 	snapshot.Header.ScannedDirectories = make([]string, 0)
-
-	fs, err := vfs.NewFilesystemFromScan(snapshot.repository.Location, scanDir, options.Excludes)
-	if err != nil {
-		logger.Warn("%s", err)
-	}
-	snapshot.Filesystem = fs
 
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)
@@ -248,75 +253,104 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	}
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
-	for filename := range snapshot.Filesystem.ListFiles() {
-		maxConcurrency <- struct{}{}
-		wg.Add(1)
-		go func(_filename string) {
-			defer func() { wg.Done() }()
-			defer func() { <-maxConcurrency }()
+	//fscache, err := fscache.NewCache(snapshot.repository.Location)
 
-			fileinfo, exists := snapshot.Filesystem.LookupInodeForFile(_filename)
-			if !exists {
-				logger.Warn("%s: failed to find file informations", _filename)
-				return
+	fileCount := 0
+	dirCount := 0
+	nregularCount := 0
+
+	for record := range scanner {
+		switch record := record.(type) {
+		case importer.ScanError:
+			logger.Warn("%s: %s", record.Pathname, record.Err)
+		case importer.ScanRecord:
+			//
+			extension := strings.ToLower(filepath.Ext(record.Pathname))
+			if extension == "" {
+				extension = "none"
 			}
-			atomic.AddUint64(&snapshot.Header.ScanSize, uint64(fileinfo.Size()))
+			if _, exists := snapshot.Header.FileExtension[extension]; !exists {
+				snapshot.Header.FileExtension[extension] = 0
+			}
+			snapshot.Header.FileExtension[extension]++
+			//
 
-			var object *objects.Object
-			object, err := pathnameCached(snapshot, *fileinfo, _filename)
+			err := snapshot.Filesystem.Record(record.Pathname, record.Stat)
 			if err != nil {
-				// something went wrong with the cache
-				// errchan <- err
+				logger.Warn("%s: %s", record.Pathname, err)
+				return err
+			}
+			if record.Stat.IsDir() {
+				dirCount++
+				continue
+			} else if !record.Stat.Mode().IsRegular() {
+				nregularCount++
+				continue
+			} else {
+				fileCount++
 			}
 
-			exists = false
-			if object != nil {
-				exists = snapshot.CheckObject(object.Checksum)
-			}
+			maxConcurrency <- struct{}{}
+			wg.Add(1)
+			go func(_record importer.ScanRecord) {
+				defer func() { wg.Done() }()
+				defer func() { <-maxConcurrency }()
 
-			// can't reuse object from cache, chunkify
-			if object == nil || !exists {
-				object, err = chunkify(snapshot, _filename, fileinfo)
+				atomic.AddUint64(&snapshot.Header.ScanSize, uint64(_record.Stat.Size()))
+
+				var object *objects.Object
+				object, err := pathnameCached(snapshot, _record.Stat, _record.Pathname)
 				if err != nil {
-					logger.Warn("%s: could not chunkify: %s", _filename, err)
-					return
+					logger.Warn("%s: %s", _record.Pathname, err)
 				}
-				if cache != nil {
-					snapshot.PutCachedObject(_filename, *object, *fileinfo)
+				exists := false
+				if object != nil {
+					exists = snapshot.CheckObject(object.Checksum)
 				}
 
-				if !snapshot.Index.ObjectExists(object.Checksum) {
-					exists = snapshot.CheckObject(object.Checksum)
-					if !exists {
-						err := snapshot.PutObject(object)
-						if err != nil {
-							logger.Warn("%s: failed to store object: %s", _filename, err)
-							return
+				// can't reuse object from cache, chunkify
+				if object == nil || !exists {
+					object, err = chunkify(snapshot, imp, _record.Pathname, _record.Stat)
+					if err != nil {
+						logger.Warn("%s: could not chunkify: %s", _record.Pathname, err)
+						return
+					}
+					if cache != nil {
+						snapshot.PutCachedObject(_record.Pathname, *object, _record.Stat)
+					}
+
+					if !snapshot.Index.ObjectExists(object.Checksum) {
+						exists = snapshot.CheckObject(object.Checksum)
+						if !exists {
+							err := snapshot.PutObject(object)
+							if err != nil {
+								logger.Warn("%s: failed to store object: %s", _record.Pathname, err)
+								return
+							}
+							atomic.AddUint64(&snapshot.Header.ObjectsTransferCount, uint64(1))
 						}
-						atomic.AddUint64(&snapshot.Header.ObjectsTransferCount, uint64(1))
 					}
 				}
-			}
-			snapshot.Index.AddObject(object)
-			snapshot.Metadata.AddMetadata(object.ContentType, object.Checksum)
+				snapshot.Index.AddObject(object)
+				snapshot.Metadata.AddMetadata(object.ContentType, object.Checksum)
 
-			hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
-			hasher.Write([]byte(_filename))
-			pathnameChecksum := hasher.Sum(nil)
-			key := [32]byte{}
-			copy(key[:], pathnameChecksum)
+				hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+				hasher.Write([]byte(_record.Pathname))
+				pathnameChecksum := hasher.Sum(nil)
+				key := [32]byte{}
+				copy(key[:], pathnameChecksum)
 
-			snapshot.Index.LinkPathnameToObject(key, object)
-			atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(fileinfo.Size()))
-		}(filename)
+				snapshot.Index.LinkPathnameToObject(key, object)
+				atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(_record.Stat.Size()))
+			}(record)
+		}
 	}
 	wg.Wait()
-	snapshot.Filesystem.ImporterClose()
 
 	snapshot.Header.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
 	snapshot.Header.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
-	snapshot.Header.FilesCount = uint64(len(snapshot.Filesystem.ListFiles()))
-	snapshot.Header.DirectoriesCount = uint64(len(snapshot.Filesystem.ListDirectories()))
+	snapshot.Header.FilesCount = uint64(fileCount)
+	snapshot.Header.DirectoriesCount = uint64(dirCount)
 
 	for _, chunk := range snapshot.Index.ListChunks() {
 		chunkLength, exists := snapshot.Index.GetChunkLength(chunk)
@@ -344,17 +378,6 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Metadata.ListValues(key)))
 	}
 
-	for key := range snapshot.Filesystem.ListStat() {
-		extension := strings.ToLower(filepath.Ext(key))
-		if extension == "" {
-			extension = "none"
-		}
-		if _, exists := snapshot.Header.FileExtension[extension]; !exists {
-			snapshot.Header.FileExtension[extension] = 0
-		}
-		snapshot.Header.FileExtension[extension]++
-	}
-
 	for key, value := range snapshot.Header.FileType {
 		snapshot.Header.FilePercentType[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
 	}
@@ -365,8 +388,8 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		snapshot.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
 	}
 
-	snapshot.Header.NonRegularCount = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	snapshot.Header.PathnamesCount = uint64(len(snapshot.Filesystem.ListStat()))
+	snapshot.Header.NonRegularCount = uint64(nregularCount)
+	snapshot.Header.PathnamesCount = uint64(nregularCount + fileCount + dirCount)
 
 	snapshot.Header.CreationDuration = time.Since(t0)
 

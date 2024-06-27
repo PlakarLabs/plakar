@@ -36,7 +36,6 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -159,13 +158,29 @@ func (summary *SnapshotSummary) HumanSize() string {
 }
 
 func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
+	nDirectories := 0
+	nFiles := 0
+	nNonRegular := 0
+	nPathnames := 0
+	for pathname := range snapshot.Filesystem.Pathnames() {
+		info, _ := snapshot.Filesystem.Stat(pathname)
+		if info.Mode().IsDir() {
+			nDirectories++
+		} else if info.Mode().IsRegular() {
+			nFiles++
+		} else {
+			nNonRegular++
+		}
+		nPathnames++
+	}
+
 	ss := &SnapshotSummary{}
 	ss.Header = snapshot.Header
 	ss.Roots = uint64(len(snapshot.Header.ScannedDirectories))
-	ss.Directories = uint64(len(snapshot.Filesystem.ListDirectories()))
-	ss.Files = uint64(len(snapshot.Filesystem.ListFiles()))
-	ss.NonRegular = uint64(len(snapshot.Filesystem.ListNonRegular()))
-	ss.Pathnames = uint64(len(snapshot.Filesystem.ListStat()))
+	ss.Directories = uint64(nDirectories)
+	ss.Files = uint64(nFiles)
+	ss.NonRegular = uint64(nNonRegular)
+	ss.Pathnames = uint64(nPathnames)
 	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
 	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
 	return ss
@@ -269,21 +284,21 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 
-	_, exists := snap.Filesystem.LookupInode(path)
-	if !exists {
+	_, err := snap.Filesystem.Stat(path)
+	if err != nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
 
-	directories := make([]*vfs.FileInfo, 0)
-	files := make([]*vfs.FileInfo, 0)
-	symlinks := make([]*vfs.FileInfo, 0)
+	directories := make([]*objects.FileInfo, 0)
+	files := make([]*objects.FileInfo, 0)
+	symlinks := make([]*objects.FileInfo, 0)
 	symlinksResolve := make(map[string]string)
-	others := make([]*vfs.FileInfo, 0)
+	others := make([]*objects.FileInfo, 0)
 
-	children, _ := snap.Filesystem.LookupChildren(path)
-	for _, childname := range children {
-		fileinfo, _ := snap.Filesystem.LookupInode(fmt.Sprintf("%s/%s", path, childname))
+	children, _ := snap.Filesystem.Children(path)
+	for childname := range children {
+		fileinfo, _ := snap.Filesystem.Stat(filepath.Clean(fmt.Sprintf("%s/%s", path, childname)))
 		if fileinfo.Mode().IsDir() {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode().IsRegular() {
@@ -324,11 +339,11 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 	ctx := &struct {
 		Snapshot        *snapshot.Snapshot
-		Directories     []*vfs.FileInfo
-		Files           []*vfs.FileInfo
-		Symlinks        []*vfs.FileInfo
+		Directories     []*objects.FileInfo
+		Files           []*objects.FileInfo
+		Symlinks        []*objects.FileInfo
 		SymlinksResolve map[string]string
-		Others          []*vfs.FileInfo
+		Others          []*objects.FileInfo
 		Path            string
 		Scanned         []string
 		Navigation      []string
@@ -368,7 +383,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 
-	info, _ := snap.Filesystem.LookupInode(path)
+	info, _ := snap.Filesystem.Stat(path)
 
 	chunks := make([]*objects.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
@@ -378,7 +393,9 @@ func object(w http.ResponseWriter, r *http.Request) {
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if _, ok := snap.Filesystem.LookupInodeForDirectory(root); ok {
+		if st, err := snap.Filesystem.Stat(root); err != nil {
+			break
+		} else if !st.Mode().IsDir() {
 			break
 		}
 	}
@@ -408,7 +425,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		Object          *objects.Object
 		ObjectChecksum  string
 		Chunks          []*objects.Chunk
-		Info            *vfs.FileInfo
+		Info            *objects.FileInfo
 		Root            string
 		Path            string
 		Navigation      []string
@@ -566,7 +583,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	}, 0)
 	for _, snap := range snapshotsList {
 		if kind == "" && mime == "" && ext == "" {
-			for directory := range snap.Filesystem.ListDirectories() {
+			for directory := range snap.Filesystem.Directories() {
 				if strings.Contains(directory, q) {
 					directories = append(directories, struct {
 						Snapshot string
@@ -576,7 +593,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		for file := range snap.Filesystem.ListStat() {
+		for file := range snap.Filesystem.Pathnames() {
 			if strings.Contains(file, q) {
 				hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
 				hasher.Write([]byte(file))

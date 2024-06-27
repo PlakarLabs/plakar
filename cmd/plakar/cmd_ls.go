@@ -29,8 +29,9 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/vfs2"
 	"github.com/dustin/go-humanize"
 )
 
@@ -107,32 +108,47 @@ func list_snapshot(repository *storage.Repository, args []string) {
 
 	for offset, pvfs := range vfss {
 		_, prefix := parseSnapshotID(args[offset])
+
 		prefix = path.Clean(prefix)
+		info, _ := pvfs.Stat(prefix)
 
 		content := make([]string, 0)
-		entries, _ := pvfs.LookupChildren(prefix)
+		children := make(map[string]*objects.FileInfo)
 
-		children := make(map[string]*vfs.FileInfo)
-
-		if len(entries) == 0 {
-			info, exists := pvfs.LookupInode(prefix)
-			if !exists {
+		if info.IsDir() {
+			entries := make([]string, 0)
+			iter, err := pvfs.Children(prefix)
+			if err != nil {
 				continue
 			}
+			for pathname := range iter {
+				entries = append(entries, pathname)
+			}
+			if len(entries) == 0 {
+				info, err := pvfs.Stat(prefix)
+				if err == nil {
+					continue
+				}
+				children[prefix] = info
+				content = append(content, prefix)
+			} else {
+				for _, name := range entries {
+					children[name], _ = pvfs.Stat(path.Clean(fmt.Sprintf("%s/%s", prefix, name)))
+					content = append(content, name)
+				}
+				sort.Slice(content, func(i, j int) bool {
+					return strings.Compare(content[i], content[j]) < 0
+				})
+			}
+		} else {
 			children[prefix] = info
 			content = append(content, prefix)
-		} else {
-			for _, name := range entries {
-				children[name], _ = pvfs.LookupInode(fmt.Sprintf("%s/%s", prefix, name))
-				content = append(content, name)
-			}
-			sort.Slice(content, func(i, j int) bool {
-				return strings.Compare(content[i], content[j]) < 0
-			})
 		}
 
 		for _, item := range content {
+
 			fi := children[item]
+
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
 			username := fmt.Sprintf("%d", fi.Uid())
 			if err == nil {
@@ -174,7 +190,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		directories := make([]string, 0)
-		for name := range pvfs.ListDirectories() {
+		for name := range pvfs.Directories() {
 			directories = append(directories, name)
 		}
 		sort.Slice(directories, func(i, j int) bool {
@@ -189,7 +205,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		}
 
 		filenames := make([]string, 0)
-		for filename := range pvfs.ListFiles() {
+		for filename := range pvfs.Files() {
 			filenames = append(filenames, filename)
 		}
 		sort.Slice(filenames, func(i, j int) bool {
@@ -197,7 +213,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 		})
 
 		for _, name := range filenames {
-			fi, _ := pvfs.LookupInode(name)
+			fi, _ := pvfs.Stat(name)
 			if !helpers.PathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
@@ -224,9 +240,9 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 	}
 }
 
-func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
+func list_snapshot_recursive_directory(pvfs *vfs2.Filesystem, directory string) {
 	directories := make([]string, 0)
-	for name := range pvfs.ListDirectories() {
+	for name := range pvfs.Directories() {
 		directories = append(directories, name)
 	}
 
@@ -235,7 +251,7 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	})
 
 	for _, name := range directories {
-		fi, _ := pvfs.LookupInode(name)
+		fi, _ := pvfs.Stat(name)
 		if !helpers.PathIsWithin(name, directory) {
 			continue
 		}
@@ -265,7 +281,7 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	}
 
 	filenames := make([]string, 0)
-	for filename := range pvfs.ListFiles() {
+	for filename := range pvfs.Files() {
 		filenames = append(filenames, filename)
 	}
 	sort.Slice(filenames, func(i, j int) bool {
@@ -273,7 +289,7 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	})
 
 	for _, name := range filenames {
-		fi, _ := pvfs.LookupInode(name)
+		fi, _ := pvfs.Stat(name)
 		if !helpers.PathIsWithin(name, directory) && name != directory {
 			continue
 		}

@@ -29,6 +29,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/gobwas/glob"
 	"github.com/vmihailenco/msgpack/v5"
@@ -43,7 +44,7 @@ type ChildEntry struct {
 
 type FilesystemNode struct {
 	muNode   sync.Mutex
-	Inode    FileInfo
+	Inode    objects.FileInfo
 	Children []ChildEntry
 	children map[string]*FilesystemNode
 }
@@ -62,7 +63,7 @@ type Filesystem struct {
 	scannedDirectories   []string
 
 	muStat   sync.Mutex
-	statInfo map[string]*FileInfo
+	statInfo map[string]*objects.FileInfo
 
 	muSymlinks sync.Mutex
 	Symlinks   []SymlinkEntry
@@ -79,7 +80,7 @@ func NewFilesystem() *Filesystem {
 		Children: make([]ChildEntry, 0),
 		children: make(map[string]*FilesystemNode),
 	}
-	filesystem.statInfo = make(map[string]*FileInfo)
+	filesystem.statInfo = make(map[string]*objects.FileInfo)
 	filesystem.Symlinks = make([]SymlinkEntry, 0)
 	filesystem.symlinks = make(map[string]string)
 	filesystem.nFiles = 0
@@ -160,49 +161,45 @@ func NewFilesystemFromScan(repository string, directory string, excludes []glob.
 			continue
 		}
 
-		if stat, ok := msg.Stat.(FileInfo); !ok {
-			return nil, fmt.Errorf("received invalid stat type")
-		} else {
-			if pathname != "/" {
-				atoms := strings.Split(pathname, "/")
-				for i := 0; i < len(atoms)-1; i++ {
-					path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
-					path = filepath.ToSlash(path)
-					if _, found := fs.LookupInodeForDirectory(path); !found {
-						return nil, err
-					}
+		if pathname != "/" {
+			atoms := strings.Split(pathname, "/")
+			for i := 0; i < len(atoms)-1; i++ {
+				path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
+				path = filepath.ToSlash(path)
+				if _, found := fs.LookupInodeForDirectory(path); !found {
+					return nil, err
 				}
 			}
-			pathname = filepath.ToSlash(pathname)
-			fs.buildTree(pathname, &stat)
+		}
+		pathname = filepath.ToSlash(pathname)
+		fs.buildTree(pathname, &msg.Stat)
 
-			/*
-				if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
-					lstat, err := os.Lstat(pathname)
+		/*
+			if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
+				lstat, err := os.Lstat(pathname)
+				if err != nil {
+					logger.Warn("%s", err)
+					return nil
+				}
+
+				lfileinfo := FileinfoFromStat(lstat)
+				if lfileinfo.Mode&os.ModeSymlink != 0 {
+					originFile, err := os.Readlink(lfileinfo.Name)
 					if err != nil {
 						logger.Warn("%s", err)
 						return nil
 					}
 
-					lfileinfo := FileinfoFromStat(lstat)
-					if lfileinfo.Mode&os.ModeSymlink != 0 {
-						originFile, err := os.Readlink(lfileinfo.Name)
-						if err != nil {
-							logger.Warn("%s", err)
-							return nil
-						}
+					filesystem.muStat.Lock()
+					filesystem.statInfo[pathname] = &lfileinfo
+					filesystem.muStat.Unlock()
 
-						filesystem.muStat.Lock()
-						filesystem.statInfo[pathname] = &lfileinfo
-						filesystem.muStat.Unlock()
-
-						filesystem.muSymlinks.Lock()
-						filesystem.Symlinks[pathname] = originFile
-						filesystem.muSymlinks.Unlock()
-					}
+					filesystem.muSymlinks.Lock()
+					filesystem.Symlinks[pathname] = originFile
+					filesystem.muSymlinks.Unlock()
 				}
-			*/
-		}
+			}
+		*/
 	}
 
 	return fs, nil
@@ -228,7 +225,7 @@ func sortedSymlinkInsert(slice []SymlinkEntry, val SymlinkEntry) []SymlinkEntry 
 	return slice
 }
 
-func (filesystem *Filesystem) buildTree(pathname string, fileinfo *FileInfo) {
+func (filesystem *Filesystem) buildTree(pathname string, fileinfo *objects.FileInfo) {
 	filesystem.totalSize += uint64(fileinfo.Size())
 
 	pathname = filepath.Clean(pathname)
@@ -307,7 +304,7 @@ func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
 	return p, nil
 }
 
-func (filesystem *Filesystem) LookupInode(pathname string) (*FileInfo, bool) {
+func (filesystem *Filesystem) LookupInode(pathname string) (*objects.FileInfo, bool) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.LookupInode", time.Since(t0))
@@ -326,7 +323,7 @@ func (filesystem *Filesystem) LookupInode(pathname string) (*FileInfo, bool) {
 	return fileinfo, exists
 }
 
-func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bool) {
+func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*objects.FileInfo, bool) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.LookupInodeForFile", time.Since(t0))
@@ -348,7 +345,7 @@ func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*FileInfo, bo
 	return fileinfo, exists
 }
 
-func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*FileInfo, bool) {
+func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*objects.FileInfo, bool) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.LookupInodeForDirectory", time.Since(t0))
@@ -532,7 +529,7 @@ func (filesystem *Filesystem) reindex() {
 		logger.Trace("vfs", "reindex(): %s", time.Since(t0))
 	}()
 
-	filesystem.statInfo = make(map[string]*FileInfo)
+	filesystem.statInfo = make(map[string]*objects.FileInfo)
 	filesystem._reindex("/")
 }
 

@@ -23,7 +23,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/exporter"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/vfs"
+	"github.com/PlakarLabs/plakar/objects"
 )
 
 type FSExporter struct {
@@ -56,14 +56,14 @@ func (p *FSExporter) Root() string {
 	return p.rootDir
 }
 
-func (p *FSExporter) CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error {
+func (p *FSExporter) CreateDirectory(pathname string, fileinfo *objects.FileInfo) error {
 	os.MkdirAll(pathname, 0700)
 	os.Chmod(pathname, fileinfo.Mode())
 	os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid()))
 	return nil
 }
 
-func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error {
+func (p *FSExporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error {
 	f, err := os.Create(pathname)
 	if err != nil {
 		return err

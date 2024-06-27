@@ -38,8 +38,13 @@ func init() {
 	importer.Register("fs", NewFSImporter)
 }
 
-func NewFSImporter() importer.ImporterBackend {
-	return &FSImporter{}
+func NewFSImporter(config string) importer.ImporterBackend {
+	if strings.HasPrefix(config, "fs://") {
+		config = config[4:]
+	}
+	return &FSImporter{
+		config: config,
+	}
 }
 
 func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
@@ -113,18 +118,10 @@ func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	return c, cerr, nil
 }
 
-func (p *FSImporter) Open(pathname string) (io.ReadCloser, error) {
+func (p *FSImporter) NewReader(pathname string) (io.ReadCloser, error) {
 	return os.Open(pathname)
 }
 
-func (p *FSImporter) Begin(config string) error {
-	if strings.HasPrefix(config, "fs://") {
-		config = config[4:]
-	}
-	p.config = config
-	return nil
-}
-
-func (p *FSImporter) End() error {
+func (p *FSImporter) Close() error {
 	return nil
 }

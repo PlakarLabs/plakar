@@ -36,10 +36,9 @@ type ImporterRecord struct {
 }
 
 type ImporterBackend interface {
-	Begin(config string) error
 	Scan() (<-chan ImporterRecord, <-chan error, error)
-	Open(pathname string) (io.ReadCloser, error)
-	End() error
+	NewReader(pathname string) (io.ReadCloser, error)
+	Close() error
 }
 
 type Importer struct {
@@ -47,9 +46,9 @@ type Importer struct {
 }
 
 var muBackends sync.Mutex
-var backends map[string]func() ImporterBackend = make(map[string]func() ImporterBackend)
+var backends map[string]func(config string) ImporterBackend = make(map[string]func(config string) ImporterBackend)
 
-func Register(name string, backend func() ImporterBackend) {
+func Register(name string, backend func(string) ImporterBackend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -100,19 +99,9 @@ func NewImporter(location string) (*Importer, error) {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
 		provider := &Importer{}
-		provider.backend = backend()
+		provider.backend = backend(location)
 		return provider, nil
 	}
-}
-
-func (importer *Importer) Begin(config string) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.importer.Begin", time.Since(t0))
-		logger.Trace("vfs", "importer.Begin(%s): %s", config, time.Since(t0))
-	}()
-
-	return importer.backend.Begin(config)
 }
 
 func (importer *Importer) Scan() (<-chan ImporterRecord, <-chan error, error) {
@@ -125,22 +114,22 @@ func (importer *Importer) Scan() (<-chan ImporterRecord, <-chan error, error) {
 	return importer.backend.Scan()
 }
 
-func (importer *Importer) Open(pathname string) (io.ReadCloser, error) {
+func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.importer.Open", time.Since(t0))
-		logger.Trace("vfs", "importer.Open(%s): %s", pathname, time.Since(t0))
+		profiler.RecordEvent("vfs.importer.NewReader", time.Since(t0))
+		logger.Trace("vfs", "importer.NewReader(%s): %s", pathname, time.Since(t0))
 	}()
 
-	return importer.backend.Open(pathname)
+	return importer.backend.NewReader(pathname)
 }
 
-func (importer *Importer) End() error {
+func (importer *Importer) Close() error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.importer.End", time.Since(t0))
 		logger.Trace("vfs", "importer.End(): %s", time.Since(t0))
 	}()
 
-	return importer.backend.End()
+	return importer.backend.Close()
 }

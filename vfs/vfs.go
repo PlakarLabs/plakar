@@ -128,7 +128,6 @@ func NewFilesystemFromScan(repository string, directory string, excludes []glob.
 	if err != nil {
 		return nil, err
 	}
-	imp.Begin(directory)
 
 	schan, echan, err := imp.Scan()
 	if err != nil {
@@ -564,29 +563,20 @@ func (filesystem *Filesystem) NDirectories() uint64 {
 	return filesystem.nDirectories
 }
 
-func (filesystem *Filesystem) ImporterBegin(location string) error {
+func (filesystem *Filesystem) ImporterClose() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.ImporterBegin", time.Since(t0))
-		logger.Trace("vfs", "ImporterBegin(): %s", time.Since(t0))
+		profiler.RecordEvent("vfs.ImporterClose", time.Since(t0))
+		logger.Trace("vfs", "ImporterClose(): %s", time.Since(t0))
 	}()
-	return filesystem.importer.Begin(location)
+	return filesystem.importer.Close()
 }
 
-func (filesystem *Filesystem) ImporterEnd() error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ImporterEnd", time.Since(t0))
-		logger.Trace("vfs", "ImporterEnd(): %s", time.Since(t0))
-	}()
-	return filesystem.importer.End()
-}
-
-func (filesystem *Filesystem) ImporterOpen(filename string) (io.ReadCloser, error) {
+func (filesystem *Filesystem) ImporterNewReader(filename string) (io.ReadCloser, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.ImporterOpen", time.Since(t0))
 		logger.Trace("vfs", "ImporterOpen(): %s", time.Since(t0))
 	}()
-	return filesystem.importer.Open(filename)
+	return filesystem.importer.NewReader(filename)
 }

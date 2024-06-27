@@ -46,8 +46,10 @@ func init() {
 	importer.Register("imap", NewIMAPImporter)
 }
 
-func NewIMAPImporter() importer.ImporterBackend {
-	return &IMAPImporter{}
+func NewIMAPImporter(config string) importer.ImporterBackend {
+	return &IMAPImporter{
+		location: config,
+	}
 }
 
 func (p *IMAPImporter) connect(location *url.URL) error {
@@ -211,7 +213,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, err
 	return c, cerr, nil
 }
 
-func (p *IMAPImporter) Open(pathname string) (io.ReadCloser, error) {
+func (p *IMAPImporter) NewReader(pathname string) (io.ReadCloser, error) {
 	atoms := strings.Split(pathname, "/")
 	mbox := strings.Join(atoms[1:len(atoms)-1], "/")
 	uid, err := strconv.ParseUint(atoms[len(atoms)-1], 10, 32)
@@ -246,11 +248,6 @@ func (p *IMAPImporter) Open(pathname string) (io.ReadCloser, error) {
 	return nil, fmt.Errorf("failed to open body")
 }
 
-func (p *IMAPImporter) Begin(location string) error {
-	p.location = location
-	return nil
-}
-
-func (p *IMAPImporter) End() error {
+func (p *IMAPImporter) Close() error {
 	return nil
 }

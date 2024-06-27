@@ -64,7 +64,7 @@ func pathnameCached(snapshot *Snapshot, fi vfs.FileInfo, pathname string) (*obje
 }
 
 func chunkify(snapshot *Snapshot, pathname string, fi *vfs.FileInfo) (*objects.Object, error) {
-	rd, err := snapshot.Filesystem.ImporterOpen(filepath.FromSlash(pathname))
+	rd, err := snapshot.Filesystem.ImporterNewReader(filepath.FromSlash(pathname))
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		}(filename)
 	}
 	wg.Wait()
-	snapshot.Filesystem.ImporterEnd()
+	snapshot.Filesystem.ImporterClose()
 
 	snapshot.Header.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
 	snapshot.Header.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))

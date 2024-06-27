@@ -45,8 +45,10 @@ func init() {
 	importer.Register("s3", NewS3Importer)
 }
 
-func NewS3Importer() importer.ImporterBackend {
-	return &S3Importer{}
+func NewS3Importer(config string) importer.ImporterBackend {
+	return &S3Importer{
+		location: config,
+	}
 }
 
 func (provider *S3Importer) connect(location *url.URL) error {
@@ -166,7 +168,7 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 	return c, cerr, nil
 }
 
-func (p *S3Importer) Open(pathname string) (io.ReadCloser, error) {
+func (p *S3Importer) NewReader(pathname string) (io.ReadCloser, error) {
 	obj, err := p.minioClient.GetObject(context.Background(), p.bucketName, pathname,
 		minio.GetObjectOptions{})
 	if err != nil {
@@ -175,11 +177,6 @@ func (p *S3Importer) Open(pathname string) (io.ReadCloser, error) {
 	return obj, nil
 }
 
-func (p *S3Importer) Begin(location string) error {
-	p.location = location
-	return nil
-}
-
-func (p *S3Importer) End() error {
+func (p *S3Importer) Close() error {
 	return nil
 }

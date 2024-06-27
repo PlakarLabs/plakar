@@ -27,9 +27,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/PlakarLabs/plakar/vfs/importer"
 	"github.com/gobwas/glob"
 	"github.com/vmihailenco/msgpack/v5"
 )

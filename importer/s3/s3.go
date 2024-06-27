@@ -28,8 +28,8 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/vfs"
-	"github.com/PlakarLabs/plakar/vfs/importer"
 )
 
 type S3Importer struct {

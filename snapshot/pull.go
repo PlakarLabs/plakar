@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/exporter"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
 func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {

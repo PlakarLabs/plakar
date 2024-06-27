@@ -30,12 +30,12 @@ import (
 	_ "github.com/PlakarLabs/plakar/storage/backends/plakard"
 	_ "github.com/PlakarLabs/plakar/storage/backends/s3"
 
-	_ "github.com/PlakarLabs/plakar/vfs/importer/fs"
-	_ "github.com/PlakarLabs/plakar/vfs/importer/imap"
-	_ "github.com/PlakarLabs/plakar/vfs/importer/s3"
+	_ "github.com/PlakarLabs/plakar/importer/fs"
+	_ "github.com/PlakarLabs/plakar/importer/imap"
+	_ "github.com/PlakarLabs/plakar/importer/s3"
 
-	_ "github.com/PlakarLabs/plakar/vfs/exporter/fs"
-	_ "github.com/PlakarLabs/plakar/vfs/exporter/s3"
+	_ "github.com/PlakarLabs/plakar/exporter/fs"
+	_ "github.com/PlakarLabs/plakar/exporter/s3"
 )
 
 type Plakar struct {

@@ -25,8 +25,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/vfs"
-	"github.com/PlakarLabs/plakar/vfs/importer"
 )
 
 type FSImporter struct {

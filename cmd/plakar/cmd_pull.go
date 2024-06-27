@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/exporter"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs/exporter"
 )
 
 func init() {

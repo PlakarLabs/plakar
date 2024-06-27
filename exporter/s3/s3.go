@@ -22,8 +22,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/exporter"
 	"github.com/PlakarLabs/plakar/vfs"
-	"github.com/PlakarLabs/plakar/vfs/exporter"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

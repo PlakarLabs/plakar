@@ -31,8 +31,6 @@ import (
 type S3Exporter struct {
 	exporter.ExporterBackend
 
-	location string
-
 	minioClient *minio.Client
 	rootDir     string
 }

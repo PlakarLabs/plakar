@@ -31,27 +31,27 @@ import (
 
 type FSImporter struct {
 	importer.ImporterBackend
-	config string
+	rootDir string
 }
 
 func init() {
 	importer.Register("fs", NewFSImporter)
 }
 
-func NewFSImporter(config string) importer.ImporterBackend {
-	if strings.HasPrefix(config, "fs://") {
-		config = config[4:]
+func NewFSImporter(location string) (importer.ImporterBackend, error) {
+	if strings.HasPrefix(location, "fs://") {
+		location = location[4:]
 	}
 	return &FSImporter{
-		config: config,
-	}
+		rootDir: location,
+	}, nil
 }
 
 func (p *FSImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
 	go func() {
-		directory := filepath.Clean(p.config)
+		directory := filepath.Clean(p.rootDir)
 		atoms := strings.Split(directory, string(os.PathSeparator))
 		for i := 0; i < len(atoms)-1; i++ {
 			path := filepath.Clean(fmt.Sprintf("%s%s", string(os.PathSeparator), strings.Join(atoms[0:i+1], string(os.PathSeparator))))

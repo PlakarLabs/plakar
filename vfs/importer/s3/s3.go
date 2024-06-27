@@ -20,7 +20,6 @@ import (
 	"context"
 	"io"
 	"io/fs"
-	"log"
 	"net/url"
 	"sort"
 	"strings"
@@ -36,52 +35,45 @@ import (
 type S3Importer struct {
 	importer.ImporterBackend
 
-	location    string
 	minioClient *minio.Client
-	bucketName  string
+	rootDir     string
 }
 
 func init() {
 	importer.Register("s3", NewS3Importer)
 }
 
-func NewS3Importer(config string) importer.ImporterBackend {
-	return &S3Importer{
-		location: config,
-	}
-}
-
-func (provider *S3Importer) connect(location *url.URL) error {
+func connect(location *url.URL) (*minio.Client, error) {
 	endpoint := location.Host
 	accessKeyID := location.User.Username()
 	secretAccessKey, _ := location.User.Password()
 	useSSL := false
 
 	// Initialize minio client object.
-	minioClient, err := minio.New(endpoint, &minio.Options{
+	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 	})
+}
+
+func NewS3Importer(location string) (importer.ImporterBackend, error) {
+	parsed, err := url.Parse(location)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 
-	provider.minioClient = minioClient
-	return nil
+	conn, err := connect(parsed)
+	if err != nil {
+		return nil, err
+	}
+
+	return &S3Importer{
+		rootDir:     parsed.RequestURI()[1:],
+		minioClient: conn,
+	}, nil
 }
 
 func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
-	parsed, err := url.Parse(p.location)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = p.connect(parsed)
-	if err != nil {
-		return nil, nil, err
-	}
-	p.bucketName = parsed.RequestURI()[1:]
-
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
 
@@ -102,7 +94,7 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 		directories["/"] = fi
 		ino++
 
-		for object := range p.minioClient.ListObjects(context.Background(), p.bucketName, minio.ListObjectsOptions{Prefix: "", Recursive: true}) {
+		for object := range p.minioClient.ListObjects(context.Background(), p.rootDir, minio.ListObjectsOptions{Prefix: "", Recursive: true}) {
 			atoms := strings.Split(object.Key, "/")
 
 			for i := 0; i < len(atoms)-1; i++ {
@@ -169,7 +161,7 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 }
 
 func (p *S3Importer) NewReader(pathname string) (io.ReadCloser, error) {
-	obj, err := p.minioClient.GetObject(context.Background(), p.bucketName, pathname,
+	obj, err := p.minioClient.GetObject(context.Background(), p.rootDir, pathname,
 		minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err

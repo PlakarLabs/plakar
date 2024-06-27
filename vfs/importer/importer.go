@@ -46,9 +46,9 @@ type Importer struct {
 }
 
 var muBackends sync.Mutex
-var backends map[string]func(config string) ImporterBackend = make(map[string]func(config string) ImporterBackend)
+var backends map[string]func(config string) (ImporterBackend, error) = make(map[string]func(config string) (ImporterBackend, error))
 
-func Register(name string, backend func(string) ImporterBackend) {
+func Register(name string, backend func(string) (ImporterBackend, error)) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -98,9 +98,11 @@ func NewImporter(location string) (*Importer, error) {
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
-		provider := &Importer{}
-		provider.backend = backend(location)
-		return provider, nil
+		backendInstance, err := backend(location)
+		if err != nil {
+			return nil, err
+		}
+		return &Importer{backend: backendInstance}, nil
 	}
 }
 

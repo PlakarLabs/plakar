@@ -46,44 +46,39 @@ func init() {
 	importer.Register("imap", NewIMAPImporter)
 }
 
-func NewIMAPImporter(config string) importer.ImporterBackend {
-	return &IMAPImporter{
-		location: config,
-	}
-}
-
-func (p *IMAPImporter) connect(location *url.URL) error {
+func connect(location *url.URL) (*client.Client, error) {
 	port := "993"
 	if location.Port() != "" {
 		port = location.Port()
 	}
-	client, err := client.DialTLS(location.Host+":"+port, nil)
-	if err != nil {
-		return err
-	}
-	p.client = client
-	return nil
+	return client.DialTLS(location.Host+":"+port, nil)
 }
 
-func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
-	parsed, err := url.Parse(p.location)
+func NewIMAPImporter(location string) (importer.ImporterBackend, error) {
+	parsed, err := url.Parse(location)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	err = p.connect(parsed)
+	conn, err := connect(parsed)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	username := parsed.User.Username()
 	password, _ := parsed.User.Password()
 
-	err = p.client.Login(username, password)
+	err = conn.Login(username, password)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
+	return &IMAPImporter{
+		client: conn,
+	}, nil
+}
+
+func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
 	c := make(chan importer.ImporterRecord)
 	cerr := make(chan error)
 

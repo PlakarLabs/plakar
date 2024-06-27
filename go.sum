@@ -1,5 +1,7 @@
 github.com/PlakarLabs/go-cdc-chunkers v0.0.5 h1:EJq+tQAekI/XNMUx2m6KpK+gGQjLysbf0r9txiiM/uA=
 github.com/PlakarLabs/go-cdc-chunkers v0.0.5/go.mod h1:BWr615Ldhjf2OpNy8lNMjrqiL8d0C3+naItVybDfXXU=
+github.com/PlakarLabs/go-fscache v0.0.0-20240624212524-635337a0d466 h1:e278Lk9Kzb3JfGQSxlHij+eLLM+3P+enRiDUDBySqrE=
+github.com/PlakarLabs/go-fscache v0.0.0-20240624212524-635337a0d466/go.mod h1:8rATjkYZeGnZfdJnuaSGWFicJv3ngxPeqK520uRZB+U=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=
 github.com/alecthomas/chroma v0.10.0/go.mod h1:jtJATyUxlIORhUOFNA9NZDWGAQ8wpxQQqNSB4rjA/1s=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=

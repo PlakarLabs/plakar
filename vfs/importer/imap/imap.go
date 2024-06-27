@@ -78,9 +78,8 @@ func NewIMAPImporter(location string) (importer.ImporterBackend, error) {
 	}, nil
 }
 
-func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
-	c := make(chan importer.ImporterRecord)
-	cerr := make(chan error)
+func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
+	c := make(chan importer.ScanResult)
 
 	go func() {
 		directories := make(map[string]vfs.FileInfo)
@@ -139,7 +138,8 @@ func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, err
 
 			mbox, err := p.client.Select(m.Name, false)
 			if err != nil {
-				log.Fatal(err)
+				c <- importer.ScanError{Pathname: m.Name, Err: err}
+				return
 			}
 
 			from := uint32(1)
@@ -195,17 +195,14 @@ func (p *IMAPImporter) Scan() (<-chan importer.ImporterRecord, <-chan error, err
 		})
 
 		for _, directory := range directoryNames {
-			c <- importer.ImporterRecord{Pathname: directory, Stat: directories[directory]}
+			c <- importer.ScanRecord{Pathname: directory, Stat: directories[directory]}
 		}
 		for _, filename := range fileNames {
-			c <- importer.ImporterRecord{Pathname: filename, Stat: files[filename]}
+			c <- importer.ScanRecord{Pathname: filename, Stat: files[filename]}
 		}
-
-		//fmt.Println(files)
-		close(cerr)
 		close(c)
 	}()
-	return c, cerr, nil
+	return c, nil
 }
 
 func (p *IMAPImporter) NewReader(pathname string) (io.ReadCloser, error) {

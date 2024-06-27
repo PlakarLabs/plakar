@@ -30,13 +30,31 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 )
 
+type ScanResult interface {
+	scanResult()
+}
+
+type ScanRecord struct {
+	Pathname string
+	Stat     fs.FileInfo
+}
+
+func (r ScanRecord) scanResult() {}
+
+type ScanError struct {
+	Pathname string
+	Err      error
+}
+
+func (r ScanError) scanResult() {}
+
 type ImporterRecord struct {
 	Pathname string
 	Stat     fs.FileInfo
 }
 
 type ImporterBackend interface {
-	Scan() (<-chan ImporterRecord, <-chan error, error)
+	Scan() (<-chan ScanResult, error)
 	NewReader(pathname string) (io.ReadCloser, error)
 	Close() error
 }
@@ -106,7 +124,7 @@ func NewImporter(location string) (*Importer, error) {
 	}
 }
 
-func (importer *Importer) Scan() (<-chan ImporterRecord, <-chan error, error) {
+func (importer *Importer) Scan() (<-chan ScanResult, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.importer.Scan", time.Since(t0))

@@ -73,9 +73,8 @@ func NewS3Importer(location string) (importer.ImporterBackend, error) {
 	}, nil
 }
 
-func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error) {
-	c := make(chan importer.ImporterRecord)
-	cerr := make(chan error)
+func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
+	c := make(chan importer.ScanResult)
 
 	go func() {
 		directories := make(map[string]vfs.FileInfo)
@@ -147,17 +146,14 @@ func (p *S3Importer) Scan() (<-chan importer.ImporterRecord, <-chan error, error
 		})
 
 		for _, directory := range directoryNames {
-			c <- importer.ImporterRecord{Pathname: directory, Stat: directories[directory]}
+			c <- importer.ScanRecord{Pathname: directory, Stat: directories[directory]}
 		}
 		for _, filename := range fileNames {
-			c <- importer.ImporterRecord{Pathname: filename, Stat: files[filename]}
+			c <- importer.ScanRecord{Pathname: filename, Stat: files[filename]}
 		}
-
-		//fmt.Println(files)
-		close(cerr)
 		close(c)
 	}()
-	return c, cerr, nil
+	return c, nil
 }
 
 func (p *S3Importer) NewReader(pathname string) (io.ReadCloser, error) {

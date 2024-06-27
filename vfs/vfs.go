@@ -129,7 +129,7 @@ func NewFilesystemFromScan(repository string, directory string, excludes []glob.
 		return nil, err
 	}
 
-	schan, echan, err := imp.Scan()
+	schan, err := imp.Scan()
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +137,13 @@ func NewFilesystemFromScan(repository string, directory string, excludes []glob.
 	fs := NewFilesystem()
 	fs.importer = imp
 
-	go func() {
-		for msg := range echan {
-			logger.Warn("%s", msg)
-		}
-	}()
-
 	for msg := range schan {
+		if msg, ok := msg.(importer.ScanError); ok {
+			logger.Warn("%s: %s", msg.Pathname, msg.Err)
+			continue
+		}
+		msg := msg.(importer.ScanRecord)
+
 		pathname := filepath.Clean(msg.Pathname)
 		if pathname == repository || strings.HasPrefix(filepath.ToSlash(pathname), filepath.ToSlash(repository)+"/") {
 			continue

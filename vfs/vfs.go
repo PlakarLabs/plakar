@@ -1,579 +1,315 @@
-/*
- * Copyright (c) 2023 Gilles Chehade <gilles@poolp.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 package vfs
 
 import (
-	"fmt"
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/gob"
+	"hash"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"github.com/PlakarLabs/plakar/importer"
-	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/gobwas/glob"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
-const VERSION string = "0.0.1"
-
-type ChildEntry struct {
-	Name string
-	Node *FilesystemNode
-}
-
-type FilesystemNode struct {
-	muNode   sync.Mutex
-	Inode    objects.FileInfo
-	Children []ChildEntry
-	children map[string]*FilesystemNode
-}
-
-type SymlinkEntry struct {
-	Origin string
-	Target string
-}
+const VERSION = "0.2"
 
 type Filesystem struct {
-	importer *importer.Importer
-
-	Root *FilesystemNode
-
-	muScannedDirectories sync.Mutex
-	scannedDirectories   []string
-
-	muStat   sync.Mutex
-	statInfo map[string]*objects.FileInfo
-
-	muSymlinks sync.Mutex
-	Symlinks   []SymlinkEntry
-	symlinks   map[string]string
-
-	nFiles       uint64
-	nDirectories uint64
-	totalSize    uint64
+	dirname string
+	db      *leveldb.DB
+	hasher  hash.Hash
 }
 
-func NewFilesystem() *Filesystem {
-	filesystem := &Filesystem{}
-	filesystem.Root = &FilesystemNode{
-		Children: make([]ChildEntry, 0),
-		children: make(map[string]*FilesystemNode),
-	}
-	filesystem.statInfo = make(map[string]*objects.FileInfo)
-	filesystem.Symlinks = make([]SymlinkEntry, 0)
-	filesystem.symlinks = make(map[string]string)
-	filesystem.nFiles = 0
-	filesystem.nDirectories = 0
-	filesystem.totalSize = 0
-	return filesystem
-}
-
-func (filesystem *Filesystem) Serialize() ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.Serialize", time.Since(t0))
-		logger.Trace("vfs", "Serialize(): %s", time.Since(t0))
-	}()
-
-	serialized, err := msgpack.Marshal(filesystem)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
-}
-
-func NewFilesystemFromBytes(serialized []byte) (*Filesystem, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.NewFilesystemFromBytes", time.Since(t0))
-		logger.Trace("vfs", "NewFilesystemFromBytes(): %s", time.Since(t0))
-	}()
-
-	var filesystem Filesystem
-	if err := msgpack.Unmarshal(serialized, &filesystem); err != nil {
-		return nil, err
-	}
-	filesystem.reindex()
-	return &filesystem, nil
-}
-
-func NewFilesystemFromScan(repository string, directory string, excludes []glob.Glob) (*Filesystem, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.NewFilesystemFromScan", time.Since(t0))
-		logger.Trace("vfs", "NewFilesystemFromScan(): %s", time.Since(t0))
-	}()
-
-	imp, err := importer.NewImporter(directory)
+func NewFilesystem() (*Filesystem, error) {
+	dname, err := os.MkdirTemp("", "plakar-vfs-")
 	if err != nil {
 		return nil, err
 	}
 
-	schan, err := imp.Scan()
+	db, err := leveldb.OpenFile(dname, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Filesystem{
+		dirname: dname,
+		db:      db,
+		hasher:  sha256.New(),
+	}, err
+}
+
+func FromBytes(data []byte) (*Filesystem, error) {
+	dname, err := os.MkdirTemp("", "plakar-vfs-")
 	if err != nil {
 		return nil, err
 	}
 
-	fs := NewFilesystem()
-	fs.importer = imp
+	buf := bytes.NewBuffer(data)
+	gr, err := gzip.NewReader(buf)
+	if err != nil {
+		return nil, err
+	}
+	defer gr.Close()
 
-	for msg := range schan {
-		if msg, ok := msg.(importer.ScanError); ok {
-			logger.Warn("%s: %s", msg.Pathname, msg.Err)
-			continue
+	tr := tar.NewReader(gr)
+
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
 		}
-		msg := msg.(importer.ScanRecord)
-
-		pathname := filepath.Clean(msg.Pathname)
-		if pathname == repository || strings.HasPrefix(filepath.ToSlash(pathname), filepath.ToSlash(repository)+"/") {
-			continue
+		if err != nil {
+			return nil, err
 		}
 
-		doExclude := false
-		for _, exclude := range excludes {
-			if exclude.Match(pathname) {
-				doExclude = true
-				break
+		target := filepath.Join(dname, hdr.Name)
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
+				return nil, err
+
 			}
-		}
-		if doExclude {
-			continue
-		}
-
-		if pathname != "/" {
-			atoms := strings.Split(pathname, "/")
-			for i := 0; i < len(atoms)-1; i++ {
-				path := filepath.Clean(fmt.Sprintf("%s%s", "/", strings.Join(atoms[0:i], "/")))
-				path = filepath.ToSlash(path)
-				if _, found := fs.LookupInodeForDirectory(path); !found {
-					return nil, err
-				}
+		case tar.TypeReg:
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY, os.FileMode(hdr.Mode))
+			if err != nil {
+				return nil, err
 			}
-		}
-		pathname = filepath.ToSlash(pathname)
-		fs.buildTree(pathname, &msg.Stat)
-
-		/*
-			if !fileinfo.Mode.IsDir() && !fileinfo.Mode.IsRegular() {
-				lstat, err := os.Lstat(pathname)
-				if err != nil {
-					logger.Warn("%s", err)
-					return nil
-				}
-
-				lfileinfo := FileinfoFromStat(lstat)
-				if lfileinfo.Mode&os.ModeSymlink != 0 {
-					originFile, err := os.Readlink(lfileinfo.Name)
-					if err != nil {
-						logger.Warn("%s", err)
-						return nil
-					}
-
-					filesystem.muStat.Lock()
-					filesystem.statInfo[pathname] = &lfileinfo
-					filesystem.muStat.Unlock()
-
-					filesystem.muSymlinks.Lock()
-					filesystem.Symlinks[pathname] = originFile
-					filesystem.muSymlinks.Unlock()
-				}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				return nil, err
 			}
-		*/
+			f.Close()
+		}
 	}
 
-	return fs, nil
+	db, err := leveldb.OpenFile(dname, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Filesystem{
+		dirname: dname,
+		db:      db,
+		hasher:  sha256.New(),
+	}, err
 }
 
-func sortedChildInsert(slice []ChildEntry, val ChildEntry) []ChildEntry {
-	index := sort.Search(len(slice), func(i int) bool { return slice[i].Name >= val.Name })
-
-	slice = append(slice, val)
-	copy(slice[index+1:], slice[index:])
-	slice[index] = val
-
-	return slice
+func (fsc *Filesystem) Checksum() []byte {
+	return fsc.hasher.Sum(nil)
 }
 
-func sortedSymlinkInsert(slice []SymlinkEntry, val SymlinkEntry) []SymlinkEntry {
-	index := sort.Search(len(slice), func(i int) bool { return slice[i].Origin >= val.Origin })
+func (fsc *Filesystem) Serialize() ([]byte, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
 
-	slice = append(slice, val)
-	copy(slice[index+1:], slice[index:])
-	slice[index] = val
-
-	return slice
-}
-
-func (filesystem *Filesystem) buildTree(pathname string, fileinfo *objects.FileInfo) {
-	filesystem.totalSize += uint64(fileinfo.Size())
-
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-
-	p := filesystem.Root
-	if pathname != "/" {
-		atoms := strings.Split(pathname, "/")[1:]
-		for _, atom := range atoms {
-			p.muNode.Lock()
-			tmp, exists := p.children[atom]
-			p.muNode.Unlock()
-
-			if !exists {
-				p.muNode.Lock()
-				node := &FilesystemNode{
-					Children: make([]ChildEntry, 0),
-					children: make(map[string]*FilesystemNode),
-				}
-				p.Children = sortedChildInsert(p.Children, ChildEntry{Name: atom, Node: node})
-				p.children[atom] = node
-				tmp = p.children[atom]
-				p.muNode.Unlock()
-			}
-			p = tmp
+	err := filepath.Walk(fsc.dirname, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
+
+		hdr, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+
+		hdr.Name = filepath.ToSlash(file[len(fsc.dirname):])
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
-	p.muNode.Lock()
-	p.Inode = *fileinfo
-	p.muNode.Unlock()
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), err
+}
 
-	filesystem.muStat.Lock()
-	filesystem.statInfo[pathname] = fileinfo
-	filesystem.muStat.Unlock()
+func (fsc *Filesystem) Close() error {
+	if err := fsc.db.Close(); err != nil {
+		return err
+	}
+	return os.RemoveAll(fsc.dirname)
+}
 
-	if fileinfo.Mode().IsRegular() {
-		atomic.AddUint64(&filesystem.nFiles, uint64(1))
-		return
+func (fsc *Filesystem) Record(path string, fileinfo objects.FileInfo) error {
+	var fibuf bytes.Buffer
+	err := gob.NewEncoder(&fibuf).Encode(fileinfo)
+	if err != nil {
+		return err
 	}
 
+	storedPath := path
 	if fileinfo.Mode().IsDir() {
-		atomic.AddUint64(&filesystem.nDirectories, uint64(1))
-		return
-	}
-
-}
-
-func (filesystem *Filesystem) Lookup(pathname string) (*FilesystemNode, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.Lookup", time.Since(t0))
-		logger.Trace("vfs", "Lookup(%s): %s", pathname, time.Since(t0))
-	}()
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-	if pathname == "." {
-		pathname = "/"
-	}
-
-	p := filesystem.Root
-	if pathname == "/" {
-		return p, nil
-	}
-
-	atoms := strings.Split(pathname, "/")[1:]
-	for _, atom := range atoms {
-		p.muNode.Lock()
-		tmp, exists := p.children[atom]
-		p.muNode.Unlock()
-
-		if !exists {
-			return nil, os.ErrNotExist
+		if path != "/" {
+			storedPath = path + string(filepath.Separator)
 		}
-		p = tmp
 	}
-	return p, nil
+
+	fsc.hasher.Write([]byte(storedPath))
+	fsc.hasher.Write(fibuf.Bytes())
+
+	return fsc.db.Put([]byte(storedPath), fibuf.Bytes(), nil)
 }
 
-func (filesystem *Filesystem) LookupInode(pathname string) (*objects.FileInfo, bool) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.LookupInode", time.Since(t0))
-		logger.Trace("vfs", "LookupInode(%s): %s", pathname, time.Since(t0))
-	}()
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
-
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-	if pathname == "." {
-		pathname = "/"
-	}
-
-	fileinfo, exists := filesystem.statInfo[pathname]
-	return fileinfo, exists
-}
-
-func (filesystem *Filesystem) LookupInodeForFile(pathname string) (*objects.FileInfo, bool) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.LookupInodeForFile", time.Since(t0))
-		logger.Trace("vfs", "LookupInodeForFile(%s): %s", pathname, time.Since(t0))
-	}()
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
-
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-	if pathname == "." {
-		pathname = "/"
-	}
-
-	fileinfo, exists := filesystem.statInfo[pathname]
-	if !exists || !fileinfo.Mode().IsRegular() {
-		return nil, false
-	}
-	return fileinfo, exists
-}
-
-func (filesystem *Filesystem) LookupInodeForDirectory(pathname string) (*objects.FileInfo, bool) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.LookupInodeForDirectory", time.Since(t0))
-		logger.Trace("vfs", "LookupInodeForDirectory(%s): %s", pathname, time.Since(t0))
-	}()
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
-
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-	if pathname == "." {
-		pathname = "/"
-	}
-
-	fileinfo, exists := filesystem.statInfo[pathname]
-	if !exists || !fileinfo.Mode().IsDir() {
-		return nil, false
-	}
-	return fileinfo, exists
-}
-
-func (filesystem *Filesystem) LookupChildren(pathname string) ([]string, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.LookupChildren", time.Since(t0))
-		logger.Trace("vfs", "LookupChildren(%s): %s", pathname, time.Since(t0))
-	}()
-	pathname = filepath.Clean(pathname)
-	pathname = filepath.ToSlash(pathname)
-	if pathname == "." {
-		pathname = "/"
-	}
-
-	parent, err := filesystem.Lookup(pathname)
-	if err != nil {
-		return nil, os.ErrNotExist
-	}
-
-	parentInode := parent.Inode
-
-	if !parentInode.Mode().IsDir() {
-		return nil, os.ErrInvalid
-	}
-
-	ret := make([]string, 0)
-	for _, child := range parent.Children {
-		ret = append(ret, child.Name)
-	}
-	//sort.Strings(ret)
-
-	return ret, nil
-
-}
-
-func (filesystem *Filesystem) ListFiles() <-chan string {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ListFiles", time.Since(t0))
-		logger.Trace("vfs", "ListFiles(): %s", time.Since(t0))
-	}()
-
+func (fsc *Filesystem) Scan() <-chan string {
 	ch := make(chan string)
 	go func() {
-		defer close(ch)
-		filesystem.muStat.Lock()
-		l := make([]string, 0)
-		for pathname, stat := range filesystem.statInfo {
-			if stat.Mode().IsRegular() {
-				l = append(l, pathname)
+		iter := fsc.db.NewIterator(nil, nil)
+		for iter.Next() {
+			var key string
+			if iter.Key()[len(iter.Key())-1] == '/' {
+				if string(iter.Key()) != "/" {
+					key = string(iter.Key()[:len(iter.Key())-1])
+				} else {
+					key = "/"
+				}
+			} else {
+				key = string(iter.Key())
+			}
+			ch <- key
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+func (fsc *Filesystem) Directories() <-chan string {
+	ch := make(chan string)
+	go func() {
+		iter := fsc.db.NewIterator(nil, nil)
+		for iter.Next() {
+			if iter.Key()[len(iter.Key())-1] == '/' {
+				var key string
+				if string(iter.Key()) != "/" {
+					key = string(iter.Key()[:len(iter.Key())-1])
+				} else {
+					key = "/"
+				}
+				ch <- key
 			}
 		}
-		filesystem.muStat.Unlock()
-		for _, pathname := range l {
-			ch <- pathname
-		}
+		close(ch)
 	}()
 	return ch
 }
 
-func (filesystem *Filesystem) ListDirectories() <-chan string {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ListDirectories", time.Since(t0))
-		logger.Trace("vfs", "ListDirectories(): %s", time.Since(t0))
-	}()
+func (fsc *Filesystem) Children(path string) (<-chan string, error) {
+	storedPath := path
+	if path != "/" {
+		storedPath = path + string(filepath.Separator)
+	}
+	_, err := fsc.db.Get([]byte(storedPath), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	ch := make(chan string)
+
 	go func() {
 		defer close(ch)
-		filesystem.muStat.Lock()
-		l := make([]string, 0)
-		for pathname, stat := range filesystem.statInfo {
-			if stat.Mode().IsDir() {
-				l = append(l, pathname)
+		prefix := []byte(storedPath)
+		iter := fsc.db.NewIterator(nil, nil)
+		defer iter.Release()
+		for iter.Seek(prefix); iter.Valid() && bytes.HasPrefix(iter.Key(), prefix); iter.Next() {
+			key := iter.Key()
+			relativePath := string(key[len(prefix):])
+			atoms := strings.Split(relativePath, string(filepath.Separator))
+			if len(atoms) == 1 && atoms[0] == "" {
+				continue
+			} else if len(atoms) == 1 || (len(atoms) == 2 && atoms[1] == "") {
+				ch <- atoms[0]
+			} else {
+				continue
 			}
 		}
-		filesystem.muStat.Unlock()
-		for _, pathname := range l {
-			ch <- pathname
-		}
 	}()
-	return ch
+
+	return ch, nil
 }
 
-func (filesystem *Filesystem) ListNonRegular() []string {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ListNonRegular", time.Since(t0))
-		logger.Trace("vfs", "ListNonRegular(): %s", time.Since(t0))
-	}()
-
-	filesystem.muStat.Lock()
-	defer filesystem.muStat.Unlock()
-
-	list := make([]string, 0)
-	for pathname, stat := range filesystem.statInfo {
-		if !stat.Mode().IsDir() && !stat.Mode().IsRegular() {
-			list = append(list, pathname)
-		}
-	}
-	return list
-}
-
-func (filesystem *Filesystem) ListStat() <-chan string {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ListStat", time.Since(t0))
-		logger.Trace("vfs", "ListStat(): %s", time.Since(t0))
-	}()
-
+func (fsc *Filesystem) Files() <-chan string {
 	ch := make(chan string)
 	go func() {
-		defer close(ch)
-		filesystem.muStat.Lock()
-		l := make([]string, 0)
-		for pathname := range filesystem.statInfo {
-			l = append(l, pathname)
+		iter := fsc.db.NewIterator(nil, nil)
+		for iter.Next() {
+			if iter.Key()[len(iter.Key())-1] != '/' {
+				ch <- string(iter.Key())
+			}
 		}
-		filesystem.muStat.Unlock()
-		for _, pathname := range l {
-			ch <- pathname
-		}
+		close(ch)
 	}()
 	return ch
 }
 
-func (filesystem *Filesystem) _reindex(pathname string) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs._reindex", time.Since(t0))
-		logger.Trace("vfs", "_reindex(): %s", time.Since(t0))
+func (fsc *Filesystem) Pathnames() <-chan string {
+	ch := make(chan string)
+	go func() {
+		iter := fsc.db.NewIterator(nil, nil)
+		for iter.Next() {
+			var key string
+			if iter.Key()[len(iter.Key())-1] == '/' {
+				if string(iter.Key()) != "/" {
+					key = string(iter.Key()[:len(iter.Key())-1])
+				} else {
+					key = "/"
+				}
+			} else {
+				key = string(iter.Key())
+			}
+			ch <- key
+		}
+		close(ch)
 	}()
+	return ch
+}
 
-	node, err := filesystem.Lookup(pathname)
-	if err != nil {
-		return
+func (fsc *Filesystem) Stat(path string) (*objects.FileInfo, error) {
+	storedPath := path
+	if path != "/" {
+		storedPath = path + string(filepath.Separator)
 	}
 
-	pathnameInode := node.Inode
-	filesystem.statInfo[pathname] = &pathnameInode
-	filesystem.totalSize += uint64(pathnameInode.Size())
-
-	node.children = make(map[string]*FilesystemNode)
-	for _, child := range node.Children {
-		node.children[child.Name] = child.Node
-		nodeInode := child.Node.Inode
-		child := filepath.Clean(fmt.Sprintf("%s/%s", pathname, child.Name))
-		if nodeInode.Mode().IsDir() {
-			filesystem._reindex(child)
-		} else {
-			filesystem.statInfo[child] = &nodeInode
+	// first check if the path is a directory
+	data, err := fsc.db.Get([]byte(storedPath), nil)
+	if err != nil {
+		// then check if the path is a file
+		data, err = fsc.db.Get([]byte(path), nil)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-}
-
-func (filesystem *Filesystem) reindex() {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.reindex", time.Since(t0))
-		logger.Trace("vfs", "reindex(): %s", time.Since(t0))
-	}()
-
-	filesystem.statInfo = make(map[string]*objects.FileInfo)
-	filesystem._reindex("/")
-}
-
-func (filesystem *Filesystem) Size() uint64 {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.Size", time.Since(t0))
-		logger.Trace("vfs", "Size(): %s", time.Since(t0))
-	}()
-	return filesystem.totalSize
-}
-
-func (filesystem *Filesystem) NFiles() uint64 {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.NDirectories", time.Since(t0))
-		logger.Trace("vfs", "NFiles(): %s", time.Since(t0))
-	}()
-	return filesystem.nFiles
-}
-
-func (filesystem *Filesystem) NDirectories() uint64 {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.NDirectories", time.Since(t0))
-		logger.Trace("vfs", "NDirectories(): %s", time.Since(t0))
-	}()
-	return filesystem.nDirectories
-}
-
-func (filesystem *Filesystem) ImporterClose() error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ImporterClose", time.Since(t0))
-		logger.Trace("vfs", "ImporterClose(): %s", time.Since(t0))
-	}()
-	return filesystem.importer.Close()
-}
-
-func (filesystem *Filesystem) ImporterNewReader(filename string) (io.ReadCloser, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.ImporterOpen", time.Since(t0))
-		logger.Trace("vfs", "ImporterOpen(): %s", time.Since(t0))
-	}()
-	return filesystem.importer.NewReader(filename)
+	var fileinfo *objects.FileInfo
+	err = gob.NewDecoder(bytes.NewBuffer(data)).Decode(&fileinfo)
+	if err != nil {
+		return nil, err
+	}
+	return fileinfo, nil
 }

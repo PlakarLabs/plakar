@@ -20,7 +20,6 @@ import (
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/PlakarLabs/plakar/storage/locking"
 	"github.com/PlakarLabs/plakar/vfs"
-	"github.com/PlakarLabs/plakar/vfs2"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -32,7 +31,7 @@ type Snapshot struct {
 
 	Header     *header.Header
 	Index      *index.Index
-	Filesystem *vfs2.Filesystem
+	Filesystem *vfs.Filesystem
 
 	Metadata *metadata.Metadata
 
@@ -58,7 +57,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
 	}()
 
-	fs, err := vfs2.NewFilesystem()
+	fs, err := vfs.NewFilesystem()
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +446,7 @@ func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, 
 	return index, verifyChecksum32, nil
 }
 
-func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs2.Filesystem, [32]byte, error) {
+func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.Filesystem, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
@@ -458,7 +457,7 @@ func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs2.Fil
 		return nil, [32]byte{}, err
 	}
 
-	filesystem, err := vfs2.FromBytes(buffer)
+	filesystem, err := vfs.FromBytes(buffer)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}

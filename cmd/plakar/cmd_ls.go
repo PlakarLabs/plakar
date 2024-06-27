@@ -31,7 +31,7 @@ import (
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs2"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
 )
 
@@ -240,7 +240,7 @@ func list_snapshot_recursive(repository *storage.Repository, args []string) {
 	}
 }
 
-func list_snapshot_recursive_directory(pvfs *vfs2.Filesystem, directory string) {
+func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	directories := make([]string, 0)
 	for name := range pvfs.Directories() {
 		directories = append(directories, name)

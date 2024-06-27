@@ -9,7 +9,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs2"
+	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
@@ -104,7 +104,7 @@ func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
 	return entry.(*header.Header), nil
 }
 
-func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs2.Filesystem, error) {
+func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
 		hdr, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
@@ -122,7 +122,7 @@ func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs2.Filesystem, error
 		fs.fsCache.Store(snapshotID, filesystem)
 		return filesystem, err
 	}
-	return entry.(*vfs2.Filesystem), nil
+	return entry.(*vfs.Filesystem), nil
 }
 
 func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, error) {

@@ -52,18 +52,13 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := exporterInstance.Begin(dir); err != nil {
-			log.Fatal(err)
-		}
 	} else {
 		exporterInstance, err = exporter.NewExporter(pullPath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := exporterInstance.Begin(pullPath); err != nil {
-			log.Fatal(err)
-		}
 	}
+	defer exporterInstance.Close()
 
 	if flags.NArg() == 0 {
 		metadatas, err := getHeaders(repository, nil)

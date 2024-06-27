@@ -15,11 +15,10 @@ import (
 )
 
 type ExporterBackend interface {
-	Begin(config string) error
 	Root() string
 	CreateDirectory(pathname string, fileinfo *vfs.FileInfo) error
 	StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Reader) error
-	End() error
+	Close() error
 }
 
 type Exporter struct {
@@ -27,9 +26,9 @@ type Exporter struct {
 }
 
 var muBackends sync.Mutex
-var backends map[string]func() ExporterBackend = make(map[string]func() ExporterBackend)
+var backends map[string]func(location string) (ExporterBackend, error) = make(map[string]func(location string) (ExporterBackend, error))
 
-func Register(name string, backend func() ExporterBackend) {
+func Register(name string, backend func(location string) (ExporterBackend, error)) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -77,20 +76,12 @@ func NewExporter(location string) (*Exporter, error) {
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
-		provider := &Exporter{}
-		provider.backend = backend()
-		return provider, nil
+		backendInstance, err := backend(location)
+		if err != nil {
+			return nil, err
+		}
+		return &Exporter{backend: backendInstance}, nil
 	}
-}
-
-func (exporter *Exporter) Begin(config string) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("vfs.exporter.Begin", time.Since(t0))
-		logger.Trace("vfs", "exporter.Begin(%s): %s", config, time.Since(t0))
-	}()
-
-	return exporter.backend.Begin(config)
 }
 
 func (exporter *Exporter) Root() string {
@@ -123,12 +114,11 @@ func (exporter *Exporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp 
 	return exporter.backend.StoreFile(pathname, fileinfo, fp)
 }
 
-func (exporter *Exporter) End() error {
+func (exporter *Exporter) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.End", time.Since(t0))
-		logger.Trace("vfs", "exporter.End(): %s", time.Since(t0))
+		profiler.RecordEvent("vfs.exporter.Close", time.Since(t0))
+		logger.Trace("vfs", "exporter.Close(): %s", time.Since(t0))
 	}()
-
-	return exporter.backend.End()
+	return exporter.backend.Close()
 }

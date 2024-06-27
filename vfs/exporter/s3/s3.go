@@ -19,7 +19,6 @@ package s3
 import (
 	"context"
 	"io"
-	"log"
 	"net/url"
 	"strings"
 
@@ -32,6 +31,8 @@ import (
 type S3Exporter struct {
 	exporter.ExporterBackend
 
+	location string
+
 	minioClient *minio.Client
 	rootDir     string
 }
@@ -40,44 +41,41 @@ func init() {
 	exporter.Register("s3", NewS3Exporter)
 }
 
-func NewS3Exporter() exporter.ExporterBackend {
-	return &S3Exporter{}
-}
-
-func (provider *S3Exporter) connect(location *url.URL) error {
+func connect(location *url.URL) (*minio.Client, error) {
 	endpoint := location.Host
 	accessKeyID := location.User.Username()
 	secretAccessKey, _ := location.User.Password()
 	useSSL := false
 
 	// Initialize minio client object.
-	minioClient, err := minio.New(endpoint, &minio.Options{
+	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 	})
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	provider.minioClient = minioClient
-	return nil
 }
 
-func (p *S3Exporter) Begin(location string) error {
+func NewS3Exporter(location string) (exporter.ExporterBackend, error) {
 	parsed, err := url.Parse(location)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	p.rootDir = parsed.Path
-	p.connect(parsed)
 
-	err = p.minioClient.MakeBucket(context.Background(), strings.TrimPrefix(p.rootDir, "/"), minio.MakeBucketOptions{})
+	conn, err := connect(parsed)
+	if err != nil {
+		return nil, err
+	}
+
+	err = conn.MakeBucket(context.Background(), strings.TrimPrefix(parsed.Path, "/"), minio.MakeBucketOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code != "BucketAlreadyOwnedByYou" {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+
+	return &S3Exporter{
+		rootDir:     parsed.Path,
+		minioClient: conn,
+	}, nil
 }
 
 func (p *S3Exporter) Root() string {
@@ -96,6 +94,6 @@ func (p *S3Exporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Re
 	return err
 }
 
-func (p *S3Exporter) End() error {
+func (p *S3Exporter) Close() error {
 	return nil
 }

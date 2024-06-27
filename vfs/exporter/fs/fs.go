@@ -28,7 +28,6 @@ import (
 
 type FSExporter struct {
 	exporter.ExporterBackend
-	config  string
 	rootDir string
 }
 
@@ -36,15 +35,19 @@ func init() {
 	exporter.Register("fs", NewFSExporter)
 }
 
-func NewFSExporter() exporter.ExporterBackend {
-	return &FSExporter{}
+func NewFSExporter(location string) (exporter.ExporterBackend, error) {
+	if strings.HasPrefix(location, "fs://") {
+		location = location[4:]
+	}
+	return &FSExporter{
+		rootDir: location,
+	}, nil
 }
 
 func (p *FSExporter) Begin(config string) error {
 	if strings.HasPrefix(config, "fs://") {
 		config = config[4:]
 	}
-	p.config = config
 	p.rootDir = config // duplicate for now, config might change later
 	return nil
 }
@@ -88,6 +91,6 @@ func (p *FSExporter) StoreFile(pathname string, fileinfo *vfs.FileInfo, fp io.Re
 	return nil
 }
 
-func (p *FSExporter) End() error {
+func (p *FSExporter) Close() error {
 	return nil
 }

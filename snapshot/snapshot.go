@@ -62,11 +62,16 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		return nil, err
 	}
 
+	idx, err := index.NewIndex()
+	if err != nil {
+		return nil, err
+	}
+
 	snapshot := &Snapshot{
 		repository: repository,
 
 		Header:     header.NewHeader(indexID),
-		Index:      index.NewIndex(),
+		Index:      idx,
 		Filesystem: fs,
 		Metadata:   metadata.New(),
 
@@ -431,7 +436,7 @@ func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, 
 		return nil, [32]byte{}, err
 	}
 
-	index, err := index.NewIndexFromBytes(buffer)
+	index, err := index.FromBytes(buffer)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}
@@ -821,7 +826,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	if snapshot.Index.ChunkExists(checksum) {
+	if exists, err := snapshot.Index.ChunkExists(checksum); err == nil && exists {
 		return true
 	} else {
 		return snapshot.Repository().GetRepositoryIndex().ChunkExists(checksum)
@@ -835,7 +840,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	if snapshot.Index.ObjectExists(checksum) {
+	if exists, err := snapshot.Index.ObjectExists(checksum); err == nil && exists {
 		return true
 	} else {
 		return snapshot.Repository().GetRepositoryIndex().ObjectExists(checksum)

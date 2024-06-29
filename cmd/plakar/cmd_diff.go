@@ -156,8 +156,16 @@ func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
 			pathnameChecksum := hasher.Sum(nil)
 			key := [32]byte{}
 			copy(key[:], pathnameChecksum)
-			object1 := snapshot1.Index.LookupObjectForPathnameChecksum(key)
-			object2 := snapshot2.Index.LookupObjectForPathnameChecksum(key)
+			object1, err := snapshot1.Index.LookupObjectForPathnameChecksum(key)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), args[i], err)
+				return 1
+			}
+			object2, err := snapshot2.Index.LookupObjectForPathnameChecksum(key)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), args[i], err)
+				return 1
+			}
 
 			if object1 == nil && object2 == nil {
 				fmt.Fprintf(os.Stderr, "%s: %s: file not found in snapshots\n", flag.CommandLine.Name(), args[i])
@@ -196,14 +204,22 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
-	object1 := snapshot1.Index.LookupObjectForPathnameChecksum(key)
+	object1, err := snapshot1.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), filename1, err)
+		return
+	}
 
 	hasher = encryption.GetHasher(snapshot2.Repository().Configuration().Hashing)
 	hasher.Write([]byte(filename2))
 	pathnameChecksum = hasher.Sum(nil)
 	key = [32]byte{}
 	copy(key[:], pathnameChecksum)
-	object2 := snapshot2.Index.LookupObjectForPathnameChecksum(key)
+	object2, err := snapshot2.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), filename2, err)
+		return
+	}
 
 	// file does not exist in either snapshot
 	if object1 == nil && object2 == nil {

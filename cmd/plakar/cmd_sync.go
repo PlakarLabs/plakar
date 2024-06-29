@@ -161,7 +161,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			copySnapshot.Metadata = sourceSnapshot.Metadata
 
 			wg2 := sync.WaitGroup{}
-			for _, _chunkID := range sourceSnapshot.Index.ListChunks() {
+			for _chunkID := range sourceSnapshot.Index.ListChunks() {
 				wg2.Add(1)
 				go func(chunkID [32]byte) {
 					defer wg2.Done()
@@ -191,7 +191,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			wg2.Wait()
 
 			wg3 := sync.WaitGroup{}
-			for _, _objectID := range sourceSnapshot.Index.ListObjects() {
+			for _objectID := range sourceSnapshot.Index.ListObjects() {
 				wg3.Add(1)
 				go func(objectID [32]byte) {
 					defer wg3.Done()
@@ -202,7 +202,11 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 					if !exists {
 						exists := copySnapshot.CheckObject(objectID)
 						if !exists {
-							object := sourceSnapshot.Index.LookupObject(objectID)
+							object, err := sourceSnapshot.Index.LookupObject(objectID)
+							if err != nil {
+								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
+								return
+							}
 							err = copySnapshot.PutObject(object)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)

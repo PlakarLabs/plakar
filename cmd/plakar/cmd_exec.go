@@ -56,7 +56,10 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
-	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if object == nil {
 		return 0
 	}

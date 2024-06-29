@@ -107,7 +107,10 @@ func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 	var key [32]byte
 	copy(key[:], pathnameHash[:32])
 
-	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		return nil, err
+	}
 	if object == nil {
 		return nil, os.ErrNotExist
 	}
@@ -115,7 +118,10 @@ func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 	chunksLengths := make([]uint32, 0)
 	size := int64(0)
 	for _, chunkChecksum := range object.Chunks {
-		chunkLength, exists := snapshot.Index.GetChunkLength(chunkChecksum)
+		chunkLength, exists, err := snapshot.Index.GetChunkLength(chunkChecksum)
+		if err != nil {
+			return nil, err
+		}
 		if !exists {
 			return nil, os.ErrNotExist
 		}

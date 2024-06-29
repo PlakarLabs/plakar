@@ -376,7 +376,11 @@ func object(w http.ResponseWriter, r *http.Request) {
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
-	object := snap.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -387,7 +391,12 @@ func object(w http.ResponseWriter, r *http.Request) {
 
 	chunks := make([]*objects.Chunk, 0)
 	for _, chunkChecksum := range object.Chunks {
-		chunks = append(chunks, snap.Index.LookupChunk(chunkChecksum))
+		chunk, err := snap.Index.LookupChunk(chunkChecksum)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		chunks = append(chunks, chunk)
 	}
 
 	root := ""
@@ -460,7 +469,11 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
-	object := snap.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if object == nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -600,7 +613,10 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				pathnameChecksum := hasher.Sum(nil)
 				key := [32]byte{}
 				copy(key[:], pathnameChecksum)
-				object := snap.Index.LookupObjectForPathnameChecksum(key)
+				object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+				if err != nil {
+					continue
+				}
 				if object != nil {
 					object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {

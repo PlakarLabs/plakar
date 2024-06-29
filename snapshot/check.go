@@ -22,7 +22,11 @@ func snapshotCheckChunk(snapshot *Snapshot, chunkChecksum [32]byte, hasher hash.
 }
 
 func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool, error) {
-	object := snapshot.Index.LookupObject(checksum)
+	object, err := snapshot.Index.LookupObject(checksum)
+	if err != nil {
+		logger.Warn("%s: missing object %064x", snapshot.Header.GetIndexShortID(), checksum)
+		return false, nil
+	}
 	if object == nil {
 		logger.Warn("%s: unlisted object %064x", snapshot.Header.GetIndexShortID(), checksum)
 		return false, nil
@@ -34,7 +38,10 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 			return false, nil
 		}
 	} else {
-		tmp := snapshot.Index.LookupObject(checksum)
+		tmp, err := snapshot.Index.LookupObject(checksum)
+		if err != nil {
+			return false, err
+		}
 		if tmp != nil {
 			return false, nil
 		}
@@ -68,7 +75,10 @@ func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 
-	object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	if err != nil {
+		return false, err
+	}
 	if object == nil {
 		logger.Warn("%s: no such file %s", snapshot.Header.GetIndexShortID(), resource)
 		return false, nil
@@ -83,7 +93,7 @@ func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool
 
 func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	ret := true
-	for _, checksum := range snapshot.Index.ListChunks() {
+	for checksum := range snapshot.Index.ListChunks() {
 		if fast {
 			exists := snapshot.CheckChunk(checksum)
 			if !exists {
@@ -108,7 +118,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		}
 	}
 
-	for _, checksum := range snapshot.Index.ListObjects() {
+	for checksum := range snapshot.Index.ListObjects() {
 		if fast {
 			exists := snapshot.CheckObject(checksum)
 			if !exists {
@@ -116,10 +126,20 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 		} else {
-			object := snapshot.Index.LookupObject(checksum)
+			object, err := snapshot.Index.LookupObject(checksum)
+			if err != nil {
+				logger.Warn("%s: missing object %064x", snapshot.Header.GetIndexShortID(), checksum)
+				ret = false
+				continue
+			}
 			objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 			for _, chunkChecksum := range object.Chunks {
-				indexChunk := snapshot.Index.LookupChunk(chunkChecksum)
+				indexChunk, err := snapshot.Index.LookupChunk(chunkChecksum)
+				if err != nil {
+					logger.Warn("%s: missing chunk %064x", snapshot.Header.GetIndexShortID(), chunkChecksum)
+					ret = false
+					continue
+				}
 				if indexChunk == nil {
 					logger.Warn("%s: unlisted chunk %064x", snapshot.Header.GetIndexShortID(), chunkChecksum)
 					ret = false
@@ -148,7 +168,12 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		pathnameChecksum := hasher.Sum(nil)
 		key := [32]byte{}
 		copy(key[:], pathnameChecksum)
-		object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		if err != nil {
+			logger.Warn("%s: missing object for file %s", snapshot.Header.GetIndexShortID(), filename)
+			ret = false
+			continue
+		}
 		if object == nil {
 			logger.Warn("%s: unlisted object for file %s", snapshot.Header.GetIndexShortID(), filename)
 			ret = false

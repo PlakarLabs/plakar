@@ -21,6 +21,7 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type PushOptions struct {
@@ -95,7 +96,10 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 		chunk.Length = uint32(len(buf))
 		object.Chunks = append(object.Chunks, chunk.Checksum)
 
-		indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
+		indexChunk, err := snapshot.Index.LookupChunk(chunk.Checksum)
+		if err != nil && err != leveldb.ErrNotFound {
+			return nil, err
+		}
 		if indexChunk == nil {
 			exists := snapshot.CheckChunk(chunk.Checksum)
 			if !exists {
@@ -158,7 +162,10 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 			object.Chunks = append(object.Chunks, chunk.Checksum)
 			cdcOffset += uint64(len(cdcChunk))
 
-			indexChunk := snapshot.Index.LookupChunk(chunk.Checksum)
+			indexChunk, err := snapshot.Index.LookupChunk(chunk.Checksum)
+			if err != nil && err != leveldb.ErrNotFound {
+				return nil, err
+			}
 			if indexChunk == nil {
 				exists := snapshot.CheckChunk(chunk.Checksum)
 				if !exists {
@@ -319,7 +326,13 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 						snapshot.PutCachedObject(_record.Pathname, *object, _record.Stat)
 					}
 
-					if !snapshot.Index.ObjectExists(object.Checksum) {
+					exists, err := snapshot.Index.ObjectExists(object.Checksum)
+					if err != nil {
+						logger.Warn("%s: %s", _record.Pathname, err)
+						return
+					}
+
+					if !exists {
 						exists = snapshot.CheckObject(object.Checksum)
 						if !exists {
 							err := snapshot.PutObject(object)
@@ -352,8 +365,12 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	snapshot.Header.FilesCount = uint64(fileCount)
 	snapshot.Header.DirectoriesCount = uint64(dirCount)
 
-	for _, chunk := range snapshot.Index.ListChunks() {
-		chunkLength, exists := snapshot.Index.GetChunkLength(chunk)
+	for chunk := range snapshot.Index.ListChunks() {
+		chunkLength, exists, err := snapshot.Index.GetChunkLength(chunk)
+		if err != nil {
+			logger.Warn("could not get chunk length: %s", err)
+			return err
+		}
 		if !exists {
 			panic("ListChunks: corrupted index")
 		}

@@ -64,7 +64,12 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		pathnameChecksum := hasher.Sum(nil)
 		key := [32]byte{}
 		copy(key[:], pathnameChecksum)
-		object := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
 		if object == nil {
 			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
 			errors++

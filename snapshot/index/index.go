@@ -1,441 +1,318 @@
 package index
 
 import (
+	"archive/tar"
 	"bytes"
-	"sort"
-	"sync"
-	"time"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"hash"
+	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/vmihailenco/msgpack/v5"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/PlakarLabs/plakar/logger"
 )
 
-const VERSION string = "0.0.1"
+const VERSION string = "0.1.0"
 
 type Index struct {
-	muPathnameToObject    sync.Mutex
-	pathnamesChecksumsMap map[[32]byte]uint32
-	//inversePathnamesChecksumsMap map[uint32][32]byte
-	pathnameToObjectMap   map[uint32]uint32
-	PathnameToObjectList  []uint32
-	PathnamesChecksumList [][32]byte
-
-	// Object checksum -> chunks checksums
-	muObjects           sync.Mutex
-	objectsChecksumsMap map[[32]byte]uint32
-	//inverseObjectsChecksumsMap map[uint32][32]byte
-	objectsMap          map[uint32][]uint32
-	ObjectsList         [][]uint32
-	ObjectsChecksumList [][32]byte
-
-	// Chunk checksum -> length
-	muChunks           sync.Mutex
-	chunksChecksumsMap map[[32]byte]uint32
-	//inverseChunksChecksumsMap map[uint32][32]byte
-	chunksMap          map[uint32]uint32
-	ChunksList         []uint32
-	ChunksChecksumList [][32]byte
+	dirname string
+	db      *leveldb.DB
+	hasher  hash.Hash
 }
 
-func NewIndex() *Index {
-	return &Index{
-		pathnamesChecksumsMap: make(map[[32]byte]uint32),
-		//inversePathnamesChecksumsMap: make(map[uint32][32]byte),
-		pathnameToObjectMap:   make(map[uint32]uint32),
-		PathnamesChecksumList: make([][32]byte, 0),
-
-		objectsChecksumsMap: make(map[[32]byte]uint32),
-		//inverseObjectsChecksumsMap: make(map[uint32][32]byte),
-		objectsMap:          make(map[uint32][]uint32),
-		ObjectsChecksumList: make([][32]byte, 0),
-
-		chunksChecksumsMap: make(map[[32]byte]uint32),
-		//inverseChunksChecksumsMap: make(map[uint32][32]byte),
-		chunksMap:          make(map[uint32]uint32),
-		ChunksChecksumList: make([][32]byte, 0),
-	}
-}
-
-func NewIndexFromBytes(serialized []byte) (*Index, error) {
-
-	var index Index
-	if err := msgpack.Unmarshal(serialized, &index); err != nil {
-		return nil, err
-	}
-
-	wg := sync.WaitGroup{}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.chunksChecksumsMap = make(map[[32]byte]uint32)
-		//index.inverseChunksChecksumsMap = make(map[uint32][32]byte)
-		for offset, checksum := range index.ChunksChecksumList {
-			index.chunksChecksumsMap[checksum] = uint32(offset)
-			//	index.inverseChunksChecksumsMap[uint32(offset)] = checksum
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.objectsChecksumsMap = make(map[[32]byte]uint32)
-		//index.inverseObjectsChecksumsMap = make(map[uint32][32]byte)
-		for offset, checksum := range index.ObjectsChecksumList {
-			index.objectsChecksumsMap[checksum] = uint32(offset)
-			//	index.inverseObjectsChecksumsMap[uint32(offset)] = checksum
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.pathnamesChecksumsMap = make(map[[32]byte]uint32)
-		//index.inversePathnamesChecksumsMap = make(map[uint32][32]byte)
-		for offset, checksum := range index.PathnamesChecksumList {
-			index.pathnamesChecksumsMap[checksum] = uint32(offset)
-			//	index.inversePathnamesChecksumsMap[uint32(offset)] = checksum
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.chunksMap = make(map[uint32]uint32)
-		for checksumID, chunkLength := range index.ChunksList {
-			index.chunksMap[uint32(checksumID)] = chunkLength
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.objectsMap = make(map[uint32][]uint32)
-		for checksumID, chunkIDs := range index.ObjectsList {
-			index.objectsMap[uint32(checksumID)] = chunkIDs
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		index.pathnameToObjectMap = make(map[uint32]uint32)
-		for pathnameID, objectID := range index.PathnameToObjectList {
-			index.pathnameToObjectMap[uint32(pathnameID)] = objectID
-		}
-	}()
-
-	wg.Wait()
-
-	return &index, nil
-}
-
-func (index *Index) Serialize() ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("index.normalize", time.Since(t0))
-		logger.Trace("index", "normalize(): %s", time.Since(t0))
-	}()
-
-	newIndex := &Index{
-		ChunksChecksumList: make([][32]byte, len(index.ChunksChecksumList)),
-		chunksChecksumsMap: make(map[[32]byte]uint32),
-
-		ObjectsChecksumList: make([][32]byte, len(index.ObjectsChecksumList)),
-		objectsChecksumsMap: make(map[[32]byte]uint32),
-
-		PathnamesChecksumList: make([][32]byte, len(index.PathnamesChecksumList)),
-		pathnamesChecksumsMap: make(map[[32]byte]uint32),
-	}
-
-	//newChunksChecksumsList := make([][32]byte, len(index.chunksChecksumsMap))
-	//newChunkIDMap := make(map[[32]byte]uint32)
-	//newObjectsChecksumsList := make([][32]byte, len(index.objectsChecksumsMap))
-	//newObjectsIDMap := make(map[[32]byte]uint32)
-	//newPathnamesChecksumsList := make([][32]byte, len(index.pathnamesChecksumsMap))
-	//newPathnamesIDMap := make(map[[32]byte]uint32)
-
-	wg := sync.WaitGroup{}
-	// first of all, sort the checksums
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		copy(newIndex.ChunksChecksumList, index.ChunksChecksumList)
-		sort.Slice(newIndex.ChunksChecksumList, func(i, j int) bool {
-			return bytes.Compare(newIndex.ChunksChecksumList[i][:], newIndex.ChunksChecksumList[j][:]) < 0
-		})
-		for offset, checksum := range newIndex.ChunksChecksumList {
-			newIndex.chunksChecksumsMap[checksum] = uint32(offset)
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		copy(newIndex.ObjectsChecksumList, index.ObjectsChecksumList)
-		sort.Slice(newIndex.ObjectsChecksumList, func(i, j int) bool {
-			return bytes.Compare(newIndex.ObjectsChecksumList[i][:], newIndex.ObjectsChecksumList[j][:]) < 0
-		})
-		for offset, checksum := range newIndex.ObjectsChecksumList {
-			newIndex.objectsChecksumsMap[checksum] = uint32(offset)
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		copy(newIndex.PathnamesChecksumList, index.PathnamesChecksumList)
-		sort.Slice(newIndex.PathnamesChecksumList, func(i, j int) bool {
-			return bytes.Compare(newIndex.PathnamesChecksumList[i][:], newIndex.PathnamesChecksumList[j][:]) < 0
-		})
-		for offset, checksum := range newIndex.PathnamesChecksumList {
-			newIndex.pathnamesChecksumsMap[checksum] = uint32(offset)
-		}
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		newIndex.ChunksList = make([]uint32, len(index.chunksMap))
-		for checksumID, chunkLength := range index.chunksMap {
-			newChecksumID := newIndex.chunksChecksumsMap[index.ChunksChecksumList[checksumID]]
-			newIndex.ChunksList[newChecksumID] = chunkLength
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		newIndex.ObjectsList = make([][]uint32, len(index.objectsMap))
-		for checksumID, chunkIDs := range index.objectsMap {
-			newChecksumID := newIndex.objectsChecksumsMap[index.ObjectsChecksumList[checksumID]]
-			newIndex.ObjectsList[newChecksumID] = make([]uint32, len(chunkIDs))
-			for offset, chunkID := range chunkIDs {
-				newChunkID := newIndex.chunksChecksumsMap[index.ChunksChecksumList[chunkID]]
-				newIndex.ObjectsList[newChecksumID][offset] = newChunkID
-			}
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		newIndex.PathnameToObjectList = make([]uint32, len(index.pathnameToObjectMap))
-		for pathnameID, objectID := range index.pathnameToObjectMap {
-			newChecksumID := newIndex.pathnamesChecksumsMap[index.PathnamesChecksumList[pathnameID]]
-			newObjectID := newIndex.objectsChecksumsMap[index.ObjectsChecksumList[objectID]]
-			newIndex.PathnameToObjectList[newChecksumID] = newObjectID
-		}
-	}()
-
-	wg.Wait()
-
-	serialized, err := msgpack.Marshal(newIndex)
+func NewIndex() (*Index, error) {
+	dname, err := os.MkdirTemp("", "plakar-index-")
 	if err != nil {
 		return nil, err
 	}
-	return serialized, nil
-}
 
-func (index *Index) ListObjects() [][32]byte {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
-
-	ret := make([][32]byte, 0)
-	for checksumID := range index.objectsMap {
-		/*
-			checksum, exists := index.inverseObjectsChecksumsMap[checksumID]
-			if !exists {
-				panic("ListObjects: corrupted index")
-			}
-		*/
-		checksum := index.ObjectsChecksumList[checksumID]
-		ret = append(ret, checksum)
+	db, err := leveldb.OpenFile(dname, nil)
+	if err != nil {
+		return nil, err
 	}
-	return ret
+	return &Index{
+		dirname: dname,
+		db:      db,
+		hasher:  sha256.New(),
+	}, err
 }
 
-func (index *Index) ListChunks() [][32]byte {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
-
-	ret := make([][32]byte, 0)
-	for checksumID := range index.chunksMap {
-		/*
-			checksum, exists := index.inverseChunksChecksumsMap[checksumID]
-			if !exists {
-				panic("ListChunks: corrupted index")
-			}
-		*/
-		checksum := index.ChunksChecksumList[checksumID]
-		ret = append(ret, checksum)
+func FromBytes(data []byte) (*Index, error) {
+	dname, err := os.MkdirTemp("", "plakar-vfs-")
+	if err != nil {
+		return nil, err
 	}
-	return ret
+
+	buf := bytes.NewBuffer(data)
+	gr, err := gzip.NewReader(buf)
+	if err != nil {
+		return nil, err
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
+
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		target := filepath.Join(dname, hdr.Name)
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
+				return nil, err
+
+			}
+		case tar.TypeReg:
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY, os.FileMode(hdr.Mode))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := io.Copy(f, tr); err != nil {
+				f.Close()
+				return nil, err
+			}
+			f.Close()
+		}
+	}
+
+	db, err := leveldb.OpenFile(dname, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Index{
+		dirname: dname,
+		db:      db,
+		hasher:  sha256.New(),
+	}, err
 }
 
-// Public
-func (index *Index) AddChunk(chunk *objects.Chunk) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
+func (i *Index) Checksum() []byte {
+	return i.hasher.Sum(nil)
+}
+
+func (i *Index) Serialize() ([]byte, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	err := filepath.Walk(i.dirname, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		hdr, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+
+		hdr.Name = filepath.ToSlash(file[len(i.dirname):])
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), err
+}
+
+func (index *Index) Close() error {
+	return index.db.Close()
+}
+
+func (index *Index) AddChunk(chunk *objects.Chunk) error {
 	logger.Trace("index", "AddChunk(%064x)", chunk.Checksum)
 
-	if _, exists := index.chunksChecksumsMap[chunk.Checksum]; !exists {
-		checksumID := uint32(len(index.chunksChecksumsMap))
-		index.ChunksChecksumList = append(index.ChunksChecksumList, chunk.Checksum)
-		index.chunksChecksumsMap[chunk.Checksum] = checksumID
-		//index.inverseChunksChecksumsMap[checksumID] = chunk.Checksum
-		index.chunksMap[checksumID] = chunk.Length
-	}
+	key := fmt.Sprintf("chunk:%064x", chunk.Checksum)
+	lengthBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lengthBytes, chunk.Length)
+
+	return index.db.Put([]byte(key), lengthBytes, nil)
 }
 
-func (index *Index) AddObject(object *objects.Object) {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (index *Index) AddObject(object *objects.Object) error {
 	logger.Trace("index", "AddObject(%064x)", object.Checksum)
 
-	if _, exists := index.objectsChecksumsMap[object.Checksum]; !exists {
-		checksumID := uint32(len(index.objectsChecksumsMap))
-		index.ObjectsChecksumList = append(index.ObjectsChecksumList, object.Checksum)
-		index.objectsChecksumsMap[object.Checksum] = checksumID
-		//index.inverseObjectsChecksumsMap[checksumID] = object.Checksum
-		index.objectsMap[checksumID] = make([]uint32, len(object.Chunks))
-		for offset, checksum := range object.Chunks {
-			index.muChunks.Lock()
-			chunkID := index.chunksChecksumsMap[checksum]
-			index.muChunks.Unlock()
-			index.objectsMap[checksumID][offset] = chunkID
+	key := fmt.Sprintf("object:%064x", object.Checksum)
+	var buffer bytes.Buffer
+	for _, chunk := range object.Chunks {
+		buffer.Write(chunk[:])
+	}
+
+	return index.db.Put([]byte(key), buffer.Bytes(), nil)
+}
+
+func (index *Index) LinkPathnameToObject(pathnameChecksum [32]byte, object *objects.Object) error {
+	key := fmt.Sprintf("pathname:%064x", pathnameChecksum)
+	value := object.Checksum[:]
+
+	return index.db.Put([]byte(key), value, nil)
+}
+
+func (index *Index) LookupChunk(checksum [32]byte) (*objects.Chunk, error) {
+	key := fmt.Sprintf("chunk:%064x", checksum)
+	data, err := index.db.Get([]byte(key), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	length := binary.BigEndian.Uint32(data)
+	return &objects.Chunk{
+		Checksum: checksum,
+		Length:   length,
+	}, nil
+}
+
+func (index *Index) ChunkExists(checksum [32]byte) (bool, error) {
+	_, err := index.LookupChunk(checksum)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return false, nil
 		}
+		return false, err
 	}
+	return true, nil
 }
 
-func (index *Index) LinkPathnameToObject(pathnameChecksum [32]byte, object *objects.Object) {
-	index.muPathnameToObject.Lock()
-	defer index.muPathnameToObject.Unlock()
-
-	index.muObjects.Lock()
-	objectID, exists := index.objectsChecksumsMap[object.Checksum]
-	index.muObjects.Unlock()
-	if !exists {
-		panic("LinkPathnameToObject: corrupted index: could not find object checksum")
+func (index *Index) LookupObject(checksum [32]byte) (*objects.Object, error) {
+	key := fmt.Sprintf("object:%064x", checksum)
+	data, err := index.db.Get([]byte(key), nil)
+	if err != nil {
+		return nil, err
 	}
 
-	if _, exists := index.pathnamesChecksumsMap[pathnameChecksum]; !exists {
-		pathnameID := uint32(len(index.pathnamesChecksumsMap))
-		index.PathnamesChecksumList = append(index.PathnamesChecksumList, pathnameChecksum)
-		index.pathnamesChecksumsMap[pathnameChecksum] = pathnameID
-		//index.inversePathnamesChecksumsMap[pathnameID] = pathnameChecksum
-		index.pathnameToObjectMap[pathnameID] = objectID
-	}
-}
-
-func (index *Index) LookupChunk(checksum [32]byte) *objects.Chunk {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
-
-	checksumID, exists := index.chunksChecksumsMap[checksum]
-	if !exists {
-		return nil
-	}
-
-	if chunkLength, ok := index.chunksMap[checksumID]; !ok {
-		return nil
-	} else {
-		return &objects.Chunk{
-			Checksum: checksum,
-			Length:   chunkLength,
-		}
-	}
-}
-
-func (index *Index) ChunkExists(checksum [32]byte) bool {
-	return index.LookupChunk(checksum) != nil
-}
-
-func (index *Index) LookupObject(checksum [32]byte) *objects.Object {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
-
-	checksumID, exists := index.objectsChecksumsMap[checksum]
-	if !exists {
-		return nil
-	}
-
-	objectChunks, exists := index.objectsMap[checksumID]
-	if !exists {
-		return nil
-	}
-
-	chunks := make([][32]byte, 0)
-	for _, checksumID := range objectChunks {
-		/*
-			index.muChunks.Lock()
-			checksum, exists := index.inverseChunksChecksumsMap[checksumID]
-			index.muChunks.Unlock()
-			if !exists {
-				panic("LookupObject: corrupted index: could not find chunk checksum")
-			}
-		*/
-		index.muChunks.Lock()
-		checksum := index.ChunksChecksumList[checksumID]
-		index.muChunks.Unlock()
-
-		chunks = append(chunks, checksum)
+	chunks := make([][32]byte, len(data)/32)
+	for i := 0; i < len(chunks); i++ {
+		copy(chunks[i][:], data[i*32:(i+1)*32])
 	}
 
 	return &objects.Object{
 		Checksum: checksum,
 		Chunks:   chunks,
-	}
+	}, nil
 }
 
-func (index *Index) ObjectExists(checksum [32]byte) bool {
-	return index.LookupObject(checksum) != nil
-}
-
-func (index *Index) LookupObjectForPathnameChecksum(pathnameChecksum [32]byte) *objects.Object {
-	index.muPathnameToObject.Lock()
-	defer index.muPathnameToObject.Unlock()
-
-	pathnameID, exists := index.pathnamesChecksumsMap[pathnameChecksum]
-	if !exists {
-		return nil
-	}
-
-	checksumID, exists := index.pathnameToObjectMap[pathnameID]
-	if !exists {
-		return nil
-	}
-
-	/*
-		index.muObjects.Lock()
-		objectChecksum, exists := index.inverseObjectsChecksumsMap[checksumID]
-		index.muObjects.Unlock()
-		if !exists {
-			panic("LookupObjectForPathname: corrupted index: could not find object checksum")
+func (index *Index) ObjectExists(checksum [32]byte) (bool, error) {
+	_, err := index.LookupObject(checksum)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return false, nil
 		}
-	*/
-
-	index.muObjects.Lock()
-	objectChecksum := index.ObjectsChecksumList[checksumID]
-	index.muObjects.Unlock()
-
-	obj := index.LookupObject(objectChecksum)
-	return obj
+		return false, err
+	}
+	return true, nil
 }
 
-func (index *Index) GetChunkLength(checksum [32]byte) (uint32, bool) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
-
-	checksumID, exists := index.chunksChecksumsMap[checksum]
-	if !exists {
-		return 0, false
+func (index *Index) LookupObjectForPathnameChecksum(pathnameChecksum [32]byte) (*objects.Object, error) {
+	key := fmt.Sprintf("pathname:%064x", pathnameChecksum)
+	data, err := index.db.Get([]byte(key), nil)
+	if err != nil {
+		return nil, err
 	}
 
-	length, exists := index.chunksMap[checksumID]
-	return length, exists
+	var objectChecksum [32]byte
+	copy(objectChecksum[:], data)
+	return index.LookupObject(objectChecksum)
+}
+
+func (index *Index) GetChunkLength(checksum [32]byte) (uint32, bool, error) {
+	chunk, err := index.LookupChunk(checksum)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+
+	return chunk.Length, true, nil
+}
+
+func (index *Index) ListObjects() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		iter := index.db.NewIterator(nil, nil)
+		for iter.Next() {
+			key := iter.Key()
+			if bytes.HasPrefix(key, []byte("object:")) {
+				byteArray, err := hex.DecodeString(string(key[7:]))
+				if err != nil {
+					panic(err)
+				}
+				var checksum [32]byte
+				copy(checksum[:], byteArray)
+				ch <- checksum
+			}
+		}
+		iter.Release()
+		// TODO handle error later
+		//if err := iter.Error(); err != nil {
+		//	return err
+		//}
+		close(ch)
+	}()
+	return ch
+}
+
+func (index *Index) ListChunks() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		iter := index.db.NewIterator(nil, nil)
+		for iter.Next() {
+			key := iter.Key()
+			if bytes.HasPrefix(key, []byte("chunk:")) {
+				byteArray, err := hex.DecodeString(string(key[6:]))
+				if err != nil {
+					panic(err)
+				}
+				var checksum [32]byte
+				copy(checksum[:], byteArray)
+				ch <- checksum
+			}
+		}
+		iter.Release()
+		// TODO handle error later
+		//if err := iter.Error(); err != nil {
+		//	return err
+		//}
+		close(ch)
+	}()
+	return ch
 }

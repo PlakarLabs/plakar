@@ -16,7 +16,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-const VERSION = "0.2"
+const VERSION = "0.2.0"
 
 type Filesystem struct {
 	dirname string

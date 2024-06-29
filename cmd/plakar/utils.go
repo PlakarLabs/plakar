@@ -174,7 +174,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 				}
 
 				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.VFS[0].Checksum[:])
+				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
 				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {
@@ -236,7 +236,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 				}
 
 				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.VFS[0].Checksum[:])
+				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
 				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
 				if err != nil {

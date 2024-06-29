@@ -37,9 +37,9 @@ type Header struct {
 
 	ScannedDirectories []string
 
-	Index    []Blob
-	VFS      []Blob
-	Metadata []Blob
+	Index    Blob
+	VFS      Blob
+	Metadata Blob
 
 	ChunksCount  uint64
 	ChunksSize   uint64

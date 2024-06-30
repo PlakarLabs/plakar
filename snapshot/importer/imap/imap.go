@@ -28,8 +28,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/importer"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/snapshot/importer"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 )

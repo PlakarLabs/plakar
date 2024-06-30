@@ -23,8 +23,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/exporter"
 	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/exporter"
 	"github.com/PlakarLabs/plakar/storage"
 )
 

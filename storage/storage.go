@@ -151,7 +151,7 @@ func New(location string) (*Repository, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
-	var backendName string
+	backendName := "fs"
 	if !strings.HasPrefix(location, "/") {
 		if strings.HasPrefix(location, "plakar://") || strings.HasPrefix(location, "ssh://") || strings.HasPrefix(location, "stdio://") {
 			backendName = "plakard"
@@ -165,15 +165,9 @@ func New(location string) (*Repository, error) {
 			backendName = "null"
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
-		} else {
-			if strings.Contains(location, "://") {
-				return nil, fmt.Errorf("unsupported plakar protocol")
-			} else {
-				backendName = "fs"
-			}
+		} else if strings.Contains(location, "://") {
+			return nil, fmt.Errorf("unsupported plakar protocol")
 		}
-	} else {
-		backendName = "fs"
 	}
 
 	if backendName == "fs" && !strings.HasPrefix(location, "/") {
@@ -220,11 +214,11 @@ func Open(location string) (*Repository, error) {
 		logger.Trace("storage", "Open(%s): %s", location, time.Since(t0))
 	}()
 
-	err = repository.backend.Open(location)
-	if err != nil {
+	if err = repository.backend.Open(location); err != nil {
 		return nil, err
+	} else {
+		return repository, nil
 	}
-	return repository, nil
 }
 
 func Create(location string, configuration RepositoryConfig) (*Repository, error) {
@@ -240,11 +234,11 @@ func Create(location string, configuration RepositoryConfig) (*Repository, error
 		logger.Trace("storage", "Create(%s): %s", location, time.Since(t0))
 	}()
 
-	err = repository.backend.Create(location, configuration)
-	if err != nil {
+	if err = repository.backend.Create(location, configuration); err != nil {
 		return nil, err
+	} else {
+		return repository, nil
 	}
-	return repository, nil
 }
 
 func (repository *Repository) GetRBytes() uint64 {

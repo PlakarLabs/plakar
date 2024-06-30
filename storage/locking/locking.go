@@ -49,11 +49,11 @@ func (lock *Lock) Serialize() ([]byte, error) {
 		logger.Trace("storage.locking", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(lock)
-	if err != nil {
+	if serialized, err := msgpack.Marshal(lock); err != nil {
 		return nil, err
+	} else {
+		return serialized, nil
 	}
-	return serialized, nil
 }
 
 func (lock *Lock) Expired(ttl time.Duration) bool {

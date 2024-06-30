@@ -96,9 +96,9 @@ func NewFromBytes(serialized []byte) (*Header, error) {
 	var header Header
 	if err := msgpack.Unmarshal(serialized, &header); err != nil {
 		return nil, err
+	} else {
+		return &header, nil
 	}
-
-	return &header, nil
 }
 
 func (h *Header) Serialize() ([]byte, error) {
@@ -108,12 +108,11 @@ func (h *Header) Serialize() ([]byte, error) {
 		logger.Trace("header", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(h)
-	if err != nil {
+	if serialized, err := msgpack.Marshal(h); err != nil {
 		return nil, err
+	} else {
+		return serialized, nil
 	}
-
-	return serialized, nil
 }
 
 func (h *Header) GetIndexID() uuid.UUID {

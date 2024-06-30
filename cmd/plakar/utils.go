@@ -28,9 +28,9 @@ import (
 
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 )
 

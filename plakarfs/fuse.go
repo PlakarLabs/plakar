@@ -8,8 +8,8 @@ import (
 
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/google/uuid"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"

@@ -30,8 +30,8 @@ import (
 
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/vfs"
 	"github.com/dustin/go-humanize"
 )
 

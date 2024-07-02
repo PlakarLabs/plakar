@@ -183,8 +183,6 @@ func (fsc *Filesystem) RecordLink(path string, target string, fileinfo objects.F
 	storedPath := path
 	fsc.hasher.Write([]byte(storedPath))
 	fsc.hasher.Write([]byte(target))
-	fmt.Println("Putlink:", storedPath)
-
 	if err := fsc.db.Put([]byte(fmt.Sprintf("__link__:%s", storedPath)), []byte(target), nil); err != nil {
 		return err
 	}

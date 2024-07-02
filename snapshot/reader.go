@@ -55,6 +55,9 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		if available >= int64(readSize) {
 			end = beg + int64(readSize)
 		}
+		if end > int64(len(data)) {
+			end = int64(len(data))
+		}
 
 		nbytes, err := reader.obuf.Write(data[beg:end])
 		if err != nil {

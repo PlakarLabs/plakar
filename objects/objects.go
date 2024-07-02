@@ -29,6 +29,7 @@ type FileInfo struct {
 	Lino     uint64      `json:"Ino" msgpack:"Ino"`
 	Luid     uint64      `json:"Uid" msgpack:"Uid"`
 	Lgid     uint64      `json:"Gid" msgpack:"Gid"`
+	Lnlink   uint16      `json:"Nlink" msgpack:"Nlink"`
 }
 
 func (f FileInfo) Name() string {
@@ -67,6 +68,10 @@ func (f FileInfo) IsDir() bool {
 	return f.Lmode.IsDir()
 }
 
+func (f FileInfo) Nlink() uint16 {
+	return f.Lnlink
+}
+
 func (f FileInfo) Sys() any {
 	return nil
 }
@@ -81,10 +86,11 @@ func FileInfoFromStat(stat os.FileInfo) FileInfo {
 		Lino:     uint64(stat.Sys().(*syscall.Stat_t).Ino),
 		Luid:     uint64(stat.Sys().(*syscall.Stat_t).Uid),
 		Lgid:     uint64(stat.Sys().(*syscall.Stat_t).Gid),
+		Lnlink:   uint16(stat.Sys().(*syscall.Stat_t).Nlink),
 	}
 }
 
-func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, dev uint64, ino uint64, uid uint64, gid uint64) FileInfo {
+func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, dev uint64, ino uint64, uid uint64, gid uint64, nlink uint16) FileInfo {
 	return FileInfo{
 		Lname:    name,
 		Lsize:    size,
@@ -94,6 +100,7 @@ func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, d
 		Lino:     ino,
 		Luid:     uid,
 		Lgid:     gid,
+		Lnlink:   1,
 	}
 }
 

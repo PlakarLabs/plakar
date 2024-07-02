@@ -89,6 +89,7 @@ func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
 			ino,
 			0,
 			0,
+			1,
 		)
 		directories["/"] = fi
 		ino++
@@ -108,6 +109,7 @@ func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
 						ino,
 						0,
 						0,
+						1,
 					)
 					directories["/"+dir] = fi
 					ino++
@@ -123,6 +125,7 @@ func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
 				ino,
 				0,
 				0,
+				1,
 			)
 			ino++
 			files["/"+object.Key] = stat

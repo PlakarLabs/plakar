@@ -48,7 +48,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	if pullPath == "" {
-		exporterInstance, err = exporter.NewExporter("fs")
+		exporterInstance, err = exporter.NewExporter(dir)
 		if err != nil {
 			log.Fatal(err)
 		}

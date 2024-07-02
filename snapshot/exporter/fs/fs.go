@@ -39,6 +39,7 @@ func NewFSExporter(location string) (exporter.ExporterBackend, error) {
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}
+
 	return &FSExporter{
 		rootDir: location,
 	}, nil

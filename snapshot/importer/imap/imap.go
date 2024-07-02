@@ -94,6 +94,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 			ino,
 			0,
 			0,
+			1,
 		)
 		directories["/"] = fi
 		ino++
@@ -118,6 +119,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 						ino,
 						0,
 						0,
+						1,
 					)
 					directories["/"+dir] = fi
 					ino++
@@ -132,6 +134,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 				ino,
 				0,
 				0,
+				1,
 			)
 			ino++
 			directories["/"+m.Name] = stat
@@ -167,6 +170,7 @@ func (p *IMAPImporter) Scan() (<-chan importer.ScanResult, error) {
 					ino,
 					0,
 					0,
+					1,
 				)
 				ino++
 				files["/"+m.Name+"/"+fmt.Sprint(msg.Uid)] = stat

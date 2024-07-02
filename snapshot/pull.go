@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,9 @@ import (
 )
 
 func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
+
+	hardlinks := make(map[string]string)
+
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
 	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -83,6 +87,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 				continue
 			}
 		}
+
 		maxFilesConcurrency <- true
 		wg.Add(1)
 		go func(file string) {
@@ -92,6 +97,7 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 			var dest string
 
 			fi, _ := s.Filesystem.Stat(file)
+
 			//rel := path.Clean(filepath.Join(".", file))
 			if rebase && strings.HasPrefix(file, dpattern) {
 				dest = filepath.Join(exp.Root(), file[len(dpattern):])
@@ -99,6 +105,19 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 				dest = filepath.Join(exp.Root(), file)
 			}
 			dest = filepath.Clean(dest)
+
+			if fi.Nlink() > 1 {
+				fmt.Println("file: ", file, "fi.nlinks: ", fi.Nlink())
+				key := fmt.Sprintf("%d:%d", fi.Ldev, fi.Lino)
+				if _, ok := hardlinks[key]; ok {
+					os.Link(hardlinks[key], dest)
+					filesSize += uint64(fi.Size())
+					filesCount++
+					return
+				} else {
+					hardlinks[key] = dest
+				}
+			}
 
 			rd, err := s.NewReader(file)
 			if err != nil {

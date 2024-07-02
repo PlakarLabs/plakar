@@ -183,7 +183,7 @@ func (fsc *Filesystem) RecordLink(path string, target string, fileinfo objects.F
 	storedPath := path
 	fsc.hasher.Write([]byte(storedPath))
 	fsc.hasher.Write([]byte(target))
-	if err := fsc.db.Put([]byte(fmt.Sprintf("__link__:%s", storedPath)), []byte(target), nil); err != nil {
+	if err := fsc.db.Put([]byte(fmt.Sprintf("__symlink__:%s", storedPath)), []byte(target), nil); err != nil {
 		return err
 	}
 	return fsc.Record(path, fileinfo)
@@ -326,7 +326,7 @@ func (fsc *Filesystem) Stat(path string) (*objects.FileInfo, error) {
 }
 
 func (fsc *Filesystem) Readlink(path string) (string, error) {
-	if ret, err := fsc.db.Get([]byte(fmt.Sprintf("__link__:%s", path)), nil); err != nil {
+	if ret, err := fsc.db.Get([]byte(fmt.Sprintf("__symlink__:%s", path)), nil); err != nil {
 		return "", err
 	} else {
 		return string(ret), nil

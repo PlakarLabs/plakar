@@ -305,14 +305,13 @@ func browse(w http.ResponseWriter, r *http.Request) {
 			files = append(files, fileinfo)
 		} else {
 			//pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name())
-			/*
-				if _, exists := snap.Filesystem.Symlinks[pathname]; exists {
-					symlinks = append(symlinks, fileinfo)
-					symlinksResolve[fileinfo.Name()] = snap.Filesystem.Symlinks[pathname]
-				} else {
-					others = append(others, fileinfo)
-				}
-			*/
+			if pathname, err := snap.Filesystem.Readlink(filepath.Clean(fmt.Sprintf("%s/%s", path, fileinfo.Name()))); err != nil {
+				symlinks = append(symlinks, fileinfo)
+				symlinksResolve[fileinfo.Name()] = pathname
+			} else {
+				others = append(others, fileinfo)
+			}
+
 		}
 	}
 

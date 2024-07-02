@@ -326,7 +326,6 @@ func (fsc *Filesystem) Stat(path string) (*objects.FileInfo, error) {
 }
 
 func (fsc *Filesystem) Readlink(path string) (string, error) {
-	fmt.Println("Readlink:", path)
 	if ret, err := fsc.db.Get([]byte(fmt.Sprintf("__link__:%s", path)), nil); err != nil {
 		return "", err
 	} else {

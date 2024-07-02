@@ -41,6 +41,14 @@ type ScanRecord struct {
 
 func (r ScanRecord) scanResult() {}
 
+type ScanLink struct {
+	Pathname string
+	Target   string
+	Stat     objects.FileInfo
+}
+
+func (r ScanLink) scanResult() {}
+
 type ScanError struct {
 	Pathname string
 	Err      error

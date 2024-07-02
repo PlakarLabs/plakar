@@ -97,12 +97,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 						c <- importer.ScanError{Pathname: path, Err: err}
 						return nil
 					}
-					_ = originFile
-
-					c <- importer.ScanRecord{Pathname: filepath.ToSlash(path), Stat: lfileinfo}
-
-					// need to figure out how to notidy fakefs
-					// that a pathname actually link to another
+					c <- importer.ScanLink{Pathname: filepath.ToSlash(path), Target: originFile, Stat: lfileinfo}
 				}
 			}
 			return nil

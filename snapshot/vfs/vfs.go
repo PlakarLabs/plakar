@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"hash"
 	"io"
 	"os"
@@ -178,6 +179,18 @@ func (fsc *Filesystem) Record(path string, fileinfo objects.FileInfo) error {
 	return fsc.db.Put([]byte(storedPath), fibuf.Bytes(), nil)
 }
 
+func (fsc *Filesystem) RecordLink(path string, target string, fileinfo objects.FileInfo) error {
+	storedPath := path
+	fsc.hasher.Write([]byte(storedPath))
+	fsc.hasher.Write([]byte(target))
+	fmt.Println("Putlink:", storedPath)
+
+	if err := fsc.db.Put([]byte(fmt.Sprintf("__link__:%s", storedPath)), []byte(target), nil); err != nil {
+		return err
+	}
+	return fsc.Record(path, fileinfo)
+}
+
 func (fsc *Filesystem) Scan() <-chan string {
 	ch := make(chan string)
 	go func() {
@@ -312,4 +325,13 @@ func (fsc *Filesystem) Stat(path string) (*objects.FileInfo, error) {
 		return nil, err
 	}
 	return fileinfo, nil
+}
+
+func (fsc *Filesystem) Readlink(path string) (string, error) {
+	fmt.Println("Readlink:", path)
+	if ret, err := fsc.db.Get([]byte(fmt.Sprintf("__link__:%s", path)), nil); err != nil {
+		return "", err
+	} else {
+		return string(ret), nil
+	}
 }

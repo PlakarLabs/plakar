@@ -264,12 +264,20 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 
 	fileCount := 0
 	dirCount := 0
+	linkCount := 0
 	nregularCount := 0
 
 	for record := range scanner {
 		switch record := record.(type) {
 		case importer.ScanError:
 			logger.Warn("%s: %s", record.Pathname, record.Err)
+		case importer.ScanLink:
+			err := snapshot.Filesystem.RecordLink(record.Pathname, record.Target, record.Stat)
+			if err != nil {
+				logger.Warn("%s: %s", record.Pathname, err)
+				return err
+			}
+			linkCount++
 		case importer.ScanRecord:
 			//
 			extension := strings.ToLower(filepath.Ext(record.Pathname))

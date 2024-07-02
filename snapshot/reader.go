@@ -100,6 +100,23 @@ func (reader *Reader) Close() error {
 func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 	pathname = path.Clean(pathname)
 
+	st, err := snapshot.Filesystem.Stat(pathname)
+	if err != nil {
+		return nil, err
+	}
+
+	if st.Mode()&os.ModeSymlink != 0 {
+		resolved, err := snapshot.Filesystem.Readlink(pathname)
+		if err != nil {
+			return nil, err
+		}
+		if !path.IsAbs(resolved) {
+			pathname = path.Join(path.Dir(pathname), resolved)
+		} else {
+			pathname = path.Clean(resolved)
+		}
+	}
+
 	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 	hasher.Write([]byte(pathname))
 	pathnameHash := hasher.Sum(nil)

@@ -107,7 +107,6 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 			dest = filepath.Clean(dest)
 
 			if fi.Nlink() > 1 {
-				fmt.Println("file: ", file, "fi.nlinks: ", fi.Nlink())
 				key := fmt.Sprintf("%d:%d", fi.Ldev, fi.Lino)
 				if _, ok := hardlinks[key]; ok {
 					os.Link(hardlinks[key], dest)

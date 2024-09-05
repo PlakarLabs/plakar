@@ -8,23 +8,20 @@ Feel free to give it a try, give feedback on what you like/dislike and report bu
 
 Be aware that at this point you may still face some bugs and you may need to rebuild your backups from scratch every now and then as we bring improvements to the storage format.
 
-
-## Quickstart
-
-### Requirement
+## Requirement
 
 `plakar` requires Go 1.18 or higher,
 it may work on older versions but hasn't been tested.
 
 
-### Installing the CLI
+## Installing the CLI
 
 ```
 go install github.com/PlakarLabs/plakar/cmd/plakar@latest
 ```
 
 
-### Documentation
+## Documentation
 
 For up-to-date informations,
 you can read the documentation available at https://docs.plakar.io

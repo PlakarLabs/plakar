@@ -26,8 +26,6 @@ import (
 const VERSION = "v0.4.17-alpha"
 
 func cmd_version(ctx Plakar, args []string) int {
-	var opt_check bool
-	var opt_quiet bool
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

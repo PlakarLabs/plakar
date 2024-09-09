@@ -19,16 +19,20 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	"golang.org/x/mod/semver"
 )
 
-const VERSION = "0.4.16-alpha"
+const VERSION = "v0.4.16-alpha"
 
 func cmd_version(ctx Plakar, args []string) int {
-	_ = ctx
-
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 
+	if !semver.IsValid(VERSION) {
+		panic("invalid version string: " + VERSION)
+	}
 	fmt.Println(VERSION)
+
 	return 0
 }

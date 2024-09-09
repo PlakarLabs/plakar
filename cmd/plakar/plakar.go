@@ -141,6 +141,23 @@ func entryPoint() int {
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
 
+	// best effort check if security or reliability fix have been issued
+	if rus, err := checkUpdate(); err == nil {
+		if rus.SecurityFix || rus.ReliabilityFix {
+			concerns := ""
+			if rus.SecurityFix {
+				concerns = "security"
+			}
+			if rus.ReliabilityFix {
+				if concerns != "" {
+					concerns += " and "
+				}
+				concerns += "reliability"
+			}
+			fmt.Fprintf(os.Stderr, "WARNING: %s concerns affect your current version, please upgrade to %s (+%d releases).\n", concerns, rus.Latest, rus.FoundCount)
+		}
+	}
+
 	// setup from default + override
 	if opt_cpuCount > runtime.NumCPU() {
 		fmt.Fprintf(os.Stderr, "%s: can't use more cores than available: %d\n", flag.CommandLine.Name(), runtime.NumCPU())

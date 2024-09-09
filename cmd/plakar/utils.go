@@ -17,9 +17,11 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"runtime"
 	"sort"
 	"strings"
@@ -32,6 +34,8 @@ import (
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
 	"github.com/google/uuid"
+	"golang.org/x/mod/semver"
+	"golang.org/x/tools/blog/atom"
 )
 
 func parseSnapshotID(id string) (string, string) {
@@ -385,4 +389,69 @@ func HumanToDuration(human string) (time.Duration, error) {
 	// TODO-handle iteratively constructed human readable strings
 
 	return 0, fmt.Errorf("invalid duration: %s", human)
+}
+
+type ReleaseUpdateSummary struct {
+	FoundCount int
+	Latest     string
+
+	SecurityFix    bool
+	ReliabilityFix bool
+}
+
+func checkUpdate() (ReleaseUpdateSummary, error) {
+	req, err := http.NewRequest("GET", "https://plakar.io/api/releases.atom", nil)
+	if err != nil {
+		return ReleaseUpdateSummary{}, err
+	}
+
+	req.Header.Set("User-Agent", fmt.Sprintf("plakar/%s (%s/%s)", VERSION, runtime.GOOS, runtime.GOARCH))
+
+	client := http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return ReleaseUpdateSummary{}, err
+	}
+	defer res.Body.Close()
+
+	var feed []atom.Feed
+	err = xml.NewDecoder(res.Body).Decode(&feed)
+	if err != nil {
+		return ReleaseUpdateSummary{}, err
+	}
+
+	found := false
+	foundCount := 0
+	var latestEntry *atom.Entry
+	sawSecurityFix := false
+	sawReliabilityFix := false
+	for _, entry := range feed[0].Entry {
+		if !semver.IsValid(entry.Title) {
+			continue
+		}
+		if semver.Compare(VERSION, entry.Title) < 0 {
+			found = true
+			foundCount++
+			if latestEntry == nil {
+				latestEntry = entry
+			} else {
+				if semver.Compare(latestEntry.Title, entry.Title) < 0 {
+					latestEntry = entry
+				}
+			}
+			if latestEntry.Content != nil {
+				if strings.Contains(*&latestEntry.Content.Body, "SECURITY") {
+					sawSecurityFix = true
+				}
+				if strings.Contains(*&latestEntry.Content.Body, "RELIABILITY") {
+					sawReliabilityFix = true
+				}
+			}
+		}
+	}
+	if !found {
+		return ReleaseUpdateSummary{FoundCount: 0, Latest: VERSION}, nil
+	} else {
+		return ReleaseUpdateSummary{FoundCount: foundCount, Latest: latestEntry.Title, SecurityFix: sawSecurityFix, ReliabilityFix: sawReliabilityFix}, nil
+	}
 }

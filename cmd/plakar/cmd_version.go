@@ -27,7 +27,7 @@ import (
 	"golang.org/x/tools/blog/atom"
 )
 
-const VERSION = "v0.4.16-alpha"
+const VERSION = "v0.4.17-alpha"
 
 type Release struct {
 	Version      string `json:"version"`

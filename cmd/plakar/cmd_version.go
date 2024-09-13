@@ -23,7 +23,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const VERSION = "v0.4.18-alpha"
+const VERSION = "v0.4.19-alpha"
 
 func cmd_version(ctx Plakar, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)

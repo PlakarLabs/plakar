@@ -190,6 +190,26 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 	return object, nil
 }
 
+func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record importer.ScanResult) bool {
+	var pathname string
+	switch record := record.(type) {
+	case importer.ScanError:
+		pathname = record.Pathname
+	case importer.ScanLink:
+		pathname = record.Pathname
+	case importer.ScanRecord:
+		pathname = record.Pathname
+	}
+	doExclude := false
+	for _, exclude := range options.Excludes {
+		if exclude.Match(pathname) {
+			doExclude = true
+			break
+		}
+	}
+	return doExclude
+}
+
 func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	if err := snapshot.Lock(); err != nil {
 		return err
@@ -268,6 +288,11 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	nregularCount := 0
 
 	for record := range scanner {
+
+		if snapshot.skipExcludedPathname(options, record) {
+			continue
+		}
+
 		switch record := record.(type) {
 		case importer.ScanError:
 			logger.Warn("%s: %s", record.Pathname, record.Err)

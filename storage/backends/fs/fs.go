@@ -301,6 +301,15 @@ func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint3
 		return nil, err
 	}
 
+	st, err := fp.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if length == 0 || length > (uint32(st.Size())-offset) {
+		return nil, fmt.Errorf("invalid length")
+	}
+
 	data := make([]byte, length)
 	if _, err := fp.Read(data); err != nil {
 		return nil, err

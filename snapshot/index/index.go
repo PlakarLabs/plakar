@@ -155,7 +155,10 @@ func (i *Index) Serialize() ([]byte, error) {
 }
 
 func (index *Index) Close() error {
-	return index.db.Close()
+	if err := index.db.Close(); err != nil {
+		return err
+	}
+	return os.RemoveAll(index.dirname)
 }
 
 func (index *Index) AddChunk(chunk *objects.Chunk) error {

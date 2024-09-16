@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -51,19 +51,19 @@ func cmd_keep(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 0
 	}
 
-	snapshots, err := getSnapshots(repository, nil)
+	snapshotIDs, err := getSnapshotIDs(repository, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	wg := sync.WaitGroup{}
-	snapshots = sortSnapshotsByDate(snapshots)[:len(snapshots)-count]
-	for _, snap := range snapshots {
+	snapshotIDs = snapshotIDs[:len(snapshotIDs)-count]
+	for _, snapshotID := range snapshotIDs {
 		wg.Add(1)
-		go func(snap *snapshot.Snapshot) {
-			repository.DeleteSnapshot(snap.Header.GetIndexID())
+		go func(_snapshotID uuid.UUID) {
+			repository.DeleteSnapshot(_snapshotID)
 			wg.Done()
-		}(snap)
+		}(snapshotID)
 	}
 	wg.Wait()
 

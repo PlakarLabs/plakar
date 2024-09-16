@@ -221,7 +221,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 		matches := 0
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
-				matches++
+				//matches++
 			}
 		}
 		if matches == 0 {
@@ -253,6 +253,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 	return result, nil
 }
 
+/*
 func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
@@ -331,6 +332,7 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 	}
 	return result, nil
 }
+*/
 
 func getSnapshotIDs(repository *storage.Repository, prefixes []string) ([]uuid.UUID, error) {
 	headers, err := getHeaders(repository, prefixes)

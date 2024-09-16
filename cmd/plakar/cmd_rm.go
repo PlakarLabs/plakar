@@ -28,7 +28,9 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -110,38 +112,45 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to rm", flag.CommandLine.Name())
 	}
 
-	var snapshots []*snapshot.Snapshot
+	var snapshotIDs []uuid.UUID
 	if opt_older != "" || opt_tag != "" {
 		if flags.NArg() != 0 {
-			tmp, err := getSnapshots(repository, flags.Args())
+			tmp, err := getSnapshotIDs(repository, flags.Args())
 			if err != nil {
 				log.Fatal(err)
 			}
-			snapshots = tmp
+			snapshotIDs = tmp
 		} else {
-			tmp, err := getSnapshots(repository, nil)
+			tmp, err := getSnapshotIDs(repository, nil)
 			if err != nil {
 				log.Fatal(err)
 			}
-			snapshots = tmp
+			snapshotIDs = tmp
 		}
 	} else {
-		tmp, err := getSnapshots(repository, flags.Args())
+		tmp, err := getSnapshotIDs(repository, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
-		snapshots = tmp
+		snapshotIDs = tmp
 	}
 
 	errors := 0
 	wg := sync.WaitGroup{}
-	for _, snap := range snapshots {
-		if opt_older != "" && snap.Header.CreationTime.After(beforeDate) {
+	for _, snapshotID := range snapshotIDs {
+		hdr, _, err := snapshot.GetSnapshot(repository, snapshotID)
+		if err != nil {
+			logger.Error("%s", err)
+			errors++
+			continue
+		}
+
+		if opt_older != "" && hdr.CreationTime.After(beforeDate) {
 			continue
 		}
 		if opt_tag != "" {
 			found := false
-			for _, t := range snap.Header.Tags {
+			for _, t := range hdr.Tags {
 				if opt_tag == t {
 					found = true
 					break
@@ -152,16 +161,16 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 		}
 
-		fmt.Println("deleting snapshot", snap.Header.GetIndexID())
+		fmt.Println("deleting snapshot", hdr.GetIndexID())
 		wg.Add(1)
-		go func(snap *snapshot.Snapshot) {
-			err := repository.DeleteSnapshot(snap.Header.GetIndexID())
+		go func(_hdr *header.Header) {
+			err := repository.DeleteSnapshot(_hdr.GetIndexID())
 			if err != nil {
 				logger.Error("%s", err)
 				errors++
 			}
 			wg.Done()
-		}(snap)
+		}(hdr)
 	}
 	wg.Wait()
 

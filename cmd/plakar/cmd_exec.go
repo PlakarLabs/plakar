@@ -25,6 +25,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -41,14 +42,19 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, []string{flags.Args()[0]})
+	snapshotIDs, err := getSnapshotIDs(repository, []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(snapshots) != 1 {
+	if len(snapshotIDs) != 1 {
 		return 0
 	}
-	snapshot := snapshots[0]
+	snapshotID := snapshotIDs[0]
+
+	snapshot, err := snapshot.Load(repository, snapshotID)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
 	hasher := encryption.GetHasher(repository.Configuration().Hashing)
@@ -58,15 +64,18 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	copy(key[:], pathnameChecksum)
 	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
 	if err != nil {
+		snapshot.Close()
 		log.Fatal(err)
 	}
 	if object == nil {
+		snapshot.Close()
 		return 0
 	}
 
 	file, err := os.CreateTemp(os.TempDir(), "plakar")
 	if err != nil {
-		log.Fatal(err)
+		snapshot.Close()
+		return 1
 	}
 	defer os.Remove(file.Name())
 	file.Chmod(0500)
@@ -82,6 +91,7 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 		file.Write(data)
 	}
 	file.Close()
+	snapshot.Close()
 
 	if errors != 0 {
 		return 1

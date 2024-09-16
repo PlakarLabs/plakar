@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/helpers"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -46,7 +47,7 @@ func cmd_zip(ctx Plakar, repository *storage.Repository, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,8 +61,13 @@ func cmd_zip(ctx Plakar, repository *storage.Repository, args []string) int {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	for offset, snapshot := range snapshots {
+	for offset, snapshotID := range snapshotIDs {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
+
+		snapshot, err := snapshot.Load(repository, snapshotID)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		for file := range snapshot.Filesystem.Pathnames() {
 
@@ -104,6 +110,7 @@ func cmd_zip(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 			rd.Close()
 		}
+		snapshot.Close()
 	}
 
 	log.Printf("created zip %s", zipPath)

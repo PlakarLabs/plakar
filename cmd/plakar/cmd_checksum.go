@@ -23,6 +23,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -43,18 +44,25 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snapshot := range snapshots {
+	for offset, snapshotID := range snapshotIDs {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Header.GetIndexShortID())
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshotID)
+			errors++
+			continue
+		}
+
+		snapshot, err := snapshot.Load(repository, snapshotID)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
@@ -66,11 +74,13 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		copy(key[:], pathnameChecksum)
 		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
 		if err != nil {
+			snapshot.Close()
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
 		if object == nil {
+			snapshot.Close()
 			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
 			errors++
 			continue
@@ -81,6 +91,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		} else {
 			rd, err := snapshot.NewReader(pathname)
 			if err != nil {
+				snapshot.Close()
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++
 				continue
@@ -88,12 +99,14 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 
 			hasher := encryption.GetHasher(repository.Configuration().Hashing)
 			if _, err := io.Copy(hasher, rd); err != nil {
+				snapshot.Close()
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++
 				continue
 			}
 			fmt.Printf("%064x %s\n", hasher.Sum(nil), pathname)
 		}
+		snapshot.Close()
 	}
 
 	return 0

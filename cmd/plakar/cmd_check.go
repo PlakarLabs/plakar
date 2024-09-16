@@ -36,8 +36,6 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.Parse(args)
 
-	var snapshots []*snapshot.Snapshot
-	var err error
 	failures := false
 
 	if flags.NArg() == 0 {
@@ -51,10 +49,6 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 				logger.Warn("%s", err)
 				continue
 			}
-			snapshots = append(snapshots, snapshot)
-		}
-
-		for _, snapshot := range snapshots {
 			ok, err := snapshot.Check("/", enableFastCheck)
 			if err != nil {
 				logger.Warn("%s", err)
@@ -63,19 +57,26 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 			if !ok {
 				failures = true
 			}
+			snapshot.Close()
 		}
 
 	} else {
-		snapshots, err = getSnapshots(repository, flags.Args())
+		snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
-		if len(snapshots) == 0 {
+		if len(snapshotIDs) == 0 {
 			log.Fatal("check needs at least one snapshot ID")
 		}
 
-		for offset, snapshot := range snapshots {
+		for offset, snapshotID := range snapshotIDs {
 			_, pattern := parseSnapshotID(flags.Args()[offset])
+
+			snapshot, err := snapshot.Load(repository, snapshotID)
+			if err != nil {
+				logger.Warn("%s", err)
+				continue
+			}
 
 			ok, err := snapshot.Check(pattern, enableFastCheck)
 			if err != nil {
@@ -85,6 +86,8 @@ func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
 			if !ok {
 				failures = true
 			}
+
+			snapshot.Close()
 		}
 	}
 

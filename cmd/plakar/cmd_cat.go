@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -38,14 +39,14 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snap := range snapshots {
+	for offset, snapshotID := range snapshotIDs {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
@@ -54,10 +55,18 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
+		snap, err := snapshot.Load(repository, snapshotID)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
+
 		rd, err := snap.NewReader(pathname)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
+			snap.Close()
 			continue
 		}
 
@@ -67,8 +76,10 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
+			snap.Close()
 			continue
 		}
+		snap.Close()
 	}
 
 	if errors != 0 {

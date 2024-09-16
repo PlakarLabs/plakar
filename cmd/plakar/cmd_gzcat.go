@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -39,14 +40,14 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snapshot := range snapshots {
+	for offset, snapshotID := range snapshotIDs {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
@@ -55,10 +56,18 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 			continue
 		}
 
+		snapshot, err := snapshot.Load(repository, snapshotID)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
+
 		rd, err := snapshot.NewReader(pathname)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
+			snapshot.Close()
 			continue
 		}
 
@@ -67,6 +76,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		if rd.GetContentType() != "application/gzip" {
 			logger.Error("%s: %s: not in gzip format", flags.Name(), pathname)
 			errors++
+			snapshot.Close()
 			continue
 		}
 
@@ -74,6 +84,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
+			snapshot.Close()
 			continue
 		}
 		outRd = gzRd
@@ -82,8 +93,10 @@ func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
+			snapshot.Close()
 			continue
 		}
+		snapshot.Close()
 	}
 
 	if errors != 0 {

@@ -75,6 +75,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 						return 1
 					}
 					snap.Pull(exporterInstance, true, dir)
+					snap.Close()
 					return 0
 				}
 			}
@@ -83,14 +84,19 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for offset, snap := range snapshots {
+	for offset, snapshotID := range snapshotIDs {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snap.Pull(exporterInstance, pullRebase, pattern)
+		snapshot, err := snapshot.Load(repository, snapshotID)
+		if err != nil {
+			continue
+		}
+		snapshot.Pull(exporterInstance, pullRebase, pattern)
+		snapshot.Close()
 	}
 
 	return 0

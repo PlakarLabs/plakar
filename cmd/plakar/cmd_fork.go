@@ -38,19 +38,20 @@ func cmd_fork(ctx Plakar, repository *storage.Repository, args []string) int {
 		return info_plakar(repository)
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshotIDs, err := getSnapshotIDs(repository, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, snap := range snapshots {
-		nsnap, err := snapshot.Fork(repository, snap.Header.IndexID)
+	for _, snapshotID := range snapshotIDs {
+		nsnap, err := snapshot.Fork(repository, snapshotID)
 		if err != nil {
 			log.Fatal(err)
 		}
 		if err := nsnap.Commit(); err != nil {
 			log.Fatal(err)
 		}
+		nsnap.Close()
 	}
 	return 0
 }

@@ -280,8 +280,6 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	}
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
-	//fscache, err := fscache.NewCache(snapshot.repository.Location)
-
 	fileCount := 0
 	dirCount := 0
 	linkCount := 0

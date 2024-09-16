@@ -250,6 +250,24 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	return snapshot, nil
 }
 
+func (snapshot *Snapshot) Close() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.Close", time.Since(t0))
+	}()
+
+	logger.Trace("snapshot", "%s: Close()", snapshot.Header.GetIndexShortID())
+	err := snapshot.Filesystem.Close()
+	if err != nil {
+		return err
+	}
+	err = snapshot.Index.Close()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*header.Header, bool, error) {
 	t0 := time.Now()
 	defer func() {

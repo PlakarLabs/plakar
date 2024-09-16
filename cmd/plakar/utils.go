@@ -332,11 +332,77 @@ func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapsho
 	return result, nil
 }
 
+func getSnapshotIDs(repository *storage.Repository, prefixes []string) ([]uuid.UUID, error) {
+	headers, err := getHeaders(repository, prefixes)
+	if err != nil {
+		return nil, err
+	}
+	headers = sortHeadersByDate(headers)
+
+	results := make([]uuid.UUID, 0)
+
+	// no prefixes, this is a full fetch
+	if prefixes == nil {
+		for _, hdr := range headers {
+			results = append(results, hdr.IndexID)
+		}
+		return results, nil
+	}
+
+	tags := make(map[string]uuid.UUID)
+	tagsTimestamp := make(map[string]time.Time)
+
+	for _, hdr := range headers {
+		for _, tag := range hdr.Tags {
+			if recordTime, exists := tagsTimestamp[tag]; !exists {
+				tags[tag] = hdr.IndexID
+				tagsTimestamp[tag] = hdr.CreationTime
+			} else if recordTime.Before(hdr.CreationTime) {
+				tags[tag] = hdr.IndexID
+				tagsTimestamp[tag] = hdr.CreationTime
+			}
+		}
+	}
+
+	// prefixes, preprocess snapshots to only fetch necessary ones
+	for _, prefix := range prefixes {
+		parsedUuidPrefix, _ := parseSnapshotID(prefix)
+
+		matches := 0
+		for _, hdr := range headers {
+			if strings.HasPrefix(hdr.IndexID.String(), parsedUuidPrefix) {
+				matches++
+			}
+		}
+		if matches == 0 {
+			if _, exists := tags[parsedUuidPrefix]; !exists {
+				log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), parsedUuidPrefix)
+			}
+		} else if matches > 1 {
+			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
+		}
+
+		for _, hdr := range headers {
+			if strings.HasPrefix(hdr.IndexID.String(), parsedUuidPrefix) || hdr.IndexID == tags[parsedUuidPrefix] {
+				results = append(results, hdr.IndexID)
+			}
+		}
+	}
+	return results, nil
+}
+
 func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	sort.Slice(snapshots, func(i, j int) bool {
 		return snapshots[i].Header.CreationTime.Before(snapshots[j].Header.CreationTime)
 	})
 	return snapshots
+}
+
+func sortHeadersByDate(headers []*header.Header) []*header.Header {
+	sort.Slice(headers, func(i, j int) bool {
+		return headers[i].CreationTime.Before(headers[j].CreationTime)
+	})
+	return headers
 }
 
 func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {

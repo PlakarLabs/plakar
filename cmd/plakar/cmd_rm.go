@@ -76,9 +76,8 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 				}
 			} else {
 				var duration time.Duration
-				const maxDuration = int64(^uint64(0) >> 1) // Max value of int64
 
-				if num, err := strconv.ParseUint(matches[1], 0, 64); err != nil {
+				if num, err := strconv.ParseInt(matches[1], 0, 64); err != nil {
 					log.Fatalf("invalid date format: %s", opt_older)
 				} else {
 					switch strings.ToLower(matches[2]) {
@@ -98,9 +97,7 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 						log.Fatalf("invalid date format: %s", opt_older)
 					}
 				}
-				if int64(duration) > maxDuration {
-					log.Fatalf("overflow: %s", opt_older)
-				}
+
 				beforeDate = now.Add(-duration)
 			}
 		}

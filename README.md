@@ -25,3 +25,8 @@ go install github.com/PlakarLabs/plakar/cmd/plakar@latest
 
 For up-to-date informations,
 you can read the documentation available at https://docs.plakar.io
+
+
+## Community
+
+You can join our [Discord](https://discord.gg/uuegtnF2Q5) to discuss the project !

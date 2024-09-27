@@ -31,6 +31,7 @@ import (
 	_ "github.com/PlakarLabs/plakar/storage/backends/s3"
 
 	_ "github.com/PlakarLabs/plakar/snapshot/importer/fs"
+	_ "github.com/PlakarLabs/plakar/snapshot/importer/ftp"
 	_ "github.com/PlakarLabs/plakar/snapshot/importer/imap"
 	_ "github.com/PlakarLabs/plakar/snapshot/importer/s3"
 

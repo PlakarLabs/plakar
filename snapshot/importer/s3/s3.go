@@ -171,3 +171,7 @@ func (p *S3Importer) NewReader(pathname string) (io.ReadCloser, error) {
 func (p *S3Importer) Close() error {
 	return nil
 }
+
+func (p *S3Importer) Root() string {
+	return p.rootDir
+}

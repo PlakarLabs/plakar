@@ -114,3 +114,7 @@ func (p *FSImporter) NewReader(pathname string) (io.ReadCloser, error) {
 func (p *FSImporter) Close() error {
 	return nil
 }
+
+func (p *FSImporter) Root() string {
+	return p.rootDir
+}

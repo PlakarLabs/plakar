@@ -247,3 +247,7 @@ func (p *IMAPImporter) NewReader(pathname string) (io.ReadCloser, error) {
 func (p *IMAPImporter) Close() error {
 	return nil
 }
+
+func (p *IMAPImporter) Root() string {
+	return "/"
+}

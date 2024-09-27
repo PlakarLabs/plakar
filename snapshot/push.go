@@ -277,6 +277,8 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 			logger.Warn("%s", err)
 			return err
 		}
+	} else {
+		scanDir = imp.Root()
 	}
 	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 

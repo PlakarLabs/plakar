@@ -19,6 +19,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/poolpOrg/go-agentbuilder v0.0.0-20240608155005-a8f77b2e95e5
+	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/whilp/git-urls v1.0.0

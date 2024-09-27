@@ -57,6 +57,7 @@ type ScanError struct {
 func (r ScanError) scanResult() {}
 
 type ImporterBackend interface {
+	Root() string
 	Scan() (<-chan ScanResult, error)
 	NewReader(pathname string) (io.ReadCloser, error)
 	Close() error
@@ -105,6 +106,8 @@ func NewImporter(location string) (*Importer, error) {
 			backendName = "imap"
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
+		} else if strings.HasPrefix(location, "ftp://") {
+			backendName = "ftp"
 		} else {
 			if strings.Contains(location, "://") {
 				return nil, fmt.Errorf("unsupported importer protocol")
@@ -125,6 +128,16 @@ func NewImporter(location string) (*Importer, error) {
 		}
 		return &Importer{backend: backendInstance}, nil
 	}
+}
+
+func (importer *Importer) Root() string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.importer.Root", time.Since(t0))
+		logger.Trace("vfs", "importer.Root(): %s", time.Since(t0))
+	}()
+
+	return importer.backend.Root()
 }
 
 func (importer *Importer) Scan() (<-chan ScanResult, error) {

@@ -28,6 +28,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/importer"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
@@ -129,7 +130,12 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		var cleanPath string
 
 		if !strings.HasPrefix(flags.Arg(0), "/") {
-			cleanPath = path.Clean(dir + "/" + flags.Arg(0))
+			_, err := importer.NewImporter(flags.Arg(0))
+			if err != nil {
+				cleanPath = path.Clean(dir + "/" + flags.Arg(0))
+			} else {
+				cleanPath = flags.Arg(0)
+			}
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}

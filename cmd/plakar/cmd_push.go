@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
@@ -54,14 +55,19 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	var opt_excludes string
 	var opt_exclude excludeFlags
 	var opt_concurrency uint64
+	var opt_cachedir string
+	var opt_nocache bool
+
+	opt_cacheDefault := path.Join(ctx.HomeDir, ".plakar-cache")
 
 	excludes := []glob.Glob{}
-
 	flags := flag.NewFlagSet("push", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
+	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
+	flag.BoolVar(&opt_nocache, "no-cache", false, "disable caching")
 	flags.Parse(args)
 
 	for _, item := range opt_exclude {
@@ -122,6 +128,12 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	opts := &snapshot.PushOptions{
 		MaxConcurrency: opt_concurrency,
 		Excludes:       excludes,
+	}
+
+	if !opt_nocache {
+		cache.Create(opt_cachedir)
+		ctx.Cache = cache.New(opt_cachedir)
+		defer ctx.Cache.Commit()
 	}
 
 	if flags.NArg() == 0 {

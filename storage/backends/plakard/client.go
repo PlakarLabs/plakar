@@ -133,7 +133,7 @@ func (repository *Repository) connectTCP(location *url.URL) error {
 }
 
 func (repository *Repository) connectStdio() error {
-	subProcess := exec.Command("plakar", "-no-cache", "stdio")
+	subProcess := exec.Command("plakar", "stdio")
 
 	stdin, err := subProcess.StdinPipe()
 	if err != nil {
@@ -191,7 +191,7 @@ func (repository *Repository) connectSSH(location *url.URL) error {
 		connectUrl += ":" + location.Port()
 	}
 
-	subProcess := exec.Command("ssh", connectUrl, "plakar -no-cache stdio")
+	subProcess := exec.Command("ssh", connectUrl, "plakar stdio")
 
 	stdin, err := subProcess.StdinPipe()
 	if err != nil {

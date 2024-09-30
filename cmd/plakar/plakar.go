@@ -47,6 +47,8 @@ type Plakar struct {
 	CommandLine string
 	MachineID   string
 
+	HomeDir string
+
 	Cache  *cache.Cache
 	Config *config.ConfigAPI
 
@@ -107,18 +109,15 @@ func entryPoint() int {
 
 	opt_usernameDefault := opt_userDefault.Username
 	opt_repositoryDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
-	opt_cacheDefault := path.Join(opt_userDefault.HomeDir, ".plakar-cache")
 	opt_configDefault := path.Join(opt_userDefault.HomeDir, ".plakarconfig")
 
 	// command line overrides
 	var opt_cpuCount int
-	var opt_cachedir string
 	var opt_configfile string
 	var opt_username string
 	var opt_hostname string
 	var opt_cpuProfile string
 	var opt_memProfile string
-	var opt_nocache bool
 	var opt_time bool
 	var opt_trace string
 	var opt_verbose bool
@@ -127,13 +126,11 @@ func entryPoint() int {
 	var opt_stats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
-	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
 	flag.StringVar(&opt_username, "username", opt_usernameDefault, "default username")
 	flag.StringVar(&opt_hostname, "hostname", opt_hostnameDefault, "default hostname")
 	flag.StringVar(&opt_cpuProfile, "profile-cpu", "", "profile CPU usage")
 	flag.StringVar(&opt_memProfile, "profile-mem", "", "profile MEM usage")
-	flag.BoolVar(&opt_nocache, "no-cache", false, "disable caching")
 	flag.BoolVar(&opt_time, "time", false, "display command execution time")
 	flag.StringVar(&opt_trace, "trace", "", "display trace logs")
 	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
@@ -200,6 +197,7 @@ func entryPoint() int {
 	ctx.MachineID = opt_machineIdDefault
 	ctx.KeyFromFile = secretFromKeyfile
 	ctx.Config = config.NewConfigAPI(opt_configfile)
+	ctx.HomeDir = opt_userDefault.HomeDir
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a command must be provided\n", flag.CommandLine.Name())
@@ -264,13 +262,7 @@ func entryPoint() int {
 	// special case, server does not need a cache but does not return immediately either
 	skipPassphrase := false
 	if command == "server" {
-		opt_nocache = true
 		skipPassphrase = true
-	}
-
-	if !opt_nocache {
-		cache.Create(opt_cachedir)
-		ctx.Cache = cache.New(opt_cachedir)
 	}
 
 	repository, err := storage.Open(ctx.Repository)
@@ -412,10 +404,6 @@ func entryPoint() int {
 	err = repository.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
-	}
-
-	if ctx.Cache != nil {
-		ctx.Cache.Commit()
 	}
 
 	if opt_profiling {

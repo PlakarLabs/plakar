@@ -32,7 +32,6 @@ func New(cacheDir string) *Cache {
 
 	db, err := leveldb.OpenFile(filepath.Join(cacheDir, "cache.db"), nil)
 	if err != nil {
-		logger.Warn("could not open cache, bypassing: %s", err)
 		return nil
 	}
 	return &Cache{

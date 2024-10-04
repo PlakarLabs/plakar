@@ -10,7 +10,7 @@ Be aware that at this point you may still face some bugs and you may need to reb
 
 ## Requirement
 
-`plakar` requires Go 1.18 or higher,
+`plakar` requires Go 1.22 or higher,
 it may work on older versions but hasn't been tested.
 
 

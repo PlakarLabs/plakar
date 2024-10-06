@@ -5,6 +5,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/encryption/keypair"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Identity struct {
@@ -26,6 +27,22 @@ func New(address string, keypair keypair.KeyPair) (*Identity, error) {
 			Address:    address,
 			Keypair:    keypair,
 		}, nil
+	}
+}
+
+func FromBytes(data []byte) (*Identity, error) {
+	var i Identity
+	if err := msgpack.Unmarshal(data, &i); err != nil {
+		return nil, err
+	}
+	return &i, nil
+}
+
+func (i *Identity) ToBytes() []byte {
+	if data, err := msgpack.Marshal(i); err != nil {
+		return nil
+	} else {
+		return data
 	}
 }
 

@@ -24,6 +24,51 @@ func TestGenerate(t *testing.T) {
 	}
 }
 
+// TestFromBytes checks if a key pair can be correctly deserialized from bytes
+func TestFromBytes(t *testing.T) {
+	// Create a key pair and serialize it to bytes
+	kp, err := Generate()
+	if err != nil {
+		t.Fatalf("Failed to generate key pair: %v", err)
+	}
+	data, err := kp.ToBytes()
+	if err != nil {
+		t.Fatalf("Failed to serialize key pair: %v", err)
+	}
+
+	// Deserialize from bytes
+	deserializedKP, err := FromBytes(data)
+	if err != nil {
+		t.Fatalf("Failed to deserialize key pair: %v", err)
+	}
+
+	// Check if the deserialized public and private keys match the original
+	if !bytes.Equal(deserializedKP.PublicKey, kp.PublicKey) {
+		t.Fatal("Deserialized public key does not match original")
+	}
+	if !bytes.Equal(deserializedKP.PrivateKey, kp.PrivateKey) {
+		t.Fatal("Deserialized private key does not match original")
+	}
+}
+
+// TestToBytes checks if a key pair can be correctly serialized to bytes
+func TestToBytes(t *testing.T) {
+	kp, err := Generate()
+	if err != nil {
+		t.Fatalf("Failed to generate key pair: %v", err)
+	}
+
+	data, err := kp.ToBytes()
+	if err != nil {
+		t.Fatalf("Failed to serialize key pair: %v", err)
+	}
+
+	// Ensure that the serialized data is not empty
+	if len(data) == 0 {
+		t.Fatal("Serialized data is empty")
+	}
+}
+
 // TestFromPrivateKey checks if a key pair can be created from an existing private key
 func TestFromPrivateKey(t *testing.T) {
 	_, privateKey, err := ed25519.GenerateKey(nil)
@@ -59,8 +104,9 @@ func TestFromPublicKey(t *testing.T) {
 	}
 }
 
-// TestSignAndVerify checks if signing and verification work correctly
+// TestSignAndVerify checks if signing and verification using a key pair works correctly
 func TestSignAndVerify(t *testing.T) {
+	// Generate a key pair for testing
 	kp, err := Generate()
 	if err != nil {
 		t.Fatalf("Failed to generate key pair: %v", err)

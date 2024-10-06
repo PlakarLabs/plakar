@@ -1,6 +1,10 @@
 package keypair
 
-import "crypto/ed25519"
+import (
+	"crypto/ed25519"
+
+	"github.com/vmihailenco/msgpack/v5"
+)
 
 type KeyPair struct {
 	PrivateKey ed25519.PrivateKey
@@ -16,6 +20,22 @@ func Generate() (*KeyPair, error) {
 			PublicKey:  publicKey,
 		}, nil
 	}
+}
+
+func (kp *KeyPair) ToBytes() ([]byte, error) {
+	if data, err := msgpack.Marshal(kp); err != nil {
+		return nil, err
+	} else {
+		return data, nil
+	}
+}
+
+func FromBytes(data []byte) (*KeyPair, error) {
+	var kp KeyPair
+	if err := msgpack.Unmarshal(data, &kp); err != nil {
+		return nil, err
+	}
+	return &kp, nil
 }
 
 func FromPrivateKey(privateKey ed25519.PrivateKey) *KeyPair {

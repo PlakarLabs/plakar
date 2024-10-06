@@ -51,8 +51,8 @@ func TestFromBytes(t *testing.T) {
 	}
 
 	// Serialize the identity to bytes
-	data := id.ToBytes()
-	if data == nil {
+	data, err := id.ToBytes()
+	if err != nil {
 		t.Fatal("Failed to serialize identity to bytes")
 	}
 
@@ -90,8 +90,8 @@ func TestToBytes(t *testing.T) {
 	}
 
 	// Serialize the identity to bytes
-	data := id.ToBytes()
-	if data == nil {
+	data, err := id.ToBytes()
+	if err != nil {
 		t.Fatal("Failed to serialize identity to bytes")
 	}
 

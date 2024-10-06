@@ -38,11 +38,11 @@ func FromBytes(data []byte) (*Identity, error) {
 	return &i, nil
 }
 
-func (i *Identity) ToBytes() []byte {
+func (i *Identity) ToBytes() ([]byte, error) {
 	if data, err := msgpack.Marshal(i); err != nil {
-		return nil
+		return nil, err
 	} else {
-		return data
+		return data, nil
 	}
 }
 

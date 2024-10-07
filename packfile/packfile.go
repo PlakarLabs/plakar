@@ -11,15 +11,17 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 )
 
+const VERSION = 100
+
 const (
 	TYPE_CHUNK     = 1
 	TYPE_OBJECT    = 2
 	TYPE_CONTAINER = 3
-	TYPE_DATA      = 4
+	TYPE_BINARY    = 4
 )
 
 type Blob struct {
-	DataType uint8
+	Type     uint8
 	Checksum [32]byte
 	Offset   uint32
 	Length   uint32
@@ -28,6 +30,24 @@ type Blob struct {
 type PackFile struct {
 	Data  []byte
 	Index []Blob
+
+	//Metadata PackFileMetadata  // Metadata for the packfile
+	//Footer   PackFileFooter    // Footer information for quick lookup and integrity verification
+}
+
+// PackFileMetadata stores metadata about the packfile itself
+type PackFileMetadata struct {
+	Version      uint32
+	CreationTime time.Time
+	Count        uint32
+}
+
+// PackFileFooter stores footer information for quick lookup and integrity checks
+type PackFileFooter struct {
+	IndexOffset      uint32
+	IndexChecksum    [32]byte
+	MetadataOffset   uint32
+	MetadataChecksum [32]byte
 }
 
 func New() *PackFile {
@@ -92,7 +112,7 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 		}
 
 		p.Index = append(p.Index, Blob{
-			DataType: dataType,
+			Type:     dataType,
 			Checksum: checksum,
 			Offset:   chunkOffset,
 			Length:   chunkLength,
@@ -114,7 +134,7 @@ func (p *PackFile) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	for _, chunk := range p.Index {
-		if err := binary.Write(&buffer, binary.LittleEndian, chunk.DataType); err != nil {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Type); err != nil {
 			return nil, err
 		}
 		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Checksum); err != nil {

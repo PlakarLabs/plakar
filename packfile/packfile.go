@@ -12,8 +12,10 @@ import (
 )
 
 const (
-	TYPE_CHUNK  = 1
-	TYPE_OBJECT = 2
+	TYPE_CHUNK     = 1
+	TYPE_OBJECT    = 2
+	TYPE_CONTAINER = 3
+	TYPE_DATA      = 4
 )
 
 type Blob struct {

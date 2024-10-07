@@ -27,10 +27,6 @@ func (repository *Repository) PathTmp() string {
 	return filepath.Join(repository.root, "tmp")
 }
 
-func (repository *Repository) PathPurge() string {
-	return filepath.Join(repository.root, "purge")
-}
-
 func (repository *Repository) PathChunks() string {
 	return filepath.Join(repository.root, "chunks")
 }

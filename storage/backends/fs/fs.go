@@ -72,7 +72,6 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
 
 	os.MkdirAll(filepath.Join(repository.root, "tmp"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "purge"), 0700)
 
 	for i := 0; i < 256; i++ {
 		os.MkdirAll(filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", i)), 0700)
@@ -368,17 +367,7 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 }
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	dest := filepath.Join(repository.PathPurge(), indexID.String())
-	err := os.Rename(repository.PathSnapshot(indexID), dest)
-	if err != nil {
-		return err
-	}
-
-	err = os.RemoveAll(dest)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(repository.PathSnapshot(indexID))
 }
 
 func (repository *Repository) Close() error {
@@ -526,15 +515,5 @@ func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
 }
 
 func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	dest := filepath.Join(repository.PathPurge(), indexID.String())
-	err := os.Rename(repository.PathLock(indexID), dest)
-	if err != nil {
-		return err
-	}
-
-	err = os.RemoveAll(dest)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(repository.PathLock(indexID))
 }

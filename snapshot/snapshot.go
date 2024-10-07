@@ -97,12 +97,12 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 					switch msg := msg.(type) {
 					case *PackerObjectMsg:
 						logger.Trace("packer", "%s: PackerObjectMsg(%064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Checksum, time.Since(msg.Timestamp))
-						pack.AddData(packfile.TYPE_OBJECT, msg.Checksum, msg.Data)
+						pack.AddBlob(packfile.TYPE_OBJECT, msg.Checksum, msg.Data)
 						objects[msg.Checksum] = struct{}{}
 
 					case *PackerChunkMsg:
 						logger.Trace("packer", "%s: PackerChunkMsg(%064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Checksum, time.Since(msg.Timestamp))
-						pack.AddData(packfile.TYPE_CHUNK, msg.Checksum, msg.Data)
+						pack.AddBlob(packfile.TYPE_CHUNK, msg.Checksum, msg.Data)
 						chunks[msg.Checksum] = struct{}{}
 
 					default:
@@ -588,7 +588,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 
 	serializedPackfile, err := pack.Serialize()
 	if err != nil {
-		panic("could not serialize pack file")
+		panic("could not serialize pack file" + err.Error())
 	}
 	hasher.Write(serializedPackfile)
 	checksum := hasher.Sum(nil)

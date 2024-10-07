@@ -16,7 +16,7 @@ const (
 	TYPE_OBJECT = 2
 )
 
-type Chunk struct {
+type Blob struct {
 	DataType uint8
 	Checksum [32]byte
 	Offset   uint32
@@ -25,13 +25,13 @@ type Chunk struct {
 
 type PackFile struct {
 	Data  []byte
-	Index []Chunk
+	Index []Blob
 }
 
 func New() *PackFile {
 	return &PackFile{
 		Data:  make([]byte, 0),
-		Index: make([]Chunk, 0),
+		Index: make([]Blob, 0),
 	}
 }
 
@@ -89,7 +89,7 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 			return nil, fmt.Errorf("chunk offset + chunk length exceeds total length of packfile")
 		}
 
-		p.Index = append(p.Index, Chunk{
+		p.Index = append(p.Index, Blob{
 			DataType: dataType,
 			Checksum: checksum,
 			Offset:   chunkOffset,
@@ -132,18 +132,18 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (p *PackFile) AddData(dataType uint8, checksum [32]byte, data []byte) {
+func (p *PackFile) AddBlob(dataType uint8, checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("packfile.AddChunk", time.Since(t0))
 		logger.Trace("packfile", "AddChunk(...): %s", time.Since(t0))
 	}()
-	p.Index = append(p.Index, Chunk{dataType, checksum, uint32(len(p.Data)), uint32(len(data))})
+	p.Index = append(p.Index, Blob{dataType, checksum, uint32(len(p.Data)), uint32(len(data))})
 	p.Data = append(p.Data, data...)
 
 }
 
-func (p *PackFile) GetChunk(checksum [32]byte) ([]byte, bool) {
+func (p *PackFile) GetBlob(checksum [32]byte) ([]byte, bool) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("packfile.GetChunk", time.Since(t0))

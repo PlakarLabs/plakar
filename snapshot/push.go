@@ -1,11 +1,9 @@
 package snapshot
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"mime"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -211,45 +209,6 @@ func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record impo
 }
 
 func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
-	if err := snapshot.Lock(); err != nil {
-		return err
-	}
-	defer snapshot.Unlock()
-
-	locksID, err := snapshot.repository.GetLocks()
-	if err != nil {
-		return err
-	}
-	for _, lockID := range locksID {
-		if lockID == snapshot.Header.IndexID {
-			continue
-		}
-		if lock, err := GetLock(snapshot.repository, lockID); err != nil {
-			if os.IsNotExist(err) {
-				// was removed since we got the list
-				continue
-			}
-			return err
-		} else {
-			if lock.Exclusive && !lock.Expired(time.Minute*15) {
-				return fmt.Errorf("can't push: %s is exclusively locked", snapshot.repository.Location)
-			}
-		}
-	}
-
-	lockDone := make(chan bool)
-	defer close(lockDone)
-	go func() {
-		for {
-			select {
-			case <-lockDone:
-				return
-			case <-time.After(5 * time.Minute):
-				snapshot.Lock()
-			}
-		}
-	}()
-
 	imp, err := importer.NewImporter(scanDir)
 	if err != nil {
 		return err

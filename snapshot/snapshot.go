@@ -19,7 +19,6 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	storageIndex "github.com/PlakarLabs/plakar/storage/index"
-	"github.com/PlakarLabs/plakar/storage/locking"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -501,44 +500,6 @@ func GetMetadata(repository *storage.Repository, checksum [32]byte) (*metadata.M
 	return md, verifyChecksum32, nil
 }
 
-func GetLock(repository *storage.Repository, lockID uuid.UUID) (*locking.Lock, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetLock", time.Since(t0))
-	}()
-
-	buffer, err := repository.GetLock(lockID)
-	if err != nil {
-		return nil, err
-	}
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if secret != nil {
-		tmp, err := encryption.Decrypt(secret, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	if compressionMethod != "" {
-		tmp, err := compression.Inflate(compressionMethod, buffer)
-		if err != nil {
-			return nil, err
-		}
-		buffer = tmp
-	}
-
-	lock, err := locking.NewFromBytes(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	return lock, nil
-}
-
 func List(repository *storage.Repository) ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {
@@ -845,76 +806,6 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	} else {
 		return snapshot.Repository().GetRepositoryIndex().ObjectExists(checksum)
 	}
-}
-
-func PutLock(repository storage.Repository, lock *locking.Lock) (uuid.UUID, error) {
-	lockID := uuid.Must(uuid.NewRandom())
-
-	buffer, err := lock.Serialize()
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		buffer = tmp
-	}
-
-	return lockID, repository.PutLock(lockID, buffer)
-
-}
-
-func (snapshot *Snapshot) Lock() error {
-	lock := locking.New(snapshot.Header.Hostname,
-		snapshot.Header.Username,
-		snapshot.Header.MachineID,
-		snapshot.Header.ProcessID,
-		false)
-
-	buffer, err := lock.Serialize()
-	if err != nil {
-		return err
-	}
-
-	repository := snapshot.repository
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
-
-	if compressionMethod != "" {
-		tmp, err := compression.Deflate(compressionMethod, buffer)
-		if err != nil {
-			return err
-		}
-		buffer = tmp
-	}
-
-	if secret != nil {
-		tmp, err := encryption.Encrypt(secret, buffer)
-		if err != nil {
-			return err
-		}
-		buffer = tmp
-	}
-
-	return snapshot.repository.PutLock(snapshot.Header.IndexID, buffer)
-}
-
-func (snapshot *Snapshot) Unlock() error {
-	return snapshot.repository.DeleteLock(snapshot.Header.IndexID)
 }
 
 func (snapshot *Snapshot) Commit() error {

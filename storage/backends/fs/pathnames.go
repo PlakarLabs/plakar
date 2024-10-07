@@ -27,14 +27,6 @@ func (repository *Repository) PathTmp() string {
 	return filepath.Join(repository.root, "tmp")
 }
 
-func (repository *Repository) PathChunks() string {
-	return filepath.Join(repository.root, "chunks")
-}
-
-func (repository *Repository) PathObjects() string {
-	return filepath.Join(repository.root, "objects")
-}
-
 func (repository *Repository) PathBlobs() string {
 	return filepath.Join(repository.root, "blobs")
 }
@@ -55,14 +47,6 @@ func (repository *Repository) PathSnapshots() string {
 	return filepath.Join(repository.root, "snapshots")
 }
 
-func (repository *Repository) PathChunkBucket(checksum [32]byte) string {
-	return filepath.Join(repository.root, "chunks", fmt.Sprintf("%02x", checksum[0]))
-}
-
-func (repository *Repository) PathObjectBucket(checksum [32]byte) string {
-	return filepath.Join(repository.root, "objects", fmt.Sprintf("%02x", checksum[0]))
-}
-
 func (repository *Repository) PathBlobBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
 }
@@ -77,14 +61,6 @@ func (repository *Repository) PathPackfileBucket(checksum [32]byte) string {
 
 func (repository *Repository) PathSnapshotBucket(indexID uuid.UUID) string {
 	return filepath.Join(repository.root, "snapshots", indexID.String()[:2])
-}
-
-func (repository *Repository) PathChunk(checksum [32]byte) string {
-	return filepath.Join(repository.PathChunkBucket(checksum), fmt.Sprintf("%064x", checksum))
-}
-
-func (repository *Repository) PathObject(checksum [32]byte) string {
-	return filepath.Join(repository.PathObjectBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *Repository) PathBlob(checksum [32]byte) string {

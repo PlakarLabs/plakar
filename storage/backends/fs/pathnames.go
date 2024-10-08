@@ -39,10 +39,6 @@ func (repository *Repository) PathPackfiles() string {
 	return filepath.Join(repository.root, "packfiles")
 }
 
-func (repository *Repository) PathLocks() string {
-	return filepath.Join(repository.root, "locks")
-}
-
 func (repository *Repository) PathSnapshots() string {
 	return filepath.Join(repository.root, "snapshots")
 }
@@ -73,10 +69,6 @@ func (repository *Repository) PathIndex(checksum [32]byte) string {
 
 func (repository *Repository) PathPackfile(checksum [32]byte) string {
 	return filepath.Join(repository.PathPackfileBucket(checksum), fmt.Sprintf("%064x", checksum))
-}
-
-func (repository *Repository) PathLock(indexID uuid.UUID) string {
-	return filepath.Join(repository.PathLocks(), indexID.String())
 }
 
 func (repository *Repository) PathSnapshot(indexID uuid.UUID) string {

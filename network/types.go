@@ -83,41 +83,6 @@ type ResDeleteSnapshot struct {
 	Err string
 }
 
-// snapshots
-type ReqGetLocks struct {
-}
-
-type ResGetLocks struct {
-	Locks []uuid.UUID
-	Err   string
-}
-
-type ReqPutLock struct {
-	IndexID uuid.UUID
-	Data    []byte
-}
-
-type ResPutLock struct {
-	Err string
-}
-
-type ReqGetLock struct {
-	IndexID uuid.UUID
-}
-
-type ResGetLock struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteLock struct {
-	IndexID uuid.UUID
-}
-
-type ResDeleteLock struct {
-	Err string
-}
-
 // blobs
 type ReqGetBlobs struct {
 }
@@ -268,19 +233,6 @@ func ProtocolRegister() {
 
 	gob.Register(ReqDeleteSnapshot{})
 	gob.Register(ResDeleteSnapshot{})
-
-	//
-	gob.Register(ReqGetLocks{})
-	gob.Register(ResGetLocks{})
-
-	gob.Register(ReqPutLock{})
-	gob.Register(ResPutLock{})
-
-	gob.Register(ReqGetLock{})
-	gob.Register(ResGetLock{})
-
-	gob.Register(ReqDeleteLock{})
-	gob.Register(ResDeleteLock{})
 
 	// blobs
 	gob.Register(ReqGetBlobs{})

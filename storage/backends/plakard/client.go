@@ -395,61 +395,6 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 
-// locks
-func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	result, err := repository.sendRequest("ReqGetLocks", network.ReqGetLocks{})
-	if err != nil {
-		return nil, err
-	}
-
-	if result.Payload.(network.ResGetLocks).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetLocks).Err)
-	}
-	return result.Payload.(network.ResGetLocks).Locks, nil
-}
-
-func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
-	result, err := repository.sendRequest("ReqPutLock", network.ReqPutLock{
-		IndexID: indexID,
-		Data:    data,
-	})
-	if err != nil {
-		return err
-	}
-	if result.Payload.(network.ResPutLock).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResPutLock).Err)
-	}
-	return nil
-}
-
-func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetLock", network.ReqGetLock{
-		IndexID: indexID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if result.Payload.(network.ResGetLock).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetLock).Err)
-	}
-	return result.Payload.(network.ResGetLock).Data, nil
-}
-
-func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	result, err := repository.sendRequest("ReqDeleteLock", network.ReqDeleteLock{
-		IndexID: indexID,
-	})
-	if err != nil {
-		return err
-	}
-
-	if result.Payload.(network.ResDeleteLock).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResDeleteLock).Err)
-	}
-	return nil
-}
-
 // blobs
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetBlobs", network.ReqGetBlobs{})

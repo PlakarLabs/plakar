@@ -124,16 +124,6 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS locks (
-		lockID		VARCHAR(36) NOT NULL PRIMARY KEY,
-		data		BLOB
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS blobs (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
@@ -280,69 +270,6 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 
 func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	statement, err := repository.conn.Prepare(`DELETE FROM snapshots WHERE snapshotID=?`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(indexID)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
-	}
-	return nil
-}
-
-// locks
-func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	rows, err := repository.conn.Query("SELECT lockID FROM locks")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	indexes := make([]uuid.UUID, 0)
-	for rows.Next() {
-		var indexUuid string
-		err = rows.Scan(&indexUuid)
-		if err != nil {
-			return nil, err
-		}
-		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
-	}
-	return indexes, nil
-}
-
-func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO locks (lockID, data) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(indexID, data)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM locks WHERE lockID=?`, indexID).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM locks WHERE lockID=?`)
 	if err != nil {
 		return err
 	}

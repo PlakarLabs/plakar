@@ -222,58 +222,6 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 
-// locks
-func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	ret := make([]uuid.UUID, 0)
-	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
-		Prefix:    "locks/",
-		Recursive: true,
-	}) {
-		if strings.HasPrefix(object.Key, "locks/") {
-			ret = append(ret, uuid.MustParse(object.Key[6:]))
-		}
-	}
-	return ret, nil
-}
-
-func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("locks/%s", indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("locks/%s", indexID.String()), minio.GetObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	dataBytes := make([]byte, stat.Size)
-	_, err = object.Read(dataBytes)
-	if err != nil {
-		if err != io.EOF {
-			return nil, err
-		}
-	}
-	object.Close()
-
-	return dataBytes, nil
-}
-
-func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("locks/%s", indexID.String()), minio.RemoveObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // blobs
 func (repository *Repository) GetBlobs() ([][32]byte, error) {
 	ret := make([][32]byte, 0)

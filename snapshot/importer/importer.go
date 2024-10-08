@@ -102,8 +102,6 @@ func NewImporter(location string) (*Importer, error) {
 	if !strings.HasPrefix(location, "/") {
 		if strings.HasPrefix(location, "s3://") {
 			backendName = "s3"
-		} else if strings.HasPrefix(location, "imap://") {
-			backendName = "imap"
 		} else if strings.HasPrefix(location, "fs://") {
 			backendName = "fs"
 		} else if strings.HasPrefix(location, "ftp://") {

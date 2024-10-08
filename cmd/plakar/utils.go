@@ -32,7 +32,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
-	storageIndex "github.com/PlakarLabs/plakar/storage/index"
+	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
 	"golang.org/x/tools/blog/atom"
@@ -348,7 +348,7 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 	return false
 }
 
-func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, error) {
+func loadRepositoryIndex(repository *storage.Repository) (*state.Index, error) {
 	indexes, err := repository.GetIndexes()
 	if err != nil {
 		return nil, err
@@ -357,7 +357,7 @@ func loadRepositoryIndex(repository *storage.Repository) (*storageIndex.Index, e
 	// XXX - we can clear the cache of any key prefixed by an index ID that's not in indexes
 	// do that later
 
-	repositoryIndex := storageIndex.New()
+	repositoryIndex := state.New()
 	wg := sync.WaitGroup{}
 	for _, _indexID := range indexes {
 		wg.Add(1)

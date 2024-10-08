@@ -33,7 +33,7 @@ import (
 	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/PlakarLabs/plakar/storage/index"
+	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 )
 
@@ -112,7 +112,7 @@ type Repository struct {
 	Cache *cache.Cache
 	Key   []byte
 
-	index *index.Index
+	index *state.Index
 
 	wBytes uint64
 	rBytes uint64
@@ -193,11 +193,11 @@ func New(location string) (*Repository, error) {
 	}
 }
 
-func (repository *Repository) SetRepositoryIndex(index *index.Index) {
+func (repository *Repository) SetRepositoryIndex(index *state.Index) {
 	repository.index = index
 }
 
-func (repository *Repository) GetRepositoryIndex() *index.Index {
+func (repository *Repository) GetRepositoryIndex() *state.Index {
 	return repository.index
 }
 

@@ -18,13 +18,14 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
-	storageIndex "github.com/PlakarLabs/plakar/storage/index"
+	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Snapshot struct {
 	repository *storage.Repository
+	stateDelta *state.Index
 
 	SkipDirs []string
 
@@ -68,6 +69,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 
 	snapshot := &Snapshot{
 		repository: repository,
+		stateDelta: state.New(),
 
 		Header:     header.NewHeader(indexID),
 		Index:      idx,
@@ -367,7 +369,7 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
-func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*storageIndex.Index, error) {
+func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*state.Index, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
@@ -421,7 +423,7 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sto
 		buffer = tmp
 	}
 
-	return storageIndex.NewFromBytes(buffer)
+	return state.NewFromBytes(buffer)
 }
 
 func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
@@ -608,6 +610,10 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
+				snapshot.stateDelta.SetPackfileForChunk(checksum32,
+					chunkChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
 				break
 			}
 		}
@@ -617,6 +623,10 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 		for idx, chunk := range pack.Index {
 			if chunk.Checksum == objectChecksum {
 				snapshot.Repository().GetRepositoryIndex().SetPackfileForObject(checksum32,
+					objectChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				snapshot.stateDelta.SetPackfileForObject(checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -819,8 +829,8 @@ func (snapshot *Snapshot) Commit() error {
 	close(snapshot.packerChan)
 	<-snapshot.packerChanDone
 
-	if snapshot.Repository().GetRepositoryIndex().IsDirty() {
-		serializedRepositoryIndex, err := snapshot.Repository().GetRepositoryIndex().Serialize()
+	if snapshot.stateDelta.IsDirty() {
+		serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
 		if err != nil {
 			logger.Warn("could not serialize repository index: %s", err)
 			return err

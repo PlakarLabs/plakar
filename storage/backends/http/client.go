@@ -265,9 +265,9 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-// indexes
+// states
 func (repository *Repository) GetStates() ([][32]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/indexes", network.ReqGetIndexes{})
+	r, err := repository.sendRequest("GET", repository.Repository, "/states", network.ReqGetIndexes{})
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	r, err := repository.sendRequest("PUT", repository.Repository, "/index", network.ReqPutIndex{
+	r, err := repository.sendRequest("PUT", repository.Repository, "/state", network.ReqPutIndex{
 		Checksum: checksum,
 		Data:     data,
 	})
@@ -302,7 +302,7 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/index", network.ReqGetIndex{
+	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetIndex{
 		Checksum: checksum,
 	})
 	if err != nil {
@@ -320,7 +320,7 @@ func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	r, err := repository.sendRequest("DELETE", repository.Repository, "/index", network.ReqDeleteIndex{
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/state", network.ReqDeleteIndex{
 		Checksum: checksum,
 	})
 	if err != nil {

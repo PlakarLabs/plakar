@@ -65,8 +65,7 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 		return err
 	}
 
-	os.MkdirAll(filepath.Join(repository.root, "indexes"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "locks"), 0700)
+	os.MkdirAll(filepath.Join(repository.root, "states"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "blobs"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
@@ -74,7 +73,7 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	os.MkdirAll(filepath.Join(repository.root, "tmp"), 0700)
 
 	for i := 0; i < 256; i++ {
-		os.MkdirAll(filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repository.root, "states", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
@@ -378,7 +377,7 @@ func (repository *Repository) Close() error {
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
-	buckets, err := os.ReadDir(repository.PathIndexes())
+	buckets, err := os.ReadDir(repository.PathStates())
 	if err != nil {
 		return ret, err
 	}
@@ -387,7 +386,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 		if !bucket.IsDir() {
 			continue
 		}
-		pathBuckets := filepath.Join(repository.PathIndexes(), bucket.Name())
+		pathBuckets := filepath.Join(repository.PathStates(), bucket.Name())
 		blobs, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err

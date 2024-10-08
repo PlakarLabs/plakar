@@ -134,7 +134,7 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS indexes (
+	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS states (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
 	);`)
@@ -371,7 +371,7 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT checksum FROM indexes")
+	rows, err := repository.conn.Query("SELECT checksum FROM states")
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +392,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO indexes (checksum, data) VALUES(?, ?)`)
+	statement, err := repository.conn.Prepare(`INSERT INTO states (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM indexes WHERE checksum=?`, checksum[:]).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT data FROM states WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +424,7 @@ func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM indexes WHERE checksum=?`)
+	statement, err := repository.conn.Prepare(`DELETE FROM states WHERE checksum=?`)
 	if err != nil {
 		return err
 	}

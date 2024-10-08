@@ -299,14 +299,14 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-// indexes
+// states
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
-		Prefix:    "indexes/",
+		Prefix:    "states/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "indexes/") && len(object.Key) >= 11 {
+		if strings.HasPrefix(object.Key, "states/") && len(object.Key) >= 11 {
 			t, err := hex.DecodeString(object.Key[11:])
 			if err != nil {
 				return nil, err
@@ -323,7 +323,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -331,7 +331,7 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +353,7 @@ func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("indexes/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}

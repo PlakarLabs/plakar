@@ -31,8 +31,8 @@ func (repository *Repository) PathBlobs() string {
 	return filepath.Join(repository.root, "blobs")
 }
 
-func (repository *Repository) PathIndexes() string {
-	return filepath.Join(repository.root, "indexes")
+func (repository *Repository) PathStates() string {
+	return filepath.Join(repository.root, "states")
 }
 
 func (repository *Repository) PathPackfiles() string {

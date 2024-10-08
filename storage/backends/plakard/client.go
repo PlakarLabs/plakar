@@ -462,7 +462,7 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return fmt.Errorf("%s", result.Payload.(network.ResDeleteBlob).Err)
 }
 
-// indexes
+// states
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetIndexes", network.ReqGetIndexes{})
 	if err != nil {

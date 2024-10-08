@@ -53,7 +53,6 @@ type Plakar struct {
 	KeyFromFile string
 
 	//	maxConcurrency chan struct{}
-	onProvided bool
 }
 
 var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
@@ -227,8 +226,12 @@ func entryPoint() int {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())
 		}
 		ctx.Repository = flag.Arg(1)
-		ctx.onProvided = true
 		command, args = flag.Arg(2), flag.Args()[3:]
+	} else {
+		repositoryPath := os.Getenv("PLAKAR_REPOSITORY")
+		if repositoryPath != "" {
+			ctx.Repository = repositoryPath
+		}
 	}
 
 	// cmd_create must be ran after workdir.New() but before other commands
@@ -269,20 +272,31 @@ func entryPoint() int {
 	var secret []byte
 	if !skipPassphrase {
 		if repository.Configuration().Encryption != "" {
+			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
 			if ctx.KeyFromFile == "" {
+				attempts := 0
 				for {
-					passphrase, err := helpers.GetPassphrase("repository")
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "%s\n", err)
-						continue
+					var passphrase []byte
+					if envPassphrase == "" {
+						passphrase, err = helpers.GetPassphrase("repository")
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "%s\n", err)
+							continue
+						}
+					} else {
+						passphrase = []byte(envPassphrase)
 					}
 
 					secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
+						attempts++
+
+						if envPassphrase != "" {
+							os.Exit(1)
+						}
 						continue
 					}
-
 					break
 				}
 			} else {

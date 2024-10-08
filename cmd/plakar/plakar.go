@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
-	"github.com/PlakarLabs/plakar/config"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
@@ -49,8 +48,7 @@ type Plakar struct {
 
 	HomeDir string
 
-	Cache  *cache.Cache
-	Config *config.ConfigAPI
+	Cache *cache.Cache
 
 	KeyFromFile string
 
@@ -196,7 +194,6 @@ func entryPoint() int {
 	ctx.CommandLine = strings.Join(os.Args, " ")
 	ctx.MachineID = opt_machineIdDefault
 	ctx.KeyFromFile = secretFromKeyfile
-	ctx.Config = config.NewConfigAPI(opt_configfile)
 	ctx.HomeDir = opt_userDefault.HomeDir
 
 	if flag.NArg() == 0 {
@@ -234,22 +231,14 @@ func entryPoint() int {
 		command, args = flag.Arg(2), flag.Args()[3:]
 	}
 
-	if strings.HasPrefix(ctx.Repository, "@") {
-		if location, err := ctx.Config.GetRepositoryParameter(ctx.Repository[1:], "location"); err != nil {
-			log.Fatalf("%s: unknown repository alias: %s", flag.CommandLine.Name(), ctx.Repository)
-		} else {
-			ctx.Repository = location
-		}
-	}
-
 	// cmd_create must be ran after workdir.New() but before other commands
 	if command == "create" {
 		return cmd_create(ctx, args)
 	}
 
-	if command == "config" {
-		return cmd_config(ctx, args)
-	}
+	//	if command == "config" {
+	//		return cmd_config(ctx, args)
+	//	}
 
 	if command == "version" {
 		return cmd_version(ctx, args)

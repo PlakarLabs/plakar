@@ -81,10 +81,10 @@ type RepositoryBackend interface {
 	GetBlob(checksum [32]byte) ([]byte, error)
 	DeleteBlob(checksum [32]byte) error
 
-	GetIndexes() ([][32]byte, error)
-	PutIndex(checksum [32]byte, data []byte) error
-	GetIndex(checksum [32]byte) ([]byte, error)
-	DeleteIndex(checksum [32]byte) error
+	GetStates() ([][32]byte, error)
+	PutState(checksum [32]byte, data []byte) error
+	GetState(checksum [32]byte) ([]byte, error)
+	DeleteState(checksum [32]byte) error
 
 	GetPackfiles() ([][32]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
@@ -505,7 +505,7 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 }
 
 /* Indexes */
-func (repository *Repository) GetIndexes() ([][32]byte, error) {
+func (repository *Repository) GetStates() ([][32]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
@@ -514,10 +514,10 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
 		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
 	}()
-	return repository.backend.GetIndexes()
+	return repository.backend.GetStates()
 }
 
-func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
@@ -527,10 +527,10 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 		logger.Trace("storage", "PutIndex(%016x): %s", checksum, time.Since(t0))
 	}()
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
-	return repository.backend.PutIndex(checksum, data)
+	return repository.backend.PutState(checksum, data)
 }
 
-func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
@@ -540,7 +540,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 		logger.Trace("storage", "GetIndex(%016x): %s", checksum, time.Since(t0))
 	}()
 
-	data, err := repository.backend.GetIndex(checksum)
+	data, err := repository.backend.GetState(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +548,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteState(checksum [32]byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
@@ -557,7 +557,7 @@ func (repository *Repository) DeleteIndex(checksum [32]byte) error {
 		profiler.RecordEvent("storage.DeleteIndex", time.Since(t0))
 		logger.Trace("storage", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
 	}()
-	return repository.backend.DeleteIndex(checksum)
+	return repository.backend.DeleteState(checksum)
 }
 
 /* Blobs */

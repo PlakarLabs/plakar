@@ -514,7 +514,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetIndexes()", clientUuid)
-				checksums, err := lrepository.GetIndexes()
+				checksums, err := lrepository.GetStates()
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -538,7 +538,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(network.ReqPutIndex).Checksum)
-				err := lrepository.PutIndex(request.Payload.(network.ReqPutIndex).Checksum, request.Payload.(network.ReqPutIndex).Data)
+				err := lrepository.PutState(request.Payload.(network.ReqPutIndex).Checksum, request.Payload.(network.ReqPutIndex).Data)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -561,7 +561,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(network.ReqGetIndex).Checksum)
-				data, err := lrepository.GetIndex(request.Payload.(network.ReqGetIndex).Checksum)
+				data, err := lrepository.GetState(request.Payload.(network.ReqGetIndex).Checksum)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -591,7 +591,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				if options.NoDelete {
 					err = fmt.Errorf("not allowed to delete")
 				} else {
-					err = lrepository.DeleteIndex(request.Payload.(network.ReqDeleteIndex).Checksum)
+					err = lrepository.DeleteState(request.Payload.(network.ReqDeleteIndex).Checksum)
 				}
 				retErr := ""
 				if err != nil {

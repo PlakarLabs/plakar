@@ -375,7 +375,7 @@ func (repository *Repository) Close() error {
 }
 
 /* Indexes */
-func (repository *Repository) GetIndexes() ([][32]byte, error) {
+func (repository *Repository) GetStates() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathIndexes())
@@ -411,7 +411,7 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathIndex(checksum))
 	if err != nil {
 		return err
@@ -425,7 +425,7 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	data, err := os.ReadFile(repository.PathIndex(checksum))
 	if err != nil {
 		return nil, err
@@ -434,7 +434,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteState(checksum [32]byte) error {
 	err := os.Remove(repository.PathIndex(checksum))
 	if err != nil {
 		return err

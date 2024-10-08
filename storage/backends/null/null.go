@@ -122,19 +122,19 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 }
 
 // indexes
-func (repository *Repository) GetIndexes() ([][32]byte, error) {
+func (repository *Repository) GetStates() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteState(checksum [32]byte) error {
 	return nil
 }
 

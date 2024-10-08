@@ -385,7 +385,7 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sta
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
-			tmp, err = repository.GetIndex(checksum)
+			tmp, err = repository.GetState(checksum)
 			if err != nil {
 				return nil, err
 			}
@@ -393,7 +393,7 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sta
 		buffer = tmp
 	} else {
 		logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
-		tmp, err := repository.GetIndex(checksum)
+		tmp, err := repository.GetState(checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -746,7 +746,7 @@ func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) 
 		//cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
 	}
 
-	return len(buffer), snapshot.repository.PutIndex(checksum, buffer)
+	return len(buffer), snapshot.repository.PutState(checksum, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {

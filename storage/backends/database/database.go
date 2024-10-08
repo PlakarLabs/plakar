@@ -442,8 +442,8 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 	return nil
 }
 
-// indexes
-func (repository *Repository) GetIndexes() ([][32]byte, error) {
+// states
+func (repository *Repository) GetStates() ([][32]byte, error) {
 	rows, err := repository.conn.Query("SELECT checksum FROM indexes")
 	if err != nil {
 		return nil, err
@@ -464,7 +464,7 @@ func (repository *Repository) GetIndexes() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO indexes (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -487,7 +487,7 @@ func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT data FROM indexes WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
@@ -496,7 +496,7 @@ func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteState(checksum [32]byte) error {
 	statement, err := repository.conn.Prepare(`DELETE FROM indexes WHERE checksum=?`)
 	if err != nil {
 		return err

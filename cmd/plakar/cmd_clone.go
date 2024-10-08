@@ -76,7 +76,7 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 	wg.Wait()
 
-	indexesChecksums, err := sourceRepository.GetIndexes()
+	indexesChecksums, err := sourceRepository.GetStates()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
 		return 1
@@ -88,13 +88,13 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		go func(indexChecksum [32]byte) {
 			defer wg.Done()
 
-			data, err := sourceRepository.GetIndex(indexChecksum)
+			data, err := sourceRepository.GetState(indexChecksum)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location, err)
 				return
 			}
 
-			err = cloneRepository.PutIndex(indexChecksum, data)
+			err = cloneRepository.PutState(indexChecksum, data)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
 				return

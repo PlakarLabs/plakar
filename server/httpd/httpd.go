@@ -331,8 +331,8 @@ func deleteBlob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// indexes
-func getIndexes(w http.ResponseWriter, r *http.Request) {
+// states
+func getStates(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndexes network.ReqGetIndexes
 	if err := json.NewDecoder(r.Body).Decode(&reqGetIndexes); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -340,7 +340,7 @@ func getIndexes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetIndexes network.ResGetIndexes
-	indexes, err := lrepository.GetIndexes()
+	indexes, err := lrepository.GetStates()
 	if err != nil {
 		resGetIndexes.Err = err.Error()
 	} else {
@@ -352,7 +352,7 @@ func getIndexes(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func putIndex(w http.ResponseWriter, r *http.Request) {
+func putState(w http.ResponseWriter, r *http.Request) {
 	var reqPutIndex network.ReqPutIndex
 	if err := json.NewDecoder(r.Body).Decode(&reqPutIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -360,7 +360,7 @@ func putIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutIndex network.ResPutIndex
-	err := lrepository.PutIndex(reqPutIndex.Checksum, reqPutIndex.Data)
+	err := lrepository.PutState(reqPutIndex.Checksum, reqPutIndex.Data)
 	if err != nil {
 		resPutIndex.Err = err.Error()
 	}
@@ -370,7 +370,7 @@ func putIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getIndex(w http.ResponseWriter, r *http.Request) {
+func getState(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndex network.ReqGetIndex
 	if err := json.NewDecoder(r.Body).Decode(&reqGetIndex); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -378,7 +378,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetIndex network.ResGetIndex
-	data, err := lrepository.GetIndex(reqGetIndex.Checksum)
+	data, err := lrepository.GetState(reqGetIndex.Checksum)
 	if err != nil {
 		resGetIndex.Err = err.Error()
 	} else {
@@ -390,7 +390,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func deleteIndex(w http.ResponseWriter, r *http.Request) {
+func deleteState(w http.ResponseWriter, r *http.Request) {
 	if lNoDelete {
 		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
 		return
@@ -403,7 +403,7 @@ func deleteIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeleteIndex network.ResDeleteIndex
-	err := lrepository.DeleteIndex(reqDeleteIndex.Checksum)
+	err := lrepository.DeleteState(reqDeleteIndex.Checksum)
 	if err != nil {
 		resDeleteIndex.Err = err.Error()
 	}
@@ -543,10 +543,10 @@ func Server(repository *storage.Repository, addr string, noDelete bool) error {
 	r.HandleFunc("/blob/check", checkBlob).Methods("GET")
 	r.HandleFunc("/blob", deleteBlob).Methods("DELETE")
 
-	r.HandleFunc("/indexes", getIndexes).Methods("GET")
-	r.HandleFunc("/index", putIndex).Methods("PUT")
-	r.HandleFunc("/index", getIndex).Methods("GET")
-	r.HandleFunc("/index", deleteIndex).Methods("DELETE")
+	r.HandleFunc("/indexes", getStates).Methods("GET")
+	r.HandleFunc("/index", putState).Methods("PUT")
+	r.HandleFunc("/index", getState).Methods("GET")
+	r.HandleFunc("/index", deleteState).Methods("DELETE")
 
 	r.HandleFunc("/packfiles", getPackfiles).Methods("GET")
 	r.HandleFunc("/packfile", putPackfile).Methods("PUT")

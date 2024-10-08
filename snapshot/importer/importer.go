@@ -131,8 +131,8 @@ func NewImporter(location string) (*Importer, error) {
 func (importer *Importer) Root() string {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.importer.Root", time.Since(t0))
-		logger.Trace("vfs", "importer.Root(): %s", time.Since(t0))
+		profiler.RecordEvent("snapshot.importer.Root", time.Since(t0))
+		logger.Trace("importer", "importer.Root(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Root()
@@ -141,8 +141,8 @@ func (importer *Importer) Root() string {
 func (importer *Importer) Scan() (<-chan ScanResult, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.importer.Scan", time.Since(t0))
-		logger.Trace("vfs", "importer.Scan(): %s", time.Since(t0))
+		profiler.RecordEvent("snapshot.importer.Scan", time.Since(t0))
+		logger.Trace("importer", "importer.Scan(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Scan()
@@ -151,8 +151,8 @@ func (importer *Importer) Scan() (<-chan ScanResult, error) {
 func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.importer.NewReader", time.Since(t0))
-		logger.Trace("vfs", "importer.NewReader(%s): %s", pathname, time.Since(t0))
+		profiler.RecordEvent("snapshot.importer.NewReader", time.Since(t0))
+		logger.Trace("importer", "importer.NewReader(%s): %s", pathname, time.Since(t0))
 	}()
 
 	return importer.backend.NewReader(pathname)
@@ -161,8 +161,8 @@ func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 func (importer *Importer) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.importer.End", time.Since(t0))
-		logger.Trace("vfs", "importer.End(): %s", time.Since(t0))
+		profiler.RecordEvent("snapshot.importer.Close", time.Since(t0))
+		logger.Trace("importer", "importer.Close(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Close()

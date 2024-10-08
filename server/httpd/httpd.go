@@ -256,34 +256,34 @@ func deleteBlob(w http.ResponseWriter, r *http.Request) {
 
 // states
 func getStates(w http.ResponseWriter, r *http.Request) {
-	var reqGetIndexes network.ReqGetIndexes
+	var reqGetIndexes network.ReqGetStates
 	if err := json.NewDecoder(r.Body).Decode(&reqGetIndexes); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resGetIndexes network.ResGetIndexes
+	var resGetStates network.ResGetStates
 	indexes, err := lrepository.GetStates()
 	if err != nil {
-		resGetIndexes.Err = err.Error()
+		resGetStates.Err = err.Error()
 	} else {
-		resGetIndexes.Checksums = indexes
+		resGetStates.Checksums = indexes
 	}
-	if err := json.NewEncoder(w).Encode(resGetIndexes); err != nil {
+	if err := json.NewEncoder(w).Encode(resGetStates); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
 func putState(w http.ResponseWriter, r *http.Request) {
-	var reqPutIndex network.ReqPutIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqPutIndex); err != nil {
+	var reqPutState network.ReqPutState
+	if err := json.NewDecoder(r.Body).Decode(&reqPutState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resPutIndex network.ResPutIndex
-	err := lrepository.PutState(reqPutIndex.Checksum, reqPutIndex.Data)
+	var resPutIndex network.ResPutState
+	err := lrepository.PutState(reqPutState.Checksum, reqPutState.Data)
 	if err != nil {
 		resPutIndex.Err = err.Error()
 	}
@@ -294,20 +294,20 @@ func putState(w http.ResponseWriter, r *http.Request) {
 }
 
 func getState(w http.ResponseWriter, r *http.Request) {
-	var reqGetIndex network.ReqGetIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqGetIndex); err != nil {
+	var reqGetState network.ReqGetState
+	if err := json.NewDecoder(r.Body).Decode(&reqGetState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resGetIndex network.ResGetIndex
-	data, err := lrepository.GetState(reqGetIndex.Checksum)
+	var resGetState network.ResGetState
+	data, err := lrepository.GetState(reqGetState.Checksum)
 	if err != nil {
-		resGetIndex.Err = err.Error()
+		resGetState.Err = err.Error()
 	} else {
-		resGetIndex.Data = data
+		resGetState.Data = data
 	}
-	if err := json.NewEncoder(w).Encode(resGetIndex); err != nil {
+	if err := json.NewEncoder(w).Encode(resGetState); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -319,18 +319,18 @@ func deleteState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var reqDeleteIndex network.ReqDeleteIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteIndex); err != nil {
+	var reqDeleteState network.ReqDeleteState
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resDeleteIndex network.ResDeleteIndex
-	err := lrepository.DeleteState(reqDeleteIndex.Checksum)
+	var resDeleteState network.ResDeleteState
+	err := lrepository.DeleteState(reqDeleteState.Checksum)
 	if err != nil {
-		resDeleteIndex.Err = err.Error()
+		resDeleteState.Err = err.Error()
 	}
-	if err := json.NewEncoder(w).Encode(resDeleteIndex); err != nil {
+	if err := json.NewEncoder(w).Encode(resDeleteState); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

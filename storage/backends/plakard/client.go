@@ -464,18 +464,18 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetIndexes", network.ReqGetIndexes{})
+	result, err := repository.sendRequest("ReqGetStates", network.ReqGetStates{})
 	if err != nil {
 		return nil, err
 	}
-	if result.Payload.(network.ResGetIndexes).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetIndexes).Err)
+	if result.Payload.(network.ResGetStates).Err != "" {
+		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetStates).Err)
 	}
-	return result.Payload.(network.ResGetIndexes).Checksums, nil
+	return result.Payload.(network.ResGetStates).Checksums, nil
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqPutIndex", network.ReqPutIndex{
+	result, err := repository.sendRequest("ReqPutState", network.ReqPutState{
 		Checksum: checksum,
 		Data:     data,
 	})
@@ -483,36 +483,36 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 		return err
 	}
 
-	if result.Payload.(network.ResPutIndex).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResPutIndex).Err)
+	if result.Payload.(network.ResPutState).Err != "" {
+		return fmt.Errorf("%s", result.Payload.(network.ResPutState).Err)
 	}
 	return nil
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetIndex", network.ReqGetIndex{
+	result, err := repository.sendRequest("ReqGetState", network.ReqGetState{
 		Checksum: checksum,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if result.Payload.(network.ResGetIndex).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetIndex).Err)
+	if result.Payload.(network.ResGetState).Err != "" {
+		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetState).Err)
 	}
-	return result.Payload.(network.ResGetIndex).Data, nil
+	return result.Payload.(network.ResGetState).Data, nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	result, err := repository.sendRequest("ReqDeleteIndex", network.ReqDeleteIndex{
+	result, err := repository.sendRequest("ReqDeleteState", network.ReqDeleteState{
 		Checksum: checksum,
 	})
 	if err != nil {
 		return err
 	}
 
-	if result.Payload.(network.ResDeleteIndex).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResDeleteIndex).Err)
+	if result.Payload.(network.ResDeleteState).Err != "" {
+		return fmt.Errorf("%s", result.Payload.(network.ResDeleteState).Err)
 	}
 	return nil
 }

@@ -127,37 +127,37 @@ type ResDeleteBlob struct {
 	Err string
 }
 
-// indexes
-type ReqGetIndexes struct {
+// states
+type ReqGetStates struct {
 }
 
-type ResGetIndexes struct {
+type ResGetStates struct {
 	Checksums [][32]byte
 	Err       string
 }
 
-type ReqPutIndex struct {
+type ReqPutState struct {
 	Checksum [32]byte
 	Data     []byte
 }
 
-type ResPutIndex struct {
+type ResPutState struct {
 	Err string
 }
 
-type ReqGetIndex struct {
+type ReqGetState struct {
 	Checksum [32]byte
 }
 
-type ResGetIndex struct {
+type ResGetState struct {
 	Data []byte
 	Err  string
 }
 
-type ReqDeleteIndex struct {
+type ReqDeleteState struct {
 	Checksum [32]byte
 }
-type ResDeleteIndex struct {
+type ResDeleteState struct {
 	Err string
 }
 
@@ -250,18 +250,18 @@ func ProtocolRegister() {
 	gob.Register(ReqDeleteBlob{})
 	gob.Register(ResDeleteBlob{})
 
-	// indexes
-	gob.Register(ReqGetIndexes{})
-	gob.Register(ResGetIndexes{})
+	// states
+	gob.Register(ReqGetStates{})
+	gob.Register(ResGetStates{})
 
-	gob.Register(ReqPutIndex{})
-	gob.Register(ResPutIndex{})
+	gob.Register(ReqPutState{})
+	gob.Register(ResPutState{})
 
-	gob.Register(ReqGetIndex{})
-	gob.Register(ResGetIndex{})
+	gob.Register(ReqGetState{})
+	gob.Register(ResGetState{})
 
-	gob.Register(ReqDeleteIndex{})
-	gob.Register(ResDeleteIndex{})
+	gob.Register(ReqDeleteState{})
+	gob.Register(ResDeleteState{})
 
 	// packfiles
 	gob.Register(ReqGetPackfiles{})

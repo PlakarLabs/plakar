@@ -267,23 +267,23 @@ func (repository *Repository) DeleteBlob(checksum [32]byte) error {
 
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/states", network.ReqGetIndexes{})
+	r, err := repository.sendRequest("GET", repository.Repository, "/states", network.ReqGetStates{})
 	if err != nil {
 		return nil, err
 	}
 
-	var resGetIndexes network.ResGetIndexes
-	if err := json.NewDecoder(r.Body).Decode(&resGetIndexes); err != nil {
+	var resGetStates network.ResGetStates
+	if err := json.NewDecoder(r.Body).Decode(&resGetStates); err != nil {
 		return nil, err
 	}
-	if resGetIndexes.Err != "" {
-		return nil, fmt.Errorf("%s", resGetIndexes.Err)
+	if resGetStates.Err != "" {
+		return nil, fmt.Errorf("%s", resGetStates.Err)
 	}
-	return resGetIndexes.Checksums, nil
+	return resGetStates.Checksums, nil
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	r, err := repository.sendRequest("PUT", repository.Repository, "/state", network.ReqPutIndex{
+	r, err := repository.sendRequest("PUT", repository.Repository, "/state", network.ReqPutState{
 		Checksum: checksum,
 		Data:     data,
 	})
@@ -291,48 +291,48 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 		return err
 	}
 
-	var resPutIndex network.ResPutIndex
-	if err := json.NewDecoder(r.Body).Decode(&resPutIndex); err != nil {
+	var resPutState network.ResPutState
+	if err := json.NewDecoder(r.Body).Decode(&resPutState); err != nil {
 		return err
 	}
-	if resPutIndex.Err != "" {
-		return fmt.Errorf("%s", resPutIndex.Err)
+	if resPutState.Err != "" {
+		return fmt.Errorf("%s", resPutState.Err)
 	}
 	return nil
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetIndex{
+	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetState{
 		Checksum: checksum,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var resGetIndex network.ResGetIndex
-	if err := json.NewDecoder(r.Body).Decode(&resGetIndex); err != nil {
+	var resGetState network.ResGetState
+	if err := json.NewDecoder(r.Body).Decode(&resGetState); err != nil {
 		return nil, err
 	}
-	if resGetIndex.Err != "" {
-		return nil, fmt.Errorf("%s", resGetIndex.Err)
+	if resGetState.Err != "" {
+		return nil, fmt.Errorf("%s", resGetState.Err)
 	}
-	return resGetIndex.Data, nil
+	return resGetState.Data, nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	r, err := repository.sendRequest("DELETE", repository.Repository, "/state", network.ReqDeleteIndex{
+	r, err := repository.sendRequest("DELETE", repository.Repository, "/state", network.ReqDeleteState{
 		Checksum: checksum,
 	})
 	if err != nil {
 		return err
 	}
 
-	var resDeleteIndex network.ResDeleteIndex
-	if err := json.NewDecoder(r.Body).Decode(&resDeleteIndex); err != nil {
+	var resDeleteState network.ResDeleteState
+	if err := json.NewDecoder(r.Body).Decode(&resDeleteState); err != nil {
 		return err
 	}
-	if resDeleteIndex.Err != "" {
-		return fmt.Errorf("%s", resDeleteIndex.Err)
+	if resDeleteState.Err != "" {
+		return fmt.Errorf("%s", resDeleteState.Err)
 	}
 	return nil
 }

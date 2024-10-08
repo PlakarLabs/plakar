@@ -412,12 +412,12 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-			// indexes
-		case "ReqGetIndexes":
+			// states
+		case "ReqGetStates":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetIndexes()", clientUuid)
+				logger.Trace("server", "%s: GetStates()", clientUuid)
 				checksums, err := lrepository.GetStates()
 				retErr := ""
 				if err != nil {
@@ -425,8 +425,8 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetIndexes",
-					Payload: network.ResGetIndexes{
+					Type: "ResGetStates",
+					Payload: network.ResGetStates{
 						Checksums: checksums,
 						Err:       retErr,
 					},
@@ -437,20 +437,20 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqPutIndex":
+		case "ReqPutState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(network.ReqPutIndex).Checksum)
-				err := lrepository.PutState(request.Payload.(network.ReqPutIndex).Checksum, request.Payload.(network.ReqPutIndex).Data)
+				logger.Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
+				err := lrepository.PutState(request.Payload.(network.ReqPutState).Checksum, request.Payload.(network.ReqPutState).Data)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResPutIndex",
-					Payload: network.ResPutIndex{
+					Type: "ResPutState",
+					Payload: network.ResPutState{
 						Err: retErr,
 					},
 				}
@@ -460,20 +460,20 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqGetIndex":
+		case "ReqGetState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(network.ReqGetIndex).Checksum)
-				data, err := lrepository.GetState(request.Payload.(network.ReqGetIndex).Checksum)
+				logger.Trace("server", "%s: GetState(%016x)", clientUuid, request.Payload.(network.ReqGetState).Checksum)
+				data, err := lrepository.GetState(request.Payload.(network.ReqGetState).Checksum)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetIndex",
-					Payload: network.ResGetIndex{
+					Type: "ResGetState",
+					Payload: network.ResGetState{
 						Data: data,
 						Err:  retErr,
 					},
@@ -484,18 +484,18 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqDeleteIndex":
+		case "ReqDeleteState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(network.ReqDeleteIndex).Checksum)
+				logger.Trace("server", "%s: DeleteState(%s)", clientUuid, request.Payload.(network.ReqDeleteState).Checksum)
 
 				var err error
 				if options.NoDelete {
 					err = fmt.Errorf("not allowed to delete")
 				} else {
-					err = lrepository.DeleteState(request.Payload.(network.ReqDeleteIndex).Checksum)
+					err = lrepository.DeleteState(request.Payload.(network.ReqDeleteState).Checksum)
 				}
 				retErr := ""
 				if err != nil {
@@ -503,8 +503,8 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResDeleteIndex",
-					Payload: network.ResDeleteIndex{
+					Type: "ResDeleteState",
+					Payload: network.ResDeleteState{
 						Err: retErr,
 					},
 				}

@@ -34,20 +34,35 @@ type ScanResult interface {
 	scanResult()
 }
 
+type RecordType int8
+
+const (
+	RecordTypeFile    RecordType = 0
+	RecordTypeDir     RecordType = 1
+	RecordTypeSymlink RecordType = 2
+	RecordTypeDevice  RecordType = 3
+	RecordTypePipe    RecordType = 4
+	RecordTypeSocket  RecordType = 5
+)
+
+type FileAttributes struct {
+	IsHidden    bool // Hidden file attribute (Windows, Linux)
+	IsSystem    bool // System file attribute (Windows)
+	IsReadonly  bool // Read-only attribute
+	IsArchive   bool // Archive attribute (Windows)
+	IsTemporary bool // Temporary file (Windows)
+}
+
 type ScanRecord struct {
-	Pathname string
-	Stat     objects.FileInfo
+	Type               RecordType
+	Pathname           string
+	Target             string
+	Stat               objects.FileInfo
+	ExtendedAttributes map[string]string
+	FileAttributes     []string
 }
 
 func (r ScanRecord) scanResult() {}
-
-type ScanLink struct {
-	Pathname string
-	Target   string
-	Stat     objects.FileInfo
-}
-
-func (r ScanLink) scanResult() {}
 
 type ScanError struct {
 	Pathname string

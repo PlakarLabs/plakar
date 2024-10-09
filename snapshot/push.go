@@ -195,8 +195,6 @@ func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record impo
 	switch record := record.(type) {
 	case importer.ScanError:
 		pathname = record.Pathname
-	case importer.ScanLink:
-		pathname = record.Pathname
 	case importer.ScanRecord:
 		pathname = record.Pathname
 	}
@@ -298,14 +296,18 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		switch record := record.(type) {
 		case importer.ScanError:
 			logger.Warn("%s: %s", record.Pathname, record.Err)
-		case importer.ScanLink:
-			err := snapshot.Filesystem.RecordLink(record.Pathname, record.Target, record.Stat)
-			if err != nil {
-				logger.Warn("%s: %s", record.Pathname, err)
-				return err
-			}
-			linkCount++
+
 		case importer.ScanRecord:
+			if record.Type == importer.RecordTypeSymlink {
+				err := snapshot.Filesystem.RecordLink(record.Pathname, record.Target, record.Stat)
+				if err != nil {
+					logger.Warn("%s: %s", record.Pathname, err)
+					return err
+				}
+				linkCount++
+				continue
+			}
+
 			//
 			extension := strings.ToLower(filepath.Ext(record.Pathname))
 			if extension == "" {

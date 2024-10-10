@@ -16,6 +16,7 @@ import (
 func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 	hardlinks := make(map[string]string)
+	hardlinksMutex := sync.Mutex{}
 
 	var wg sync.WaitGroup
 	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
@@ -108,13 +109,18 @@ func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) {
 
 			if fi.Nlink() > 1 {
 				key := fmt.Sprintf("%d:%d", fi.Ldev, fi.Lino)
-				if _, ok := hardlinks[key]; ok {
-					os.Link(hardlinks[key], dest)
+				hardlinksMutex.Lock()
+				v, ok := hardlinks[key]
+				hardlinksMutex.Unlock()
+				if ok {
+					os.Link(v, dest)
 					filesSize += uint64(fi.Size())
 					filesCount++
 					return
 				} else {
+					hardlinksMutex.Lock()
 					hardlinks[key] = dest
+					hardlinksMutex.Unlock()
 				}
 			}
 

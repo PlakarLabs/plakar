@@ -1,0 +1,42 @@
+name: Build and Release Go Binaries
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin] # Target OS: Linux, Windows, macOS
+        goarch: [amd64, arm64]          # Target Architectures: 64-bit and ARM 64-bit
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22' # Specify the Go version
+
+      # Step 3: Build binaries for each OS/ARCH pair
+      - name: Build binary
+        run: |
+          mkdir -p ./dist
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./dist/myproject-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      # Step 4: Upload binaries as artifacts
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: plakar-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ./dist/plakar-${{ matrix.goos }}-${{ matrix.goarch }}

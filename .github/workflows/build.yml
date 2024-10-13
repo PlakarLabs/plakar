@@ -32,7 +32,8 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p ./dist
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./dist/myproject-${{ matrix.goos }}-${{ matrix.goarch }}
+          cd ./cmd/plakar # Change this to the directory where your Go code is located
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ../../dist/plakar-${{ matrix.goos }}-${{ matrix.goarch }}
 
       # Step 4: Upload binaries as artifacts
       - name: Upload binaries

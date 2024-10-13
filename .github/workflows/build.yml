@@ -27,10 +27,10 @@ jobs:
         run: |
           docker run --rm -v $(pwd):/app -w /app/cmd/plakar \
             --platform linux/${{ matrix.arch }} \
-            golang:1.22-bullseye bash -c "\
+            golang:1.21-bullseye bash -c "\
               apt-get update && \
               apt-get install -y libsqlite3-dev build-essential && \
-              go build -o /app/dist/plakar-linux-${{ matrix.arch }}"
+              go build -buildvcs=false -o /app/dist/plakar-linux-${{ matrix.arch }}"
       
       # Step 3: Upload the binaries as artifacts
       - name: Upload binaries

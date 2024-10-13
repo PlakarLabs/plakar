@@ -28,14 +28,28 @@ jobs:
         with:
           go-version: '1.22' # Specify the Go version
 
-      # Step 3: Build binaries for each OS/ARCH pair
-      - name: Build binary
+      # Step 3: Install SQLite dependencies for CGO
+      - name: Install SQLite dependencies (Linux/macOS)
+        if: matrix.goos == 'linux' || matrix.goos == 'darwin'
+        run: |
+          if [ "${{ matrix.goos }}" == "linux" ]; then
+            sudo apt-get update && sudo apt-get install -y libsqlite3-dev;
+          elif [ "${{ matrix.goos }}" == "darwin" ]; then
+            brew install sqlite3;
+          fi
+
+      # Step 4: Enable CGO for linux and darwin
+      - name: Build binary with CGO
         run: |
           mkdir -p ./dist
-          cd ./cmd/plakar # Change this to the directory where your Go code is located
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ../../dist/plakar-${{ matrix.goos }}-${{ matrix.goarch }}
+          cd ./cmd/plakar
+          if [ "${{ matrix.goos }}" == "linux" ] || [ "${{ matrix.goos }}" == "darwin" ]; then
+            CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./dist/plakar-${{ matrix.goos }}-${{ matrix.goarch }};
+          else
+            CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ./dist/plakar-${{ matrix.goos }}-${{ matrix.goarch }};
+          fi
 
-      # Step 4: Upload binaries as artifacts
+      # Step 5: Upload binaries as artifacts
       - name: Upload binaries
         uses: actions/upload-artifact@v3
         with:

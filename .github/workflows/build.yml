@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        arch: [amd64, arm64]  # Define the architectures to build for
+        arch: [amd64]  # Define the architectures to build for
 
     steps:
       # Step 1: Checkout the repository

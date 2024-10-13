@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, windows, darwin] # Target OS: Linux, Windows, macOS
+        goos: [linux] # Target OS: Linux, Windows, macOS
         goarch: [amd64, arm64]          # Target Architectures: 64-bit and ARM 64-bit
 
     steps:

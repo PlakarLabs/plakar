@@ -1,0 +1,40 @@
+name: Build Plakar Binaries with Dependencies using Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch: [amd64, arm64]  # Define the architectures to build for
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Build binaries using Docker with dependency installation
+      - name: Build binary in Docker for ${{ matrix.arch }}
+        run: |
+          docker run --rm -v $(pwd):/app -w /app/cmd/plakar \
+            --platform linux/${{ matrix.arch }} \
+            golang:1.21-bullseye bash -c "\
+              apt-get update && \
+              apt-get install -y libsqlite3-dev build-essential && \
+              go build -o /app/dist/plakar-linux-${{ matrix.arch }}"
+      
+      # Step 3: Upload the binaries as artifacts
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: plakar-${{ matrix.arch }}
+          path: ./dist/plakar-linux-${{ matrix.arch }}

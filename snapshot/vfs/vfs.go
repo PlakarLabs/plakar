@@ -189,28 +189,6 @@ func (fsc *Filesystem) RecordLink(path string, target string, fileinfo objects.F
 	return fsc.Record(path, fileinfo)
 }
 
-func (fsc *Filesystem) Scan() <-chan string {
-	ch := make(chan string)
-	go func() {
-		iter := fsc.db.NewIterator(nil, nil)
-		for iter.Next() {
-			var key string
-			if iter.Key()[len(iter.Key())-1] == '/' {
-				if string(iter.Key()) != "/" {
-					key = string(iter.Key()[:len(iter.Key())-1])
-				} else {
-					key = "/"
-				}
-			} else {
-				key = string(iter.Key())
-			}
-			ch <- key
-		}
-		close(ch)
-	}()
-	return ch
-}
-
 func (fsc *Filesystem) Directories() <-chan string {
 	ch := make(chan string)
 	go func() {

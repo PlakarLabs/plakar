@@ -217,8 +217,8 @@ func (p *PackFile) Serialize() ([]byte, error) {
 func (p *PackFile) AddBlob(dataType uint8, checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.AddChunk", time.Since(t0))
-		logger.Trace("packfile", "AddChunk(...): %s", time.Since(t0))
+		profiler.RecordEvent("packfile.AddBlob", time.Since(t0))
+		logger.Trace("packfile", "AddBlob(...): %s", time.Since(t0))
 	}()
 	p.Index = append(p.Index, Blob{dataType, checksum, uint32(len(p.Data)), uint32(len(data))})
 	p.Data = append(p.Data, data...)
@@ -229,8 +229,8 @@ func (p *PackFile) AddBlob(dataType uint8, checksum [32]byte, data []byte) {
 func (p *PackFile) GetBlob(checksum [32]byte) ([]byte, bool) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.GetChunk", time.Since(t0))
-		logger.Trace("packfile", "GetChunk(...): %s", time.Since(t0))
+		profiler.RecordEvent("packfile.GetBlob", time.Since(t0))
+		logger.Trace("packfile", "GetBlob(...): %s", time.Since(t0))
 	}()
 
 	for _, chunk := range p.Index {

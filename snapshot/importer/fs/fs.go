@@ -27,6 +27,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/pkg/xattr"
 )
 
 type FSImporter struct {
@@ -36,6 +37,27 @@ type FSImporter struct {
 
 func init() {
 	importer.Register("fs", NewFSImporter)
+}
+
+func getExtendedAttributes(path string) (map[string]string, error) {
+	attrs := make(map[string]string)
+
+	// Get the list of attribute names
+	attributes, err := xattr.List(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list extended attributes for %s: %w", path, err)
+	}
+
+	// Iterate over each attribute and retrieve its value
+	for _, attr := range attributes {
+		value, err := xattr.Get(path, attr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get value for attribute %s: %w", attr, err)
+		}
+		attrs[attr] = string(value)
+	}
+
+	return attrs, nil
 }
 
 func NewFSImporter(location string) (importer.ImporterBackend, error) {
@@ -80,8 +102,31 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 				return nil
 			}
 
+			var recordType importer.RecordType
+			switch mode := info.Mode(); {
+			case mode.IsRegular():
+				recordType = importer.RecordTypeFile
+			case mode.IsDir():
+				recordType = importer.RecordTypeDir
+			case mode&os.ModeSymlink != 0:
+				recordType = importer.RecordTypeSymlink
+			case mode&os.ModeDevice != 0:
+				recordType = importer.RecordTypeDevice
+			case mode&os.ModeNamedPipe != 0:
+				recordType = importer.RecordTypePipe
+			case mode&os.ModeSocket != 0:
+				recordType = importer.RecordTypeSocket
+			default:
+				recordType = importer.RecordTypeFile // Default to file if type is unknown
+			}
+
+			extendedAttributes, err := getExtendedAttributes(path)
+			if err != nil {
+				c <- importer.ScanError{Pathname: path, Err: err}
+			}
+
 			fileinfo := objects.FileInfoFromStat(info)
-			c <- importer.ScanRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
+			c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, ExtendedAttributes: extendedAttributes}
 
 			if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
 				lstat, err := os.Lstat(path)
@@ -97,7 +142,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 						c <- importer.ScanError{Pathname: path, Err: err}
 						return nil
 					}
-					c <- importer.ScanLink{Pathname: filepath.ToSlash(path), Target: originFile, Stat: lfileinfo}
+					c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: lfileinfo, ExtendedAttributes: extendedAttributes}
 				}
 			}
 			return nil

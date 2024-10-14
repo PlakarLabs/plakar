@@ -17,8 +17,8 @@ const VERSION = 100
 const (
 	TYPE_CHUNK     = 1
 	TYPE_OBJECT    = 2
-	TYPE_CONTAINER = 3
-	TYPE_BINARY    = 4
+	TYPE_FILE      = 3
+	TYPE_DIRECTORY = 4
 )
 
 type Blob struct {

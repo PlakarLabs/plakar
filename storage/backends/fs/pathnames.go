@@ -47,8 +47,8 @@ func (repository *Repository) PathBlobBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *Repository) PathIndexBucket(checksum [32]byte) string {
-	return filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", checksum[0]))
+func (repository *Repository) PathStateBucket(checksum [32]byte) string {
+	return filepath.Join(repository.root, "states", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *Repository) PathPackfileBucket(checksum [32]byte) string {
@@ -63,8 +63,8 @@ func (repository *Repository) PathBlob(checksum [32]byte) string {
 	return filepath.Join(repository.PathBlobBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
-func (repository *Repository) PathIndex(checksum [32]byte) string {
-	return filepath.Join(repository.PathIndexBucket(checksum), fmt.Sprintf("%064x", checksum))
+func (repository *Repository) PathState(checksum [32]byte) string {
+	return filepath.Join(repository.PathStateBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *Repository) PathPackfile(checksum [32]byte) string {

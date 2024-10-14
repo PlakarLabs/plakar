@@ -411,7 +411,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	f, err := os.Create(repository.PathIndex(checksum))
+	f, err := os.Create(repository.PathState(checksum))
 	if err != nil {
 		return err
 	}
@@ -425,7 +425,7 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathIndex(checksum))
+	data, err := os.ReadFile(repository.PathState(checksum))
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	err := os.Remove(repository.PathIndex(checksum))
+	err := os.Remove(repository.PathState(checksum))
 	if err != nil {
 		return err
 	}

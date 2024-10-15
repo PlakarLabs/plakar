@@ -348,7 +348,7 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 	return false
 }
 
-func loadRepositoryIndex(repository *storage.Repository) (*state.State, error) {
+func loadRepositoryState(repository *storage.Repository) (*state.State, error) {
 	indexes, err := repository.GetStates()
 	if err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ func loadRepositoryIndex(repository *storage.Repository) (*state.State, error) {
 		wg.Add(1)
 		go func(indexID [32]byte) {
 			defer wg.Done()
-			idx, err := snapshot.GetRepositoryIndex(repository, indexID)
+			idx, err := snapshot.GetState(repository, indexID)
 			if err == nil {
 				repositoryIndex.Merge(indexID, idx)
 			}

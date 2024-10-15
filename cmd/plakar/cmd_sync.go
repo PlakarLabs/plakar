@@ -66,7 +66,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryIndex(dstRepository)
+		repositoryIndex, err := loadRepositoryState(dstRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstRepository.Location, err)
 			return 1
@@ -81,7 +81,7 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryIndex(srcRepository)
+		repositoryIndex, err := loadRepositoryState(srcRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcRepository.Location, err)
 			return 1

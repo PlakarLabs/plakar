@@ -66,7 +66,7 @@ func executeCommand(ctx Plakar, repository *storage.Repository, command string, 
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
 
-	repositoryIndex, err := loadRepositoryIndex(repository)
+	repositoryIndex, err := loadRepositoryState(repository)
 	if err != nil {
 		return 0, err
 	}

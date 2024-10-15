@@ -369,7 +369,7 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
-func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*state.State, error) {
+func GetState(repository *storage.Repository, checksum [32]byte) (*state.State, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
@@ -384,7 +384,7 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sta
 		tmp, err := cache.GetIndex(repository.Configuration().RepositoryID.String(), checksum)
 		if err != nil {
 			cacheMiss = true
-			logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
+			logger.Trace("snapshot", "repository.GetState(%016x)", checksum)
 			tmp, err = repository.GetState(checksum)
 			if err != nil {
 				return nil, err
@@ -392,7 +392,7 @@ func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*sta
 		}
 		buffer = tmp
 	} else {
-		logger.Trace("snapshot", "repository.GetIndex(%016x)", checksum)
+		logger.Trace("snapshot", "repository.GetState(%016x)", checksum)
 		tmp, err := repository.GetState(checksum)
 		if err != nil {
 			return nil, err

@@ -20,6 +20,9 @@ func TestNew(t *testing.T) {
 	if len(index.Objects) != 0 {
 		t.Errorf("Expected Objects to be empty, got %d", len(index.Objects))
 	}
+	if len(index.Contains) != 0 {
+		t.Errorf("Expected Contains to be empty, got %d", len(index.Contains))
+	}
 	if index.dirty != 0 {
 		t.Errorf("Expected dirty to be 0, got %d", index.dirty)
 	}
@@ -95,6 +98,16 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		}
 		if subpart != deserializedSubpart {
 			t.Errorf("Object Subpart mismatch for ID %d: expected %+v, got %+v", id, subpart, deserializedSubpart)
+		}
+	}
+
+	if len(deserializedIndex.Contains) != len(index.Contains) {
+		t.Errorf("Expected Contains length %d, got %d", len(index.Contains), len(deserializedIndex.Contains))
+	}
+
+	for id := range index.Contains {
+		if _, exists := deserializedIndex.Contains[id]; !exists {
+			t.Errorf("Contains ID %d not found in deserialized Contains", id)
 		}
 	}
 }
@@ -208,12 +221,14 @@ func TestMerge(t *testing.T) {
 	index1.addChecksum(checksumB) // ID 1
 	index1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
 	index1.SetPackfileForObject(checksumA, checksumB, 300, 400)
+	index1.Contains[index1.addChecksum(indexID)] = struct{}{} // ID 2
 
 	index2.addChecksum(checksumA) // Already exists in index1, no new ID
 	newChecksum := [32]byte{11, 22, 33}
 	index2.addChecksum(newChecksum) // ID 1 in index2
 	index2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
 	index2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
+	index2.Contains[index2.addChecksum(indexID)] = struct{}{} // ID 2 in index2
 
 	index1.Merge(indexID, index2)
 
@@ -235,6 +250,12 @@ func TestMerge(t *testing.T) {
 		t.Errorf("Expected %d Objects, got %d", expectedObjects, len(index1.Objects))
 	}
 
+	// Verify Contains
+	expectedContains := 1
+	if len(index1.Contains) != expectedContains {
+		t.Errorf("Expected %d Contains entry, got %d", expectedContains, len(index1.Contains))
+	}
+
 	// Check specific checksums
 	for _, checksum := range [][32]byte{checksumA, checksumB, newChecksum, indexID} {
 		id, exists := index1.Checksums[checksum]
@@ -244,6 +265,35 @@ func TestMerge(t *testing.T) {
 		lookup := index1.LookupChecksum(id)
 		if lookup != checksum {
 			t.Errorf("LookupChecksum mismatch for ID %d: expected %v, got %v", id, checksum, lookup)
+		}
+	}
+}
+
+func TestListContains(t *testing.T) {
+	index := New()
+
+	checksum1 := [32]byte{100, 101, 102}
+	checksum2 := [32]byte{103, 104, 105}
+
+	id1 := index.addChecksum(checksum1)
+	id2 := index.addChecksum(checksum2)
+
+	index.Contains[id1] = struct{}{}
+	index.Contains[id2] = struct{}{}
+
+	contains := index.ListContains()
+	if len(contains) != 2 {
+		t.Errorf("Expected ListContains to return 2 checksums, got %d", len(contains))
+	}
+
+	expected := map[[32]byte]bool{
+		checksum1: true,
+		checksum2: true,
+	}
+
+	for _, checksum := range contains {
+		if !expected[checksum] {
+			t.Errorf("Unexpected checksum in ListContains: %v", checksum)
 		}
 	}
 }

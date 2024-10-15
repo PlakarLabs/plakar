@@ -44,6 +44,9 @@ type Index struct {
 	muObjects sync.Mutex
 	Objects   map[uint32]Subpart
 
+	muContains sync.Mutex
+	Contains   map[uint32]struct{}
+
 	dirty int32
 }
 
@@ -53,6 +56,7 @@ func New() *Index {
 		checksumsInverse: make(map[uint32][32]byte),
 		Chunks:           make(map[uint32]Subpart),
 		Objects:          make(map[uint32]Subpart),
+		Contains:         make(map[uint32]struct{}),
 	}
 }
 
@@ -151,6 +155,10 @@ func (index *Index) Merge(indexID [32]byte, deltaIndex *Index) {
 		)
 	}
 	deltaIndex.muObjects.Unlock()
+
+	index.muContains.Lock()
+	index.Contains[index.addChecksum(indexID)] = struct{}{}
+	index.muContains.Unlock()
 }
 
 func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
@@ -279,6 +287,16 @@ func (index *Index) ObjectExists(objectChecksum [32]byte) bool {
 	} else {
 		return true
 	}
+}
+
+func (index *Index) ListContains() [][32]byte {
+	index.muContains.Lock()
+	defer index.muContains.Unlock()
+	ret := make([][32]byte, 0)
+	for checksumID := range index.Contains {
+		ret = append(ret, index.LookupChecksum(checksumID))
+	}
+	return ret
 }
 
 func (index *Index) IsDirty() bool {

@@ -28,6 +28,21 @@ type Blob struct {
 	Length   uint32
 }
 
+func (b Blob) TypeName() string {
+	switch b.Type {
+	case TYPE_CHUNK:
+		return "chunk"
+	case TYPE_OBJECT:
+		return "object"
+	case TYPE_FILE:
+		return "file"
+	case TYPE_DIRECTORY:
+		return "directory"
+	default:
+		return "unknown"
+	}
+}
+
 type PackFile struct {
 	Data  []byte
 	Index []Blob

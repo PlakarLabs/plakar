@@ -32,7 +32,7 @@ type Subpart struct {
 	Length     uint32
 }
 
-type Index struct {
+type State struct {
 	muChecksums      sync.Mutex
 	checksumID       uint32
 	Checksums        map[[32]byte]uint32
@@ -50,8 +50,8 @@ type Index struct {
 	dirty int32
 }
 
-func New() *Index {
-	return &Index{
+func New() *State {
+	return &State{
 		Checksums:        make(map[[32]byte]uint32),
 		checksumsInverse: make(map[uint32][32]byte),
 		Chunks:           make(map[uint32]Subpart),
@@ -60,134 +60,134 @@ func New() *Index {
 	}
 }
 
-func NewFromBytes(serialized []byte) (*Index, error) {
+func NewFromBytes(serialized []byte) (*State, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("index.NewFromBytes", time.Since(t0))
-		logger.Trace("index", "NewFromBytes(...): %s", time.Since(t0))
+		profiler.RecordEvent("state.NewFromBytes", time.Since(t0))
+		logger.Trace("state", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
-	var index Index
-	if err := msgpack.Unmarshal(serialized, &index); err != nil {
+	var st State
+	if err := msgpack.Unmarshal(serialized, &st); err != nil {
 		return nil, err
 	}
 
-	index.checksumsInverse = make(map[uint32][32]byte)
-	for checksum, checksumID := range index.Checksums {
-		index.checksumsInverse[checksumID] = checksum
+	st.checksumsInverse = make(map[uint32][32]byte)
+	for checksum, checksumID := range st.Checksums {
+		st.checksumsInverse[checksumID] = checksum
 	}
 
-	return &index, nil
+	return &st, nil
 }
 
-func (index *Index) Serialize() ([]byte, error) {
+func (st *State) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("index.Serialize", time.Since(t0))
-		logger.Trace("index", "Serialize(): %s", time.Since(t0))
+		profiler.RecordEvent("state.Serialize", time.Since(t0))
+		logger.Trace("state", "Serialize(): %s", time.Since(t0))
 	}()
 
-	serialized, err := msgpack.Marshal(index)
+	serialized, err := msgpack.Marshal(st)
 	if err != nil {
 		return nil, err
 	}
 	return serialized, nil
 }
 
-func (index *Index) addChecksum(checksum [32]byte) uint32 {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
+func (st *State) addChecksum(checksum [32]byte) uint32 {
+	st.muChecksums.Lock()
+	defer st.muChecksums.Unlock()
 
-	if checksumID, exists := index.Checksums[checksum]; !exists {
-		index.Checksums[checksum] = index.checksumID
-		index.checksumsInverse[index.checksumID] = checksum
-		checksumID = index.checksumID
-		index.checksumID++
-		atomic.StoreInt32(&index.dirty, 1)
+	if checksumID, exists := st.Checksums[checksum]; !exists {
+		st.Checksums[checksum] = st.checksumID
+		st.checksumsInverse[st.checksumID] = checksum
+		checksumID = st.checksumID
+		st.checksumID++
+		atomic.StoreInt32(&st.dirty, 1)
 		return checksumID
 	} else {
 		return checksumID
 	}
 }
 
-func (index *Index) LookupChecksum(checksumID uint32) [32]byte {
-	index.muChecksums.Lock()
-	defer index.muChecksums.Unlock()
+func (st *State) LookupChecksum(checksumID uint32) [32]byte {
+	st.muChecksums.Lock()
+	defer st.muChecksums.Unlock()
 
-	checksum, exists := index.checksumsInverse[checksumID]
+	checksum, exists := st.checksumsInverse[checksumID]
 	if !exists {
 		panic("checksum not found")
 	}
 	return checksum
 }
 
-func (index *Index) Merge(indexID [32]byte, deltaIndex *Index) {
+func (st *State) Merge(stateID [32]byte, deltaState *State) {
 
-	deltaIndex.muChecksums.Lock()
-	for deltaChecksum := range deltaIndex.Checksums {
-		index.muChecksums.Lock()
-		_, exists := index.Checksums[deltaChecksum]
-		index.muChecksums.Unlock()
+	deltaState.muChecksums.Lock()
+	for deltaChecksum := range deltaState.Checksums {
+		st.muChecksums.Lock()
+		_, exists := st.Checksums[deltaChecksum]
+		st.muChecksums.Unlock()
 		if !exists {
-			index.addChecksum(deltaChecksum)
+			st.addChecksum(deltaChecksum)
 		}
 	}
-	deltaIndex.muChecksums.Unlock()
+	deltaState.muChecksums.Unlock()
 
-	deltaIndex.muChunks.Lock()
-	for deltaChunkChecksumID, subpart := range deltaIndex.Chunks {
-		index.SetPackfileForChunk(
-			deltaIndex.LookupChecksum(subpart.PackfileID),
-			deltaIndex.LookupChecksum(deltaChunkChecksumID),
+	deltaState.muChunks.Lock()
+	for deltaChunkChecksumID, subpart := range deltaState.Chunks {
+		st.SetPackfileForChunk(
+			deltaState.LookupChecksum(subpart.PackfileID),
+			deltaState.LookupChecksum(deltaChunkChecksumID),
 			subpart.Offset,
 			subpart.Length,
 		)
 	}
-	deltaIndex.muChunks.Unlock()
+	deltaState.muChunks.Unlock()
 
-	deltaIndex.muObjects.Lock()
-	for deltaObjectChecksumID, subpart := range deltaIndex.Objects {
-		index.SetPackfileForObject(
-			deltaIndex.LookupChecksum(subpart.PackfileID),
-			deltaIndex.LookupChecksum(deltaObjectChecksumID),
+	deltaState.muObjects.Lock()
+	for deltaObjectChecksumID, subpart := range deltaState.Objects {
+		st.SetPackfileForObject(
+			deltaState.LookupChecksum(subpart.PackfileID),
+			deltaState.LookupChecksum(deltaObjectChecksumID),
 			subpart.Offset,
 			subpart.Length,
 		)
 	}
-	deltaIndex.muObjects.Unlock()
+	deltaState.muObjects.Unlock()
 
-	index.muContains.Lock()
-	index.Contains[index.addChecksum(indexID)] = struct{}{}
-	index.muContains.Unlock()
+	st.muContains.Lock()
+	st.Contains[st.addChecksum(stateID)] = struct{}{}
+	st.muContains.Unlock()
 }
 
-func (index *Index) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
+func (st *State) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+	st.muChunks.Lock()
+	defer st.muChunks.Unlock()
 
-	chunkID := index.addChecksum(chunkChecksum)
-	if _, exists := index.Chunks[chunkID]; !exists {
-		packfileID := index.addChecksum(packfileChecksum)
-		index.Chunks[chunkID] = Subpart{
+	chunkID := st.addChecksum(chunkChecksum)
+	if _, exists := st.Chunks[chunkID]; !exists {
+		packfileID := st.addChecksum(packfileChecksum)
+		st.Chunks[chunkID] = Subpart{
 			PackfileID: packfileID,
 			Offset:     packfileOffset,
 			Length:     chunkLength,
 		}
-		atomic.StoreInt32(&index.dirty, 1)
+		atomic.StoreInt32(&st.dirty, 1)
 	}
 }
 
-func (index *Index) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
+func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
+	st.muChunks.Lock()
+	defer st.muChunks.Unlock()
 
-	chunkID := index.addChecksum(chunkChecksum)
-	if subpart, exists := index.Chunks[chunkID]; !exists {
+	chunkID := st.addChecksum(chunkChecksum)
+	if subpart, exists := st.Chunks[chunkID]; !exists {
 		return [32]byte{}, false
 	} else {
-		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
-		index.muChecksums.Unlock()
+		st.muChecksums.Lock()
+		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
+		st.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
@@ -195,17 +195,17 @@ func (index *Index) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool)
 	}
 }
 
-func (index *Index) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
+func (st *State) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+	st.muChunks.Lock()
+	defer st.muChunks.Unlock()
 
-	chunkID := index.addChecksum(chunkChecksum)
-	if subpart, exists := index.Chunks[chunkID]; !exists {
+	chunkID := st.addChecksum(chunkChecksum)
+	if subpart, exists := st.Chunks[chunkID]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
-		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
-		index.muChecksums.Unlock()
+		st.muChecksums.Lock()
+		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
+		st.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
@@ -213,45 +213,45 @@ func (index *Index) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32
 	}
 }
 
-func (index *Index) ChunkExists(chunkChecksum [32]byte) bool {
-	index.muChunks.Lock()
-	defer index.muChunks.Unlock()
+func (st *State) ChunkExists(chunkChecksum [32]byte) bool {
+	st.muChunks.Lock()
+	defer st.muChunks.Unlock()
 
-	chunkID := index.addChecksum(chunkChecksum)
-	if _, exists := index.Chunks[chunkID]; !exists {
+	chunkID := st.addChecksum(chunkChecksum)
+	if _, exists := st.Chunks[chunkID]; !exists {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (index *Index) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (st *State) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+	st.muObjects.Lock()
+	defer st.muObjects.Unlock()
 
-	objectID := index.addChecksum(objectChecksum)
-	if _, exists := index.Objects[objectID]; !exists {
-		packfileID := index.addChecksum(packfileChecksum)
-		index.Objects[objectID] = Subpart{
+	objectID := st.addChecksum(objectChecksum)
+	if _, exists := st.Objects[objectID]; !exists {
+		packfileID := st.addChecksum(packfileChecksum)
+		st.Objects[objectID] = Subpart{
 			PackfileID: packfileID,
 			Offset:     packfileOffset,
 			Length:     chunkLength,
 		}
-		atomic.StoreInt32(&index.dirty, 1)
+		atomic.StoreInt32(&st.dirty, 1)
 	}
 }
 
-func (index *Index) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, bool) {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (st *State) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, bool) {
+	st.muObjects.Lock()
+	defer st.muObjects.Unlock()
 
-	objectID := index.addChecksum(objectChecksum)
-	if subpart, exists := index.Objects[objectID]; !exists {
+	objectID := st.addChecksum(objectChecksum)
+	if subpart, exists := st.Objects[objectID]; !exists {
 		return [32]byte{}, false
 	} else {
-		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
-		index.muChecksums.Unlock()
+		st.muChecksums.Lock()
+		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
+		st.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
@@ -259,17 +259,17 @@ func (index *Index) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, boo
 	}
 }
 
-func (index *Index) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (st *State) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+	st.muObjects.Lock()
+	defer st.muObjects.Unlock()
 
-	objectID := index.addChecksum(objectChecksum)
-	if subpart, exists := index.Objects[objectID]; !exists {
+	objectID := st.addChecksum(objectChecksum)
+	if subpart, exists := st.Objects[objectID]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
-		index.muChecksums.Lock()
-		packfileChecksum, exists := index.checksumsInverse[subpart.PackfileID]
-		index.muChecksums.Unlock()
+		st.muChecksums.Lock()
+		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
+		st.muChecksums.Unlock()
 		if !exists {
 			panic("packfile checksum not found")
 		}
@@ -277,32 +277,32 @@ func (index *Index) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint
 	}
 }
 
-func (index *Index) ObjectExists(objectChecksum [32]byte) bool {
-	index.muObjects.Lock()
-	defer index.muObjects.Unlock()
+func (st *State) ObjectExists(objectChecksum [32]byte) bool {
+	st.muObjects.Lock()
+	defer st.muObjects.Unlock()
 
-	objectID := index.addChecksum(objectChecksum)
-	if _, exists := index.Objects[objectID]; !exists {
+	objectID := st.addChecksum(objectChecksum)
+	if _, exists := st.Objects[objectID]; !exists {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (index *Index) ListContains() [][32]byte {
-	index.muContains.Lock()
-	defer index.muContains.Unlock()
+func (st *State) ListContains() [][32]byte {
+	st.muContains.Lock()
+	defer st.muContains.Unlock()
 	ret := make([][32]byte, 0)
-	for checksumID := range index.Contains {
-		ret = append(ret, index.LookupChecksum(checksumID))
+	for checksumID := range st.Contains {
+		ret = append(ret, st.LookupChecksum(checksumID))
 	}
 	return ret
 }
 
-func (index *Index) IsDirty() bool {
-	return atomic.LoadInt32(&index.dirty) != 0
+func (st *State) IsDirty() bool {
+	return atomic.LoadInt32(&st.dirty) != 0
 }
 
-func (index *Index) ResetDirty() {
-	atomic.StoreInt32(&index.dirty, 0)
+func (st *State) ResetDirty() {
+	atomic.StoreInt32(&st.dirty, 0)
 }

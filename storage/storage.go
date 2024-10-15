@@ -107,7 +107,7 @@ type Repository struct {
 	Cache *cache.Cache
 	Key   []byte
 
-	index *state.Index
+	index *state.State
 
 	wBytes uint64
 	rBytes uint64
@@ -188,11 +188,11 @@ func New(location string) (*Repository, error) {
 	}
 }
 
-func (repository *Repository) SetRepositoryIndex(index *state.Index) {
+func (repository *Repository) SetRepositoryIndex(index *state.State) {
 	repository.index = index
 }
 
-func (repository *Repository) GetRepositoryIndex() *state.Index {
+func (repository *Repository) GetRepositoryIndex() *state.State {
 	return repository.index
 }
 

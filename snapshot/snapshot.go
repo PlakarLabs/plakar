@@ -25,7 +25,7 @@ import (
 
 type Snapshot struct {
 	repository *storage.Repository
-	stateDelta *state.Index
+	stateDelta *state.State
 
 	SkipDirs []string
 
@@ -369,7 +369,7 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
-func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*state.Index, error) {
+func GetRepositoryIndex(repository *storage.Repository, checksum [32]byte) (*state.State, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))

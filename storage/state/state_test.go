@@ -6,30 +6,30 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	index := New()
+	st := New()
 
-	if len(index.Checksums) != 0 {
-		t.Errorf("Expected Checksums to be empty, got %d", len(index.Checksums))
+	if len(st.Checksums) != 0 {
+		t.Errorf("Expected Checksums to be empty, got %d", len(st.Checksums))
 	}
-	if len(index.checksumsInverse) != 0 {
-		t.Errorf("Expected checksumsInverse to be empty, got %d", len(index.checksumsInverse))
+	if len(st.checksumsInverse) != 0 {
+		t.Errorf("Expected checksumsInverse to be empty, got %d", len(st.checksumsInverse))
 	}
-	if len(index.Chunks) != 0 {
-		t.Errorf("Expected Chunks to be empty, got %d", len(index.Chunks))
+	if len(st.Chunks) != 0 {
+		t.Errorf("Expected Chunks to be empty, got %d", len(st.Chunks))
 	}
-	if len(index.Objects) != 0 {
-		t.Errorf("Expected Objects to be empty, got %d", len(index.Objects))
+	if len(st.Objects) != 0 {
+		t.Errorf("Expected Objects to be empty, got %d", len(st.Objects))
 	}
-	if len(index.Contains) != 0 {
-		t.Errorf("Expected Contains to be empty, got %d", len(index.Contains))
+	if len(st.Contains) != 0 {
+		t.Errorf("Expected Contains to be empty, got %d", len(st.Contains))
 	}
-	if index.dirty != 0 {
-		t.Errorf("Expected dirty to be 0, got %d", index.dirty)
+	if st.dirty != 0 {
+		t.Errorf("Expected dirty to be 0, got %d", st.dirty)
 	}
 }
 
 func TestSerializeAndDeserialize(t *testing.T) {
-	index := New()
+	st := New()
 
 	checksum1 := [32]byte{1, 2, 3}
 	checksum2 := [32]byte{4, 5, 6}
@@ -44,27 +44,27 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		Length:     400,
 	}
 
-	index.addChecksum(checksum1)
-	index.addChecksum(checksum2)
-	index.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
-	index.SetPackfileForObject(checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
+	st.addChecksum(checksum1)
+	st.addChecksum(checksum2)
+	st.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
+	st.SetPackfileForObject(checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
 
-	serialized, err := index.Serialize()
+	serialized, err := st.Serialize()
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
-	deserializedIndex, err := NewFromBytes(serialized)
+	deserializedSt, err := NewFromBytes(serialized)
 	if err != nil {
 		t.Fatalf("NewFromBytes failed: %v", err)
 	}
 
-	if len(deserializedIndex.Checksums) != len(index.Checksums) {
-		t.Errorf("Expected Checksums length %d, got %d", len(index.Checksums), len(deserializedIndex.Checksums))
+	if len(deserializedSt.Checksums) != len(st.Checksums) {
+		t.Errorf("Expected Checksums length %d, got %d", len(st.Checksums), len(deserializedSt.Checksums))
 	}
 
-	for checksum, id := range index.Checksums {
-		deserializedID, exists := deserializedIndex.Checksums[checksum]
+	for checksum, id := range st.Checksums {
+		deserializedID, exists := deserializedSt.Checksums[checksum]
 		if !exists {
 			t.Errorf("Checksum %v not found in deserialized Checksums", checksum)
 		}
@@ -73,12 +73,12 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if len(deserializedIndex.Chunks) != len(index.Chunks) {
-		t.Errorf("Expected Chunks length %d, got %d", len(index.Chunks), len(deserializedIndex.Chunks))
+	if len(deserializedSt.Chunks) != len(st.Chunks) {
+		t.Errorf("Expected Chunks length %d, got %d", len(st.Chunks), len(deserializedSt.Chunks))
 	}
 
-	for id, subpart := range index.Chunks {
-		deserializedSubpart, exists := deserializedIndex.Chunks[id]
+	for id, subpart := range st.Chunks {
+		deserializedSubpart, exists := deserializedSt.Chunks[id]
 		if !exists {
 			t.Errorf("Chunk ID %d not found in deserialized Chunks", id)
 		}
@@ -87,12 +87,12 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if len(deserializedIndex.Objects) != len(index.Objects) {
-		t.Errorf("Expected Objects length %d, got %d", len(index.Objects), len(deserializedIndex.Objects))
+	if len(deserializedSt.Objects) != len(st.Objects) {
+		t.Errorf("Expected Objects length %d, got %d", len(st.Objects), len(deserializedSt.Objects))
 	}
 
-	for id, subpart := range index.Objects {
-		deserializedSubpart, exists := deserializedIndex.Objects[id]
+	for id, subpart := range st.Objects {
+		deserializedSubpart, exists := deserializedSt.Objects[id]
 		if !exists {
 			t.Errorf("Object ID %d not found in deserialized Objects", id)
 		}
@@ -101,12 +101,12 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		}
 	}
 
-	if len(deserializedIndex.Contains) != len(index.Contains) {
-		t.Errorf("Expected Contains length %d, got %d", len(index.Contains), len(deserializedIndex.Contains))
+	if len(deserializedSt.Contains) != len(st.Contains) {
+		t.Errorf("Expected Contains length %d, got %d", len(st.Contains), len(deserializedSt.Contains))
 	}
 
-	for id := range index.Contains {
-		if _, exists := deserializedIndex.Contains[id]; !exists {
+	for id := range st.Contains {
+		if _, exists := deserializedSt.Contains[id]; !exists {
 			t.Errorf("Contains ID %d not found in deserialized Contains", id)
 		}
 	}
@@ -126,38 +126,38 @@ func TestNewFromBytesError(t *testing.T) {
 }
 
 func TestAddAndLookupChecksum(t *testing.T) {
-	index := New()
+	st := New()
 
 	checksum := [32]byte{10, 20, 30}
-	id := index.addChecksum(checksum)
+	id := st.addChecksum(checksum)
 
 	if id != 0 {
 		t.Errorf("Expected checksum ID to be 0, got %d", id)
 	}
 
-	lookup := index.LookupChecksum(id)
+	lookup := st.LookupChecksum(id)
 	if lookup != checksum {
 		t.Errorf("Expected checksum %v, got %v", checksum, lookup)
 	}
 
 	// Add the same checksum again
-	id2 := index.addChecksum(checksum)
+	id2 := st.addChecksum(checksum)
 	if id2 != id {
 		t.Errorf("Expected same checksum ID %d, got %d", id, id2)
 	}
 }
 
 func TestSetAndGetPackfileForChunk(t *testing.T) {
-	index := New()
+	st := New()
 
 	packfileChecksum := [32]byte{1, 1, 1}
 	chunkChecksum := [32]byte{2, 2, 2}
 	offset := uint32(500)
 	length := uint32(1000)
 
-	index.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
+	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
 
-	pf, exists := index.GetPackfileForChunk(chunkChecksum)
+	pf, exists := st.GetPackfileForChunk(chunkChecksum)
 	if !exists {
 		t.Fatalf("Expected packfile for chunk %v to exist", chunkChecksum)
 	}
@@ -165,30 +165,30 @@ func TestSetAndGetPackfileForChunk(t *testing.T) {
 		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
 	}
 
-	exists = index.ChunkExists(chunkChecksum)
+	exists = st.ChunkExists(chunkChecksum)
 	if !exists {
 		t.Errorf("Expected ChunkExists to return true for %v", chunkChecksum)
 	}
 
 	// Test non-existing chunk
 	nonExisting := [32]byte{3, 3, 3}
-	exists = index.ChunkExists(nonExisting)
+	exists = st.ChunkExists(nonExisting)
 	if exists {
 		t.Errorf("Expected ChunkExists to return false for %v", nonExisting)
 	}
 }
 
 func TestSetAndGetPackfileForObject(t *testing.T) {
-	index := New()
+	st := New()
 
 	packfileChecksum := [32]byte{4, 4, 4}
 	objectChecksum := [32]byte{5, 5, 5}
 	offset := uint32(1500)
 	length := uint32(2000)
 
-	index.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
+	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
 
-	pf, exists := index.GetPackfileForObject(objectChecksum)
+	pf, exists := st.GetPackfileForObject(objectChecksum)
 	if !exists {
 		t.Fatalf("Expected packfile for object %v to exist", objectChecksum)
 	}
@@ -196,73 +196,73 @@ func TestSetAndGetPackfileForObject(t *testing.T) {
 		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
 	}
 
-	exists = index.ObjectExists(objectChecksum)
+	exists = st.ObjectExists(objectChecksum)
 	if !exists {
 		t.Errorf("Expected ObjectExists to return true for %v", objectChecksum)
 	}
 
 	// Test non-existing object
 	nonExisting := [32]byte{6, 6, 6}
-	exists = index.ObjectExists(nonExisting)
+	exists = st.ObjectExists(nonExisting)
 	if exists {
 		t.Errorf("Expected ObjectExists to return false for %v", nonExisting)
 	}
 }
 
 func TestMerge(t *testing.T) {
-	index1 := New()
-	index2 := New()
+	st1 := New()
+	st2 := New()
 
 	checksumA := [32]byte{10, 20, 30}
 	checksumB := [32]byte{40, 50, 60}
-	indexID := [32]byte{70, 80, 90}
+	stID := [32]byte{70, 80, 90}
 
-	index1.addChecksum(checksumA) // ID 0
-	index1.addChecksum(checksumB) // ID 1
-	index1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
-	index1.SetPackfileForObject(checksumA, checksumB, 300, 400)
-	index1.Contains[index1.addChecksum(indexID)] = struct{}{} // ID 2
+	st1.addChecksum(checksumA) // ID 0
+	st1.addChecksum(checksumB) // ID 1
+	st1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
+	st1.SetPackfileForObject(checksumA, checksumB, 300, 400)
+	st1.Contains[st1.addChecksum(stID)] = struct{}{} // ID 2
 
-	index2.addChecksum(checksumA) // Already exists in index1, no new ID
+	st2.addChecksum(checksumA) // Already exists in st1, no new ID
 	newChecksum := [32]byte{11, 22, 33}
-	index2.addChecksum(newChecksum) // ID 1 in index2
-	index2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
-	index2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
-	index2.Contains[index2.addChecksum(indexID)] = struct{}{} // ID 2 in index2
+	st2.addChecksum(newChecksum) // ID 1 in st2
+	st2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
+	st2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
+	st2.Contains[st2.addChecksum(stID)] = struct{}{} // ID 2 in st2
 
-	index1.Merge(indexID, index2)
+	st1.Merge(stID, st2)
 
 	// Verify Checksums
-	expectedChecksums := 4 // checksumA, checksumB, newChecksum, indexID
-	if len(index1.Checksums) != expectedChecksums {
-		t.Errorf("Expected %d checksums, got %d", expectedChecksums, len(index1.Checksums))
+	expectedChecksums := 4 // checksumA, checksumB, newChecksum, stID
+	if len(st1.Checksums) != expectedChecksums {
+		t.Errorf("Expected %d checksums, got %d", expectedChecksums, len(st1.Checksums))
 	}
 
 	// Verify Chunks
 	expectedChunks := 2
-	if len(index1.Chunks) != expectedChunks {
-		t.Errorf("Expected %d Chunks, got %d", expectedChunks, len(index1.Chunks))
+	if len(st1.Chunks) != expectedChunks {
+		t.Errorf("Expected %d Chunks, got %d", expectedChunks, len(st1.Chunks))
 	}
 
 	// Verify Objects
 	expectedObjects := 2
-	if len(index1.Objects) != expectedObjects {
-		t.Errorf("Expected %d Objects, got %d", expectedObjects, len(index1.Objects))
+	if len(st1.Objects) != expectedObjects {
+		t.Errorf("Expected %d Objects, got %d", expectedObjects, len(st1.Objects))
 	}
 
 	// Verify Contains
 	expectedContains := 1
-	if len(index1.Contains) != expectedContains {
-		t.Errorf("Expected %d Contains entry, got %d", expectedContains, len(index1.Contains))
+	if len(st1.Contains) != expectedContains {
+		t.Errorf("Expected %d Contains entry, got %d", expectedContains, len(st1.Contains))
 	}
 
 	// Check specific checksums
-	for _, checksum := range [][32]byte{checksumA, checksumB, newChecksum, indexID} {
-		id, exists := index1.Checksums[checksum]
+	for _, checksum := range [][32]byte{checksumA, checksumB, newChecksum, stID} {
+		id, exists := st1.Checksums[checksum]
 		if !exists {
 			t.Errorf("Checksum %v should exist after merge", checksum)
 		}
-		lookup := index1.LookupChecksum(id)
+		lookup := st1.LookupChecksum(id)
 		if lookup != checksum {
 			t.Errorf("LookupChecksum mismatch for ID %d: expected %v, got %v", id, checksum, lookup)
 		}
@@ -270,18 +270,18 @@ func TestMerge(t *testing.T) {
 }
 
 func TestListContains(t *testing.T) {
-	index := New()
+	st := New()
 
 	checksum1 := [32]byte{100, 101, 102}
 	checksum2 := [32]byte{103, 104, 105}
 
-	id1 := index.addChecksum(checksum1)
-	id2 := index.addChecksum(checksum2)
+	id1 := st.addChecksum(checksum1)
+	id2 := st.addChecksum(checksum2)
 
-	index.Contains[id1] = struct{}{}
-	index.Contains[id2] = struct{}{}
+	st.Contains[id1] = struct{}{}
+	st.Contains[id2] = struct{}{}
 
-	contains := index.ListContains()
+	contains := st.ListContains()
 	if len(contains) != 2 {
 		t.Errorf("Expected ListContains to return 2 checksums, got %d", len(contains))
 	}
@@ -299,36 +299,36 @@ func TestListContains(t *testing.T) {
 }
 
 func TestIsDirtyAndResetDirty(t *testing.T) {
-	index := New()
+	st := New()
 
-	if index.IsDirty() {
+	if st.IsDirty() {
 		t.Errorf("Expected IsDirty to be false initially")
 	}
 
 	checksum := [32]byte{200, 201, 202}
-	index.addChecksum(checksum)
+	st.addChecksum(checksum)
 
-	if !index.IsDirty() {
+	if !st.IsDirty() {
 		t.Errorf("Expected IsDirty to be true after adding a checksum")
 	}
 
-	index.ResetDirty()
-	if index.IsDirty() {
+	st.ResetDirty()
+	if st.IsDirty() {
 		t.Errorf("Expected IsDirty to be false after ResetDirty")
 	}
 }
 
 func TestGetSubpartForChunk(t *testing.T) {
-	index := New()
+	st := New()
 
 	packfileChecksum := [32]byte{1, 2, 3}
 	chunkChecksum := [32]byte{4, 5, 6}
 	offset := uint32(700)
 	length := uint32(800)
 
-	index.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
+	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
 
-	pf, off, len_, exists := index.GetSubpartForChunk(chunkChecksum)
+	pf, off, len_, exists := st.GetSubpartForChunk(chunkChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for chunk %v to exist", chunkChecksum)
 	}
@@ -344,23 +344,23 @@ func TestGetSubpartForChunk(t *testing.T) {
 
 	// Test non-existing chunk
 	nonExisting := [32]byte{7, 8, 9}
-	_, _, _, exists = index.GetSubpartForChunk(nonExisting)
+	_, _, _, exists = st.GetSubpartForChunk(nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForChunk to return false for %v", nonExisting)
 	}
 }
 
 func TestGetSubpartForObject(t *testing.T) {
-	index := New()
+	st := New()
 
 	packfileChecksum := [32]byte{10, 11, 12}
 	objectChecksum := [32]byte{13, 14, 15}
 	offset := uint32(900)
 	length := uint32(1000)
 
-	index.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
+	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
 
-	pf, off, len_, exists := index.GetSubpartForObject(objectChecksum)
+	pf, off, len_, exists := st.GetSubpartForObject(objectChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for object %v to exist", objectChecksum)
 	}
@@ -376,7 +376,7 @@ func TestGetSubpartForObject(t *testing.T) {
 
 	// Test non-existing object
 	nonExisting := [32]byte{16, 17, 18}
-	_, _, _, exists = index.GetSubpartForObject(nonExisting)
+	_, _, _, exists = st.GetSubpartForObject(nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForObject to return false for %v", nonExisting)
 	}

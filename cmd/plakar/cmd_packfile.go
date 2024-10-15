@@ -23,6 +23,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -64,6 +66,67 @@ func cmd_packfile(ctx Plakar, repository *storage.Repository, args []string) int
 			if err != nil {
 				log.Fatal(err)
 			}
+
+			version := rawPackfile[len(rawPackfile)-2]
+			footerOffset := rawPackfile[len(rawPackfile)-1]
+			rawPackfile = rawPackfile[:len(rawPackfile)-2]
+
+			fmt.Println(version)
+			fmt.Println(footerOffset)
+
+			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
+			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
+
+			secret := repository.GetSecret()
+
+			decryptedFooter := footerbuf
+			if secret != nil {
+				// Decrypt the packfile
+				decryptedFooter, err = encryption.Decrypt(secret, footerbuf)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			if repository.Configuration().Compression != "" {
+				// Decompress the packfile
+				decryptedFooter, err = compression.Inflate(repository.Configuration().Compression, decryptedFooter)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			footer, err := packfile.NewFooterFromBytes(decryptedFooter)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			indexbuf := rawPackfile[int(footer.IndexOffset):]
+			rawPackfile = rawPackfile[:int(footer.IndexOffset)]
+
+			decryptedIndex := indexbuf
+			if secret != nil {
+				// Decrypt the packfile
+				decryptedIndex, err = encryption.Decrypt(secret, indexbuf)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			if repository.Configuration().Compression != "" {
+				// Decompress the packfile
+				decryptedIndex, err = compression.Inflate(repository.Configuration().Compression, decryptedIndex)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			index, err := packfile.NewIndexFromBytes(decryptedIndex)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println(footer)
+			fmt.Println(index)
+
+			rawPackfile = append(rawPackfile, decryptedIndex...)
+			rawPackfile = append(rawPackfile, decryptedFooter...)
 
 			p, err := packfile.NewFromBytes(rawPackfile)
 			if err != nil {

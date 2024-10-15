@@ -588,10 +588,65 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 
 	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
 
-	serializedPackfile, err := pack.Serialize()
+	//serializedPackfile, err := pack.Serialize()
+	//if err != nil {
+	//	panic("could not serialize pack file" + err.Error())
+	//}
+
+	serializedData, err := pack.SerializeData()
 	if err != nil {
-		panic("could not serialize pack file" + err.Error())
+		panic("could not serialize pack file data" + err.Error())
 	}
+	serializedIndex, err := pack.SerializeIndex()
+	if err != nil {
+		panic("could not serialize pack file index" + err.Error())
+	}
+	serializedFooter, err := pack.SerializeFooter()
+	if err != nil {
+		panic("could not serialize pack file footer" + err.Error())
+	}
+
+	secret := snapshot.repository.GetSecret()
+
+	buffer := serializedIndex
+	if snapshot.repository.Configuration().Compression != "" {
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return err
+		}
+	}
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+	encryptedIndex := buffer
+
+	buffer = serializedFooter
+	if snapshot.repository.Configuration().Compression != "" {
+		buffer, err = compression.Deflate(snapshot.repository.Configuration().Compression, buffer)
+		if err != nil {
+			return err
+		}
+	}
+	if secret != nil {
+		tmp, err := encryption.Encrypt(secret, buffer)
+		if err != nil {
+			return err
+		}
+		buffer = tmp
+	}
+	encryptedFooter := buffer
+
+	encryptedFooterLength := uint8(len(encryptedFooter))
+
+	serializedPackfile := append(serializedData, encryptedIndex...)
+	serializedPackfile = append(serializedPackfile, encryptedFooter...)
+	serializedPackfile = append(serializedPackfile, byte(pack.Footer.Version))
+	serializedPackfile = append(serializedPackfile, byte(encryptedFooterLength))
+
 	hasher.Write(serializedPackfile)
 	checksum := hasher.Sum(nil)
 	var checksum32 [32]byte

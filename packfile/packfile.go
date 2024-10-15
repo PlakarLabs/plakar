@@ -60,6 +60,69 @@ type PackFileFooter struct {
 	IndexChecksum [32]byte
 }
 
+func NewFooterFromBytes(serialized []byte) (PackFileFooter, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.NewFooterFromBytes", time.Since(t0))
+		logger.Trace("packfile", "NewFooterFromBytes(...): %s", time.Since(t0))
+	}()
+
+	reader := bytes.NewReader(serialized)
+	var footer PackFileFooter
+	if err := binary.Read(reader, binary.LittleEndian, &footer.Version); err != nil {
+		return footer, err
+	}
+	if err := binary.Read(reader, binary.LittleEndian, &footer.Timestamp); err != nil {
+		return footer, err
+	}
+	if err := binary.Read(reader, binary.LittleEndian, &footer.Count); err != nil {
+		return footer, err
+	}
+	if err := binary.Read(reader, binary.LittleEndian, &footer.IndexOffset); err != nil {
+		return footer, err
+	}
+	if err := binary.Read(reader, binary.LittleEndian, &footer.IndexChecksum); err != nil {
+		return footer, err
+	}
+	return footer, nil
+}
+
+func NewIndexFromBytes(serialized []byte) ([]Blob, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.NewIndexFromBytes", time.Since(t0))
+		logger.Trace("packfile", "NewIndexFromBytes(...): %s", time.Since(t0))
+	}()
+
+	reader := bytes.NewReader(serialized)
+	index := make([]Blob, 0)
+	for reader.Len() > 0 {
+		var dataType uint8
+		var checksum [32]byte
+		var chunkOffset uint32
+		var chunkLength uint32
+		if err := binary.Read(reader, binary.LittleEndian, &dataType); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(reader, binary.LittleEndian, &checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(reader, binary.LittleEndian, &chunkOffset); err != nil {
+			return nil, err
+		}
+		if err := binary.Read(reader, binary.LittleEndian, &chunkLength); err != nil {
+			return nil, err
+		}
+		index = append(index, Blob{
+			Type:     dataType,
+			Checksum: checksum,
+			Offset:   chunkOffset,
+			Length:   chunkLength,
+		})
+	}
+	return index, nil
+}
+
 func New() *PackFile {
 	return &PackFile{
 		Data:  make([]byte, 0),
@@ -210,6 +273,117 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	}
 	p.Footer.IndexChecksum = [32]byte(hasher.Sum(nil))
 
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.Version); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.Timestamp); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.Count); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.IndexOffset); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.IndexChecksum); err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func (p *PackFile) SerializeData() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.SerializeData", time.Since(t0))
+		logger.Trace("packfile", "SerializeData(): %s", time.Since(t0))
+	}()
+
+	var buffer bytes.Buffer
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func (p *PackFile) SerializeIndex() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.SerializeIndex", time.Since(t0))
+		logger.Trace("packfile", "SerializeIndex(): %s", time.Since(t0))
+	}()
+
+	var buffer bytes.Buffer
+	hasher := sha256.New()
+	for _, chunk := range p.Index {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Type); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Offset); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Length); err != nil {
+			return nil, err
+		}
+
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Type); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Offset); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Length); err != nil {
+			return nil, err
+		}
+	}
+	return buffer.Bytes(), nil
+}
+
+func (p *PackFile) SerializeFooter() ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("packfile.SerializeFooter", time.Since(t0))
+		logger.Trace("packfile", "SerializeFooter(): %s", time.Since(t0))
+	}()
+
+	var buffer bytes.Buffer
+	hasher := sha256.New()
+	for _, chunk := range p.Index {
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Type); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Offset); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(&buffer, binary.LittleEndian, chunk.Length); err != nil {
+			return nil, err
+		}
+
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Type); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Checksum); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Offset); err != nil {
+			return nil, err
+		}
+		if err := binary.Write(hasher, binary.LittleEndian, chunk.Length); err != nil {
+			return nil, err
+		}
+	}
+	p.Footer.IndexChecksum = [32]byte(hasher.Sum(nil))
+
+	buffer.Reset()
 	if err := binary.Write(&buffer, binary.LittleEndian, p.Footer.Version); err != nil {
 		return nil, err
 	}

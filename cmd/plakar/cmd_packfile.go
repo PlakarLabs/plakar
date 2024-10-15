@@ -17,6 +17,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -53,14 +55,14 @@ func cmd_packfile(ctx Plakar, repository *storage.Repository, args []string) int
 				log.Fatalf("invalid packfile hash: %s", arg)
 			}
 
-			bytes, err := hex.DecodeString(arg)
+			b, err := hex.DecodeString(arg)
 			if err != nil {
 				log.Fatalf("invalid packfile hash: %s", arg)
 			}
 
 			// Convert the byte slice to a [32]byte
 			var byteArray [32]byte
-			copy(byteArray[:], bytes)
+			copy(byteArray[:], b)
 
 			rawPackfile, err := repository.GetPackfile(byteArray)
 			if err != nil {
@@ -71,8 +73,7 @@ func cmd_packfile(ctx Plakar, repository *storage.Repository, args []string) int
 			footerOffset := rawPackfile[len(rawPackfile)-1]
 			rawPackfile = rawPackfile[:len(rawPackfile)-2]
 
-			fmt.Println(version)
-			fmt.Println(footerOffset)
+			_ = version
 
 			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
 			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
@@ -117,6 +118,14 @@ func cmd_packfile(ctx Plakar, repository *storage.Repository, args []string) int
 					log.Fatal(err)
 				}
 			}
+
+			hasher := sha256.New()
+			hasher.Write(decryptedIndex)
+
+			if !bytes.Equal(hasher.Sum(nil), footer.IndexChecksum[:]) {
+				log.Fatal("index checksum mismatch")
+			}
+
 			index, err := packfile.NewIndexFromBytes(decryptedIndex)
 			if err != nil {
 				log.Fatal(err)

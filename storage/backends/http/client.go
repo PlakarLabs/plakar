@@ -28,7 +28,7 @@ import (
 )
 
 type Repository struct {
-	config     storage.RepositoryConfig
+	config     storage.Configuration
 	Repository string
 }
 
@@ -55,7 +55,7 @@ func (r *Repository) sendRequest(method string, url string, requestType string, 
 	return client.Do(req)
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	return nil
 }
 
@@ -76,7 +76,7 @@ func (repository *Repository) Open(location string) error {
 		return fmt.Errorf("%s", resOpen.Err)
 	}
 
-	repository.config = *resOpen.RepositoryConfig
+	repository.config = *resOpen.Configuration
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

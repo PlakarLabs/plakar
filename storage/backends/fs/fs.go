@@ -34,7 +34,7 @@ import (
 )
 
 type Repository struct {
-	config storage.RepositoryConfig
+	config storage.Configuration
 
 	Repository string
 	root       string
@@ -48,7 +48,7 @@ func NewRepository() storage.RepositoryBackend {
 	return &Repository{}
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	t0 := time.Now()
 	defer func() {
 		logger.Profile("Create(%s): %s", location, time.Since(t0))
@@ -124,7 +124,7 @@ func (repository *Repository) Open(location string) error {
 		return err
 	}
 
-	config := storage.RepositoryConfig{}
+	config := storage.Configuration{}
 	err = msgpack.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
@@ -135,7 +135,7 @@ func (repository *Repository) Open(location string) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

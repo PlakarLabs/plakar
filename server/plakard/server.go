@@ -80,8 +80,8 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
-				repo, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
+				repo, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -113,10 +113,10 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 				var payload network.ResOpen
 				if err != nil {
-					payload = network.ResOpen{RepositoryConfig: nil, Err: retErr}
+					payload = network.ResOpen{Configuration: nil, Err: retErr}
 				} else {
 					config := repo.Configuration()
-					payload = network.ResOpen{RepositoryConfig: &config, Err: retErr}
+					payload = network.ResOpen{Configuration: &config, Err: retErr}
 				}
 				lrepository = repo
 				result := network.Request{

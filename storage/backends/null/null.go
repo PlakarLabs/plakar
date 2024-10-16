@@ -25,7 +25,7 @@ import (
 )
 
 type Repository struct {
-	config     storage.RepositoryConfig
+	config     storage.Configuration
 	Repository string
 }
 
@@ -42,12 +42,12 @@ func NewRepository() storage.RepositoryBackend {
 	return &Repository{}
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	return nil
 }
 
 func (repository *Repository) Open(location string) error {
-	repositoryConfig := storage.RepositoryConfig{}
+	repositoryConfig := storage.Configuration{}
 	repositoryConfig.Version = storage.VERSION
 	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
 	repositoryConfig.CreationTime = time.Now()
@@ -62,7 +62,7 @@ func (repository *Repository) Open(location string) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

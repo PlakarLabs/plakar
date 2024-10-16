@@ -37,7 +37,7 @@ import (
 )
 
 type Repository struct {
-	config      storage.RepositoryConfig
+	config      storage.Configuration
 	Repository  string
 	minioClient *minio.Client
 	bucketName  string
@@ -71,7 +71,7 @@ func (repository *Repository) connect(location *url.URL) error {
 	return nil
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (repository *Repository) Open(location string) error {
 		return err
 	}
 
-	var config storage.RepositoryConfig
+	var config storage.Configuration
 	err = msgpack.Unmarshal(jconfig, &config)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

@@ -14,8 +14,8 @@ type Request struct {
 }
 
 type ReqCreate struct {
-	Repository       string
-	RepositoryConfig storage.RepositoryConfig
+	Repository    string
+	Configuration storage.Configuration
 }
 
 type ResCreate struct {
@@ -27,8 +27,8 @@ type ReqOpen struct {
 }
 
 type ResOpen struct {
-	RepositoryConfig *storage.RepositoryConfig
-	Err              string
+	Configuration *storage.Configuration
+	Err           string
 }
 
 type ReqClose struct {

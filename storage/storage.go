@@ -39,7 +39,7 @@ import (
 
 const VERSION string = "0.5.0"
 
-type RepositoryConfig struct {
+type Configuration struct {
 	CreationTime time.Time
 	RepositoryID uuid.UUID
 
@@ -61,9 +61,9 @@ type RepositoryConfig struct {
 }
 
 type RepositoryBackend interface {
-	Create(repository string, configuration RepositoryConfig) error
+	Create(repository string, configuration Configuration) error
 	Open(repository string) error
-	Configuration() RepositoryConfig
+	Configuration() Configuration
 
 	GetSnapshots() ([]uuid.UUID, error)
 	PutSnapshot(indexID uuid.UUID, data []byte) error
@@ -216,7 +216,7 @@ func Open(location string) (*Repository, error) {
 	}
 }
 
-func Create(location string, configuration RepositoryConfig) (*Repository, error) {
+func Create(location string, configuration Configuration) (*Repository, error) {
 	repository, err := New(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
@@ -301,7 +301,7 @@ func (repository *Repository) SetMachineID(machineID string) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() RepositoryConfig {
+func (repository *Repository) Configuration() Configuration {
 	return repository.backend.Configuration()
 }
 

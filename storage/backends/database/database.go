@@ -33,7 +33,7 @@ import (
 )
 
 type Repository struct {
-	config storage.RepositoryConfig
+	config storage.Configuration
 
 	Cache *cache.Cache
 
@@ -99,7 +99,7 @@ func (repository *Repository) connect(addr string) error {
 	return nil
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	err := repository.connect(location)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (repository *Repository) Open(location string) error {
 	}
 
 	var buffer []byte
-	var repositoryConfig storage.RepositoryConfig
+	var repositoryConfig storage.Configuration
 
 	err = repository.conn.QueryRow(`SELECT value FROM configuration`).Scan(&buffer)
 	if err != nil {
@@ -218,7 +218,7 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

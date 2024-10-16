@@ -36,7 +36,7 @@ import (
 )
 
 type Repository struct {
-	config storage.RepositoryConfig
+	config storage.Configuration
 
 	Cache *cache.Cache
 
@@ -272,7 +272,7 @@ func (repository *Repository) sendRequest(Type string, Payload interface{}) (*ne
 	return &result, nil
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	parsed, err := giturls.Parse(location)
 	if err != nil {
 		return err
@@ -284,8 +284,8 @@ func (repository *Repository) Create(location string, config storage.RepositoryC
 	}
 
 	result, err := repository.sendRequest("ReqCreate", network.ReqCreate{
-		Repository:       parsed.Path,
-		RepositoryConfig: config,
+		Repository:    parsed.Path,
+		Configuration: config,
 	})
 	if err != nil {
 		return err
@@ -321,7 +321,7 @@ func (repository *Repository) Open(location string) error {
 		return fmt.Errorf("%s", result.Payload.(network.ResOpen).Err)
 	}
 
-	repository.config = *result.Payload.(network.ResOpen).RepositoryConfig
+	repository.config = *result.Payload.(network.ResOpen).Configuration
 	return nil
 }
 
@@ -337,7 +337,7 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 

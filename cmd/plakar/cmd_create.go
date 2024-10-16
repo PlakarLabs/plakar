@@ -41,7 +41,7 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
 	flags.Parse(args)
 
-	repositoryConfig := storage.RepositoryConfig{}
+	repositoryConfig := storage.Configuration{}
 	repositoryConfig.Version = storage.VERSION
 	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
 	repositoryConfig.CreationTime = time.Now()

@@ -7,21 +7,11 @@ import (
 
 func TestNew(t *testing.T) {
 	st := New()
-
-	if len(st.Checksums) != 0 {
-		t.Errorf("Expected Checksums to be empty, got %d", len(st.Checksums))
-	}
-	if len(st.checksumsInverse) != 0 {
-		t.Errorf("Expected checksumsInverse to be empty, got %d", len(st.checksumsInverse))
-	}
 	if len(st.Chunks) != 0 {
 		t.Errorf("Expected Chunks to be empty, got %d", len(st.Chunks))
 	}
 	if len(st.Objects) != 0 {
 		t.Errorf("Expected Objects to be empty, got %d", len(st.Objects))
-	}
-	if len(st.Contains) != 0 {
-		t.Errorf("Expected Contains to be empty, got %d", len(st.Contains))
 	}
 	if st.dirty != 0 {
 		t.Errorf("Expected dirty to be 0, got %d", st.dirty)
@@ -31,21 +21,20 @@ func TestNew(t *testing.T) {
 func TestSerializeAndDeserialize(t *testing.T) {
 	st := New()
 
+	checksum0 := [32]byte{0, 1, 2}
 	checksum1 := [32]byte{1, 2, 3}
 	checksum2 := [32]byte{4, 5, 6}
 	chunkSubpart := Subpart{
-		PackfileID: 1,
-		Offset:     100,
-		Length:     200,
+		Packfile: checksum0,
+		Offset:   100,
+		Length:   200,
 	}
 	objectSubpart := Subpart{
-		PackfileID: 2,
-		Offset:     300,
-		Length:     400,
+		Packfile: checksum0,
+		Offset:   300,
+		Length:   400,
 	}
 
-	st.addChecksum(checksum1)
-	st.addChecksum(checksum2)
 	st.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
 	st.SetPackfileForObject(checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
 
@@ -57,20 +46,6 @@ func TestSerializeAndDeserialize(t *testing.T) {
 	deserializedSt, err := NewFromBytes(serialized)
 	if err != nil {
 		t.Fatalf("NewFromBytes failed: %v", err)
-	}
-
-	if len(deserializedSt.Checksums) != len(st.Checksums) {
-		t.Errorf("Expected Checksums length %d, got %d", len(st.Checksums), len(deserializedSt.Checksums))
-	}
-
-	for checksum, id := range st.Checksums {
-		deserializedID, exists := deserializedSt.Checksums[checksum]
-		if !exists {
-			t.Errorf("Checksum %v not found in deserialized Checksums", checksum)
-		}
-		if deserializedID != id {
-			t.Errorf("Checksum ID mismatch for %v: expected %d, got %d", checksum, id, deserializedID)
-		}
 	}
 
 	if len(deserializedSt.Chunks) != len(st.Chunks) {
@@ -100,16 +75,6 @@ func TestSerializeAndDeserialize(t *testing.T) {
 			t.Errorf("Object Subpart mismatch for ID %d: expected %+v, got %+v", id, subpart, deserializedSubpart)
 		}
 	}
-
-	if len(deserializedSt.Contains) != len(st.Contains) {
-		t.Errorf("Expected Contains length %d, got %d", len(st.Contains), len(deserializedSt.Contains))
-	}
-
-	for id := range st.Contains {
-		if _, exists := deserializedSt.Contains[id]; !exists {
-			t.Errorf("Contains ID %d not found in deserialized Contains", id)
-		}
-	}
 }
 
 func TestNewFromBytesError(t *testing.T) {
@@ -122,28 +87,6 @@ func TestNewFromBytesError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "msgpack") {
 		t.Errorf("Expected msgpack error, got %v", err)
-	}
-}
-
-func TestAddAndLookupChecksum(t *testing.T) {
-	st := New()
-
-	checksum := [32]byte{10, 20, 30}
-	id := st.addChecksum(checksum)
-
-	if id != 0 {
-		t.Errorf("Expected checksum ID to be 0, got %d", id)
-	}
-
-	lookup := st.LookupChecksum(id)
-	if lookup != checksum {
-		t.Errorf("Expected checksum %v, got %v", checksum, lookup)
-	}
-
-	// Add the same checksum again
-	id2 := st.addChecksum(checksum)
-	if id2 != id {
-		t.Errorf("Expected same checksum ID %d, got %d", id, id2)
 	}
 }
 
@@ -217,26 +160,16 @@ func TestMerge(t *testing.T) {
 	checksumB := [32]byte{40, 50, 60}
 	stID := [32]byte{70, 80, 90}
 
-	st1.addChecksum(checksumA) // ID 0
-	st1.addChecksum(checksumB) // ID 1
 	st1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
 	st1.SetPackfileForObject(checksumA, checksumB, 300, 400)
-	st1.Contains[st1.addChecksum(stID)] = struct{}{} // ID 2
+	st1.Contains[stID] = struct{}{} // ID 2
 
-	st2.addChecksum(checksumA) // Already exists in st1, no new ID
 	newChecksum := [32]byte{11, 22, 33}
-	st2.addChecksum(newChecksum) // ID 1 in st2
 	st2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
 	st2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
-	st2.Contains[st2.addChecksum(stID)] = struct{}{} // ID 2 in st2
+	st2.Contains[stID] = struct{}{} // ID 2 in st2
 
 	st1.Merge(stID, st2)
-
-	// Verify Checksums
-	expectedChecksums := 4 // checksumA, checksumB, newChecksum, stID
-	if len(st1.Checksums) != expectedChecksums {
-		t.Errorf("Expected %d checksums, got %d", expectedChecksums, len(st1.Checksums))
-	}
 
 	// Verify Chunks
 	expectedChunks := 2
@@ -256,17 +189,6 @@ func TestMerge(t *testing.T) {
 		t.Errorf("Expected %d Contains entry, got %d", expectedContains, len(st1.Contains))
 	}
 
-	// Check specific checksums
-	for _, checksum := range [][32]byte{checksumA, checksumB, newChecksum, stID} {
-		id, exists := st1.Checksums[checksum]
-		if !exists {
-			t.Errorf("Checksum %v should exist after merge", checksum)
-		}
-		lookup := st1.LookupChecksum(id)
-		if lookup != checksum {
-			t.Errorf("LookupChecksum mismatch for ID %d: expected %v, got %v", id, checksum, lookup)
-		}
-	}
 }
 
 func TestListContains(t *testing.T) {
@@ -275,8 +197,8 @@ func TestListContains(t *testing.T) {
 	checksum1 := [32]byte{100, 101, 102}
 	checksum2 := [32]byte{103, 104, 105}
 
-	id1 := st.addChecksum(checksum1)
-	id2 := st.addChecksum(checksum2)
+	id1 := checksum1
+	id2 := checksum2
 
 	st.Contains[id1] = struct{}{}
 	st.Contains[id2] = struct{}{}
@@ -306,7 +228,7 @@ func TestIsDirtyAndResetDirty(t *testing.T) {
 	}
 
 	checksum := [32]byte{200, 201, 202}
-	st.addChecksum(checksum)
+	st.SetPackfileForChunk(checksum, checksum, 300, 400)
 
 	if !st.IsDirty() {
 		t.Errorf("Expected IsDirty to be true after adding a checksum")

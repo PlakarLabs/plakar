@@ -27,36 +27,29 @@ import (
 )
 
 type Subpart struct {
-	PackfileID uint32
-	Offset     uint32
-	Length     uint32
+	Packfile [32]byte
+	Offset   uint32
+	Length   uint32
 }
 
 type State struct {
-	muChecksums      sync.Mutex
-	checksumID       uint32
-	Checksums        map[[32]byte]uint32
-	checksumsInverse map[uint32][32]byte
-
 	muChunks sync.Mutex
-	Chunks   map[uint32]Subpart
+	Chunks   map[[32]byte]Subpart
 
 	muObjects sync.Mutex
-	Objects   map[uint32]Subpart
+	Objects   map[[32]byte]Subpart
 
 	muContains sync.Mutex
-	Contains   map[uint32]struct{}
+	Contains   map[[32]byte]struct{}
 
 	dirty int32
 }
 
 func New() *State {
 	return &State{
-		Checksums:        make(map[[32]byte]uint32),
-		checksumsInverse: make(map[uint32][32]byte),
-		Chunks:           make(map[uint32]Subpart),
-		Objects:          make(map[uint32]Subpart),
-		Contains:         make(map[uint32]struct{}),
+		Chunks:   make(map[[32]byte]Subpart),
+		Objects:  make(map[[32]byte]Subpart),
+		Contains: make(map[[32]byte]struct{}),
 	}
 }
 
@@ -71,12 +64,6 @@ func NewFromBytes(serialized []byte) (*State, error) {
 	if err := msgpack.Unmarshal(serialized, &st); err != nil {
 		return nil, err
 	}
-
-	st.checksumsInverse = make(map[uint32][32]byte)
-	for checksum, checksumID := range st.Checksums {
-		st.checksumsInverse[checksumID] = checksum
-	}
-
 	return &st, nil
 }
 
@@ -94,51 +81,10 @@ func (st *State) Serialize() ([]byte, error) {
 	return serialized, nil
 }
 
-func (st *State) addChecksum(checksum [32]byte) uint32 {
-	st.muChecksums.Lock()
-	defer st.muChecksums.Unlock()
-
-	if checksumID, exists := st.Checksums[checksum]; !exists {
-		st.Checksums[checksum] = st.checksumID
-		st.checksumsInverse[st.checksumID] = checksum
-		checksumID = st.checksumID
-		st.checksumID++
-		atomic.StoreInt32(&st.dirty, 1)
-		return checksumID
-	} else {
-		return checksumID
-	}
-}
-
-func (st *State) LookupChecksum(checksumID uint32) [32]byte {
-	st.muChecksums.Lock()
-	defer st.muChecksums.Unlock()
-
-	checksum, exists := st.checksumsInverse[checksumID]
-	if !exists {
-		panic("checksum not found")
-	}
-	return checksum
-}
-
 func (st *State) Merge(stateID [32]byte, deltaState *State) {
-
-	deltaState.muChecksums.Lock()
-	for deltaChecksum := range deltaState.Checksums {
-		st.muChecksums.Lock()
-		_, exists := st.Checksums[deltaChecksum]
-		st.muChecksums.Unlock()
-		if !exists {
-			st.addChecksum(deltaChecksum)
-		}
-	}
-	deltaState.muChecksums.Unlock()
-
 	deltaState.muChunks.Lock()
 	for deltaChunkChecksumID, subpart := range deltaState.Chunks {
-		st.SetPackfileForChunk(
-			deltaState.LookupChecksum(subpart.PackfileID),
-			deltaState.LookupChecksum(deltaChunkChecksumID),
+		st.SetPackfileForChunk(subpart.Packfile, deltaChunkChecksumID,
 			subpart.Offset,
 			subpart.Length,
 		)
@@ -147,9 +93,7 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 
 	deltaState.muObjects.Lock()
 	for deltaObjectChecksumID, subpart := range deltaState.Objects {
-		st.SetPackfileForObject(
-			deltaState.LookupChecksum(subpart.PackfileID),
-			deltaState.LookupChecksum(deltaObjectChecksumID),
+		st.SetPackfileForObject(subpart.Packfile, deltaObjectChecksumID,
 			subpart.Offset,
 			subpart.Length,
 		)
@@ -157,7 +101,7 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 	deltaState.muObjects.Unlock()
 
 	st.muContains.Lock()
-	st.Contains[st.addChecksum(stateID)] = struct{}{}
+	st.Contains[stateID] = struct{}{}
 	st.muContains.Unlock()
 }
 
@@ -165,13 +109,11 @@ func (st *State) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [3
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
-	chunkID := st.addChecksum(chunkChecksum)
-	if _, exists := st.Chunks[chunkID]; !exists {
-		packfileID := st.addChecksum(packfileChecksum)
-		st.Chunks[chunkID] = Subpart{
-			PackfileID: packfileID,
-			Offset:     packfileOffset,
-			Length:     chunkLength,
+	if _, exists := st.Chunks[chunkChecksum]; !exists {
+		st.Chunks[chunkChecksum] = Subpart{
+			Packfile: packfileChecksum,
+			Offset:   packfileOffset,
+			Length:   chunkLength,
 		}
 		atomic.StoreInt32(&st.dirty, 1)
 	}
@@ -181,17 +123,10 @@ func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
-	chunkID := st.addChecksum(chunkChecksum)
-	if subpart, exists := st.Chunks[chunkID]; !exists {
+	if subpart, exists := st.Chunks[chunkChecksum]; !exists {
 		return [32]byte{}, false
 	} else {
-		st.muChecksums.Lock()
-		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
-		st.muChecksums.Unlock()
-		if !exists {
-			panic("packfile checksum not found")
-		}
-		return packfileChecksum, true
+		return subpart.Packfile, true
 	}
 }
 
@@ -199,17 +134,10 @@ func (st *State) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, u
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
-	chunkID := st.addChecksum(chunkChecksum)
-	if subpart, exists := st.Chunks[chunkID]; !exists {
+	if subpart, exists := st.Chunks[chunkChecksum]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
-		st.muChecksums.Lock()
-		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
-		st.muChecksums.Unlock()
-		if !exists {
-			panic("packfile checksum not found")
-		}
-		return packfileChecksum, subpart.Offset, subpart.Length, true
+		return subpart.Packfile, subpart.Offset, subpart.Length, true
 	}
 }
 
@@ -217,8 +145,7 @@ func (st *State) ChunkExists(chunkChecksum [32]byte) bool {
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
-	chunkID := st.addChecksum(chunkChecksum)
-	if _, exists := st.Chunks[chunkID]; !exists {
+	if _, exists := st.Chunks[chunkChecksum]; !exists {
 		return false
 	} else {
 		return true
@@ -229,13 +156,11 @@ func (st *State) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum 
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
-	objectID := st.addChecksum(objectChecksum)
-	if _, exists := st.Objects[objectID]; !exists {
-		packfileID := st.addChecksum(packfileChecksum)
-		st.Objects[objectID] = Subpart{
-			PackfileID: packfileID,
-			Offset:     packfileOffset,
-			Length:     chunkLength,
+	if _, exists := st.Objects[objectChecksum]; !exists {
+		st.Objects[objectChecksum] = Subpart{
+			Packfile: packfileChecksum,
+			Offset:   packfileOffset,
+			Length:   chunkLength,
 		}
 		atomic.StoreInt32(&st.dirty, 1)
 	}
@@ -245,17 +170,10 @@ func (st *State) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, bool) 
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
-	objectID := st.addChecksum(objectChecksum)
-	if subpart, exists := st.Objects[objectID]; !exists {
+	if subpart, exists := st.Objects[objectChecksum]; !exists {
 		return [32]byte{}, false
 	} else {
-		st.muChecksums.Lock()
-		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
-		st.muChecksums.Unlock()
-		if !exists {
-			panic("packfile checksum not found")
-		}
-		return packfileChecksum, true
+		return subpart.Packfile, true
 	}
 }
 
@@ -263,17 +181,10 @@ func (st *State) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32,
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
-	objectID := st.addChecksum(objectChecksum)
-	if subpart, exists := st.Objects[objectID]; !exists {
+	if subpart, exists := st.Objects[objectChecksum]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
-		st.muChecksums.Lock()
-		packfileChecksum, exists := st.checksumsInverse[subpart.PackfileID]
-		st.muChecksums.Unlock()
-		if !exists {
-			panic("packfile checksum not found")
-		}
-		return packfileChecksum, subpart.Offset, subpart.Length, true
+		return subpart.Packfile, subpart.Offset, subpart.Length, true
 	}
 }
 
@@ -281,8 +192,7 @@ func (st *State) ObjectExists(objectChecksum [32]byte) bool {
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
-	objectID := st.addChecksum(objectChecksum)
-	if _, exists := st.Objects[objectID]; !exists {
+	if _, exists := st.Objects[objectChecksum]; !exists {
 		return false
 	} else {
 		return true
@@ -294,7 +204,7 @@ func (st *State) ListContains() [][32]byte {
 	defer st.muContains.Unlock()
 	ret := make([][32]byte, 0)
 	for checksumID := range st.Contains {
-		ret = append(ret, st.LookupChecksum(checksumID))
+		ret = append(ret, checksumID)
 	}
 	return ret
 }

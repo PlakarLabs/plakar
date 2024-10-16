@@ -24,7 +24,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 )
 
@@ -66,13 +65,13 @@ func init() {
 
 func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 	if len(args) == 0 {
-		return info_plakar(repo.Store())
+		return info_plakar(repo)
 	}
 
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
-	metadatas, err := getHeaders(repo.Store(), flags.Args())
+	metadatas, err := getHeaders(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -122,39 +121,39 @@ func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 	return 0
 }
 
-func info_plakar(repository *storage.Store) int {
-	metadatas, err := getHeaders(repository, nil)
+func info_plakar(repo *repository.Repository) int {
+	metadatas, err := getHeaders(repo, nil)
 	if err != nil {
 		logger.Warn("%s", err)
 		return 1
 	}
 
-	fmt.Println("StoreID:", repository.Configuration().StoreID)
-	fmt.Printf("CreationTime: %s\n", repository.Configuration().CreationTime)
-	fmt.Println("Version:", repository.Configuration().Version)
+	fmt.Println("StoreID:", repo.Configuration().StoreID)
+	fmt.Printf("CreationTime: %s\n", repo.Configuration().CreationTime)
+	fmt.Println("Version:", repo.Configuration().Version)
 
-	if repository.Configuration().Encryption != "" {
-		fmt.Println("Encryption:", repository.Configuration().Encryption)
-		fmt.Println("EncryptionKey:", repository.Configuration().EncryptionKey)
+	if repo.Configuration().Encryption != "" {
+		fmt.Println("Encryption:", repo.Configuration().Encryption)
+		fmt.Println("EncryptionKey:", repo.Configuration().EncryptionKey)
 	} else {
 		fmt.Println("Encryption:", "no")
 	}
 
-	if repository.Configuration().Compression != "" {
-		fmt.Println("Compression:", repository.Configuration().Compression)
+	if repo.Configuration().Compression != "" {
+		fmt.Println("Compression:", repo.Configuration().Compression)
 	} else {
 		fmt.Println("Compression:", "no")
 	}
 
-	fmt.Println("Hashing:", repository.Configuration().Hashing)
+	fmt.Println("Hashing:", repo.Configuration().Hashing)
 
-	fmt.Println("Chunking:", repository.Configuration().Chunking)
+	fmt.Println("Chunking:", repo.Configuration().Chunking)
 	fmt.Printf("ChunkingMin: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repository.Configuration().ChunkingMin)), repository.Configuration().ChunkingMin)
+		humanize.Bytes(uint64(repo.Configuration().ChunkingMin)), repo.Configuration().ChunkingMin)
 	fmt.Printf("ChunkingNormal: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repository.Configuration().ChunkingNormal)), repository.Configuration().ChunkingNormal)
+		humanize.Bytes(uint64(repo.Configuration().ChunkingNormal)), repo.Configuration().ChunkingNormal)
 	fmt.Printf("ChunkingMax: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repository.Configuration().ChunkingMax)), repository.Configuration().ChunkingMax)
+		humanize.Bytes(uint64(repo.Configuration().ChunkingMax)), repo.Configuration().ChunkingMax)
 
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)

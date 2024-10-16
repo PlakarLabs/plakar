@@ -43,7 +43,7 @@ func cmd_keep(ctx Plakar, repo *repository.Repository, args []string) int {
 		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
 	}
 
-	snapshotsList, err := getSnapshotsList(repo.Store())
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func cmd_keep(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 0
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), nil)
+	snapshots, err := getSnapshots(repo, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

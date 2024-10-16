@@ -110,20 +110,20 @@ func cmd_rm(ctx Plakar, repo *repository.Repository, args []string) int {
 	var snapshots []*snapshot.Snapshot
 	if opt_older != "" || opt_tag != "" {
 		if flags.NArg() != 0 {
-			tmp, err := getSnapshots(repo.Store(), flags.Args())
+			tmp, err := getSnapshots(repo, flags.Args())
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		} else {
-			tmp, err := getSnapshots(repo.Store(), nil)
+			tmp, err := getSnapshots(repo, nil)
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		}
 	} else {
-		tmp, err := getSnapshots(repo.Store(), flags.Args())
+		tmp, err := getSnapshots(repo, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}

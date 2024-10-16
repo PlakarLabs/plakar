@@ -24,7 +24,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	defer func() {
 		profiler.RecordEvent("snapshot.GetCachedObject", time.Since(t0))
 	}()
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 
 	pathHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 	pathHasher.Write([]byte(pathname))
@@ -50,7 +50,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	defer func() {
 		profiler.RecordEvent("snapshot.PutCachedObject", time.Since(t0))
 	}()
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 
 	pathHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 	pathHasher.Write([]byte(pathname))

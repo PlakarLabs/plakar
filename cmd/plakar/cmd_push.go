@@ -104,7 +104,7 @@ func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 	_ = excludes
 
-	snap, err := snapshot.New(repo.Store(), uuid.Must(uuid.NewRandom()))
+	snap, err := snapshot.New(repo, uuid.Must(uuid.NewRandom()))
 	if err != nil {
 		logger.Error("%s", err)
 		return 1

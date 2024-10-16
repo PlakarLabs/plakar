@@ -28,7 +28,7 @@ type PushOptions struct {
 }
 
 func pathnameCached(snapshot *Snapshot, fi objects.FileInfo, pathname string) (*objects.Object, error) {
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 
 	if cache == nil {
 		return nil, nil
@@ -224,7 +224,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 
 	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
 
-	cache := snapshot.repository.Cache
+	cache := snapshot.repository.Store().Cache
 
 	snapshot.Header.ScannedDirectories = make([]string, 0)
 

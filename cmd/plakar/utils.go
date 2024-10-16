@@ -32,7 +32,6 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
@@ -65,16 +64,16 @@ func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
 	return ret
 }
 
-func getSnapshotsList(repository *storage.Store) ([]uuid.UUID, error) {
-	snapshots, err := snapshot.List(repository)
+func getSnapshotsList(repo *repository.Repository) ([]uuid.UUID, error) {
+	snapshots, err := snapshot.List(repo.Store())
 	if err != nil {
 		return nil, err
 	}
 	return snapshots, nil
 }
 
-func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header, error) {
-	snapshotsList, err := getSnapshotsList(repository)
+func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Header, error) {
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +88,7 @@ func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header,
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+				hdr, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -110,7 +109,7 @@ func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header,
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+		hdr, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +144,7 @@ func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header,
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+				metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -156,8 +155,8 @@ func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header,
 	return result, nil
 }
 
-func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesystem, error) {
-	snapshotsList, err := getSnapshotsList(repository)
+func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.Filesystem, error) {
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +171,7 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 
-				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -181,7 +180,7 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 				var filesystemChecksum32 [32]byte
 				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
-				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
+				filesystem, _, err := snapshot.GetFilesystem(repo.Store(), filesystemChecksum32)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -199,7 +198,7 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -235,7 +234,7 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				md, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -243,7 +242,7 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 				var filesystemChecksum32 [32]byte
 				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
-				filesystem, _, err := snapshot.GetFilesystem(repository, filesystemChecksum32)
+				filesystem, _, err := snapshot.GetFilesystem(repo.Store(), filesystemChecksum32)
 				if err != nil {
 					return nil, err
 				}
@@ -254,8 +253,8 @@ func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesy
 	return result, nil
 }
 
-func getSnapshots(repository *storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := getSnapshotsList(repository)
+func getSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +269,7 @@ func getSnapshots(repository *storage.Store, prefixes []string) ([]*snapshot.Sna
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
+				snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
 				if err != nil {
 					return
 				}
@@ -287,7 +286,7 @@ func getSnapshots(repository *storage.Store, prefixes []string) ([]*snapshot.Sna
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -322,7 +321,7 @@ func getSnapshots(repository *storage.Store, prefixes []string) ([]*snapshot.Sna
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
+				snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
 				if err != nil {
 					return nil, err
 				}

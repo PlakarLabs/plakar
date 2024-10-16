@@ -42,12 +42,12 @@ func cmd_find(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(repo.Store())
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(repo.Store(), snapshotUuid)
+		snap, err := snapshot.Load(repo, snapshotUuid)
 		if err != nil {
 			log.Fatal(err)
 			return 1

@@ -61,7 +61,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 	defer exporterInstance.Close()
 
 	if flags.NArg() == 0 {
-		metadatas, err := getHeaders(repo.Store(), nil)
+		metadatas, err := getHeaders(repo, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 			metadata := metadatas[i-1]
 			for _, scannedDir := range metadata.ScannedDirectories {
 				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(repo.Store(), metadata.GetIndexID())
+					snap, err := snapshot.Load(repo, metadata.GetIndexID())
 					if err != nil {
 						return 1
 					}
@@ -83,7 +83,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

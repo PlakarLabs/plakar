@@ -15,3 +15,7 @@ func New(store *storage.Store) *Repository {
 func (r *Repository) Store() *storage.Store {
 	return r.store
 }
+
+func (r *Repository) Configuration() storage.Configuration {
+	return r.store.Configuration()
+}

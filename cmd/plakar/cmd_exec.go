@@ -41,7 +41,7 @@ func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), []string{flags.Args()[0]})
+	snapshots, err := getSnapshots(repo, []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}

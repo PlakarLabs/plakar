@@ -41,7 +41,7 @@ func cmd_ui(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
 	flags.Parse(args)
 
-	err := v1.Ui(repo.Store(), opt_addr, !opt_nospawn)
+	err := v1.Ui(repo, opt_addr, !opt_nospawn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

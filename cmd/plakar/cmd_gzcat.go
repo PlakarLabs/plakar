@@ -39,7 +39,7 @@ func cmd_gzcat(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1

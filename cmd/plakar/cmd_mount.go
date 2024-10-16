@@ -46,7 +46,7 @@ func cmd_mount(ctx Plakar, repo *repository.Repository, args []string) int {
 	mountpoint := flags.Arg(0)
 
 	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(repo.Store(), mountpoint)
+	server, err := plakarfs.NewPlakarFS(repo, mountpoint)
 	if err != nil {
 		log.Fatalf("makeFS: %v", err)
 	}

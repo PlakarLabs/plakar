@@ -32,7 +32,6 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 )
 
@@ -52,20 +51,20 @@ func cmd_ls(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(repo.Store(), opt_uuid, opt_tag)
+		list_snapshots(repo, opt_uuid, opt_tag)
 		return 0
 	}
 
 	if opt_recursive {
-		list_snapshot_recursive(repo.Store(), flags.Args())
+		list_snapshot_recursive(repo, flags.Args())
 	} else {
-		list_snapshot(repo.Store(), flags.Args())
+		list_snapshot(repo, flags.Args())
 	}
 	return 0
 }
 
-func list_snapshots(repository *storage.Store, useUuid bool, tag string) {
-	metadatas, err := getHeaders(repository, nil)
+func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
+	metadatas, err := getHeaders(repo, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -101,8 +100,8 @@ func list_snapshots(repository *storage.Store, useUuid bool, tag string) {
 	}
 }
 
-func list_snapshot(repository *storage.Store, args []string) {
-	vfss, err := getFilesystems(repository, args)
+func list_snapshot(repo *repository.Repository, args []string) {
+	vfss, err := getFilesystems(repo, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
 	}
@@ -172,8 +171,8 @@ func list_snapshot(repository *storage.Store, args []string) {
 	}
 }
 
-func list_snapshot_recursive(repository *storage.Store, args []string) {
-	vfss, err := getFilesystems(repository, args)
+func list_snapshot_recursive(repo *repository.Repository, args []string) {
+	vfss, err := getFilesystems(repo, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
 	}

@@ -54,7 +54,7 @@ func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

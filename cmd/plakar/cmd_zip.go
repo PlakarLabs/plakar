@@ -46,7 +46,7 @@ func cmd_zip(ctx Plakar, repo *repository.Repository, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

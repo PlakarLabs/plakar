@@ -33,6 +33,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/storage"
@@ -45,7 +46,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 )
 
-var lrepository *storage.Store
+var lrepository *repository.Repository
 var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
@@ -90,8 +91,8 @@ func templateFunctions() TemplateFunctions {
 	}
 }
 
-func getSnapshots(repository *storage.Store) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := snapshot.List(repository)
+func getSnapshots(repo *repository.Repository) ([]*snapshot.Snapshot, error) {
+	snapshotsList, err := snapshot.List(repo.Store())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func getSnapshots(repository *storage.Store) ([]*snapshot.Snapshot, error) {
 		wg.Add(1)
 		go func(snapshotUuid uuid.UUID) {
 			defer wg.Done()
-			snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
+			snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
 			if err != nil {
 				return
 			}
@@ -122,8 +123,8 @@ func getSnapshots(repository *storage.Store) ([]*snapshot.Snapshot, error) {
 	return result, nil
 }
 
-func getHeaders(repository *storage.Store) ([]*header.Header, error) {
-	snapshotsList, err := snapshot.List(repository)
+func getHeaders(repo *repository.Repository) ([]*header.Header, error) {
+	snapshotsList, err := snapshot.List(repo.Store())
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func getHeaders(repository *storage.Store) ([]*header.Header, error) {
 		wg.Add(1)
 		go func(snapshotUuid uuid.UUID) {
 			defer wg.Done()
-			hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+			hdr, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
 			if err != nil {
 				return
 			}
@@ -564,7 +565,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		ext = ""
 	}
 
-	snapshots, err := snapshot.List(lrepository)
+	snapshots, err := snapshot.List(lrepository.Store())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -662,8 +663,8 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(repository *storage.Store, addr string, spawn bool) error {
-	lrepository = repository
+func Ui(repo *repository.Repository, addr string, spawn bool) error {
+	lrepository = repo
 	lcache = nil
 
 	templates = make(map[string]*template.Template)

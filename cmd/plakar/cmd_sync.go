@@ -57,41 +57,44 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	var srcRepository *storage.Store
-	var dstRepository *storage.Store
+	var srcStorage *storage.Store
+	var dstStorage *storage.Store
 	var err error
 	if direction == "to" {
-		srcRepository = repo.Store()
-		dstRepository, err = storage.Open(syncRepository)
+		srcStorage = repo.Store()
+		dstStorage, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryState(repository.New(dstRepository))
+		repositoryIndex, err := loadRepositoryState(repository.New(dstStorage))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstRepository.Location, err)
+			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstStorage.Location, err)
 			return 1
 
 		}
-		dstRepository.SetRepositoryIndex(repositoryIndex)
+		dstStorage.SetRepositoryIndex(repositoryIndex)
 
 	} else if direction == "from" {
-		dstRepository = repo.Store()
-		srcRepository, err = storage.Open(syncRepository)
+		dstStorage = repo.Store()
+		srcStorage, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryState(repository.New(srcRepository))
+		repositoryIndex, err := loadRepositoryState(repository.New(srcStorage))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcRepository.Location, err)
+			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcStorage.Location, err)
 			return 1
 		}
-		srcRepository.SetRepositoryIndex(repositoryIndex)
+		srcStorage.SetRepositoryIndex(repositoryIndex)
 	} else {
 		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
+
+	srcRepository := repository.New(srcStorage)
+	dstRepository := repository.New(dstStorage)
 
 	var muChunkChecksum sync.Mutex
 	chunkChecksum := make(map[[32]byte]bool)
@@ -99,7 +102,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 	var muObjectChecksum sync.Mutex
 	objectChecksum := make(map[[32]byte]bool)
 
-	sourceIndexes, err := srcRepository.GetSnapshots()
+	sourceIndexes, err := srcRepository.Store().GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1
@@ -118,12 +121,12 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
-			dstRepository.SetSecret(secret)
+			dstStorage.SetSecret(secret)
 			break
 		}
 	}
 
-	destIndexes, err := dstRepository.GetSnapshots()
+	destIndexes, err := dstRepository.Store().GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1

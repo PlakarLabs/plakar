@@ -46,7 +46,7 @@ func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
 			log.Fatal(err)
 		}
 		for _, uuid := range uuids {
-			snapshot, err := snapshot.Load(repo.Store(), uuid)
+			snapshot, err := snapshot.Load(repo, uuid)
 			if err != nil {
 				logger.Warn("%s", err)
 				continue
@@ -66,7 +66,7 @@ func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
 		}
 
 	} else {
-		snapshots, err = getSnapshots(repo.Store(), flags.Args())
+		snapshots, err = getSnapshots(repo, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}

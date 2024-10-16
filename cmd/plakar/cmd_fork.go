@@ -35,16 +35,16 @@ func cmd_fork(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	if len(args) != 1 {
 		log.Fatal("need a snapshot ID to fork")
-		return info_plakar(repo.Store())
+		return info_plakar(repo)
 	}
 
-	snapshots, err := getSnapshots(repo.Store(), flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, snap := range snapshots {
-		nsnap, err := snapshot.Fork(repo.Store(), snap.Header.IndexID)
+		nsnap, err := snapshot.Fork(repo, snap.Header.IndexID)
 		if err != nil {
 			log.Fatal(err)
 		}

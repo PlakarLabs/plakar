@@ -14,6 +14,7 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/snapshot/metadata"
@@ -25,7 +26,7 @@ import (
 )
 
 type Snapshot struct {
-	repository *storage.Store
+	repository *repository.Repository
 	stateDelta *state.State
 
 	SkipDirs []string
@@ -52,7 +53,7 @@ type PackerObjectMsg struct {
 	Data      []byte
 }
 
-func New(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
+func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
@@ -69,7 +70,7 @@ func New(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	}
 
 	snapshot := &Snapshot{
-		repository: repository,
+		repository: repo,
 		stateDelta: state.New(),
 
 		Header:     header.NewHeader(indexID),
@@ -112,7 +113,7 @@ func New(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 						panic("received data with unexpected type")
 					}
 
-					if pack.Size() > uint32(repository.Configuration().PackfileSize) {
+					if pack.Size() > uint32(repo.Configuration().PackfileSize) {
 						objectsList := make([][32]byte, len(objects))
 						for objectChecksum := range objects {
 							objectsList = append(objectsList, objectChecksum)
@@ -155,13 +156,13 @@ func New(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
+func Load(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Load", time.Since(t0))
 	}()
 
-	hdr, _, err := GetSnapshot(repository, indexID)
+	hdr, _, err := GetSnapshot(repo.Store(), indexID)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +170,7 @@ func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	var indexChecksum32 [32]byte
 	copy(indexChecksum32[:], hdr.Index.Checksum[:])
 
-	index, verifyChecksum, err := GetIndex(repository, indexChecksum32)
+	index, verifyChecksum, err := GetIndex(repo.Store(), indexChecksum32)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +182,7 @@ func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	var filesystemChecksum32 [32]byte
 	copy(filesystemChecksum32[:], hdr.VFS.Checksum[:])
 
-	filesystem, verifyChecksum, err := GetFilesystem(repository, filesystemChecksum32)
+	filesystem, verifyChecksum, err := GetFilesystem(repo.Store(), filesystemChecksum32)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +193,7 @@ func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	var metadataChecksum32 [32]byte
 	copy(metadataChecksum32[:], hdr.Metadata.Checksum[:])
 
-	md, verifyChecksum, err := GetMetadata(repository, metadataChecksum32)
+	md, verifyChecksum, err := GetMetadata(repo.Store(), metadataChecksum32)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +202,7 @@ func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	}
 
 	snapshot := &Snapshot{}
-	snapshot.repository = repository
+	snapshot.repository = repo
 	snapshot.Header = hdr
 	snapshot.Index = index
 	snapshot.Filesystem = filesystem
@@ -211,18 +212,18 @@ func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Fork(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
+func Fork(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Fork", time.Since(t0))
 	}()
 
-	hdr, _, err := GetSnapshot(repository, indexID)
+	hdr, _, err := GetSnapshot(repo.Store(), indexID)
 	if err != nil {
 		return nil, err
 	}
 
-	index, verifyChecksum, err := GetIndex(repository, hdr.Index.Checksum)
+	index, verifyChecksum, err := GetIndex(repo.Store(), hdr.Index.Checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func Fork(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 		return nil, fmt.Errorf("index mismatches hdr checksum")
 	}
 
-	filesystem, verifyChecksum, err := GetFilesystem(repository, hdr.VFS.Checksum)
+	filesystem, verifyChecksum, err := GetFilesystem(repo.Store(), hdr.VFS.Checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func Fork(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	}
 
 	snapshot := &Snapshot{
-		repository: repository,
+		repository: repo,
 
 		Header:     hdr,
 		Index:      index,
@@ -519,10 +520,10 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 
 	logger.Trace("snapshot", "%s: PutChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	repository := snapshot.repository
+	repo := snapshot.repository
 	buffer := data
-	secret := repository.GetSecret()
-	compressionMethod := repository.Configuration().Compression
+	secret := repo.Store().GetSecret()
+	compressionMethod := repo.Configuration().Compression
 	var err error
 	if compressionMethod != "" {
 		buffer, err = compression.Deflate(compressionMethod, buffer)
@@ -543,7 +544,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (snapshot *Snapshot) Repository() *storage.Store {
+func (snapshot *Snapshot) Repository() *repository.Repository {
 	return snapshot.repository
 }
 
@@ -559,7 +560,7 @@ func (snapshot *Snapshot) PutObject(object *objects.Object) error {
 		return err
 	}
 
-	secret := snapshot.repository.GetSecret()
+	secret := snapshot.repository.Store().GetSecret()
 
 	buffer := data
 	if snapshot.repository.Configuration().Compression != "" {
@@ -607,7 +608,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 		panic("could not serialize pack file footer" + err.Error())
 	}
 
-	secret := snapshot.repository.GetSecret()
+	secret := snapshot.repository.Store().GetSecret()
 
 	buffer := serializedIndex
 	if snapshot.repository.Configuration().Compression != "" {
@@ -654,7 +655,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	copy(checksum32[:], checksum[:])
 
 	logger.Trace("snapshot", "%s: PutPackfile(%016x, ...)", snapshot.Header.GetIndexShortID(), checksum32)
-	err = snapshot.repository.PutPackfile(checksum32, serializedPackfile)
+	err = snapshot.repository.Store().PutPackfile(checksum32, serializedPackfile)
 	if err != nil {
 		panic("could not write pack file")
 	}
@@ -662,7 +663,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	for _, chunkChecksum := range chunks {
 		for idx, chunk := range pack.Index {
 			if chunk.Checksum == chunkChecksum {
-				snapshot.Repository().GetRepositoryIndex().SetPackfileForChunk(checksum32,
+				snapshot.Repository().Store().GetRepositoryIndex().SetPackfileForChunk(checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -678,7 +679,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	for _, objectChecksum := range objects {
 		for idx, chunk := range pack.Index {
 			if chunk.Checksum == objectChecksum {
-				snapshot.Repository().GetRepositoryIndex().SetPackfileForObject(checksum32,
+				snapshot.Repository().Store().GetRepositoryIndex().SetPackfileForObject(checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -699,13 +700,13 @@ func (snapshot *Snapshot) prepareHeader(data []byte) ([]byte, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.prepareHeader", time.Since(t0))
 	}()
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 	logger.Trace("snapshot", "%s: prepareHeader()", snapshot.Header.GetIndexShortID())
 
 	repository := snapshot.repository
 
 	buffer := data
-	secret := repository.GetSecret()
+	secret := repository.Store().GetSecret()
 	compressionMethod := repository.Configuration().Compression
 
 	if compressionMethod != "" {
@@ -736,13 +737,13 @@ func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.PutBlob", time.Since(t0))
 	}()
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 	logger.Trace("snapshot", "%s: PutBlob(%016x)", snapshot.Header.GetIndexShortID(), checksum)
 
 	repository := snapshot.repository
 
 	buffer := data
-	secret := repository.GetSecret()
+	secret := repository.Store().GetSecret()
 	compressionMethod := repository.Configuration().Compression
 
 	if compressionMethod != "" {
@@ -765,7 +766,7 @@ func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
 		cache.PutBlob(snapshot.repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
-	return len(buffer), snapshot.repository.PutBlob(checksum, buffer)
+	return len(buffer), snapshot.repository.Store().PutBlob(checksum, buffer)
 }
 
 func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) {
@@ -773,13 +774,13 @@ func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) 
 	defer func() {
 		profiler.RecordEvent("snapshot.PutIndex", time.Since(t0))
 	}()
-	cache := snapshot.repository.GetCache()
+	cache := snapshot.repository.Store().GetCache()
 	logger.Trace("snapshot", "%s: PutIndex(%016x)", snapshot.Header.GetIndexShortID(), checksum)
 
 	repository := snapshot.repository
 
 	buffer := data
-	secret := repository.GetSecret()
+	secret := repository.Store().GetSecret()
 	compressionMethod := repository.Configuration().Compression
 
 	if compressionMethod != "" {
@@ -802,7 +803,7 @@ func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) 
 		//cache.PutIndex(snapshot.repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
-	return len(buffer), snapshot.repository.PutState(checksum, buffer)
+	return len(buffer), snapshot.repository.Store().PutState(checksum, buffer)
 }
 
 func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
@@ -812,19 +813,19 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().GetRepositoryIndex().GetSubpartForChunk(checksum)
+	packfileChecksum, offset, length, exists := snapshot.Repository().Store().GetRepositoryIndex().GetSubpartForChunk(checksum)
 	if !exists {
 		return nil, fmt.Errorf("packfile not found")
 	}
 
-	buffer, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	buffer, err := snapshot.repository.Store().GetPackfileBlob(packfileChecksum, offset, length)
 	if err != nil {
 		return nil, err
 	}
 
 	repository := snapshot.repository
 
-	secret := repository.GetSecret()
+	secret := repository.Store().GetSecret()
 	compressionMethod := repository.Configuration().Compression
 
 	if secret != nil {
@@ -856,7 +857,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	if exists, err := snapshot.Index.ChunkExists(checksum); err == nil && exists {
 		return true
 	} else {
-		return snapshot.Repository().GetRepositoryIndex().ChunkExists(checksum)
+		return snapshot.Repository().Store().GetRepositoryIndex().ChunkExists(checksum)
 	}
 }
 
@@ -870,7 +871,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	if exists, err := snapshot.Index.ObjectExists(checksum); err == nil && exists {
 		return true
 	} else {
-		return snapshot.Repository().GetRepositoryIndex().ObjectExists(checksum)
+		return snapshot.Repository().Store().GetRepositoryIndex().ObjectExists(checksum)
 	}
 }
 
@@ -938,7 +939,7 @@ func (snapshot *Snapshot) Commit() error {
 		indexChecksum := indexHasher.Sum(nil)
 		copy(indexChecksum32[:], indexChecksum[:])
 
-		if exists, err := snapshot.repository.CheckBlob(indexChecksum32); err != nil {
+		if exists, err := snapshot.repository.Store().CheckBlob(indexChecksum32); err != nil {
 			errc <- err
 			return
 		} else if !exists {
@@ -966,7 +967,7 @@ func (snapshot *Snapshot) Commit() error {
 		filesystemChecksum := fsHasher.Sum(nil)
 		copy(filesystemChecksum32[:], filesystemChecksum[:])
 
-		if exists, err := snapshot.repository.CheckBlob(filesystemChecksum32); err != nil {
+		if exists, err := snapshot.repository.Store().CheckBlob(filesystemChecksum32); err != nil {
 			errc <- err
 			return
 		} else if !exists {
@@ -994,7 +995,7 @@ func (snapshot *Snapshot) Commit() error {
 		metadataChecksum := mdHasher.Sum(nil)
 		copy(metadataChecksum32[:], metadataChecksum[:])
 
-		if exists, err := snapshot.repository.CheckBlob(metadataChecksum32); err != nil {
+		if exists, err := snapshot.repository.Store().CheckBlob(metadataChecksum32); err != nil {
 			errc <- err
 			return
 		} else if !exists {
@@ -1049,7 +1050,7 @@ func (snapshot *Snapshot) Commit() error {
 	}
 
 	logger.Trace("snapshot", "%s: Commit()", snapshot.Header.GetIndexShortID())
-	return snapshot.repository.Commit(snapshot.Header.IndexID, snapshotBytes)
+	return snapshot.repository.Store().Commit(snapshot.Header.IndexID, snapshotBytes)
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {

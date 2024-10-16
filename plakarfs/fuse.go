@@ -337,7 +337,7 @@ func (fs *plakarFS) OpenDir(
 	op *fuseops.OpenDirOp) error {
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository)
+		snapshotIDs, err := fs.repository.GetSnapshots()
 		if err != nil {
 			return fuse.EIO
 		}
@@ -415,7 +415,7 @@ func (fs *plakarFS) ReadDir(
 	dirents := make([]*fuseutil.Dirent, 0)
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository)
+		snapshotIDs, err := fs.repository.GetSnapshots()
 		if err != nil {
 			return fuse.EIO
 		}

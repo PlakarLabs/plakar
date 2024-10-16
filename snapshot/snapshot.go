@@ -270,44 +270,6 @@ func GetSnapshot(repo *repository.Repository, indexID uuid.UUID) (*header.Header
 	return hdr, false, nil
 }
 
-func GetState(repo *repository.Repository, checksum [32]byte) (*state.State, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
-	}()
-
-	var buffer []byte
-
-	logger.Trace("snapshot", "repository.GetState(%016x)", checksum)
-	tmp, err := repo.GetState(checksum)
-	if err != nil {
-		return nil, err
-	}
-	buffer = tmp
-
-	/*
-		secret := repository.GetSecret()
-		compressionMethod := repository.Configuration().Compression
-
-		if secret != nil {
-			tmp, err := encryption.Decrypt(secret, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-
-		if compressionMethod != "" {
-			tmp, err := compression.Inflate(compressionMethod, buffer)
-			if err != nil {
-				return nil, err
-			}
-			buffer = tmp
-		}
-	*/
-	return state.NewFromBytes(buffer)
-}
-
 func GetIndex(repo *repository.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -382,14 +344,6 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 	copy(verifyChecksum32[:], verifyChecksum[:])
 
 	return md, verifyChecksum32, nil
-}
-
-func List(repo *repository.Repository) ([]uuid.UUID, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.List", time.Since(t0))
-	}()
-	return repo.GetSnapshots()
 }
 
 func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {

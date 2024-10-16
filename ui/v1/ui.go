@@ -92,7 +92,7 @@ func templateFunctions() TemplateFunctions {
 }
 
 func getSnapshots(repo *repository.Repository) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := snapshot.List(repo)
+	snapshotsList, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func getSnapshots(repo *repository.Repository) ([]*snapshot.Snapshot, error) {
 }
 
 func getHeaders(repo *repository.Repository) ([]*header.Header, error) {
-	snapshotsList, err := snapshot.List(repo)
+	snapshotsList, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
 	}
@@ -565,7 +565,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		ext = ""
 	}
 
-	snapshots, err := snapshot.List(lrepository)
+	snapshots, err := lrepository.GetSnapshots()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

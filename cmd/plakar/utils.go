@@ -64,7 +64,7 @@ func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
 }
 
 func getSnapshotsList(repo *repository.Repository) ([]uuid.UUID, error) {
-	snapshots, err := snapshot.List(repo)
+	snapshots, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
 	}

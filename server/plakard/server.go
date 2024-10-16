@@ -12,6 +12,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
@@ -22,7 +23,7 @@ type ServerOptions struct {
 	NoDelete bool
 }
 
-func Server(repository *storage.Store, addr string, options *ServerOptions) {
+func Server(repo *repository.Repository, addr string, options *ServerOptions) {
 
 	network.ProtocolRegister()
 
@@ -37,7 +38,7 @@ func Server(repository *storage.Store, addr string, options *ServerOptions) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(repository, c, c, options)
+		go handleConnection(repo, c, c, options)
 	}
 }
 
@@ -48,8 +49,8 @@ func Stdio(options *ServerOptions) error {
 	return nil
 }
 
-func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *ServerOptions) {
-	var lrepository *storage.Store
+func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
+	var lrepository *repository.Repository
 
 	lrepository = repo
 
@@ -81,7 +82,7 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 				}
 
 				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
-				repo, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).Configuration)
+				st, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -91,7 +92,7 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 					Type:    "ResCreate",
 					Payload: network.ResCreate{Err: retErr},
 				}
-				lrepository = repo
+				lrepository = repository.New(st)
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
@@ -106,7 +107,7 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 				logger.Trace("server", "%s: Open()", clientUuid)
 
 				location := request.Payload.(network.ReqOpen).Repository
-				repo, err := storage.Open(location)
+				st, err := storage.Open(location)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -118,7 +119,8 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 					config := repo.Configuration()
 					payload = network.ResOpen{Configuration: &config, Err: retErr}
 				}
-				lrepository = repo
+
+				lrepository = repository.New(st)
 				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
@@ -316,7 +318,7 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: PutBlob(%016x)", clientUuid, request.Payload.(network.ReqPutBlob).Checksum)
-				err := lrepository.PutBlob(request.Payload.(network.ReqPutBlob).Checksum, request.Payload.(network.ReqPutBlob).Data)
+				_, err := lrepository.PutBlob(request.Payload.(network.ReqPutBlob).Checksum, request.Payload.(network.ReqPutBlob).Data)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -442,7 +444,7 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
-				err := lrepository.PutState(request.Payload.(network.ReqPutState).Checksum, request.Payload.(network.ReqPutState).Data)
+				_, err := lrepository.PutState(request.Payload.(network.ReqPutState).Checksum, request.Payload.(network.ReqPutState).Data)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()

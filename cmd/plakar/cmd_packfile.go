@@ -64,7 +64,7 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rawPackfile, err := repo.Store().GetPackfile(byteArray)
+			rawPackfile, err := repo.GetPackfile(byteArray)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -78,7 +78,7 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
 			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
 
-			secret := repo.Store().GetSecret()
+			secret := repo.Secret()
 
 			decryptedFooter := footerbuf
 			if secret != nil {
@@ -88,9 +88,9 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 					log.Fatal(err)
 				}
 			}
-			if repo.Store().Configuration().Compression != "" {
+			if repo.Configuration().Compression != "" {
 				// Decompress the packfile
-				decryptedFooter, err = compression.Inflate(repo.Store().Configuration().Compression, decryptedFooter)
+				decryptedFooter, err = compression.Inflate(repo.Configuration().Compression, decryptedFooter)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -111,9 +111,9 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 					log.Fatal(err)
 				}
 			}
-			if repo.Store().Configuration().Compression != "" {
+			if repo.Configuration().Compression != "" {
 				// Decompress the packfile
-				decryptedIndex, err = compression.Inflate(repo.Store().Configuration().Compression, decryptedIndex)
+				decryptedIndex, err = compression.Inflate(repo.Configuration().Compression, decryptedIndex)
 				if err != nil {
 					log.Fatal(err)
 				}

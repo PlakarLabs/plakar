@@ -44,14 +44,14 @@ func cmd_server(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	switch opt_protocol {
 	case "http":
-		httpd.Server(repo.Store(), addr, opt_nodelete)
+		httpd.Server(repo, addr, opt_nodelete)
 	case "plakar":
 		options := &plakard.ServerOptions{
 			NoOpen:   true,
 			NoCreate: true,
 			NoDelete: opt_nodelete,
 		}
-		plakard.Server(repo.Store(), addr, options)
+		plakard.Server(repo, addr, options)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

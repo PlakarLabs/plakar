@@ -6,11 +6,11 @@ import (
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/gorilla/mux"
 )
 
-var lrepository *storage.Store
+var lrepository *repository.Repository
 var lNoDelete bool
 
 func openRepository(w http.ResponseWriter, r *http.Request) {
@@ -181,7 +181,7 @@ func putBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutBlob network.ResPutBlob
-	err := lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
+	_, err := lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
 	if err != nil {
 		resPutBlob.Err = err.Error()
 	}
@@ -283,7 +283,7 @@ func putState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutIndex network.ResPutState
-	err := lrepository.PutState(reqPutState.Checksum, reqPutState.Data)
+	_, err := lrepository.PutState(reqPutState.Checksum, reqPutState.Data)
 	if err != nil {
 		resPutIndex.Err = err.Error()
 	}
@@ -438,11 +438,11 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Server(repository *storage.Store, addr string, noDelete bool) error {
+func Server(repo *repository.Repository, addr string, noDelete bool) error {
 
 	lNoDelete = noDelete
 
-	lrepository = repository
+	lrepository = repo
 	network.ProtocolRegister()
 
 	r := mux.NewRouter()

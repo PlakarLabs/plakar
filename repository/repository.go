@@ -22,12 +22,22 @@ func New(store *storage.Store) *Repository {
 	}
 }
 
-/**/
+func (r *Repository) Close() error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.Close", time.Since(t0))
+	}()
+
+	return r.store.Close()
+}
+
+func (r *Repository) Secret() []byte {
+	return r.store.GetSecret()
+}
+
 func (r *Repository) Store() *storage.Store {
 	return r.store
 }
-
-/**/
 
 func (r *Repository) Location() string {
 	return r.store.Location
@@ -169,6 +179,15 @@ func (r *Repository) CheckBlob(checksum [32]byte) (bool, error) {
 	return r.store.CheckBlob(checksum)
 }
 
+func (r *Repository) DeleteBlob(checksum [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.DeleteBlob", time.Since(t0))
+	}()
+
+	return r.store.DeleteBlob(checksum)
+}
+
 func (r *Repository) GetStates() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -206,6 +225,15 @@ func (r *Repository) PutState(checksum [32]byte, data []byte) (int, error) {
 	return len(data), r.store.PutState(checksum, data)
 }
 
+func (r *Repository) DeleteState(checksum [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.DeleteState", time.Since(t0))
+	}()
+
+	return r.store.DeleteState(checksum)
+}
+
 func (r *Repository) GetPackfiles() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
@@ -240,6 +268,15 @@ func (r *Repository) PutPackfile(checksum [32]byte, data []byte) error {
 	}()
 
 	return r.store.PutPackfile(checksum, data)
+}
+
+func (r *Repository) DeletePackfile(checksum [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.DeletePackfile", time.Since(t0))
+	}()
+
+	return r.store.DeletePackfile(checksum)
 }
 
 func (r *Repository) DeleteSnapshot(indexID uuid.UUID) error {

@@ -349,7 +349,7 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 }
 
 func loadRepositoryState(repo *repository.Repository) (*state.State, error) {
-	indexes, err := repo.Store().GetStates()
+	indexes, err := repo.GetStates()
 	if err != nil {
 		return nil, err
 	}

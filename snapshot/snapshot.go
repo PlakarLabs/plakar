@@ -9,6 +9,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/packfile"
@@ -442,7 +443,7 @@ func GetIndex(repository *storage.Store, checksum [32]byte) (*index.Index, [32]b
 		return nil, [32]byte{}, err
 	}
 
-	indexHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	indexHasher := hashing.GetHasher(repository.Configuration().Hashing)
 	indexHasher.Write(buffer)
 	verifyChecksum := indexHasher.Sum(nil)
 
@@ -468,7 +469,7 @@ func GetFilesystem(repository *storage.Store, checksum [32]byte) (*vfs.Filesyste
 		return nil, [32]byte{}, err
 	}
 
-	fsHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	fsHasher := hashing.GetHasher(repository.Configuration().Hashing)
 	fsHasher.Write(buffer)
 	verifyChecksum := fsHasher.Sum(nil)
 	verifyChecksum32 := [32]byte{}
@@ -493,7 +494,7 @@ func GetMetadata(repository *storage.Store, checksum [32]byte) (*metadata.Metada
 		return nil, [32]byte{}, err
 	}
 
-	mdHasher := encryption.GetHasher(repository.Configuration().Hashing)
+	mdHasher := hashing.GetHasher(repository.Configuration().Hashing)
 	mdHasher.Write(buffer)
 	verifyChecksum := mdHasher.Sum(nil)
 	verifyChecksum32 := [32]byte{}
@@ -586,7 +587,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
 	}()
 
-	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	hasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	//serializedPackfile, err := pack.Serialize()
 	//if err != nil {
@@ -890,7 +891,7 @@ func (snapshot *Snapshot) Commit() error {
 			logger.Warn("could not serialize repository index: %s", err)
 			return err
 		}
-		indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		indexHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 		indexHasher.Write(serializedRepositoryIndex)
 		indexChecksum := indexHasher.Sum(nil)
 		indexChecksum32 := [32]byte{}
@@ -932,7 +933,7 @@ func (snapshot *Snapshot) Commit() error {
 			return
 		}
 
-		indexHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		indexHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 		indexHasher.Write(serializedIndex)
 		indexChecksum := indexHasher.Sum(nil)
 		copy(indexChecksum32[:], indexChecksum[:])
@@ -960,7 +961,7 @@ func (snapshot *Snapshot) Commit() error {
 			return
 		}
 
-		fsHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		fsHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 		fsHasher.Write(serializedFilesystem)
 		filesystemChecksum := fsHasher.Sum(nil)
 		copy(filesystemChecksum32[:], filesystemChecksum[:])
@@ -988,7 +989,7 @@ func (snapshot *Snapshot) Commit() error {
 			return
 		}
 
-		mdHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+		mdHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 		mdHasher.Write(serializedMetadata)
 		metadataChecksum := mdHasher.Sum(nil)
 		copy(metadataChecksum32[:], metadataChecksum[:])

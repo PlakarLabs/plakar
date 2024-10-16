@@ -26,7 +26,7 @@ import (
 	"os/user"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
@@ -151,7 +151,7 @@ func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			hasher := encryption.GetHasher(snapshot1.Repository().Configuration().Hashing)
+			hasher := hashing.GetHasher(snapshot1.Repository().Configuration().Hashing)
 			hasher.Write([]byte(args[i]))
 			pathnameChecksum := hasher.Sum(nil)
 			key := [32]byte{}
@@ -199,7 +199,7 @@ func fiToDiff(fi objects.FileInfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	hasher := encryption.GetHasher(snapshot1.Repository().Configuration().Hashing)
+	hasher := hashing.GetHasher(snapshot1.Repository().Configuration().Hashing)
 	hasher.Write([]byte(filename1))
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}
@@ -210,7 +210,7 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		return
 	}
 
-	hasher = encryption.GetHasher(snapshot2.Repository().Configuration().Hashing)
+	hasher = hashing.GetHasher(snapshot2.Repository().Configuration().Hashing)
 	hasher.Write([]byte(filename2))
 	pathnameChecksum = hasher.Sum(nil)
 	key = [32]byte{}

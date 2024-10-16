@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
 )
 
@@ -120,7 +120,7 @@ func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
 		}
 	}
 
-	hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	hasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 	hasher.Write([]byte(pathname))
 	pathnameHash := hasher.Sum(nil)
 

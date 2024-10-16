@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/profiler"
@@ -26,7 +26,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	}()
 	cache := snapshot.repository.GetCache()
 
-	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	pathHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 	pathHasher.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHasher.Sum(nil))
 
@@ -52,7 +52,7 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	}()
 	cache := snapshot.repository.GetCache()
 
-	pathHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	pathHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 	pathHasher.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHasher.Sum(nil))
 

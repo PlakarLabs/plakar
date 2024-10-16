@@ -25,6 +25,10 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
+func DefaultAlgorithm() string {
+	return "lz4"
+}
+
 func Deflate(name string, buf []byte) ([]byte, error) {
 	m := map[string]func([]byte) ([]byte, error){
 		"gzip": DeflateGzip,

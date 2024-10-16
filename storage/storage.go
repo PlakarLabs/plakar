@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
@@ -65,8 +67,8 @@ func NewConfiguration() *Configuration {
 		Version:        VERSION,
 		StoreID:        uuid.Must(uuid.NewRandom()),
 		CreationTime:   time.Now(),
-		Compression:    "lz4",
-		Hashing:        "sha256",
+		Compression:    compression.DefaultAlgorithm(),
+		Hashing:        hashing.DefaultAlgorithm(),
 		Chunking:       "fastcdc",
 		ChunkingMin:    64 << 10,
 		ChunkingNormal: (1 << 10) << 10,

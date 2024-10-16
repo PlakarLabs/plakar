@@ -1,4 +1,4 @@
-package encryption
+package hashing
 
 import (
 	"crypto/sha256"
@@ -6,6 +6,10 @@ import (
 
 	"github.com/zeebo/blake3"
 )
+
+func DefaultAlgorithm() string {
+	return "sha256"
+}
 
 func GetHasher(name string) hash.Hash {
 	switch name {

@@ -13,7 +13,7 @@ import (
 	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
@@ -71,7 +71,7 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 
 	object := &objects.Object{}
 	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
-	objectHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	objectHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	if fi.Size() < int64(snapshot.repository.Configuration().ChunkingMin) {
 		var t32 [32]byte
@@ -126,7 +126,7 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 		return nil, err
 	}
 
-	chunkHasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+	chunkHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 
 	firstChunk := true
 	cdcOffset := uint64(0)
@@ -343,7 +343,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 				snapshot.Index.AddObject(object)
 				snapshot.Metadata.AddMetadata(object.ContentType, object.Checksum)
 
-				hasher := encryption.GetHasher(snapshot.repository.Configuration().Hashing)
+				hasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
 				hasher.Write([]byte(_record.Pathname))
 				pathnameChecksum := hasher.Sum(nil)
 				key := [32]byte{}

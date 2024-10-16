@@ -129,10 +129,6 @@ func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 	return buffer, nil
 }
 
-//func (r *Repository) Store() *storage.Store {
-//	return r.store
-//}
-
 func (r *Repository) State() *state.State {
 	return r.state
 }

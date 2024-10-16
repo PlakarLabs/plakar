@@ -55,7 +55,7 @@ func init() {
 	storage.Register("plakard", NewRepository)
 }
 
-func NewRepository() storage.RepositoryBackend {
+func NewRepository() storage.Backend {
 	return &Repository{}
 }
 

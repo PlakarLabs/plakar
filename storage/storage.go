@@ -60,7 +60,7 @@ type Configuration struct {
 	PackfileSize int
 }
 
-type RepositoryBackend interface {
+type Backend interface {
 	Create(repository string, configuration Configuration) error
 	Open(repository string) error
 	Configuration() Configuration
@@ -93,10 +93,10 @@ type RepositoryBackend interface {
 }
 
 var muBackends sync.Mutex
-var backends map[string]func() RepositoryBackend = make(map[string]func() RepositoryBackend)
+var backends map[string]func() Backend = make(map[string]func() Backend)
 
 type Repository struct {
-	backend RepositoryBackend
+	backend Backend
 
 	Location    string
 	Username    string
@@ -118,7 +118,7 @@ type Repository struct {
 	bufferedPackfiles chan struct{}
 }
 
-func Register(name string, backend func() RepositoryBackend) {
+func Register(name string, backend func() Backend) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 

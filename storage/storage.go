@@ -119,8 +119,6 @@ type Store struct {
 	CommandLine string
 	MachineID   string
 
-	Key []byte
-
 	wBytes uint64
 	rBytes uint64
 
@@ -251,13 +249,6 @@ func (store *Store) GetWBytes() uint64 {
 	return atomic.LoadUint64(&store.wBytes)
 }
 
-func (store *Store) GetSecret() []byte {
-	if len(store.Key) == 0 {
-		return nil
-	}
-	return store.Key
-}
-
 func (store *Store) GetUsername() string {
 	return store.Username
 }
@@ -272,11 +263,6 @@ func (store *Store) GetCommandLine() string {
 
 func (store *Store) GetMachineID() string {
 	return store.MachineID
-}
-
-func (store *Store) SetSecret(secret []byte) error {
-	store.Key = secret
-	return nil
 }
 
 func (store *Store) SetUsername(username string) error {
@@ -471,8 +457,8 @@ func (store *Store) GetState(checksum [32]byte) ([]byte, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetIndex", time.Since(t0))
-		logger.Trace("store", "GetIndex(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.GetState", time.Since(t0))
+		logger.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	data, err := store.backend.GetState(checksum)

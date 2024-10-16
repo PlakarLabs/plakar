@@ -59,36 +59,62 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	var srcStorage *storage.Store
 	var dstStorage *storage.Store
+	var targetStorage *storage.Store
+
+	var srcRepository *repository.Repository
+	var dstRepository *repository.Repository
+	var targetRepository *repository.Repository
+
 	var err error
 	if direction == "to" {
-		srcStorage = repo.Store()
+		srcRepository = repo
 		dstStorage, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
+		targetStorage = dstStorage
 	} else if direction == "from" {
-		dstStorage = repo.Store()
+		dstRepository = repo
 		srcStorage, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
+		targetStorage = srcStorage
 	} else {
 		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
 
-	srcRepository, err := repository.New(srcStorage)
+	var targetSecret []byte
+	if targetStorage.Configuration().Encryption != "" {
+		for {
+			passphrase, err := helpers.GetPassphrase("destination repository")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+
+			secret, err := encryption.DeriveSecret(passphrase, targetStorage.Configuration().EncryptionKey)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+			targetSecret = secret
+			break
+		}
+	}
+	targetRepository, err = repository.New(targetStorage, targetSecret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 		return 1
 	}
 
-	dstRepository, err := repository.New(dstStorage)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
-		return 1
+	if targetStorage == srcStorage {
+		srcRepository = targetRepository
+	} else {
+		dstRepository = targetRepository
 	}
 
 	var muChunkChecksum sync.Mutex
@@ -97,31 +123,13 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 	var muObjectChecksum sync.Mutex
 	objectChecksum := make(map[[32]byte]bool)
 
-	sourceIndexes, err := srcRepository.Store().GetSnapshots()
+	sourceIndexes, err := srcRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1
 	}
 
-	if dstRepository.Configuration().Encryption != "" {
-		for {
-			passphrase, err := helpers.GetPassphrase("destination repository")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				continue
-			}
-
-			secret, err := encryption.DeriveSecret(passphrase, dstRepository.Configuration().EncryptionKey)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				continue
-			}
-			dstStorage.SetSecret(secret)
-			break
-		}
-	}
-
-	destIndexes, err := dstRepository.Store().GetSnapshots()
+	destIndexes, err := dstRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
 		return 1

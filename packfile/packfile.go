@@ -44,14 +44,11 @@ func (b Blob) TypeName() string {
 }
 
 type PackFile struct {
-	Data  []byte
-	Index []Blob
-
-	Footer PackFileFooter // Metadata for the packfile
-	//Footer   PackFileFooter    // Footer information for quick lookup and integrity verification
+	Data   []byte
+	Index  []Blob
+	Footer PackFileFooter
 }
 
-// PackFileFooter stores metadata about the packfile itself
 type PackFileFooter struct {
 	Version       uint32
 	Timestamp     int64

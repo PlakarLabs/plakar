@@ -87,7 +87,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				if err != nil {
 					retErr = err.Error()
 				}
-				lrepository, err = repository.New(st)
+				lrepository, err = repository.New(st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}
@@ -115,7 +115,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				if err != nil {
 					retErr = err.Error()
 				}
-				lrepository, err = repository.New(st)
+				lrepository, err = repository.New(st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}

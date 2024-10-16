@@ -25,8 +25,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/PlakarLabs/plakar/compression"
-	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -78,24 +76,11 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
 			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
 
-			secret := repo.Secret()
-
-			decryptedFooter := footerbuf
-			if secret != nil {
-				// Decrypt the packfile
-				decryptedFooter, err = encryption.Decrypt(secret, footerbuf)
-				if err != nil {
-					log.Fatal(err)
-				}
+			footerbuf, err = repo.Decode(footerbuf)
+			if err != nil {
+				log.Fatal(err)
 			}
-			if repo.Configuration().Compression != "" {
-				// Decompress the packfile
-				decryptedFooter, err = compression.Inflate(repo.Configuration().Compression, decryptedFooter)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			footer, err := packfile.NewFooterFromBytes(decryptedFooter)
+			footer, err := packfile.NewFooterFromBytes(footerbuf)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -103,31 +88,20 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			indexbuf := rawPackfile[int(footer.IndexOffset):]
 			rawPackfile = rawPackfile[:int(footer.IndexOffset)]
 
-			decryptedIndex := indexbuf
-			if secret != nil {
-				// Decrypt the packfile
-				decryptedIndex, err = encryption.Decrypt(secret, indexbuf)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			if repo.Configuration().Compression != "" {
-				// Decompress the packfile
-				decryptedIndex, err = compression.Inflate(repo.Configuration().Compression, decryptedIndex)
-				if err != nil {
-					log.Fatal(err)
-				}
+			indexbuf, err = repo.Decode(indexbuf)
+			if err != nil {
+				log.Fatal(err)
 			}
 
 			hasher := sha256.New()
-			hasher.Write(decryptedIndex)
+			hasher.Write(indexbuf)
 
 			if !bytes.Equal(hasher.Sum(nil), footer.IndexChecksum[:]) {
 				log.Fatal("index checksum mismatch")
 			}
 
-			rawPackfile = append(rawPackfile, decryptedIndex...)
-			rawPackfile = append(rawPackfile, decryptedFooter...)
+			rawPackfile = append(rawPackfile, indexbuf...)
+			rawPackfile = append(rawPackfile, footerbuf...)
 
 			p, err := packfile.NewFromBytes(rawPackfile)
 			if err != nil {

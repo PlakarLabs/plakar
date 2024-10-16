@@ -300,7 +300,6 @@ func entryPoint() int {
 	}
 
 	//
-	store.SetSecret(secret)
 	store.SetUsername(ctx.Username)
 	store.SetHostname(ctx.Hostname)
 	store.SetCommandLine(ctx.CommandLine)
@@ -383,7 +382,7 @@ func entryPoint() int {
 		}()
 	}
 
-	repository, err := repository.New(store)
+	repo, err := repository.New(store, secret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
@@ -391,7 +390,7 @@ func entryPoint() int {
 
 	// commands below all operate on an open repository
 	t0 := time.Now()
-	status, err := executeCommand(ctx, repository, command, args)
+	status, err := executeCommand(ctx, repo, command, args)
 	t1 := time.Since(t0)
 	done <- true
 

@@ -30,7 +30,7 @@ func (snapshot *Snapshot) GetCachedObject(pathname string) (*CachedObject, error
 	pathHasher.Write([]byte(pathname))
 	hashedPath := fmt.Sprintf("%032x", pathHasher.Sum(nil))
 
-	data, err := cache.GetPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath)
+	data, err := cache.GetPath(snapshot.repository.Configuration().StoreID.String(), hashedPath)
 	if err != nil {
 		logger.Trace("snapshot", "%s: cache.GetPath(%s): KO", snapshot.Header.GetIndexShortID(), pathname)
 		return nil, err
@@ -77,6 +77,6 @@ func (snapshot *Snapshot) PutCachedObject(pathname string, object objects.Object
 	}
 
 	logger.Trace("snapshot", "%s: cache.PutPath(%s)", snapshot.Header.GetIndexShortID(), pathname)
-	cache.PutPath(snapshot.repository.Configuration().RepositoryID.String(), hashedPath, jobject)
+	cache.PutPath(snapshot.repository.Configuration().StoreID.String(), hashedPath, jobject)
 	return nil
 }

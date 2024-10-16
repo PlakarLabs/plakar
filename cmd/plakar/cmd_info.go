@@ -128,7 +128,7 @@ func info_plakar(repository *storage.Store) int {
 		return 1
 	}
 
-	fmt.Println("RepositoryID:", repository.Configuration().RepositoryID)
+	fmt.Println("StoreID:", repository.Configuration().StoreID)
 	fmt.Printf("CreationTime: %s\n", repository.Configuration().CreationTime)
 	fmt.Println("Version:", repository.Configuration().Version)
 

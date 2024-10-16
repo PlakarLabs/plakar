@@ -263,7 +263,7 @@ func GetSnapshot(repository *storage.Store, indexID uuid.UUID) (*header.Header, 
 
 	cacheMiss := false
 	if cache != nil {
-		tmp, err := cache.GetSnapshot(repository.Configuration().RepositoryID.String(), indexID.String())
+		tmp, err := cache.GetSnapshot(repository.Configuration().StoreID.String(), indexID.String())
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot", "repository.GetSnapshot(%s)", indexID)
@@ -283,7 +283,7 @@ func GetSnapshot(repository *storage.Store, indexID uuid.UUID) (*header.Header, 
 	}
 
 	if cache != nil && cacheMiss {
-		cache.PutSnapshot(repository.Configuration().RepositoryID.String(), indexID.String(), buffer)
+		cache.PutSnapshot(repository.Configuration().StoreID.String(), indexID.String(), buffer)
 	}
 
 	secret := repository.GetSecret()
@@ -324,7 +324,7 @@ func GetBlob(repository *storage.Store, checksum [32]byte) ([]byte, error) {
 
 	cacheMiss := false
 	if cache != nil {
-		tmp, err := cache.GetBlob(repository.Configuration().RepositoryID.String(), checksum)
+		tmp, err := cache.GetBlob(repository.Configuration().StoreID.String(), checksum)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot", "repository.GetBlob(%016x)", checksum)
@@ -344,7 +344,7 @@ func GetBlob(repository *storage.Store, checksum [32]byte) ([]byte, error) {
 	}
 
 	if cache != nil && cacheMiss {
-		cache.PutBlob(repository.Configuration().RepositoryID.String(), checksum, buffer)
+		cache.PutBlob(repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
 	secret := repository.GetSecret()
@@ -381,7 +381,7 @@ func GetState(repository *storage.Store, checksum [32]byte) (*state.State, error
 
 	cacheMiss := false
 	if cache != nil {
-		tmp, err := cache.GetIndex(repository.Configuration().RepositoryID.String(), checksum)
+		tmp, err := cache.GetIndex(repository.Configuration().StoreID.String(), checksum)
 		if err != nil {
 			cacheMiss = true
 			logger.Trace("snapshot", "repository.GetState(%016x)", checksum)
@@ -401,7 +401,7 @@ func GetState(repository *storage.Store, checksum [32]byte) (*state.State, error
 	}
 
 	if cache != nil && cacheMiss {
-		cache.PutIndex(repository.Configuration().RepositoryID.String(), checksum, buffer)
+		cache.PutIndex(repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
 	secret := repository.GetSecret()
@@ -724,7 +724,7 @@ func (snapshot *Snapshot) prepareHeader(data []byte) ([]byte, error) {
 	}
 
 	if cache != nil {
-		cache.PutSnapshot(snapshot.repository.Configuration().RepositoryID.String(), snapshot.Header.GetIndexID().String(), buffer)
+		cache.PutSnapshot(snapshot.repository.Configuration().StoreID.String(), snapshot.Header.GetIndexID().String(), buffer)
 	}
 
 	return buffer, nil
@@ -761,7 +761,7 @@ func (snapshot *Snapshot) PutBlob(checksum [32]byte, data []byte) (int, error) {
 	}
 
 	if cache != nil {
-		cache.PutBlob(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
+		cache.PutBlob(snapshot.repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
 	return len(buffer), snapshot.repository.PutBlob(checksum, buffer)
@@ -798,7 +798,7 @@ func (snapshot *Snapshot) PutIndex(checksum [32]byte, data []byte) (int, error) 
 	}
 
 	if cache != nil {
-		//cache.PutIndex(snapshot.repository.Configuration().RepositoryID.String(), checksum, buffer)
+		//cache.PutIndex(snapshot.repository.Configuration().StoreID.String(), checksum, buffer)
 	}
 
 	return len(buffer), snapshot.repository.PutState(checksum, buffer)

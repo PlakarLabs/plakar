@@ -28,8 +28,8 @@ import (
 
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 	"github.com/pmezard/go-difflib/difflib"
 )
@@ -38,7 +38,7 @@ func init() {
 	registerCommand("diff", cmd_diff)
 }
 
-func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -46,7 +46,7 @@ func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshotsList(repository)
+	snapshots, err := getSnapshotsList(repo.Store())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,11 +67,11 @@ func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 			prefix2, _ := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := snapshot.Load(repository, res1[0])
+			snapshot1, err := snapshot.Load(repo.Store(), res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := snapshot.Load(repository, res2[0])
+			snapshot2, err := snapshot.Load(repo.Store(), res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -122,11 +122,11 @@ func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 			prefix2, file2 := parseSnapshotID(args[1])
 			res1 := findSnapshotByPrefix(snapshots, prefix1)
 			res2 := findSnapshotByPrefix(snapshots, prefix2)
-			snapshot1, err := snapshot.Load(repository, res1[0])
+			snapshot1, err := snapshot.Load(repo.Store(), res1[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			snapshot2, err := snapshot.Load(repository, res2[0])
+			snapshot2, err := snapshot.Load(repo.Store(), res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
@@ -142,11 +142,11 @@ func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 		prefix2, _ := parseSnapshotID(args[1])
 		res1 := findSnapshotByPrefix(snapshots, prefix1)
 		res2 := findSnapshotByPrefix(snapshots, prefix2)
-		snapshot1, err := snapshot.Load(repository, res1[0])
+		snapshot1, err := snapshot.Load(repo.Store(), res1[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 		}
-		snapshot2, err := snapshot.Load(repository, res2[0])
+		snapshot2, err := snapshot.Load(repo.Store(), res2[0])
 		if err != nil {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}

@@ -17,6 +17,7 @@ import (
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/dustin/go-humanize"
@@ -54,25 +55,25 @@ type Plakar struct {
 	//	maxConcurrency chan struct{}
 }
 
-var commands map[string]func(Plakar, *storage.Store, []string) int = make(map[string]func(Plakar, *storage.Store, []string) int)
+var commands map[string]func(Plakar, *repository.Repository, []string) int = make(map[string]func(Plakar, *repository.Repository, []string) int)
 
-func registerCommand(command string, fn func(Plakar, *storage.Store, []string) int) {
+func registerCommand(command string, fn func(Plakar, *repository.Repository, []string) int) {
 	commands[command] = fn
 }
 
-func executeCommand(ctx Plakar, repository *storage.Store, command string, args []string) (int, error) {
+func executeCommand(ctx Plakar, repo *repository.Repository, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
 
-	repositoryIndex, err := loadRepositoryState(repository)
+	repositoryIndex, err := loadRepositoryState(repo)
 	if err != nil {
 		return 0, err
 	}
-	repository.SetRepositoryIndex(repositoryIndex)
+	repo.Store().SetRepositoryIndex(repositoryIndex)
 
-	return fn(ctx, repository, args), nil
+	return fn(ctx, repo, args), nil
 }
 
 func main() {
@@ -256,21 +257,21 @@ func entryPoint() int {
 		skipPassphrase = true
 	}
 
-	repository, err := storage.Open(ctx.Repository)
+	store, err := storage.Open(ctx.Repository)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
 	}
 
-	if repository.Configuration().Version != storage.VERSION {
+	if store.Configuration().Version != storage.VERSION {
 		fmt.Fprintf(os.Stderr, "%s: incompatible repository version: %s != %s\n",
-			flag.CommandLine.Name(), repository.Configuration().Version, storage.VERSION)
+			flag.CommandLine.Name(), store.Configuration().Version, storage.VERSION)
 		return 1
 	}
 
 	var secret []byte
 	if !skipPassphrase {
-		if repository.Configuration().Encryption != "" {
+		if store.Configuration().Encryption != "" {
 			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
 			if ctx.KeyFromFile == "" {
 				attempts := 0
@@ -286,7 +287,7 @@ func entryPoint() int {
 						passphrase = []byte(envPassphrase)
 					}
 
-					secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
+					secret, err = encryption.DeriveSecret(passphrase, store.Configuration().EncryptionKey)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
 						attempts++
@@ -299,7 +300,7 @@ func entryPoint() int {
 					break
 				}
 			} else {
-				secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().EncryptionKey)
+				secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), store.Configuration().EncryptionKey)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					os.Exit(1)
@@ -309,12 +310,12 @@ func entryPoint() int {
 	}
 
 	//
-	repository.SetSecret(secret)
-	repository.SetCache(ctx.Cache)
-	repository.SetUsername(ctx.Username)
-	repository.SetHostname(ctx.Hostname)
-	repository.SetCommandLine(ctx.CommandLine)
-	repository.SetMachineID(ctx.MachineID)
+	store.SetSecret(secret)
+	store.SetCache(ctx.Cache)
+	store.SetUsername(ctx.Username)
+	store.SetHostname(ctx.Hostname)
+	store.SetCommandLine(ctx.CommandLine)
+	store.SetMachineID(ctx.MachineID)
 
 	done := make(chan bool, 1)
 	if opt_stats > 0 {
@@ -339,8 +340,8 @@ func entryPoint() int {
 
 					elapsedSeconds := time.Since(t0).Seconds()
 
-					rbytes := repository.GetRBytes()
-					wbytes := repository.GetWBytes()
+					rbytes := store.GetRBytes()
+					wbytes := store.GetWBytes()
 
 					rbytesAvg := rbytes / uint64(elapsedSeconds)
 					wbytesAvg := wbytes / uint64(elapsedSeconds)
@@ -393,6 +394,8 @@ func entryPoint() int {
 		}()
 	}
 
+	repository := repository.New(store)
+
 	// commands below all operate on an open repository
 	t0 := time.Now()
 	status, err := executeCommand(ctx, repository, command, args)
@@ -403,7 +406,7 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 	}
 
-	err = repository.Close()
+	err = store.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
 	}

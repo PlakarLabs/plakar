@@ -23,14 +23,14 @@ import (
 
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_checksum(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 	var enableFastChecksum bool
 
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)
@@ -43,7 +43,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
@@ -59,7 +59,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Store, args []string) int {
 			continue
 		}
 
-		hasher := hashing.GetHasher(repository.Configuration().Hashing)
+		hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
 		hasher.Write([]byte(pathname))
 		pathnameChecksum := hasher.Sum(nil)
 		key := [32]byte{}
@@ -86,7 +86,7 @@ func cmd_checksum(ctx Plakar, repository *storage.Store, args []string) int {
 				continue
 			}
 
-			hasher := hashing.GetHasher(repository.Configuration().Hashing)
+			hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
 			if _, err := io.Copy(hasher, rd); err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++

@@ -19,14 +19,14 @@ package main
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("cleanup", cmd_cleanup)
 }
 
-func cmd_cleanup(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_cleanup(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
 

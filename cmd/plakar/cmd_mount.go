@@ -26,7 +26,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/plakarfs"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/jacobsa/fuse"
 )
 
@@ -34,7 +34,7 @@ func init() {
 	registerCommand("mount", cmd_mount)
 }
 
-func cmd_mount(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_mount(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("mount", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -46,7 +46,7 @@ func cmd_mount(ctx Plakar, repository *storage.Store, args []string) int {
 	mountpoint := flags.Arg(0)
 
 	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(repository, mountpoint)
+	server, err := plakarfs.NewPlakarFS(repo.Store(), mountpoint)
 	if err != nil {
 		log.Fatalf("makeFS: %v", err)
 	}

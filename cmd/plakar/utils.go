@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -348,8 +349,8 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 	return false
 }
 
-func loadRepositoryState(repository *storage.Store) (*state.State, error) {
-	indexes, err := repository.GetStates()
+func loadRepositoryState(repo *repository.Repository) (*state.State, error) {
+	indexes, err := repo.Store().GetStates()
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +364,7 @@ func loadRepositoryState(repository *storage.Store) (*state.State, error) {
 		wg.Add(1)
 		go func(indexID [32]byte) {
 			defer wg.Done()
-			idx, err := snapshot.GetState(repository, indexID)
+			idx, err := snapshot.GetState(repo.Store(), indexID)
 			if err == nil {
 				repositoryIndex.Merge(indexID, idx)
 			}

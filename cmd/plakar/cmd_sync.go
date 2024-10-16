@@ -25,6 +25,7 @@ import (
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -60,13 +61,13 @@ func cmd_sync(ctx Plakar, repository *storage.Store, args []string) int {
 	var dstRepository *storage.Store
 	var err error
 	if direction == "to" {
-		srcRepository = repository
+		srcRepository = repo.Store()
 		dstRepository, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryState(dstRepository)
+		repositoryIndex, err := loadRepositoryState(repository.New(dstRepository))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstRepository.Location, err)
 			return 1
@@ -75,13 +76,13 @@ func cmd_sync(ctx Plakar, repository *storage.Store, args []string) int {
 		dstRepository.SetRepositoryIndex(repositoryIndex)
 
 	} else if direction == "from" {
-		dstRepository = repository
+		dstRepository = repo.Store()
 		srcRepository, err = storage.Open(syncRepository)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
 			return 1
 		}
-		repositoryIndex, err := loadRepositoryState(srcRepository)
+		repositoryIndex, err := loadRepositoryState(repository.New(srcRepository))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcRepository.Location, err)
 			return 1

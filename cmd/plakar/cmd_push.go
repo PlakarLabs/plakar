@@ -28,9 +28,9 @@ import (
 
 	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
 )
@@ -50,7 +50,7 @@ func (e *excludeFlags) Set(value string) error {
 	return nil
 }
 
-func cmd_push(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags
@@ -104,7 +104,7 @@ func cmd_push(ctx Plakar, repository *storage.Store, args []string) int {
 	}
 	_ = excludes
 
-	snap, err := snapshot.New(repository, uuid.Must(uuid.NewRandom()))
+	snap, err := snapshot.New(repo.Store(), uuid.Must(uuid.NewRandom()))
 	if err != nil {
 		logger.Error("%s", err)
 		return 1

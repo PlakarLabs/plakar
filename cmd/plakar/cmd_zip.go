@@ -27,13 +27,13 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/helpers"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("zip", cmd_zip)
 }
-func cmd_zip(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_zip(ctx Plakar, repo *repository.Repository, args []string) int {
 	var zipPath string
 	var zipRebase bool
 
@@ -46,7 +46,7 @@ func cmd_zip(ctx Plakar, repository *storage.Store, args []string) int {
 		log.Fatalf("%s: need at least one snapshot ID to pull", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -21,15 +21,15 @@ import (
 	"log"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("check", cmd_check)
 }
 
-func cmd_check(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
@@ -41,12 +41,12 @@ func cmd_check(ctx Plakar, repository *storage.Store, args []string) int {
 	failures := false
 
 	if flags.NArg() == 0 {
-		uuids, err := snapshot.List(repository)
+		uuids, err := snapshot.List(repo.Store())
 		if err != nil {
 			log.Fatal(err)
 		}
 		for _, uuid := range uuids {
-			snapshot, err := snapshot.Load(repository, uuid)
+			snapshot, err := snapshot.Load(repo.Store(), uuid)
 			if err != nil {
 				logger.Warn("%s", err)
 				continue
@@ -66,7 +66,7 @@ func cmd_check(ctx Plakar, repository *storage.Store, args []string) int {
 		}
 
 	} else {
-		snapshots, err = getSnapshots(repository, flags.Args())
+		snapshots, err = getSnapshots(repo.Store(), flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -23,14 +23,14 @@ import (
 	"os"
 
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("gzcat", cmd_gzcat)
 }
 
-func cmd_gzcat(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_gzcat(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("gzcat", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -39,7 +39,7 @@ func cmd_gzcat(ctx Plakar, repository *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1

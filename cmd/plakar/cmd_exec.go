@@ -25,14 +25,14 @@ import (
 
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("exec", cmd_exec)
 }
 
-func cmd_exec(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -41,7 +41,7 @@ func cmd_exec(ctx Plakar, repository *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, []string{flags.Args()[0]})
+	snapshots, err := getSnapshots(repo.Store(), []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func cmd_exec(ctx Plakar, repository *storage.Store, args []string) int {
 	snapshot := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	hasher := hashing.GetHasher(repository.Configuration().Hashing)
+	hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
 	hasher.Write([]byte(pathname))
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}

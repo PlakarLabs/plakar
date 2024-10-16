@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 )
@@ -63,15 +64,15 @@ func init() {
 	registerCommand("info", cmd_info)
 }
 
-func cmd_info(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 	if len(args) == 0 {
-		return info_plakar(repository)
+		return info_plakar(repo.Store())
 	}
 
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
-	metadatas, err := getHeaders(repository, flags.Args())
+	metadatas, err := getHeaders(repo.Store(), flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +82,7 @@ func cmd_info(ctx Plakar, repository *storage.Store, args []string) int {
 		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
 		fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
 
-		fmt.Printf("Version: %s\n", repository.Configuration().Version)
+		fmt.Printf("Version: %s\n", repo.Store().Configuration().Version)
 		fmt.Printf("Hostname: %s\n", metadata.Hostname)
 		fmt.Printf("Username: %s\n", metadata.Username)
 		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)

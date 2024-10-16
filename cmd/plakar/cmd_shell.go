@@ -23,7 +23,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/anmitsu/go-shlex"
 )
 
@@ -31,7 +31,7 @@ func init() {
 	registerCommand("shell", cmd_shell)
 }
 
-func cmd_shell(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_shell(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("shell", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -53,7 +53,7 @@ func cmd_shell(ctx Plakar, repository *storage.Store, args []string) int {
 			break
 		}
 
-		exitCode, _ := executeCommand(ctx, repository, argv[0], argv[1:])
+		exitCode, _ := executeCommand(ctx, repo, argv[0], argv[1:])
 		if exitCode == -1 {
 			fmt.Fprintf(os.Stderr, "%s: unsupported command: %s", flag.CommandLine.Name(), argv[0])
 		}

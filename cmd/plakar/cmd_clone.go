@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
@@ -31,7 +32,7 @@ func init() {
 	registerCommand("clone", cmd_clone)
 }
 
-func cmd_clone(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,7 +41,7 @@ func cmd_clone(ctx Plakar, repository *storage.Store, args []string) int {
 		return 1
 	}
 
-	sourceRepository := repository
+	sourceRepository := repo.Store()
 	repositoryConfig := sourceRepository.Configuration()
 
 	cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)

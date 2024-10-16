@@ -20,31 +20,31 @@ import (
 	"flag"
 	"log"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("fork", cmd_fork)
 }
 
-func cmd_fork(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_fork(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	flags := flag.NewFlagSet("fork", flag.ExitOnError)
 	flags.Parse(args)
 
 	if len(args) != 1 {
 		log.Fatal("need a snapshot ID to fork")
-		return info_plakar(repository)
+		return info_plakar(repo.Store())
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, snap := range snapshots {
-		nsnap, err := snapshot.Fork(repository, snap.Header.IndexID)
+		nsnap, err := snapshot.Fork(repo.Store(), snap.Header.IndexID)
 		if err != nil {
 			log.Fatal(err)
 		}

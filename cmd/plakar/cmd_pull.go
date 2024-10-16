@@ -23,16 +23,16 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/exporter"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("pull", cmd_pull)
 }
 
-func cmd_pull(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter
@@ -61,7 +61,7 @@ func cmd_pull(ctx Plakar, repository *storage.Store, args []string) int {
 	defer exporterInstance.Close()
 
 	if flags.NArg() == 0 {
-		metadatas, err := getHeaders(repository, nil)
+		metadatas, err := getHeaders(repo.Store(), nil)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -70,7 +70,7 @@ func cmd_pull(ctx Plakar, repository *storage.Store, args []string) int {
 			metadata := metadatas[i-1]
 			for _, scannedDir := range metadata.ScannedDirectories {
 				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(repository, metadata.GetIndexID())
+					snap, err := snapshot.Load(repo.Store(), metadata.GetIndexID())
 					if err != nil {
 						return 1
 					}
@@ -83,7 +83,7 @@ func cmd_pull(ctx Plakar, repository *storage.Store, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

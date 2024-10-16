@@ -29,14 +29,14 @@ import (
 
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 
@@ -54,7 +54,7 @@ func cmd_tarball(ctx Plakar, repository *storage.Store, args []string) int {
 		log.Fatal(err)
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo.Store(), flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}

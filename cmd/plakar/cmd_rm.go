@@ -27,15 +27,15 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("rm", cmd_rm)
 }
 
-func cmd_rm(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_rm(ctx Plakar, repo *repository.Repository, args []string) int {
 	var opt_older string
 	var opt_tag string
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
@@ -110,20 +110,20 @@ func cmd_rm(ctx Plakar, repository *storage.Store, args []string) int {
 	var snapshots []*snapshot.Snapshot
 	if opt_older != "" || opt_tag != "" {
 		if flags.NArg() != 0 {
-			tmp, err := getSnapshots(repository, flags.Args())
+			tmp, err := getSnapshots(repo.Store(), flags.Args())
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		} else {
-			tmp, err := getSnapshots(repository, nil)
+			tmp, err := getSnapshots(repo.Store(), nil)
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		}
 	} else {
-		tmp, err := getSnapshots(repository, flags.Args())
+		tmp, err := getSnapshots(repo.Store(), flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -152,7 +152,7 @@ func cmd_rm(ctx Plakar, repository *storage.Store, args []string) int {
 		fmt.Println("deleting snapshot", snap.Header.GetIndexID())
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := repository.DeleteSnapshot(snap.Header.GetIndexID())
+			err := repo.Store().DeleteSnapshot(snap.Header.GetIndexID())
 			if err != nil {
 				logger.Error("%s", err)
 				errors++

@@ -28,19 +28,19 @@ import (
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/packfile"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("packfile", cmd_packfile)
 }
 
-func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("packfile", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		packfiles, err := repository.GetPackfiles()
+		packfiles, err := repo.Store().GetPackfiles()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -64,7 +64,7 @@ func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rawPackfile, err := repository.GetPackfile(byteArray)
+			rawPackfile, err := repo.Store().GetPackfile(byteArray)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -78,7 +78,7 @@ func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
 			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
 			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
 
-			secret := repository.GetSecret()
+			secret := repo.Store().GetSecret()
 
 			decryptedFooter := footerbuf
 			if secret != nil {
@@ -88,9 +88,9 @@ func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
 					log.Fatal(err)
 				}
 			}
-			if repository.Configuration().Compression != "" {
+			if repo.Store().Configuration().Compression != "" {
 				// Decompress the packfile
-				decryptedFooter, err = compression.Inflate(repository.Configuration().Compression, decryptedFooter)
+				decryptedFooter, err = compression.Inflate(repo.Store().Configuration().Compression, decryptedFooter)
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -111,9 +111,9 @@ func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
 					log.Fatal(err)
 				}
 			}
-			if repository.Configuration().Compression != "" {
+			if repo.Store().Configuration().Compression != "" {
 				// Decompress the packfile
-				decryptedIndex, err = compression.Inflate(repository.Configuration().Compression, decryptedIndex)
+				decryptedIndex, err = compression.Inflate(repo.Store().Configuration().Compression, decryptedIndex)
 				if err != nil {
 					log.Fatal(err)
 				}

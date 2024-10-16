@@ -22,15 +22,15 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("keep", cmd_keep)
 }
 
-func cmd_keep(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_keep(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -43,7 +43,7 @@ func cmd_keep(ctx Plakar, repository *storage.Store, args []string) int {
 		log.Fatalf("%s: %s: need a number of snapshots to keep", flag.CommandLine.Name(), args[0])
 	}
 
-	snapshotsList, err := getSnapshotsList(repository)
+	snapshotsList, err := getSnapshotsList(repo.Store())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func cmd_keep(ctx Plakar, repository *storage.Store, args []string) int {
 		return 0
 	}
 
-	snapshots, err := getSnapshots(repository, nil)
+	snapshots, err := getSnapshots(repo.Store(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func cmd_keep(ctx Plakar, repository *storage.Store, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			repository.DeleteSnapshot(snap.Header.GetIndexID())
+			repo.Store().DeleteSnapshot(snap.Header.GetIndexID())
 			wg.Done()
 		}(snap)
 	}

@@ -30,6 +30,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
@@ -39,7 +40,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_ls(ctx Plakar, repo *repository.Repository, args []string) int {
 	var opt_recursive bool
 	var opt_tag string
 	var opt_uuid bool
@@ -51,14 +52,14 @@ func cmd_ls(ctx Plakar, repository *storage.Store, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(repository, opt_uuid, opt_tag)
+		list_snapshots(repo.Store(), opt_uuid, opt_tag)
 		return 0
 	}
 
 	if opt_recursive {
-		list_snapshot_recursive(repository, flags.Args())
+		list_snapshot_recursive(repo.Store(), flags.Args())
 	} else {
-		list_snapshot(repository, flags.Args())
+		list_snapshot(repo.Store(), flags.Args())
 	}
 	return 0
 }

@@ -25,15 +25,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_find(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -42,12 +42,12 @@ func cmd_find(ctx Plakar, repository *storage.Store, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(repository)
+	snapshotsList, err := getSnapshotsList(repo.Store())
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(repository, snapshotUuid)
+		snap, err := snapshot.Load(repo.Store(), snapshotUuid)
 		if err != nil {
 			log.Fatal(err)
 			return 1

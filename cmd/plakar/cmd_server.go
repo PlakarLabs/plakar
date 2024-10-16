@@ -20,16 +20,16 @@ import (
 	"flag"
 
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/server/httpd"
 	"github.com/PlakarLabs/plakar/server/plakard"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, repository *storage.Store, args []string) int {
+func cmd_server(ctx Plakar, repo *repository.Repository, args []string) int {
 	var opt_protocol string
 	var opt_nodelete bool
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
@@ -44,14 +44,14 @@ func cmd_server(ctx Plakar, repository *storage.Store, args []string) int {
 
 	switch opt_protocol {
 	case "http":
-		httpd.Server(repository, addr, opt_nodelete)
+		httpd.Server(repo.Store(), addr, opt_nodelete)
 	case "plakar":
 		options := &plakard.ServerOptions{
 			NoOpen:   true,
 			NoCreate: true,
 			NoDelete: opt_nodelete,
 		}
-		plakard.Server(repository, addr, options)
+		plakard.Server(repo.Store(), addr, options)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

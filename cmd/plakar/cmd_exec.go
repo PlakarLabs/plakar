@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -51,9 +50,8 @@ func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 	snapshot := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	hasher := hashing.GetHasher(repo.Configuration().Hashing)
-	hasher.Write([]byte(pathname))
-	pathnameChecksum := hasher.Sum(nil)
+	pathnameChecksum := repo.Checksum([]byte(pathname))
+
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)

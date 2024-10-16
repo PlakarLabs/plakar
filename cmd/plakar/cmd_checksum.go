@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -59,9 +58,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 			continue
 		}
 
-		hasher := hashing.GetHasher(repo.Configuration().Hashing)
-		hasher.Write([]byte(pathname))
-		pathnameChecksum := hasher.Sum(nil)
+		pathnameChecksum := repo.Checksum([]byte(pathname))
 		key := [32]byte{}
 		copy(key[:], pathnameChecksum)
 		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
@@ -86,7 +83,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 				continue
 			}
 
-			hasher := hashing.GetHasher(repo.Configuration().Hashing)
+			hasher := repo.Hasher()
 			if _, err := io.Copy(hasher, rd); err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++

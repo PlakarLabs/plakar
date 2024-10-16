@@ -31,7 +31,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -371,9 +370,8 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	hasher := hashing.GetHasher(lrepository.Configuration().Hashing)
-	hasher.Write([]byte(path))
-	pathnameChecksum := hasher.Sum(nil)
+	pathnameChecksum := lrepository.Checksum([]byte(path))
+
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
@@ -464,9 +462,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	hasher := hashing.GetHasher(lrepository.Configuration().Hashing)
-	hasher.Write([]byte(path))
-	pathnameChecksum := hasher.Sum(nil)
+	pathnameChecksum := lrepository.Checksum([]byte(path))
+
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
@@ -608,9 +605,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		}
 		for file := range snap.Filesystem.Pathnames() {
 			if strings.Contains(file, q) {
-				hasher := hashing.GetHasher(lrepository.Configuration().Hashing)
-				hasher.Write([]byte(file))
-				pathnameChecksum := hasher.Sum(nil)
+				pathnameChecksum := lrepository.Checksum([]byte(file))
 				key := [32]byte{}
 				copy(key[:], pathnameChecksum)
 				object, err := snap.Index.LookupObjectForPathnameChecksum(key)

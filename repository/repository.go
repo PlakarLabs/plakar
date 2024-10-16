@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"hash"
 	"time"
 
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/repository/state"
@@ -131,6 +133,16 @@ func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 	}
 
 	return buffer, nil
+}
+
+func (r *Repository) Hasher() hash.Hash {
+	return hashing.GetHasher(r.Configuration().Hashing)
+}
+
+func (r *Repository) Checksum(data []byte) []byte {
+	hasher := r.Hasher()
+	hasher.Write(data)
+	return hasher.Sum(nil)
 }
 
 func (r *Repository) State() *state.State {

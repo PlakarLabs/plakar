@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"hash"
 
-	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 )
 
@@ -50,7 +49,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 
 	ret := true
 
-	objectHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
+	objectHasher := snapshot.repository.Hasher()
 	for _, chunkChecksum := range object.Chunks {
 		_, err := snapshotCheckChunk(snapshot, chunkChecksum, objectHasher, fast)
 		if err != nil {
@@ -69,9 +68,8 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 }
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
-	hasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
-	hasher.Write([]byte(resource))
-	pathnameChecksum := hasher.Sum(nil)
+	pathnameChecksum := snapshot.repository.Checksum([]byte(resource))
+
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 
@@ -108,9 +106,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 
-			chunkHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
-			chunkHasher.Write(data)
-			if !bytes.Equal(chunkHasher.Sum(nil), checksum[:]) {
+			if !bytes.Equal(snapshot.repository.Checksum(data), checksum[:]) {
 				logger.Warn("%s: corrupted chunk %064x", snapshot.Header.GetIndexShortID(), checksum)
 				ret = false
 				continue
@@ -132,7 +128,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				ret = false
 				continue
 			}
-			objectHasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
+			objectHasher := snapshot.repository.Hasher()
 			for _, chunkChecksum := range object.Chunks {
 				indexChunk, err := snapshot.Index.LookupChunk(chunkChecksum)
 				if err != nil {
@@ -163,9 +159,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 	}
 
 	for filename := range snapshot.Filesystem.Files() {
-		hasher := hashing.GetHasher(snapshot.repository.Configuration().Hashing)
-		hasher.Write([]byte(filename))
-		pathnameChecksum := hasher.Sum(nil)
+		pathnameChecksum := snapshot.repository.Checksum([]byte(filename))
 		key := [32]byte{}
 		copy(key[:], pathnameChecksum)
 		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)

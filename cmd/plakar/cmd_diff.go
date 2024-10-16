@@ -26,7 +26,6 @@ import (
 	"os/user"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -151,9 +150,7 @@ func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 			log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 		}
 		for i := 2; i < len(args); i++ {
-			hasher := hashing.GetHasher(snapshot1.Repository().Configuration().Hashing)
-			hasher.Write([]byte(args[i]))
-			pathnameChecksum := hasher.Sum(nil)
+			pathnameChecksum := repo.Checksum([]byte(args[i]))
 			key := [32]byte{}
 			copy(key[:], pathnameChecksum)
 			object1, err := snapshot1.Index.LookupObjectForPathnameChecksum(key)
@@ -199,9 +196,8 @@ func fiToDiff(fi objects.FileInfo) string {
 }
 
 func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, filename1 string, filename2 string) {
-	hasher := hashing.GetHasher(snapshot1.Repository().Configuration().Hashing)
-	hasher.Write([]byte(filename1))
-	pathnameChecksum := hasher.Sum(nil)
+	pathnameChecksum := snapshot1.Repository().Checksum([]byte(filename1))
+
 	key := [32]byte{}
 	copy(key[:], pathnameChecksum)
 	object1, err := snapshot1.Index.LookupObjectForPathnameChecksum(key)
@@ -210,9 +206,8 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 		return
 	}
 
-	hasher = hashing.GetHasher(snapshot2.Repository().Configuration().Hashing)
-	hasher.Write([]byte(filename2))
-	pathnameChecksum = hasher.Sum(nil)
+	pathnameChecksum = snapshot2.Repository().Checksum([]byte(filename2))
+
 	key = [32]byte{}
 	copy(key[:], pathnameChecksum)
 	object2, err := snapshot2.Index.LookupObjectForPathnameChecksum(key)

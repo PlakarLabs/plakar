@@ -20,12 +20,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
 func cmd_create(ctx Plakar, args []string) int {
@@ -41,32 +39,13 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
 	flags.Parse(args)
 
-	repositoryConfig := storage.Configuration{}
-	repositoryConfig.Version = storage.VERSION
-	repositoryConfig.StoreID = uuid.Must(uuid.NewRandom())
-	repositoryConfig.CreationTime = time.Now()
+	storageConfiguration := storage.NewConfiguration()
 	if opt_nocompression {
-		repositoryConfig.Compression = ""
+		storageConfiguration.Compression = ""
 	} else {
-		repositoryConfig.Compression = opt_compression
+		storageConfiguration.Compression = opt_compression
 	}
-
-	repositoryConfig.Hashing = opt_hashing
-
-	/*
-		repositoryConfig.Chunking = "ultracdc"
-		repositoryConfig.ChunkingMin = 2 << 10
-		repositoryConfig.ChunkingNormal = repositoryConfig.ChunkingMin + (8 << 10)
-		repositoryConfig.ChunkingMax = 64 << 10
-	*/
-
-	repositoryConfig.Chunking = "fastcdc"
-	repositoryConfig.ChunkingMin = 64 << 10
-	repositoryConfig.ChunkingNormal = (1 << 10) << 10
-	repositoryConfig.ChunkingMax = (8 << 10) << 10
-
-	//repositoryConfig.PackfileSize = 4096 << 10
-	repositoryConfig.PackfileSize = (20 << 10) << 10
+	storageConfiguration.Hashing = opt_hashing
 
 	if !opt_noencryption {
 		var passphrase []byte
@@ -89,20 +68,20 @@ func cmd_create(ctx Plakar, args []string) int {
 		} else {
 			passphrase = []byte(ctx.KeyFromFile)
 		}
-		repositoryConfig.Encryption = "AES256-GCM"
-		repositoryConfig.EncryptionKey = encryption.BuildSecretFromPassphrase(passphrase)
+		storageConfiguration.Encryption = "AES256-GCM"
+		storageConfiguration.EncryptionKey = encryption.BuildSecretFromPassphrase(passphrase)
 	}
 
 	switch flags.NArg() {
 	case 0:
-		repository, err := storage.Create(ctx.Repository, repositoryConfig)
+		repository, err := storage.Create(ctx.Repository, *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repository.Close()
 	case 1:
-		repository, err := storage.Create(flags.Arg(0), repositoryConfig)
+		repository, err := storage.Create(flags.Arg(0), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1

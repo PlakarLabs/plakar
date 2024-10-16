@@ -60,6 +60,21 @@ type Configuration struct {
 	PackfileSize int
 }
 
+func NewConfiguration() *Configuration {
+	return &Configuration{
+		Version:        VERSION,
+		StoreID:        uuid.Must(uuid.NewRandom()),
+		CreationTime:   time.Now(),
+		Compression:    "lz4",
+		Hashing:        "sha256",
+		Chunking:       "fastcdc",
+		ChunkingMin:    64 << 10,
+		ChunkingNormal: (1 << 10) << 10,
+		ChunkingMax:    (8 << 10) << 10,
+		PackfileSize:   (20 << 10) << 10,
+	}
+}
+
 type Backend interface {
 	Create(repository string, configuration Configuration) error
 	Open(repository string) error

@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -198,7 +197,7 @@ func list_snapshot_recursive(repo *repository.Repository, args []string) {
 		})
 
 		for _, name := range directories {
-			if !helpers.PathIsWithin(name, prefix) {
+			if !pathIsWithin(name, prefix) {
 				continue
 			}
 			list_snapshot_recursive_directory(pvfs, name)
@@ -214,7 +213,7 @@ func list_snapshot_recursive(repo *repository.Repository, args []string) {
 
 		for _, name := range filenames {
 			fi, _ := pvfs.Stat(name)
-			if !helpers.PathIsWithin(name, prefix) && name != prefix {
+			if !pathIsWithin(name, prefix) && name != prefix {
 				continue
 			}
 
@@ -252,7 +251,7 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 
 	for _, name := range directories {
 		fi, _ := pvfs.Stat(name)
-		if !helpers.PathIsWithin(name, directory) {
+		if !pathIsWithin(name, directory) {
 			continue
 		}
 		if name == "/" || name == directory {
@@ -290,7 +289,7 @@ func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 
 	for _, name := range filenames {
 		fi, _ := pvfs.Stat(name)
-		if !helpers.PathIsWithin(name, directory) && name != directory {
+		if !pathIsWithin(name, directory) && name != directory {
 			continue
 		}
 

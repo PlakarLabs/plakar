@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -427,4 +428,15 @@ func checkUpdate() (ReleaseUpdateSummary, error) {
 	} else {
 		return ReleaseUpdateSummary{FoundCount: foundCount, Latest: latestEntry.Title, SecurityFix: sawSecurityFix, ReliabilityFix: sawReliabilityFix}, nil
 	}
+}
+
+func pathIsWithin(pathname string, within string) bool {
+	cleanPath := filepath.Clean(pathname)
+	cleanWithin := filepath.Clean(within)
+
+	if cleanWithin == "/" {
+		return true
+	}
+
+	return strings.HasPrefix(cleanPath, cleanWithin+"/")
 }

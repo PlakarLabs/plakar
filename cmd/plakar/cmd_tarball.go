@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -80,7 +79,7 @@ func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 		for file := range snapshot.Filesystem.Pathnames() {
 
 			if prefix != "" {
-				if !helpers.PathIsWithin(file, prefix) {
+				if !pathIsWithin(file, prefix) {
 					continue
 				}
 			}

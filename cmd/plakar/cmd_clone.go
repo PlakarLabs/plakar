@@ -41,7 +41,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	sourceRepository := repo.Store()
+	sourceRepository := repo
 	repositoryConfig := sourceRepository.Configuration()
 
 	cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)

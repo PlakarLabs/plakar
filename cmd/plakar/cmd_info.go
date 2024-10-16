@@ -81,7 +81,7 @@ func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
 		fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
 
-		fmt.Printf("Version: %s\n", repo.Store().Configuration().Version)
+		fmt.Printf("Version: %s\n", repo.Configuration().Version)
 		fmt.Printf("Hostname: %s\n", metadata.Hostname)
 		fmt.Printf("Username: %s\n", metadata.Username)
 		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)

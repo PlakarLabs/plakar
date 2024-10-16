@@ -152,7 +152,7 @@ func cmd_rm(ctx Plakar, repo *repository.Repository, args []string) int {
 		fmt.Println("deleting snapshot", snap.Header.GetIndexID())
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := repo.Store().DeleteSnapshot(snap.Header.GetIndexID())
+			err := repo.DeleteSnapshot(snap.Header.GetIndexID())
 			if err != nil {
 				logger.Error("%s", err)
 				errors++

@@ -59,7 +59,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 			continue
 		}
 
-		hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
+		hasher := hashing.GetHasher(repo.Configuration().Hashing)
 		hasher.Write([]byte(pathname))
 		pathnameChecksum := hasher.Sum(nil)
 		key := [32]byte{}
@@ -86,7 +86,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 				continue
 			}
 
-			hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
+			hasher := hashing.GetHasher(repo.Configuration().Hashing)
 			if _, err := io.Copy(hasher, rd); err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++

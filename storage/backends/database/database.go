@@ -24,7 +24,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 
@@ -34,8 +33,6 @@ import (
 
 type Repository struct {
 	config storage.Configuration
-
-	Cache *cache.Cache
 
 	backend string
 

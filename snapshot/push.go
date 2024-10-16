@@ -27,41 +27,6 @@ type PushOptions struct {
 	Excludes       []glob.Glob
 }
 
-func pathnameCached(snapshot *Snapshot, fi objects.FileInfo, pathname string) (*objects.Object, error) {
-	cache := snapshot.repository.Store().GetCache()
-
-	if cache == nil {
-		return nil, nil
-	}
-
-	cachedObject, err := snapshot.GetCachedObject(pathname)
-	if err != nil {
-		return nil, nil
-	}
-
-	if cachedObject.Info.Mode() != fi.Mode() || cachedObject.Info.Dev() != fi.Dev() || cachedObject.Info.Size() != fi.Size() || cachedObject.Info.ModTime() != fi.ModTime() {
-		return nil, nil
-	}
-
-	object := objects.Object{}
-	object.Checksum = cachedObject.Checksum
-	object.Chunks = make([][32]byte, 0)
-	for _, chunk := range cachedObject.Chunks {
-		object.Chunks = append(object.Chunks, chunk.Checksum)
-	}
-	object.ContentType = cachedObject.ContentType
-
-	for offset := range object.Chunks {
-		chunk := cachedObject.Chunks[offset]
-		exists := snapshot.CheckChunk(chunk.Checksum)
-		if !exists {
-			return nil, nil
-		}
-		snapshot.Index.AddChunk(cachedObject.Chunks[offset])
-	}
-	return &object, nil
-}
-
 func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi objects.FileInfo) (*objects.Object, error) {
 	rd, err := imp.NewReader(filepath.FromSlash(pathname))
 	if err != nil {
@@ -224,8 +189,6 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 
 	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
 
-	cache := snapshot.repository.Store().Cache
-
 	snapshot.Header.ScannedDirectories = make([]string, 0)
 
 	if !strings.Contains(scanDir, "://") {
@@ -302,14 +265,17 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 				atomic.AddUint64(&snapshot.Header.ScanSize, uint64(_record.Stat.Size()))
 
 				var object *objects.Object
-				object, err := pathnameCached(snapshot, _record.Stat, _record.Pathname)
-				if err != nil {
-					logger.Warn("%s: %s", _record.Pathname, err)
-				}
-				exists := false
-				if object != nil {
-					exists = snapshot.CheckObject(object.Checksum)
-				}
+				var exists bool
+				/*
+					object, err := pathnameCached(snapshot, _record.Stat, _record.Pathname)
+					if err != nil {
+						logger.Warn("%s: %s", _record.Pathname, err)
+					}
+					exists := false
+					if object != nil {
+						exists = snapshot.CheckObject(object.Checksum)
+					}
+				*/
 
 				// can't reuse object from cache, chunkify
 				if object == nil || !exists {
@@ -317,9 +283,6 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 					if err != nil {
 						logger.Warn("%s: could not chunkify: %s", _record.Pathname, err)
 						return
-					}
-					if cache != nil {
-						snapshot.PutCachedObject(_record.Pathname, *object, _record.Stat)
 					}
 
 					exists, err := snapshot.Index.ObjectExists(object.Checksum)

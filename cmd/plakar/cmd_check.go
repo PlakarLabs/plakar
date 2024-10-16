@@ -41,7 +41,7 @@ func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
 	failures := false
 
 	if flags.NArg() == 0 {
-		uuids, err := snapshot.List(repo.Store())
+		uuids, err := snapshot.List(repo)
 		if err != nil {
 			log.Fatal(err)
 		}

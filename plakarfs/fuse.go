@@ -94,7 +94,7 @@ func (fs *plakarFS) getInode(pathname string) (fuseops.InodeID, bool) {
 func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
 	entry, exists := fs.headerCache.Load(snapshotID)
 	if !exists {
-		md, _, err := snapshot.GetSnapshot(fs.repository.Store(), snapshotID)
+		md, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
 		if err != nil {
 			return md, err
 		}
@@ -107,7 +107,7 @@ func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
 func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
-		hdr, _, err := snapshot.GetSnapshot(fs.repository.Store(), snapshotID)
+		hdr, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error)
 		var filesystemChecksum32 [32]byte
 		copy(filesystemChecksum32[:], hdr.VFS.Checksum[:])
 
-		filesystem, _, err := snapshot.GetFilesystem(fs.repository.Store(), filesystemChecksum32)
+		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
 		if err != nil {
 			return nil, err
 		}
@@ -337,7 +337,7 @@ func (fs *plakarFS) OpenDir(
 	op *fuseops.OpenDirOp) error {
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository.Store())
+		snapshotIDs, err := snapshot.List(fs.repository)
 		if err != nil {
 			return fuse.EIO
 		}
@@ -415,7 +415,7 @@ func (fs *plakarFS) ReadDir(
 	dirents := make([]*fuseutil.Dirent, 0)
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository.Store())
+		snapshotIDs, err := snapshot.List(fs.repository)
 		if err != nil {
 			return fuse.EIO
 		}

@@ -61,7 +61,7 @@ func cmd_keep(ctx Plakar, repo *repository.Repository, args []string) int {
 	for _, snap := range snapshots {
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			repo.Store().DeleteSnapshot(snap.Header.GetIndexID())
+			repo.DeleteSnapshot(snap.Header.GetIndexID())
 			wg.Done()
 		}(snap)
 	}

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
@@ -47,8 +46,6 @@ type Plakar struct {
 	MachineID   string
 
 	HomeDir string
-
-	Cache *cache.Cache
 
 	KeyFromFile string
 
@@ -311,7 +308,6 @@ func entryPoint() int {
 
 	//
 	store.SetSecret(secret)
-	store.SetCache(ctx.Cache)
 	store.SetUsername(ctx.Username)
 	store.SetHostname(ctx.Hostname)
 	store.SetCommandLine(ctx.CommandLine)

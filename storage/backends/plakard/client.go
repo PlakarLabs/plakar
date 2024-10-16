@@ -31,14 +31,10 @@ import (
 	giturls "github.com/whilp/git-urls"
 
 	"sync"
-
-	"github.com/PlakarLabs/plakar/cache"
 )
 
 type Repository struct {
 	config storage.Configuration
-
-	Cache *cache.Cache
 
 	encoder *gob.Encoder
 	decoder *gob.Decoder

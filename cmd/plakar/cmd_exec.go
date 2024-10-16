@@ -51,7 +51,7 @@ func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 	snapshot := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	hasher := hashing.GetHasher(repo.Store().Configuration().Hashing)
+	hasher := hashing.GetHasher(repo.Configuration().Hashing)
 	hasher.Write([]byte(pathname))
 	pathnameChecksum := hasher.Sum(nil)
 	key := [32]byte{}

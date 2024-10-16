@@ -29,7 +29,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cache"
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/locking"
@@ -121,8 +120,7 @@ type Store struct {
 	CommandLine string
 	MachineID   string
 
-	Cache *cache.Cache
-	Key   []byte
+	Key []byte
 
 	index *state.State
 
@@ -264,10 +262,6 @@ func (store *Store) GetWBytes() uint64 {
 	return atomic.LoadUint64(&store.wBytes)
 }
 
-func (store *Store) GetCache() *cache.Cache {
-	return store.Cache
-}
-
 func (store *Store) GetSecret() []byte {
 	if len(store.Key) == 0 {
 		return nil
@@ -289,11 +283,6 @@ func (store *Store) GetCommandLine() string {
 
 func (store *Store) GetMachineID() string {
 	return store.MachineID
-}
-
-func (store *Store) SetCache(localCache *cache.Cache) error {
-	store.Cache = localCache
-	return nil
 }
 
 func (store *Store) SetSecret(secret []byte) error {

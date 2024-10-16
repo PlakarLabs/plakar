@@ -40,7 +40,7 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		packfiles, err := repo.Store().GetPackfiles()
+		packfiles, err := repo.GetPackfiles()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -125,14 +125,6 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			if !bytes.Equal(hasher.Sum(nil), footer.IndexChecksum[:]) {
 				log.Fatal("index checksum mismatch")
 			}
-
-			index, err := packfile.NewIndexFromBytes(decryptedIndex)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println(footer)
-			fmt.Println(index)
 
 			rawPackfile = append(rawPackfile, decryptedIndex...)
 			rawPackfile = append(rawPackfile, decryptedFooter...)

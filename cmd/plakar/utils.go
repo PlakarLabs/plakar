@@ -65,7 +65,7 @@ func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
 }
 
 func getSnapshotsList(repo *repository.Repository) ([]uuid.UUID, error) {
-	snapshots, err := snapshot.List(repo.Store())
+	snapshots, err := snapshot.List(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 			wg.Add(1)
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
-				hdr, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+				hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -109,7 +109,7 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		hdr, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+		hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +144,7 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+				metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -171,7 +171,7 @@ func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.File
 			go func(snapshotUuid uuid.UUID) {
 				defer wg.Done()
 
-				md, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -180,7 +180,7 @@ func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.File
 				var filesystemChecksum32 [32]byte
 				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
-				filesystem, _, err := snapshot.GetFilesystem(repo.Store(), filesystemChecksum32)
+				filesystem, _, err := snapshot.GetFilesystem(repo, filesystemChecksum32)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -198,7 +198,7 @@ func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.File
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -234,7 +234,7 @@ func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.File
 
 		for _, snapshotUuid := range snapshotsList {
 			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				md, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+				md, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 				if err != nil {
 					return nil, err
 				}
@@ -242,7 +242,7 @@ func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.File
 				var filesystemChecksum32 [32]byte
 				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
 
-				filesystem, _, err := snapshot.GetFilesystem(repo.Store(), filesystemChecksum32)
+				filesystem, _, err := snapshot.GetFilesystem(repo, filesystemChecksum32)
 				if err != nil {
 					return nil, err
 				}
@@ -286,7 +286,7 @@ func getSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 	tagsTimestamp := make(map[string]time.Time)
 
 	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repo.Store(), snapshotUuid)
+		metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +363,7 @@ func loadRepositoryState(repo *repository.Repository) (*state.State, error) {
 		wg.Add(1)
 		go func(indexID [32]byte) {
 			defer wg.Done()
-			idx, err := snapshot.GetState(repo.Store(), indexID)
+			idx, err := snapshot.GetState(repo, indexID)
 			if err == nil {
 				repositoryIndex.Merge(indexID, idx)
 			}

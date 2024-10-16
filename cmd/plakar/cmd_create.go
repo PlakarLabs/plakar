@@ -22,7 +22,6 @@ import (
 	"os"
 
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
@@ -56,7 +55,7 @@ func cmd_create(ctx Plakar, args []string) int {
 				passphrase = []byte(envPassphrase)
 			} else {
 				for {
-					tmp, err := helpers.GetPassphraseConfirm("repository")
+					tmp, err := getPassphraseConfirm("repository")
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
 						continue

@@ -18,15 +18,18 @@ package main
 
 import (
 	"encoding/xml"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/PlakarLabs/plakar/repository"
@@ -35,6 +38,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
+	"golang.org/x/term"
 	"golang.org/x/tools/blog/atom"
 )
 
@@ -439,4 +443,36 @@ func pathIsWithin(pathname string, within string) bool {
 	}
 
 	return strings.HasPrefix(cleanPath, cleanWithin+"/")
+}
+
+func getPassphrase(prefix string) ([]byte, error) {
+	fmt.Fprintf(os.Stderr, "%s passphrase: ", prefix)
+	passphrase, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Fprintf(os.Stderr, "\n")
+	if err != nil {
+		return nil, err
+	}
+	return passphrase, nil
+}
+
+func getPassphraseConfirm(prefix string) ([]byte, error) {
+	fmt.Fprintf(os.Stderr, "%s passphrase: ", prefix)
+	passphrase1, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Fprintf(os.Stderr, "\n")
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Fprintf(os.Stderr, "%s passphrase (confirm): ", prefix)
+	passphrase2, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Fprintf(os.Stderr, "\n")
+	if err != nil {
+		return nil, err
+	}
+
+	if string(passphrase1) != string(passphrase2) {
+		return nil, errors.New("passphrases mismatch")
+	}
+
+	return passphrase1, nil
 }

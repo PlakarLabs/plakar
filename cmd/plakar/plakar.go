@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/repository"
@@ -268,7 +267,7 @@ func entryPoint() int {
 				for {
 					var passphrase []byte
 					if envPassphrase == "" {
-						passphrase, err = helpers.GetPassphrase("repository")
+						passphrase, err = getPassphrase("repository")
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "%s\n", err)
 							continue

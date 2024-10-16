@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -90,7 +89,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 	var targetSecret []byte
 	if targetStorage.Configuration().Encryption != "" {
 		for {
-			passphrase, err := helpers.GetPassphrase("destination repository")
+			passphrase, err := getPassphrase("destination repository")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue

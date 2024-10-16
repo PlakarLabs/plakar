@@ -101,7 +101,7 @@ type Backend interface {
 	GetPackfiles() ([][32]byte, error)
 	PutPackfile(checksum [32]byte, data []byte) error
 	GetPackfile(checksum [32]byte) ([]byte, error)
-	GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
+	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
 
 	Commit(indexID uuid.UUID, data []byte) error
@@ -414,17 +414,17 @@ func (store *Store) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (store *Store) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetPackfileSubpart", time.Since(t0))
-		logger.Trace("store", "GetPackfileSubpart(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
+		profiler.RecordEvent("store.GetPackfileBlob", time.Since(t0))
+		logger.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
-	data, err := store.backend.GetPackfileSubpart(checksum, offset, length)
+	data, err := store.backend.GetPackfileBlob(checksum, offset, length)
 	if err != nil {
 		return nil, err
 	}

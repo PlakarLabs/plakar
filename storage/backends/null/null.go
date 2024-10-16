@@ -134,7 +134,7 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
 	return []byte{}, nil
 }
 

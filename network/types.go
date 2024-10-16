@@ -188,13 +188,13 @@ type ResGetPackfile struct {
 	Err  string
 }
 
-type ReqGetPackfileSubpart struct {
+type ReqGetPackfileBlob struct {
 	Checksum [32]byte
 	Offset   uint32
 	Length   uint32
 }
 
-type ResGetPackfileSubpart struct {
+type ResGetPackfileBlob struct {
 	Data []byte
 	Err  string
 }
@@ -273,8 +273,8 @@ func ProtocolRegister() {
 	gob.Register(ReqGetPackfile{})
 	gob.Register(ResGetPackfile{})
 
-	gob.Register(ReqGetPackfileSubpart{})
-	gob.Register(ResGetPackfileSubpart{})
+	gob.Register(ReqGetPackfileBlob{})
+	gob.Register(ResGetPackfileBlob{})
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})

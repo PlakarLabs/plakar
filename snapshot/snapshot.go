@@ -817,7 +817,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 		return nil, fmt.Errorf("packfile not found")
 	}
 
-	buffer, err := snapshot.repository.GetPackfileSubpart(packfileChecksum, offset, length)
+	buffer, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
 	if err != nil {
 		return nil, err
 	}

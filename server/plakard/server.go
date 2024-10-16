@@ -586,25 +586,25 @@ func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *
 				}
 			}()
 
-		case "ReqGetPackfileSubpart":
+		case "ReqGetPackfileBlob":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfileSubpart(%016x, %d, %d)", clientUuid,
-					request.Payload.(network.ReqGetPackfileSubpart).Checksum,
-					request.Payload.(network.ReqGetPackfileSubpart).Offset,
-					request.Payload.(network.ReqGetPackfileSubpart).Length)
-				data, err := lrepository.GetPackfileSubpart(request.Payload.(network.ReqGetPackfileSubpart).Checksum,
-					request.Payload.(network.ReqGetPackfileSubpart).Offset,
-					request.Payload.(network.ReqGetPackfileSubpart).Length)
+				logger.Trace("server", "%s: GetPackfileBlob(%016x, %d, %d)", clientUuid,
+					request.Payload.(network.ReqGetPackfileBlob).Checksum,
+					request.Payload.(network.ReqGetPackfileBlob).Offset,
+					request.Payload.(network.ReqGetPackfileBlob).Length)
+				data, err := lrepository.GetPackfileBlob(request.Payload.(network.ReqGetPackfileBlob).Checksum,
+					request.Payload.(network.ReqGetPackfileBlob).Offset,
+					request.Payload.(network.ReqGetPackfileBlob).Length)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetPackfileSubpart",
-					Payload: network.ResGetPackfileSubpart{
+					Type: "ResGetPackfileBlob",
+					Payload: network.ResGetPackfileBlob{
 						Data: data,
 						Err:  retErr,
 					},

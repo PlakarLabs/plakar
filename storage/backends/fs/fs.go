@@ -288,7 +288,7 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
 	fp, err := os.Open(repository.PathPackfile(checksum))
 	if err != nil {
 		return nil, err

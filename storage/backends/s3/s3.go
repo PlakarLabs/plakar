@@ -413,7 +413,7 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return dataBytes, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
 	opts := minio.GetObjectOptions{}
 	opts.SetRange(int64(offset), int64(offset+length))
 	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), opts)

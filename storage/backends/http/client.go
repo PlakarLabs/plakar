@@ -391,8 +391,8 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return resGetPackfile.Data, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileSubpart{
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileBlob{
 		Checksum: checksum,
 		Offset:   offset,
 		Length:   length,
@@ -401,14 +401,14 @@ func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint3
 		return nil, err
 	}
 
-	var resGetPackfileSubpart network.ResGetPackfileSubpart
-	if err := json.NewDecoder(r.Body).Decode(&resGetPackfileSubpart); err != nil {
+	var resGetPackfileBlob network.ResGetPackfileBlob
+	if err := json.NewDecoder(r.Body).Decode(&resGetPackfileBlob); err != nil {
 		return nil, err
 	}
-	if resGetPackfileSubpart.Err != "" {
-		return nil, fmt.Errorf("%s", resGetPackfileSubpart.Err)
+	if resGetPackfileBlob.Err != "" {
+		return nil, fmt.Errorf("%s", resGetPackfileBlob.Err)
 	}
-	return resGetPackfileSubpart.Data, nil
+	return resGetPackfileBlob.Data, nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {

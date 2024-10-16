@@ -397,6 +397,11 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 	}
 
+	err = repo.Close()
+	if err != nil {
+		logger.Warn("could not close repository: %s", err)
+	}
+
 	err = store.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)

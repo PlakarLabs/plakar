@@ -530,7 +530,7 @@ func (snapshot *Snapshot) Commit() error {
 	close(snapshot.packerChan)
 	<-snapshot.packerChanDone
 
-	if snapshot.stateDelta.IsDirty() {
+	if snapshot.stateDelta.Dirty() {
 		serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
 		if err != nil {
 			logger.Warn("could not serialize repository index: %s", err)

@@ -223,19 +223,19 @@ func TestListContains(t *testing.T) {
 func TestIsDirtyAndResetDirty(t *testing.T) {
 	st := New()
 
-	if st.IsDirty() {
+	if st.Dirty() {
 		t.Errorf("Expected IsDirty to be false initially")
 	}
 
 	checksum := [32]byte{200, 201, 202}
 	st.SetPackfileForChunk(checksum, checksum, 300, 400)
 
-	if !st.IsDirty() {
+	if !st.Dirty() {
 		t.Errorf("Expected IsDirty to be true after adding a checksum")
 	}
 
 	st.ResetDirty()
-	if st.IsDirty() {
+	if st.Dirty() {
 		t.Errorf("Expected IsDirty to be false after ResetDirty")
 	}
 }

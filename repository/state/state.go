@@ -209,7 +209,7 @@ func (st *State) ListContains() [][32]byte {
 	return ret
 }
 
-func (st *State) IsDirty() bool {
+func (st *State) Dirty() bool {
 	return atomic.LoadInt32(&st.dirty) != 0
 }
 

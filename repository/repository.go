@@ -75,7 +75,11 @@ func (r *Repository) Close() error {
 		profiler.RecordEvent("repository.Close", time.Since(t0))
 		logger.Trace("repository", "Close(): %s", time.Since(t0))
 	}()
-	return r.store.Close()
+
+	if r.state.Dirty() {
+	}
+
+	return nil
 }
 
 func (r *Repository) Decode(buffer []byte) ([]byte, error) {

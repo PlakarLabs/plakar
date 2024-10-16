@@ -29,7 +29,7 @@ func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_server(ctx Plakar, repository *storage.Store, args []string) int {
 	var opt_protocol string
 	var opt_nodelete bool
 	flags := flag.NewFlagSet("server", flag.ExitOnError)

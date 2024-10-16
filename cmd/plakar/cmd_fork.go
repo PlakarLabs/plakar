@@ -28,7 +28,7 @@ func init() {
 	registerCommand("fork", cmd_fork)
 }
 
-func cmd_fork(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_fork(ctx Plakar, repository *storage.Store, args []string) int {
 
 	flags := flag.NewFlagSet("fork", flag.ExitOnError)
 	flags.Parse(args)

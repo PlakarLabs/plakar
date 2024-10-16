@@ -64,7 +64,7 @@ func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
 	return ret
 }
 
-func getSnapshotsList(repository *storage.Repository) ([]uuid.UUID, error) {
+func getSnapshotsList(repository *storage.Store) ([]uuid.UUID, error) {
 	snapshots, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func getSnapshotsList(repository *storage.Repository) ([]uuid.UUID, error) {
 	return snapshots, nil
 }
 
-func getHeaders(repository *storage.Repository, prefixes []string) ([]*header.Header, error) {
+func getHeaders(repository *storage.Store, prefixes []string) ([]*header.Header, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func getHeaders(repository *storage.Repository, prefixes []string) ([]*header.He
 	return result, nil
 }
 
-func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.Filesystem, error) {
+func getFilesystems(repository *storage.Store, prefixes []string) ([]*vfs.Filesystem, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ func getFilesystems(repository *storage.Repository, prefixes []string) ([]*vfs.F
 	return result, nil
 }
 
-func getSnapshots(repository *storage.Repository, prefixes []string) ([]*snapshot.Snapshot, error) {
+func getSnapshots(repository *storage.Store, prefixes []string) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := getSnapshotsList(repository)
 	if err != nil {
 		return nil, err
@@ -348,7 +348,7 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 	return false
 }
 
-func loadRepositoryState(repository *storage.Repository) (*state.State, error) {
+func loadRepositoryState(repository *storage.Store) (*state.State, error) {
 	indexes, err := repository.GetStates()
 	if err != nil {
 		return nil, err

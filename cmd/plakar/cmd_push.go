@@ -50,7 +50,7 @@ func (e *excludeFlags) Set(value string) error {
 	return nil
 }
 
-func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_push(ctx Plakar, repository *storage.Store, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags

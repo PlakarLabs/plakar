@@ -35,7 +35,7 @@ func init() {
 	registerCommand("packfile", cmd_packfile)
 }
 
-func cmd_packfile(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_packfile(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("packfile", flag.ExitOnError)
 	flags.Parse(args)
 

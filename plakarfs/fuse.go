@@ -39,7 +39,7 @@ func allocateInodeID() fuseops.InodeID {
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	repository *storage.Repository
+	repository *storage.Store
 	mountpoint string
 
 	inodeEntries *sync.Map
@@ -49,7 +49,7 @@ type plakarFS struct {
 	fsCache     *sync.Map
 }
 
-func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server, error) {
+func NewPlakarFS(repository *storage.Store, mountpoint string) (fuse.Server, error) {
 
 	fs := &plakarFS{
 		repository:   repository,

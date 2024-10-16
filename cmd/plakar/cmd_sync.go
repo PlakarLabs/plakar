@@ -34,7 +34,7 @@ func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_sync(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -56,8 +56,8 @@ func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	var srcRepository *storage.Repository
-	var dstRepository *storage.Repository
+	var srcRepository *storage.Store
+	var dstRepository *storage.Store
 	var err error
 	if direction == "to" {
 		srcRepository = repository

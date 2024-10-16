@@ -36,7 +36,7 @@ func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_tarball(ctx Plakar, repository *storage.Store, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 

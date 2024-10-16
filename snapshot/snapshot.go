@@ -24,7 +24,7 @@ import (
 )
 
 type Snapshot struct {
-	repository *storage.Repository
+	repository *storage.Store
 	stateDelta *state.State
 
 	SkipDirs []string
@@ -51,7 +51,7 @@ type PackerObjectMsg struct {
 	Data      []byte
 }
 
-func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func New(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
@@ -154,7 +154,7 @@ func New(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func Load(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Load", time.Since(t0))
@@ -210,7 +210,7 @@ func Load(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	return snapshot, nil
 }
 
-func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func Fork(repository *storage.Store, indexID uuid.UUID) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Fork", time.Since(t0))
@@ -251,7 +251,7 @@ func Fork(repository *storage.Repository, indexID uuid.UUID) (*Snapshot, error) 
 	return snapshot, nil
 }
 
-func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*header.Header, bool, error) {
+func GetSnapshot(repository *storage.Store, indexID uuid.UUID) (*header.Header, bool, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetSnapshot", time.Since(t0))
@@ -313,7 +313,7 @@ func GetSnapshot(repository *storage.Repository, indexID uuid.UUID) (*header.Hea
 	return hdr, false, nil
 }
 
-func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) {
+func GetBlob(repository *storage.Store, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetBlob", time.Since(t0))
@@ -369,7 +369,7 @@ func GetBlob(repository *storage.Repository, checksum [32]byte) ([]byte, error) 
 	return buffer, nil
 }
 
-func GetState(repository *storage.Repository, checksum [32]byte) (*state.State, error) {
+func GetState(repository *storage.Store, checksum [32]byte) (*state.State, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetRepositoryIndex", time.Since(t0))
@@ -426,7 +426,7 @@ func GetState(repository *storage.Repository, checksum [32]byte) (*state.State, 
 	return state.NewFromBytes(buffer)
 }
 
-func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
+func GetIndex(repository *storage.Store, checksum [32]byte) (*index.Index, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetIndex", time.Since(t0))
@@ -452,7 +452,7 @@ func GetIndex(repository *storage.Repository, checksum [32]byte) (*index.Index, 
 	return index, verifyChecksum32, nil
 }
 
-func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.Filesystem, [32]byte, error) {
+func GetFilesystem(repository *storage.Store, checksum [32]byte) (*vfs.Filesystem, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
@@ -477,7 +477,7 @@ func GetFilesystem(repository *storage.Repository, checksum [32]byte) (*vfs.File
 	return filesystem, verifyChecksum32, nil
 }
 
-func GetMetadata(repository *storage.Repository, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
+func GetMetadata(repository *storage.Store, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
@@ -502,7 +502,7 @@ func GetMetadata(repository *storage.Repository, checksum [32]byte) (*metadata.M
 	return md, verifyChecksum32, nil
 }
 
-func List(repository *storage.Repository) ([]uuid.UUID, error) {
+func List(repository *storage.Store) ([]uuid.UUID, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.List", time.Since(t0))
@@ -542,7 +542,7 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (snapshot *Snapshot) Repository() *storage.Repository {
+func (snapshot *Snapshot) Repository() *storage.Store {
 	return snapshot.repository
 }
 

@@ -29,7 +29,7 @@ func init() {
 	registerCommand("check", cmd_check)
 }
 
-func cmd_check(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_check(ctx Plakar, repository *storage.Store, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)

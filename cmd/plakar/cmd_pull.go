@@ -32,7 +32,7 @@ func init() {
 	registerCommand("pull", cmd_pull)
 }
 
-func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_pull(ctx Plakar, repository *storage.Store, args []string) int {
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter

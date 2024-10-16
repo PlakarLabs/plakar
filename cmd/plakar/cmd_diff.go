@@ -38,7 +38,7 @@ func init() {
 	registerCommand("diff", cmd_diff)
 }
 
-func cmd_diff(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_diff(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
 

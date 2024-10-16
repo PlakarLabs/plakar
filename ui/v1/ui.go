@@ -45,7 +45,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 )
 
-var lrepository *storage.Repository
+var lrepository *storage.Store
 var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
@@ -90,7 +90,7 @@ func templateFunctions() TemplateFunctions {
 	}
 }
 
-func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) {
+func getSnapshots(repository *storage.Store) ([]*snapshot.Snapshot, error) {
 	snapshotsList, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) 
 	return result, nil
 }
 
-func getHeaders(repository *storage.Repository) ([]*header.Header, error) {
+func getHeaders(repository *storage.Store) ([]*header.Header, error) {
 	snapshotsList, err := snapshot.List(repository)
 	if err != nil {
 		return nil, err
@@ -662,7 +662,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(repository *storage.Repository, addr string, spawn bool) error {
+func Ui(repository *storage.Store, addr string, spawn bool) error {
 	lrepository = repository
 	lcache = nil
 

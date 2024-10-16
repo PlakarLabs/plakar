@@ -31,7 +31,7 @@ func init() {
 	registerCommand("clone", cmd_clone)
 }
 
-func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_clone(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -29,7 +29,7 @@ func init() {
 	registerCommand("cat", cmd_cat)
 }
 
-func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_cat(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.Parse(args)
 

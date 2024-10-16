@@ -26,7 +26,7 @@ func init() {
 	registerCommand("cleanup", cmd_cleanup)
 }
 
-func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_cleanup(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
 

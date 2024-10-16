@@ -30,7 +30,7 @@ func init() {
 	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_checksum(ctx Plakar, repository *storage.Store, args []string) int {
 	var enableFastChecksum bool
 
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)

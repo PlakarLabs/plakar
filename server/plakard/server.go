@@ -22,7 +22,7 @@ type ServerOptions struct {
 	NoDelete bool
 }
 
-func Server(repository *storage.Repository, addr string, options *ServerOptions) {
+func Server(repository *storage.Store, addr string, options *ServerOptions) {
 
 	network.ProtocolRegister()
 
@@ -48,8 +48,8 @@ func Stdio(options *ServerOptions) error {
 	return nil
 }
 
-func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
-	var lrepository *storage.Repository
+func handleConnection(repo *storage.Store, rd io.Reader, wr io.Writer, options *ServerOptions) {
+	var lrepository *storage.Store
 
 	lrepository = repo
 

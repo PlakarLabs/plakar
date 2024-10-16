@@ -31,7 +31,7 @@ func init() {
 	registerCommand("shell", cmd_shell)
 }
 
-func cmd_shell(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_shell(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("shell", flag.ExitOnError)
 	flags.Parse(args)
 

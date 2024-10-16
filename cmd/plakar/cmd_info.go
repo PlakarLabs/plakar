@@ -63,7 +63,7 @@ func init() {
 	registerCommand("info", cmd_info)
 }
 
-func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_info(ctx Plakar, repository *storage.Store, args []string) int {
 	if len(args) == 0 {
 		return info_plakar(repository)
 	}
@@ -121,7 +121,7 @@ func cmd_info(ctx Plakar, repository *storage.Repository, args []string) int {
 	return 0
 }
 
-func info_plakar(repository *storage.Repository) int {
+func info_plakar(repository *storage.Store) int {
 	metadatas, err := getHeaders(repository, nil)
 	if err != nil {
 		logger.Warn("%s", err)

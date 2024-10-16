@@ -32,7 +32,7 @@ func init() {
 	registerCommand("ui", cmd_ui)
 }
 
-func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_ui(ctx Plakar, repository *storage.Store, args []string) int {
 	var opt_nospawn bool
 	var opt_addr string
 

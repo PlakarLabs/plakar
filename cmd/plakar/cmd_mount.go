@@ -34,7 +34,7 @@ func init() {
 	registerCommand("mount", cmd_mount)
 }
 
-func cmd_mount(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_mount(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("mount", flag.ExitOnError)
 	flags.Parse(args)
 

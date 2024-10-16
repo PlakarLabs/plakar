@@ -95,7 +95,7 @@ type Backend interface {
 var muBackends sync.Mutex
 var backends map[string]func() Backend = make(map[string]func() Backend)
 
-type Repository struct {
+type Store struct {
 	backend Backend
 
 	Location    string
@@ -142,7 +142,7 @@ func Backends() []string {
 	return ret
 }
 
-func New(location string) (*Repository, error) {
+func New(location string) (*Store, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -178,25 +178,25 @@ func New(location string) (*Repository, error) {
 	if backend, exists := backends[backendName]; !exists {
 		return nil, fmt.Errorf("backend '%s' does not exist", backendName)
 	} else {
-		repository := &Repository{}
+		repository := &Store{}
 		repository.Location = location
 		repository.backend = backend()
-		repository.writeSharedLock = locking.NewSharedLock("storage.write", runtime.NumCPU()*8+1)
-		repository.readSharedLock = locking.NewSharedLock("storage.read", runtime.NumCPU()*8+1)
+		repository.writeSharedLock = locking.NewSharedLock("store.write", runtime.NumCPU()*8+1)
+		repository.readSharedLock = locking.NewSharedLock("store.read", runtime.NumCPU()*8+1)
 		repository.bufferedPackfiles = make(chan struct{}, runtime.NumCPU()*2+1)
 		return repository, nil
 	}
 }
 
-func (repository *Repository) SetRepositoryIndex(index *state.State) {
+func (repository *Store) SetRepositoryIndex(index *state.State) {
 	repository.index = index
 }
 
-func (repository *Repository) GetRepositoryIndex() *state.State {
+func (repository *Store) GetRepositoryIndex() *state.State {
 	return repository.index
 }
 
-func Open(location string) (*Repository, error) {
+func Open(location string) (*Store, error) {
 	repository, err := New(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
@@ -205,8 +205,8 @@ func Open(location string) (*Repository, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.Open", time.Since(t0))
-		logger.Trace("storage", "Open(%s): %s", location, time.Since(t0))
+		profiler.RecordEvent("store.Open", time.Since(t0))
+		logger.Trace("store", "Open(%s): %s", location, time.Since(t0))
 	}()
 
 	if err = repository.backend.Open(location); err != nil {
@@ -216,7 +216,7 @@ func Open(location string) (*Repository, error) {
 	}
 }
 
-func Create(location string, configuration Configuration) (*Repository, error) {
+func Create(location string, configuration Configuration) (*Store, error) {
 	repository, err := New(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
@@ -225,8 +225,8 @@ func Create(location string, configuration Configuration) (*Repository, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.Create", time.Since(t0))
-		logger.Trace("storage", "Create(%s): %s", location, time.Since(t0))
+		profiler.RecordEvent("store.Create", time.Since(t0))
+		logger.Trace("store", "Create(%s): %s", location, time.Since(t0))
 	}()
 
 	if err = repository.backend.Create(location, configuration); err != nil {
@@ -236,110 +236,110 @@ func Create(location string, configuration Configuration) (*Repository, error) {
 	}
 }
 
-func (repository *Repository) GetRBytes() uint64 {
+func (repository *Store) GetRBytes() uint64 {
 	return atomic.LoadUint64(&repository.rBytes)
 }
 
-func (repository *Repository) GetWBytes() uint64 {
+func (repository *Store) GetWBytes() uint64 {
 	return atomic.LoadUint64(&repository.wBytes)
 }
 
-func (repository *Repository) GetCache() *cache.Cache {
+func (repository *Store) GetCache() *cache.Cache {
 	return repository.Cache
 }
 
-func (repository *Repository) GetSecret() []byte {
+func (repository *Store) GetSecret() []byte {
 	if len(repository.Key) == 0 {
 		return nil
 	}
 	return repository.Key
 }
 
-func (repository *Repository) GetUsername() string {
+func (repository *Store) GetUsername() string {
 	return repository.Username
 }
 
-func (repository *Repository) GetHostname() string {
+func (repository *Store) GetHostname() string {
 	return repository.Hostname
 }
 
-func (repository *Repository) GetCommandLine() string {
+func (repository *Store) GetCommandLine() string {
 	return repository.CommandLine
 }
 
-func (repository *Repository) GetMachineID() string {
+func (repository *Store) GetMachineID() string {
 	return repository.MachineID
 }
 
-func (repository *Repository) SetCache(localCache *cache.Cache) error {
+func (repository *Store) SetCache(localCache *cache.Cache) error {
 	repository.Cache = localCache
 	return nil
 }
 
-func (repository *Repository) SetSecret(secret []byte) error {
+func (repository *Store) SetSecret(secret []byte) error {
 	repository.Key = secret
 	return nil
 }
 
-func (repository *Repository) SetUsername(username string) error {
+func (repository *Store) SetUsername(username string) error {
 	repository.Username = username
 	return nil
 }
 
-func (repository *Repository) SetHostname(hostname string) error {
+func (repository *Store) SetHostname(hostname string) error {
 	repository.Hostname = hostname
 	return nil
 }
 
-func (repository *Repository) SetCommandLine(commandLine string) error {
+func (repository *Store) SetCommandLine(commandLine string) error {
 	repository.CommandLine = commandLine
 	return nil
 }
 
-func (repository *Repository) SetMachineID(machineID string) error {
+func (repository *Store) SetMachineID(machineID string) error {
 	repository.MachineID = machineID
 	return nil
 }
 
-func (repository *Repository) Configuration() Configuration {
+func (repository *Store) Configuration() Configuration {
 	return repository.backend.Configuration()
 }
 
 /* snapshots  */
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
+func (repository *Store) GetSnapshots() ([]uuid.UUID, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetSnapshots", time.Since(t0))
-		logger.Trace("storage", "GetSnapshots(): %s", time.Since(t0))
+		profiler.RecordEvent("store.GetSnapshots", time.Since(t0))
+		logger.Trace("store", "GetSnapshots(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetSnapshots()
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Store) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.PutSnapshot", time.Since(t0))
-		logger.Trace("storage", "PutSnapshot(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("store.PutSnapshot", time.Since(t0))
+		logger.Trace("store", "PutSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 	return repository.backend.PutSnapshot(indexID, data)
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Store) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetSnapshot", time.Since(t0))
-		logger.Trace("storage", "GetSnapshot(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("store.GetSnapshot", time.Since(t0))
+		logger.Trace("store", "GetSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 
 	data, err := repository.backend.GetSnapshot(indexID)
@@ -351,39 +351,39 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Store) DeleteSnapshot(indexID uuid.UUID) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.DeleteSnapshot", time.Since(t0))
-		logger.Trace("storage", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
+		profiler.RecordEvent("store.DeleteSnapshot", time.Since(t0))
+		logger.Trace("store", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
 	}()
 	return repository.backend.DeleteSnapshot(indexID)
 }
 
 /* Packfiles */
-func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+func (repository *Store) GetPackfiles() ([][32]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetPackfiles", time.Since(t0))
-		logger.Trace("storage", "GetPackfiles(): %s", time.Since(t0))
+		profiler.RecordEvent("store.GetPackfiles", time.Since(t0))
+		logger.Trace("store", "GetPackfiles(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetPackfiles()
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+func (repository *Store) GetPackfile(checksum [32]byte) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetPackfile", time.Since(t0))
-		logger.Trace("storage", "GetPackfile(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.GetPackfile", time.Since(t0))
+		logger.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	data, err := repository.backend.GetPackfile(checksum)
@@ -394,14 +394,14 @@ func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Store) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetPackfileSubpart", time.Since(t0))
-		logger.Trace("storage", "GetPackfileSubpart(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
+		profiler.RecordEvent("store.GetPackfileSubpart", time.Since(t0))
+		logger.Trace("store", "GetPackfileSubpart(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
 	data, err := repository.backend.GetPackfileSubpart(checksum, offset, length)
@@ -412,14 +412,14 @@ func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint3
 	return data, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+func (repository *Store) PutPackfile(checksum [32]byte, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.PutPackfile", time.Since(t0))
-		logger.Trace("storage", "PutPackfile(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.PutPackfile", time.Since(t0))
+		logger.Trace("store", "PutPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	repository.bufferedPackfiles <- struct{}{}
@@ -429,52 +429,52 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	return repository.backend.PutPackfile(checksum, data)
 }
 
-func (repository *Repository) DeletePackfile(checksum [32]byte) error {
+func (repository *Store) DeletePackfile(checksum [32]byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.DeletePackfile", time.Since(t0))
-		logger.Trace("storage", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.DeletePackfile", time.Since(t0))
+		logger.Trace("store", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.DeletePackfile(checksum)
 }
 
 /* Indexes */
-func (repository *Repository) GetStates() ([][32]byte, error) {
+func (repository *Store) GetStates() ([][32]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetIndexes", time.Since(t0))
-		logger.Trace("storage", "GetIndexes(): %s", time.Since(t0))
+		profiler.RecordEvent("store.GetIndexes", time.Since(t0))
+		logger.Trace("store", "GetIndexes(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetStates()
 }
 
-func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
+func (repository *Store) PutState(checksum [32]byte, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.PutIndex", time.Since(t0))
-		logger.Trace("storage", "PutIndex(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.PutIndex", time.Since(t0))
+		logger.Trace("store", "PutIndex(%016x): %s", checksum, time.Since(t0))
 	}()
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 	return repository.backend.PutState(checksum, data)
 }
 
-func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
+func (repository *Store) GetState(checksum [32]byte) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetIndex", time.Since(t0))
-		logger.Trace("storage", "GetIndex(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.GetIndex", time.Since(t0))
+		logger.Trace("store", "GetIndex(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	data, err := repository.backend.GetState(checksum)
@@ -485,65 +485,65 @@ func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteState(checksum [32]byte) error {
+func (repository *Store) DeleteState(checksum [32]byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.DeleteIndex", time.Since(t0))
-		logger.Trace("storage", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.DeleteIndex", time.Since(t0))
+		logger.Trace("store", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.DeleteState(checksum)
 }
 
 /* Blobs */
-func (repository *Repository) GetBlobs() ([][32]byte, error) {
+func (repository *Store) GetBlobs() ([][32]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetBlobs", time.Since(t0))
-		logger.Trace("storage", "GetBlobs(): %s", time.Since(t0))
+		profiler.RecordEvent("store.GetBlobs", time.Since(t0))
+		logger.Trace("store", "GetBlobs(): %s", time.Since(t0))
 	}()
 	return repository.backend.GetBlobs()
 }
 
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+func (repository *Store) PutBlob(checksum [32]byte, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.PutBlob", time.Since(t0))
-		logger.Trace("storage", "PutBlob(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.PutBlob", time.Since(t0))
+		logger.Trace("store", "PutBlob(%016x): %s", checksum, time.Since(t0))
 	}()
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 	return repository.backend.PutBlob(checksum, data)
 }
 
-func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
+func (repository *Store) CheckBlob(checksum [32]byte) (bool, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.CheckBlob", time.Since(t0))
-		logger.Trace("storage", "CheckBlob(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.CheckBlob", time.Since(t0))
+		logger.Trace("store", "CheckBlob(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	return repository.backend.CheckBlob(checksum)
 }
 
-func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+func (repository *Store) GetBlob(checksum [32]byte) ([]byte, error) {
 	repository.readSharedLock.Lock()
 	defer repository.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.GetBlob", time.Since(t0))
-		logger.Trace("storage", "GetBlob(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.GetBlob", time.Since(t0))
+		logger.Trace("store", "GetBlob(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	data, err := repository.backend.GetBlob(checksum)
@@ -554,35 +554,35 @@ func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
 	return data, nil
 }
 
-func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+func (repository *Store) DeleteBlob(checksum [32]byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.DeleteBlob", time.Since(t0))
-		logger.Trace("storage", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.DeleteBlob", time.Since(t0))
+		logger.Trace("store", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
 	}()
 	return repository.backend.DeleteBlob(checksum)
 }
 
-func (repository *Repository) Close() error {
+func (repository *Store) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.Close", time.Since(t0))
-		logger.Trace("storage", "Close(): %s", time.Since(t0))
+		profiler.RecordEvent("store.Close", time.Since(t0))
+		logger.Trace("store", "Close(): %s", time.Since(t0))
 	}()
 	return repository.backend.Close()
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Store) Commit(indexID uuid.UUID, data []byte) error {
 	repository.writeSharedLock.Lock()
 	defer repository.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("storage.Commit", time.Since(t0))
-		logger.Trace("storage", "Commit(%s): %s", indexID.String(), time.Since(t0))
+		profiler.RecordEvent("store.Commit", time.Since(t0))
+		logger.Trace("store", "Commit(%s): %s", indexID.String(), time.Since(t0))
 	}()
 	atomic.AddUint64(&repository.wBytes, uint64(len(data)))
 

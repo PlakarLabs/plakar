@@ -39,7 +39,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_ls(ctx Plakar, repository *storage.Store, args []string) int {
 	var opt_recursive bool
 	var opt_tag string
 	var opt_uuid bool
@@ -63,7 +63,7 @@ func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 	return 0
 }
 
-func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
+func list_snapshots(repository *storage.Store, useUuid bool, tag string) {
 	metadatas, err := getHeaders(repository, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
@@ -100,7 +100,7 @@ func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
 	}
 }
 
-func list_snapshot(repository *storage.Repository, args []string) {
+func list_snapshot(repository *storage.Store, args []string) {
 	vfss, err := getFilesystems(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
@@ -171,7 +171,7 @@ func list_snapshot(repository *storage.Repository, args []string) {
 	}
 }
 
-func list_snapshot_recursive(repository *storage.Repository, args []string) {
+func list_snapshot_recursive(repository *storage.Store, args []string) {
 	vfss, err := getFilesystems(repository, args)
 	if err != nil {
 		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)

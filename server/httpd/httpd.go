@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var lrepository *storage.Repository
+var lrepository *storage.Store
 var lNoDelete bool
 
 func openRepository(w http.ResponseWriter, r *http.Request) {
@@ -438,7 +438,7 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Server(repository *storage.Repository, addr string, noDelete bool) error {
+func Server(repository *storage.Store, addr string, noDelete bool) error {
 
 	lNoDelete = noDelete
 

@@ -30,7 +30,7 @@ func init() {
 	registerCommand("keep", cmd_keep)
 }
 
-func cmd_keep(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_keep(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("keep", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -33,7 +33,7 @@ func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_find(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 

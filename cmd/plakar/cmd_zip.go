@@ -33,7 +33,7 @@ import (
 func init() {
 	registerCommand("zip", cmd_zip)
 }
-func cmd_zip(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_zip(ctx Plakar, repository *storage.Store, args []string) int {
 	var zipPath string
 	var zipRebase bool
 

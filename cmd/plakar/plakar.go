@@ -54,13 +54,13 @@ type Plakar struct {
 	//	maxConcurrency chan struct{}
 }
 
-var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
+var commands map[string]func(Plakar, *storage.Store, []string) int = make(map[string]func(Plakar, *storage.Store, []string) int)
 
-func registerCommand(command string, fn func(Plakar, *storage.Repository, []string) int) {
+func registerCommand(command string, fn func(Plakar, *storage.Store, []string) int) {
 	commands[command] = fn
 }
 
-func executeCommand(ctx Plakar, repository *storage.Repository, command string, args []string) (int, error) {
+func executeCommand(ctx Plakar, repository *storage.Store, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)

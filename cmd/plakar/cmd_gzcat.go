@@ -30,7 +30,7 @@ func init() {
 	registerCommand("gzcat", cmd_gzcat)
 }
 
-func cmd_gzcat(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_gzcat(ctx Plakar, repository *storage.Store, args []string) int {
 	flags := flag.NewFlagSet("gzcat", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -63,13 +63,6 @@ func executeCommand(ctx Plakar, repo *repository.Repository, command string, arg
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
-
-	repositoryIndex, err := loadRepositoryState(repo)
-	if err != nil {
-		return 0, err
-	}
-	repo.Store().SetRepositoryIndex(repositoryIndex)
-
 	return fn(ctx, repo, args), nil
 }
 
@@ -390,7 +383,11 @@ func entryPoint() int {
 		}()
 	}
 
-	repository := repository.New(store)
+	repository, err := repository.New(store)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+		return 1
+	}
 
 	// commands below all operate on an open repository
 	t0 := time.Now()

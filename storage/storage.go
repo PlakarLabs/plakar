@@ -34,7 +34,6 @@ import (
 	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 )
 
@@ -122,8 +121,6 @@ type Store struct {
 
 	Key []byte
 
-	index *state.State
-
 	wBytes uint64
 	rBytes uint64
 
@@ -204,14 +201,6 @@ func New(location string) (*Store, error) {
 		}
 	}
 	return NewStore(backendName, location)
-}
-
-func (store *Store) SetRepositoryIndex(index *state.State) {
-	store.index = index
-}
-
-func (store *Store) GetRepositoryIndex() *state.State {
-	return store.index
 }
 
 func Open(location string) (*Store, error) {

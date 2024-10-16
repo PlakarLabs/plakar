@@ -13,11 +13,11 @@ import (
 	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -484,7 +484,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	for _, chunkChecksum := range chunks {
 		for idx, chunk := range pack.Index {
 			if chunk.Checksum == chunkChecksum {
-				snapshot.Repository().Store().GetRepositoryIndex().SetPackfileForChunk(checksum32,
+				snapshot.Repository().State().SetPackfileForChunk(checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -500,7 +500,7 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 	for _, objectChecksum := range objects {
 		for idx, chunk := range pack.Index {
 			if chunk.Checksum == objectChecksum {
-				snapshot.Repository().Store().GetRepositoryIndex().SetPackfileForObject(checksum32,
+				snapshot.Repository().State().SetPackfileForObject(checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -523,7 +523,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().Store().GetRepositoryIndex().GetSubpartForChunk(checksum)
+	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForChunk(checksum)
 	if !exists {
 		return nil, fmt.Errorf("packfile not found")
 	}
@@ -545,7 +545,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	if exists, err := snapshot.Index.ChunkExists(checksum); err == nil && exists {
 		return true
 	} else {
-		return snapshot.Repository().Store().GetRepositoryIndex().ChunkExists(checksum)
+		return snapshot.Repository().State().ChunkExists(checksum)
 	}
 }
 
@@ -559,7 +559,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	if exists, err := snapshot.Index.ObjectExists(checksum); err == nil && exists {
 		return true
 	} else {
-		return snapshot.Repository().Store().GetRepositoryIndex().ObjectExists(checksum)
+		return snapshot.Repository().State().ObjectExists(checksum)
 	}
 }
 

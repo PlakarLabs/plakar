@@ -6,20 +6,51 @@ import (
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
 
 type Repository struct {
 	store         *storage.Store
+	state         *state.State
 	configuration storage.Configuration
 }
 
-func New(store *storage.Store) *Repository {
-	return &Repository{
+func New(store *storage.Store) (*Repository, error) {
+	r := &Repository{
 		store:         store,
 		configuration: store.Configuration(),
 	}
+	if err := r.rebuildState(); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (r *Repository) rebuildState() error {
+	indexes, err := r.GetStates()
+	if err != nil {
+		return err
+	}
+
+	aggregateState := state.New()
+	for _, indexID := range indexes {
+		idx, err := r.GetState(indexID)
+		if err != nil {
+			return err
+		}
+		tmp, err := state.NewFromBytes(idx)
+		if err != nil {
+			return err
+		}
+		aggregateState.Merge(indexID, tmp)
+
+	}
+
+	aggregateState.ResetDirty()
+	r.state = aggregateState
+	return nil
 }
 
 func (r *Repository) Close() error {
@@ -37,6 +68,10 @@ func (r *Repository) Secret() []byte {
 
 func (r *Repository) Store() *storage.Store {
 	return r.store
+}
+
+func (r *Repository) State() *state.State {
+	return r.state
 }
 
 func (r *Repository) Location() string {

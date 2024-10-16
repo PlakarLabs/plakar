@@ -32,7 +32,6 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage/state"
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
 	"golang.org/x/tools/blog/atom"
@@ -346,32 +345,6 @@ func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
 		}
 	}
 	return false
-}
-
-func loadRepositoryState(repo *repository.Repository) (*state.State, error) {
-	indexes, err := repo.GetStates()
-	if err != nil {
-		return nil, err
-	}
-
-	// XXX - we can clear the cache of any key prefixed by an index ID that's not in indexes
-	// do that later
-
-	repositoryIndex := state.New()
-	wg := sync.WaitGroup{}
-	for _, _indexID := range indexes {
-		wg.Add(1)
-		go func(indexID [32]byte) {
-			defer wg.Done()
-			idx, err := snapshot.GetState(repo, indexID)
-			if err == nil {
-				repositoryIndex.Merge(indexID, idx)
-			}
-		}(_indexID)
-	}
-	wg.Wait()
-	repositoryIndex.ResetDirty()
-	return repositoryIndex, nil
 }
 
 func HumanToDuration(human string) (time.Duration, error) {

@@ -87,12 +87,15 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				if err != nil {
 					retErr = err.Error()
 				}
+				lrepository, err = repository.New(st)
+				if err != nil {
+					retErr = err.Error()
+				}
 				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResCreate",
 					Payload: network.ResCreate{Err: retErr},
 				}
-				lrepository = repository.New(st)
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
@@ -112,6 +115,10 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				if err != nil {
 					retErr = err.Error()
 				}
+				lrepository, err = repository.New(st)
+				if err != nil {
+					retErr = err.Error()
+				}
 				var payload network.ResOpen
 				if err != nil {
 					payload = network.ResOpen{Configuration: nil, Err: retErr}
@@ -120,7 +127,6 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 					payload = network.ResOpen{Configuration: &config, Err: retErr}
 				}
 
-				lrepository = repository.New(st)
 				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",

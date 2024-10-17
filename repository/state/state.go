@@ -60,8 +60,8 @@ type State struct {
 	muDirectories sync.Mutex
 	Directories   map[uint64]Location
 
-	muBlobs sync.Mutex
-	Blobs   map[uint64]Location
+	muDatas sync.Mutex
+	Datas   map[uint64]Location
 
 	Metadata Metadata
 
@@ -76,7 +76,7 @@ func New() *State {
 		Objects:      make(map[uint64]Location),
 		Files:        make(map[uint64]Location),
 		Directories:  make(map[uint64]Location),
-		Blobs:        make(map[uint64]Location),
+		Datas:        make(map[uint64]Location),
 		Metadata: Metadata{
 			Version:      VERSION,
 			CreationTime: time.Now(),
@@ -206,16 +206,16 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 	}
 	deltaState.muDirectories.Unlock()
 
-	deltaState.muBlobs.Lock()
-	for deltaBlobChecksumID, subpart := range deltaState.Blobs {
+	deltaState.muDatas.Lock()
+	for deltaBlobChecksumID, subpart := range deltaState.Datas {
 		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
 		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
-		st.SetPackfileForBlob(packfileChecksum, deltaBlobChecksum,
+		st.SetPackfileForData(packfileChecksum, deltaBlobChecksum,
 			subpart.Offset,
 			subpart.Length,
 		)
 	}
-	deltaState.muBlobs.Unlock()
+	deltaState.muDatas.Unlock()
 }
 
 func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
@@ -282,13 +282,13 @@ func (st *State) GetPackfileForDirectory(directoryChecksum [32]byte) ([32]byte, 
 	}
 }
 
-func (st *State) GetPackfileForBlob(blobChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForData(blobChecksum [32]byte) ([32]byte, bool) {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
-	st.muBlobs.Lock()
-	defer st.muBlobs.Unlock()
+	st.muDatas.Lock()
+	defer st.muDatas.Unlock()
 
-	if subpart, exists := st.Blobs[blobID]; !exists {
+	if subpart, exists := st.Datas[blobID]; !exists {
 		return [32]byte{}, false
 	} else {
 		st.muChecksum.Lock()
@@ -362,13 +362,13 @@ func (st *State) GetSubpartForDirectory(checksum [32]byte) ([32]byte, uint32, ui
 	}
 }
 
-func (st *State) GetSubpartForBlob(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForData(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(checksum)
 
-	st.muBlobs.Lock()
-	defer st.muBlobs.Unlock()
+	st.muDatas.Lock()
+	defer st.muDatas.Unlock()
 
-	if subpart, exists := st.Blobs[blobID]; !exists {
+	if subpart, exists := st.Datas[blobID]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
@@ -430,13 +430,13 @@ func (st *State) DirectoryExists(checksum [32]byte) bool {
 	}
 }
 
-func (st *State) BlobExists(checksum [32]byte) bool {
+func (st *State) DataExists(checksum [32]byte) bool {
 	checksumID := st.getOrCreateIdForChecksum(checksum)
 
-	st.muBlobs.Lock()
-	defer st.muBlobs.Unlock()
+	st.muDatas.Lock()
+	defer st.muDatas.Unlock()
 
-	if _, exists := st.Directories[checksumID]; !exists {
+	if _, exists := st.Datas[checksumID]; !exists {
 		return false
 	} else {
 		return true
@@ -493,7 +493,7 @@ func (st *State) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum [32]
 	defer st.muFiles.Unlock()
 
 	if _, exists := st.Files[fileID]; !exists {
-		st.Objects[fileID] = Location{
+		st.Files[fileID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
@@ -510,7 +510,7 @@ func (st *State) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChe
 	defer st.muDirectories.Unlock()
 
 	if _, exists := st.Directories[directoryID]; !exists {
-		st.Objects[directoryID] = Location{
+		st.Directories[directoryID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
@@ -519,15 +519,15 @@ func (st *State) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChe
 	}
 }
 
-func (st *State) SetPackfileForBlob(packfileChecksum [32]byte, blobChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
-	st.muBlobs.Lock()
-	defer st.muBlobs.Unlock()
+	st.muDatas.Lock()
+	defer st.muDatas.Unlock()
 
-	if _, exists := st.Blobs[blobID]; !exists {
-		st.Objects[blobID] = Location{
+	if _, exists := st.Datas[blobID]; !exists {
+		st.Datas[blobID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,

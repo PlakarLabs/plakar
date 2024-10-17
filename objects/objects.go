@@ -7,7 +7,64 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+type Directory struct {
+	Checksum [32]byte
+	FileInfo FileInfo
+}
+
+func NewDirectory(checksum [32]byte, fileInfo FileInfo) *Directory {
+	return &Directory{
+		Checksum: checksum,
+		FileInfo: fileInfo,
+	}
+}
+
+func NewDirectoryFromBytes(serialized []byte) (*Directory, error) {
+	var d Directory
+	if err := msgpack.Unmarshal(serialized, &d); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func (d *Directory) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
+
+type File struct {
+	Checksum [32]byte
+	FileInfo FileInfo
+}
+
+func NewFile(checksum [32]byte, fileInfo FileInfo) *File {
+	return &File{
+		Checksum: checksum,
+		FileInfo: fileInfo,
+	}
+}
+
+func NewFileFromBytes(serialized []byte) (*File, error) {
+	var f File
+	if err := msgpack.Unmarshal(serialized, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (f *File) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(f)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
 
 type Object struct {
 	Checksum    [32]byte

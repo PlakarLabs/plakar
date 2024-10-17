@@ -33,8 +33,8 @@ func TestPackFile(t *testing.T) {
 	if p.Footer.Count != 2 {
 		t.Fatalf("Expected Footer.Count to be 2 but got %d", p.Footer.Count)
 	}
-	if p.Footer.IndexOffset != uint32(len(p.Data)) {
-		t.Fatalf("Expected Footer.Length to be %d but got %d", len(p.Data), p.Footer.IndexOffset)
+	if p.Footer.IndexOffset != uint32(len(p.Blobs)) {
+		t.Fatalf("Expected Footer.Length to be %d but got %d", len(p.Blobs), p.Footer.IndexOffset)
 	}
 }
 

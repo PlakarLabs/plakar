@@ -93,6 +93,30 @@ func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
 					subpart.Offset,
 					subpart.Length)
 			}
+
+			for file, subpart := range st.Files {
+				fmt.Printf("file %x : packfile %x, offset %d, length %d\n",
+					st.IdToChecksum[file],
+					st.IdToChecksum[subpart.Packfile],
+					subpart.Offset,
+					subpart.Length)
+			}
+
+			for directory, subpart := range st.Directories {
+				fmt.Printf("directory %x : packfile %x, offset %d, length %d\n",
+					st.IdToChecksum[directory],
+					st.IdToChecksum[subpart.Packfile],
+					subpart.Offset,
+					subpart.Length)
+			}
+
+			for data, subpart := range st.Datas {
+				fmt.Printf("data %x : packfile %x, offset %d, length %d\n",
+					st.IdToChecksum[data],
+					st.IdToChecksum[subpart.Packfile],
+					subpart.Offset,
+					subpart.Length)
+			}
 		}
 	}
 

@@ -19,6 +19,7 @@ const (
 	TYPE_OBJECT    = 2
 	TYPE_FILE      = 3
 	TYPE_DIRECTORY = 4
+	TYPE_DATA      = 5
 )
 
 type Blob struct {
@@ -38,13 +39,15 @@ func (b Blob) TypeName() string {
 		return "file"
 	case TYPE_DIRECTORY:
 		return "directory"
+	case TYPE_DATA:
+		return "data"
 	default:
 		return "unknown"
 	}
 }
 
 type PackFile struct {
-	Data   []byte
+	Blobs  []byte
 	Index  []Blob
 	Footer PackFileFooter
 }
@@ -122,7 +125,7 @@ func NewIndexFromBytes(serialized []byte) ([]Blob, error) {
 
 func New() *PackFile {
 	return &PackFile{
-		Data:  make([]byte, 0),
+		Blobs: make([]byte, 0),
 		Index: make([]Blob, 0),
 		Footer: PackFileFooter{
 			Version:   VERSION,
@@ -176,7 +179,7 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 
 	p := New()
 	p.Footer = footer
-	p.Data = data
+	p.Blobs = data
 	hasher := sha256.New()
 	for remaining > 0 {
 		var dataType uint8
@@ -236,7 +239,7 @@ func (p *PackFile) Serialize() ([]byte, error) {
 	}()
 
 	var buffer bytes.Buffer
-	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Blobs); err != nil {
 		return nil, err
 	}
 
@@ -297,7 +300,7 @@ func (p *PackFile) SerializeData() ([]byte, error) {
 	}()
 
 	var buffer bytes.Buffer
-	if err := binary.Write(&buffer, binary.LittleEndian, p.Data); err != nil {
+	if err := binary.Write(&buffer, binary.LittleEndian, p.Blobs); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
@@ -406,10 +409,10 @@ func (p *PackFile) AddBlob(dataType uint8, checksum [32]byte, data []byte) {
 		profiler.RecordEvent("packfile.AddBlob", time.Since(t0))
 		logger.Trace("packfile", "AddBlob(...): %s", time.Since(t0))
 	}()
-	p.Index = append(p.Index, Blob{dataType, checksum, uint32(len(p.Data)), uint32(len(data))})
-	p.Data = append(p.Data, data...)
+	p.Index = append(p.Index, Blob{dataType, checksum, uint32(len(p.Blobs)), uint32(len(data))})
+	p.Blobs = append(p.Blobs, data...)
 	p.Footer.Count++
-	p.Footer.IndexOffset = uint32(len(p.Data))
+	p.Footer.IndexOffset = uint32(len(p.Blobs))
 }
 
 func (p *PackFile) GetBlob(checksum [32]byte) ([]byte, bool) {
@@ -421,12 +424,12 @@ func (p *PackFile) GetBlob(checksum [32]byte) ([]byte, bool) {
 
 	for _, chunk := range p.Index {
 		if chunk.Checksum == checksum {
-			return p.Data[chunk.Offset : chunk.Offset+chunk.Length], true
+			return p.Blobs[chunk.Offset : chunk.Offset+chunk.Length], true
 		}
 	}
 	return nil, false
 }
 
 func (p *PackFile) Size() uint32 {
-	return uint32(len(p.Data))
+	return uint32(len(p.Blobs))
 }

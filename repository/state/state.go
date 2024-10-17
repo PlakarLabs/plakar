@@ -33,6 +33,7 @@ const VERSION = 100
 type Metadata struct {
 	Version      uint32
 	CreationTime time.Time
+	Aggregate    bool
 	Extends      [][32]byte
 }
 
@@ -79,6 +80,7 @@ func New() *State {
 		Metadata: Metadata{
 			Version:      VERSION,
 			CreationTime: time.Now(),
+			Aggregate:    false,
 			Extends:      [][32]byte{},
 		},
 	}

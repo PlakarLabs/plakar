@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -67,9 +68,12 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 				log.Fatal(err)
 			}
 
-			version := rawPackfile[len(rawPackfile)-2]
+			versionBytes := rawPackfile[len(rawPackfile)-5 : len(rawPackfile)-5+4]
+			version := binary.LittleEndian.Uint32(versionBytes)
+
+			//			version := rawPackfile[len(rawPackfile)-2]
 			footerOffset := rawPackfile[len(rawPackfile)-1]
-			rawPackfile = rawPackfile[:len(rawPackfile)-2]
+			rawPackfile = rawPackfile[:len(rawPackfile)-5]
 
 			_ = version
 

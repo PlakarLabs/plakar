@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"sync"
@@ -412,9 +413,12 @@ func (snapshot *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byt
 
 	encryptedFooterLength := uint8(len(encryptedFooter))
 
+	versionBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(versionBytes, pack.Footer.Version)
+
 	serializedPackfile := append(serializedData, encryptedIndex...)
 	serializedPackfile = append(serializedPackfile, encryptedFooter...)
-	serializedPackfile = append(serializedPackfile, byte(pack.Footer.Version))
+	serializedPackfile = append(serializedPackfile, versionBytes...)
 	serializedPackfile = append(serializedPackfile, byte(encryptedFooterLength))
 
 	checksum := snapshot.repository.Checksum(serializedPackfile)

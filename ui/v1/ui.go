@@ -371,10 +371,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pathnameChecksum := lrepository.Checksum([]byte(path))
-
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -463,10 +460,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pathnameChecksum := lrepository.Checksum([]byte(path))
-
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -606,9 +600,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		for file := range snap.Filesystem.Pathnames() {
 			if strings.Contains(file, q) {
 				pathnameChecksum := lrepository.Checksum([]byte(file))
-				key := [32]byte{}
-				copy(key[:], pathnameChecksum)
-				object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+				object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 				if err != nil {
 					continue
 				}

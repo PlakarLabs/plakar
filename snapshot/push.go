@@ -306,11 +306,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 				snapshot.Metadata.AddMetadata(object.ContentType, object.Checksum)
 
 				pathnameChecksum := snapshot.repository.Checksum([]byte(_record.Pathname))
-
-				key := [32]byte{}
-				copy(key[:], pathnameChecksum)
-
-				snapshot.Index.LinkPathnameToObject(key, object)
+				snapshot.Index.LinkPathnameToObject(pathnameChecksum, object)
 				atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(_record.Stat.Size()))
 			}(record)
 		}

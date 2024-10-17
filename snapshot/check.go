@@ -69,11 +69,7 @@ func snapshotCheckObject(snapshot *Snapshot, checksum [32]byte, fast bool) (bool
 
 func snapshotCheckResource(snapshot *Snapshot, resource string, fast bool) (bool, error) {
 	pathnameChecksum := snapshot.repository.Checksum([]byte(resource))
-
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-
-	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	object, err := snapshot.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 	if err != nil {
 		return false, err
 	}
@@ -106,7 +102,8 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 				continue
 			}
 
-			if !bytes.Equal(snapshot.repository.Checksum(data), checksum[:]) {
+			tmp := snapshot.repository.Checksum(data)
+			if !bytes.Equal(tmp[:], checksum[:]) {
 				logger.Warn("%s: corrupted chunk %064x", snapshot.Header.GetIndexShortID(), checksum)
 				ret = false
 				continue
@@ -160,9 +157,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 
 	for filename := range snapshot.Filesystem.Files() {
 		pathnameChecksum := snapshot.repository.Checksum([]byte(filename))
-		key := [32]byte{}
-		copy(key[:], pathnameChecksum)
-		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		object, err := snapshot.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 		if err != nil {
 			logger.Warn("%s: missing object for file %s", snapshot.Header.GetIndexShortID(), filename)
 			ret = false

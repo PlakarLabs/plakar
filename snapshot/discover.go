@@ -15,6 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/PlakarLabs/plakar/snapshot/vfs2"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vmihailenco/msgpack/v5"
@@ -84,6 +85,23 @@ func (cache *scanCache) RecordPathname(record importer.ScanRecord) error {
 
 	// Use LevelDB's Put method to store the key-value pair
 	return cache.db.Put([]byte(key), buffer, nil)
+}
+
+func (cache *scanCache) GetPathname(pathname string) (importer.ScanRecord, error) {
+	var record importer.ScanRecord
+
+	key := fmt.Sprintf("__pathname__:%s", pathname)
+	data, err := cache.db.Get([]byte(key), nil)
+	if err != nil {
+		return record, err
+	}
+
+	err = msgpack.Unmarshal(data, &record)
+	if err != nil {
+		return record, err
+	}
+
+	return record, nil
 }
 
 func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error {
@@ -276,18 +294,20 @@ func (snapshot *Snapshot) Discover(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range filenames {
-		data, err := msgpack.Marshal(record)
+		fileEntry := vfs2.NewFileEntry(filepath.Dir(record.Pathname), &record)
+
+		serialized, err := fileEntry.Serialize()
 		if err != nil {
 			return err
 		}
 
-		var checksum [32]byte
-		copy(checksum[:], snapshot.repository.Checksum(data))
+		checksum := snapshot.repository.Checksum(serialized)
 		err = sc.RecordChecksum(record.Pathname, checksum)
 		if err != nil {
+			fmt.Println("error getting children for", record.Pathname, err)
 			return err
 		}
-		//fmt.Println("PutFile", record.Pathname, "checksum", object.Checksum)
+		fmt.Println(fileEntry, fmt.Sprintf("%x", checksum))
 	}
 
 	directories, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", true)
@@ -295,26 +315,29 @@ func (snapshot *Snapshot) Discover(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range directories {
+		dirEntry := vfs2.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
+
 		c, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
 		if err != nil {
+			fmt.Println("error getting children for", record.Pathname, err)
 			return err
 		}
 		for childrecord := range c {
 			childrecord := filepath.Join(record.Pathname, childrecord)
-
 			value, err := sc.GetChecksum(childrecord)
 			if err != nil {
+				fmt.Println("error getting checksum for", childrecord, err)
 				return err
 			}
-			_ = value
+			dirEntry.Children = append(dirEntry.Children, value)
 		}
-		data, err := msgpack.Marshal(record)
+
+		serialized, err := dirEntry.Serialize()
 		if err != nil {
 			return err
 		}
 
-		var checksum [32]byte
-		copy(checksum[:], snapshot.repository.Checksum(data))
+		checksum := snapshot.repository.Checksum(serialized)
 		err = sc.RecordChecksum(record.Pathname, checksum)
 		if err != nil {
 			return err

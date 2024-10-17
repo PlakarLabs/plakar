@@ -59,9 +59,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 		}
 
 		pathnameChecksum := repo.Checksum([]byte(pathname))
-		key := [32]byte{}
-		copy(key[:], pathnameChecksum)
-		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+		object, err := snapshot.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

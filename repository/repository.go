@@ -139,10 +139,19 @@ func (r *Repository) Hasher() hash.Hash {
 	return hashing.GetHasher(r.Configuration().Hashing)
 }
 
-func (r *Repository) Checksum(data []byte) []byte {
+func (r *Repository) Checksum(data []byte) [32]byte {
 	hasher := r.Hasher()
 	hasher.Write(data)
-	return hasher.Sum(nil)
+	result := hasher.Sum(nil)
+
+	if len(result) != 32 {
+		panic("hasher returned invalid length")
+	}
+
+	var checksum [32]byte
+	copy(checksum[:], result)
+
+	return checksum
 }
 
 func (r *Repository) State() *state.State {

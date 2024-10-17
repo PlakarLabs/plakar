@@ -63,7 +63,7 @@ func (r *Repository) rebuildState() error {
 			return err
 		}
 		aggregateState.Merge(indexID, tmp)
-
+		aggregateState.Extends(indexID)
 	}
 
 	aggregateState.ResetDirty()

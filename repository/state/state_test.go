@@ -1,7 +1,6 @@
 package state
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -21,16 +20,15 @@ func TestNew(t *testing.T) {
 func TestSerializeAndDeserialize(t *testing.T) {
 	st := New()
 
-	checksum0 := [32]byte{0, 1, 2}
 	checksum1 := [32]byte{1, 2, 3}
 	checksum2 := [32]byte{4, 5, 6}
-	chunkSubpart := Subpart{
-		Packfile: checksum0,
+	chunkSubpart := Location{
+		Packfile: 0,
 		Offset:   100,
 		Length:   200,
 	}
-	objectSubpart := Subpart{
-		Packfile: checksum0,
+	objectSubpart := Location{
+		Packfile: 0,
 		Offset:   300,
 		Length:   400,
 	}
@@ -83,10 +81,6 @@ func TestNewFromBytesError(t *testing.T) {
 	_, err := NewFromBytes(invalidData)
 	if err == nil {
 		t.Fatalf("Expected error when deserializing invalid data, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "msgpack") {
-		t.Errorf("Expected msgpack error, got %v", err)
 	}
 }
 
@@ -162,12 +156,10 @@ func TestMerge(t *testing.T) {
 
 	st1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
 	st1.SetPackfileForObject(checksumA, checksumB, 300, 400)
-	st1.Contains[stID] = struct{}{} // ID 2
 
 	newChecksum := [32]byte{11, 22, 33}
 	st2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
 	st2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
-	st2.Contains[stID] = struct{}{} // ID 2 in st2
 
 	st1.Merge(stID, st2)
 
@@ -183,41 +175,6 @@ func TestMerge(t *testing.T) {
 		t.Errorf("Expected %d Objects, got %d", expectedObjects, len(st1.Objects))
 	}
 
-	// Verify Contains
-	expectedContains := 1
-	if len(st1.Contains) != expectedContains {
-		t.Errorf("Expected %d Contains entry, got %d", expectedContains, len(st1.Contains))
-	}
-
-}
-
-func TestListContains(t *testing.T) {
-	st := New()
-
-	checksum1 := [32]byte{100, 101, 102}
-	checksum2 := [32]byte{103, 104, 105}
-
-	id1 := checksum1
-	id2 := checksum2
-
-	st.Contains[id1] = struct{}{}
-	st.Contains[id2] = struct{}{}
-
-	contains := st.ListContains()
-	if len(contains) != 2 {
-		t.Errorf("Expected ListContains to return 2 checksums, got %d", len(contains))
-	}
-
-	expected := map[[32]byte]bool{
-		checksum1: true,
-		checksum2: true,
-	}
-
-	for _, checksum := range contains {
-		if !expected[checksum] {
-			t.Errorf("Unexpected checksum in ListContains: %v", checksum)
-		}
-	}
 }
 
 func TestIsDirtyAndResetDirty(t *testing.T) {

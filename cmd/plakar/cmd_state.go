@@ -69,18 +69,27 @@ func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
 				log.Fatal(err)
 			}
 
+			fmt.Printf("Version: %d.%d.%d\n", st.Metadata.Version/100, (st.Metadata.Version/10)%10, st.Metadata.Version%10)
+			fmt.Printf("Creation: %s\n", st.Metadata.CreationTime)
+			if len(st.Metadata.Extends) > 0 {
+				fmt.Printf("Extends:\n")
+				for _, stateID := range st.Metadata.Extends {
+					fmt.Printf("  %x\n", stateID)
+				}
+			}
+
 			for chunk, subpart := range st.Chunks {
 				fmt.Printf("chunk %x : packfile %x, offset %d, length %d\n",
-					chunk,
-					subpart.Packfile,
+					st.IdToChecksum[chunk],
+					st.IdToChecksum[subpart.Packfile],
 					subpart.Offset,
 					subpart.Length)
 			}
 
 			for object, subpart := range st.Objects {
 				fmt.Printf("object %x : packfile %x, offset %d, length %d\n",
-					object,
-					subpart.Packfile,
+					st.IdToChecksum[object],
+					st.IdToChecksum[subpart.Packfile],
 					subpart.Offset,
 					subpart.Length)
 			}

@@ -77,6 +77,7 @@ func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
+	snapshot.stateDelta.Metadata.Extends = repo.State().Metadata.Extends
 
 	go func() {
 		wg := sync.WaitGroup{}

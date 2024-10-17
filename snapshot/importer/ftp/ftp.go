@@ -135,7 +135,7 @@ func (p *FTPImporter) createParentNodes(dirPath string, c chan importer.ScanResu
 			0,
 			1,
 		)
-		c <- importer.ScanRecord{Type: importer.RecordTypeDir, Pathname: currentPath, Stat: dirInfo}
+		c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: currentPath, Stat: dirInfo}
 	}
 
 	return nil
@@ -153,7 +153,7 @@ func (p *FTPImporter) scanDirectory(dirPath string, c chan importer.ScanResult) 
 
 		if entry.IsDir() {
 			// Directory: Scan it recursively
-			c <- importer.ScanRecord{Type: importer.RecordTypeDir, Pathname: entryPath, Stat: fileInfo}
+			c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: entryPath, Stat: fileInfo}
 			err := p.scanDirectory(entryPath, c)
 			if err != nil {
 				return err

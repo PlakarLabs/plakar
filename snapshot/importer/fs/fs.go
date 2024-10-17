@@ -39,8 +39,8 @@ func init() {
 	importer.Register("fs", NewFSImporter)
 }
 
-func getExtendedAttributes(path string) (map[string]string, error) {
-	attrs := make(map[string]string)
+func getExtendedAttributes(path string) (map[string][]byte, error) {
+	attrs := make(map[string][]byte)
 
 	// Get the list of attribute names
 	attributes, err := xattr.List(path)
@@ -52,9 +52,14 @@ func getExtendedAttributes(path string) (map[string]string, error) {
 	for _, attr := range attributes {
 		value, err := xattr.Get(path, attr)
 		if err != nil {
+			// Log the error and continue instead of failing
+			if os.IsPermission(err) {
+				fmt.Printf("permission denied for attribute %s on %s\n", attr, path)
+				continue
+			}
 			return nil, fmt.Errorf("failed to get value for attribute %s: %w", attr, err)
 		}
-		attrs[attr] = string(value)
+		attrs[attr] = value
 	}
 
 	return attrs, nil
@@ -96,6 +101,12 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 				return nil
 			}
 
+			path, err = filepath.Abs(path)
+			if err != nil {
+				c <- importer.ScanError{Pathname: path, Err: err}
+				return nil
+			}
+
 			info, err := di.Info()
 			if err != nil {
 				c <- importer.ScanError{Pathname: path, Err: err}
@@ -107,7 +118,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 			case mode.IsRegular():
 				recordType = importer.RecordTypeFile
 			case mode.IsDir():
-				recordType = importer.RecordTypeDir
+				recordType = importer.RecordTypeDirectory
 			case mode&os.ModeSymlink != 0:
 				recordType = importer.RecordTypeSymlink
 			case mode&os.ModeDevice != 0:
@@ -137,7 +148,7 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 
 				lfileinfo := objects.FileInfoFromStat(lstat)
 				if lfileinfo.Mode()&os.ModeSymlink != 0 {
-					originFile, err := os.Readlink(lfileinfo.Name())
+					originFile, err := os.Readlink(path)
 					if err != nil {
 						c <- importer.ScanError{Pathname: path, Err: err}
 						return nil

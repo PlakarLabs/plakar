@@ -134,7 +134,7 @@ func snapshotCheckFull(snapshot *Snapshot, fast bool) (bool, error) {
 		} else {
 			object, err := snapshot.LookupObject(checksum)
 			if err != nil {
-				logger.Warn("%s: missing object %064x", snapshot.Header.GetIndexShortID(), checksum)
+				logger.Warn("%s: 2missing object %064x", snapshot.Header.GetIndexShortID(), checksum, err)
 				ret = false
 				continue
 			}

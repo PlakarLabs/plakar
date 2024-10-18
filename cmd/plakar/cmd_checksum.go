@@ -82,7 +82,7 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
 			errors++
 			continue
-		} else if fsinfo.FileInfo().Mode().IsRegular() {
+		} else if !fsinfo.FileInfo().Mode().IsRegular() {
 			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
 			errors++
 			continue

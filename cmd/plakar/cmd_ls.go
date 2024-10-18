@@ -30,7 +30,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot/vfs2"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/dustin/go-humanize"
 )
 
@@ -119,7 +119,7 @@ func list_snapshot(repo *repository.Repository, args []string) {
 		content := make([]string, 0)
 		children := make(map[string]*objects.FileInfo)
 
-		if finfo.(*vfs2.DirEntry) != nil {
+		if finfo.(*vfs.DirEntry) != nil {
 			entries := make([]string, 0)
 			iter, err := pvfs.Children(prefix)
 			if err != nil {
@@ -133,16 +133,16 @@ func list_snapshot(repo *repository.Repository, args []string) {
 				if err == nil {
 					continue
 				}
-				children[prefix] = info.(*vfs2.DirEntry).FileInfo()
+				children[prefix] = info.(*vfs.DirEntry).FileInfo()
 				content = append(content, prefix)
 			} else {
 				for _, name := range entries {
 					finfo, _ := pvfs.Stat(path.Clean(fmt.Sprintf("%s/%s", prefix, name)))
 					var info *objects.FileInfo
 					switch finfo := finfo.(type) {
-					case *vfs2.DirEntry:
+					case *vfs.DirEntry:
 						info = finfo.FileInfo()
-					case *vfs2.FileEntry:
+					case *vfs.FileEntry:
 						info = finfo.FileInfo()
 					}
 					children[name] = info
@@ -155,9 +155,9 @@ func list_snapshot(repo *repository.Repository, args []string) {
 		} else {
 			var info *objects.FileInfo
 			switch finfo := finfo.(type) {
-			case *vfs2.DirEntry:
+			case *vfs.DirEntry:
 				info = finfo.FileInfo()
-			case *vfs2.FileEntry:
+			case *vfs.FileEntry:
 				info = finfo.FileInfo()
 			}
 			children[prefix] = info
@@ -242,9 +242,9 @@ func list_snapshot_recursive(repo *repository.Repository, args []string) {
 			fsinfo, _ := pvfs.Stat(name)
 
 			switch fsinfo := fsinfo.(type) {
-			case *vfs2.DirEntry:
+			case *vfs.DirEntry:
 				fi = fsinfo.FileInfo()
-			case *vfs2.FileEntry:
+			case *vfs.FileEntry:
 				fi = fsinfo.FileInfo()
 			}
 
@@ -274,7 +274,7 @@ func list_snapshot_recursive(repo *repository.Repository, args []string) {
 	}
 }
 
-func list_snapshot_recursive_directory(pvfs *vfs2.Filesystem, directory string) {
+func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
 	directories := make([]string, 0)
 	for name := range pvfs.Directories() {
 		directories = append(directories, name)
@@ -288,9 +288,9 @@ func list_snapshot_recursive_directory(pvfs *vfs2.Filesystem, directory string) 
 		fsinfo, _ := pvfs.Stat(name)
 		var fi *objects.FileInfo
 		switch fsinfo := fsinfo.(type) {
-		case *vfs2.DirEntry:
+		case *vfs.DirEntry:
 			fi = fsinfo.FileInfo()
-		case *vfs2.FileEntry:
+		case *vfs.FileEntry:
 			fi = fsinfo.FileInfo()
 		}
 		if !pathIsWithin(name, directory) {
@@ -334,9 +334,9 @@ func list_snapshot_recursive_directory(pvfs *vfs2.Filesystem, directory string) 
 		var fi *objects.FileInfo
 
 		switch fsinfo := fsinfo.(type) {
-		case *vfs2.DirEntry:
+		case *vfs.DirEntry:
 			fi = fsinfo.FileInfo()
-		case *vfs2.FileEntry:
+		case *vfs.FileEntry:
 			fi = fsinfo.FileInfo()
 		}
 

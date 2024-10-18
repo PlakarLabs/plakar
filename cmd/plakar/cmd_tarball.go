@@ -29,7 +29,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot/vfs2"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 func init() {
@@ -97,8 +97,8 @@ func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 
 			var header *tar.Header
 			switch info := info.(type) {
-			case *vfs2.FileEntry:
-			case *vfs2.DirEntry:
+			case *vfs.FileEntry:
+			case *vfs.DirEntry:
 				header = &tar.Header{
 					Name:    filepath,
 					Size:    info.Size,
@@ -107,7 +107,7 @@ func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 				}
 			}
 
-			if info.(*vfs2.DirEntry) != nil {
+			if info.(*vfs.DirEntry) != nil {
 				continue
 			}
 

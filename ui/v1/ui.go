@@ -35,7 +35,7 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/PlakarLabs/plakar/snapshot/vfs2"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
@@ -171,7 +171,7 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 
 	for pathname := range fs.Pathnames() {
 		info, _ := fs.Stat(pathname)
-		if info.(*vfs2.DirEntry) != nil {
+		if info.(*vfs.DirEntry) != nil {
 			nDirectories++
 		} else {
 			nFiles++
@@ -318,9 +318,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 
 		var fileinfo *objects.FileInfo
 		switch info := info.(type) {
-		case *vfs2.DirEntry:
+		case *vfs.DirEntry:
 			fileinfo = info.FileInfo()
-		case *vfs2.FileEntry:
+		case *vfs.FileEntry:
 			fileinfo = info.FileInfo()
 		}
 
@@ -328,9 +328,9 @@ func browse(w http.ResponseWriter, r *http.Request) {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode().IsRegular() {
 			files = append(files, fileinfo)
-		} else if info.(*vfs2.FileEntry).SymlinkTarget != "" {
+		} else if info.(*vfs.FileEntry).SymlinkTarget != "" {
 			symlinks = append(symlinks, fileinfo)
-			symlinksResolve[fileinfo.Name()] = info.(*vfs2.FileEntry).SymlinkTarget
+			symlinksResolve[fileinfo.Name()] = info.(*vfs.FileEntry).SymlinkTarget
 		} else {
 			others = append(others, fileinfo)
 		}
@@ -404,18 +404,18 @@ func object(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+	if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
 		http.Error(w, "is directory", http.StatusInternalServerError)
 		return
 	}
 
-	info := fsinfo.(*vfs2.FileEntry).FileInfo()
+	info := fsinfo.(*vfs.FileEntry).FileInfo()
 	if !info.Mode().IsRegular() {
 		http.Error(w, "not regular", http.StatusInternalServerError)
 		return
 	}
 
-	checksum := fsinfo.(*vfs2.FileEntry).Checksum
+	checksum := fsinfo.(*vfs.FileEntry).Checksum
 	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -442,7 +442,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 		root = root + atom + "/"
 		if st, err := fs.Stat(root); err != nil {
 			break
-		} else if _, isDir := st.(*vfs2.DirEntry); isDir {
+		} else if _, isDir := st.(*vfs.DirEntry); isDir {
 			break
 		}
 	}
@@ -514,18 +514,18 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+	if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
 		http.Error(w, "is directory", http.StatusInternalServerError)
 		return
 	}
 
-	info := fsinfo.(*vfs2.FileEntry).FileInfo()
+	info := fsinfo.(*vfs.FileEntry).FileInfo()
 	if !info.Mode().IsRegular() {
 		http.Error(w, "not regular", http.StatusInternalServerError)
 		return
 	}
 
-	checksum := fsinfo.(*vfs2.FileEntry).Checksum
+	checksum := fsinfo.(*vfs.FileEntry).Checksum
 	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -675,10 +675,10 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+				if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
 					continue
 				}
-				object, err := snap.LookupObject(fsinfo.(*vfs2.FileEntry).Checksum)
+				object, err := snap.LookupObject(fsinfo.(*vfs.FileEntry).Checksum)
 				if err != nil {
 					continue
 				}

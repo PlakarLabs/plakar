@@ -85,12 +85,6 @@ type Backend interface {
 	GetSnapshot(indexID uuid.UUID) ([]byte, error)
 	DeleteSnapshot(indexID uuid.UUID) error
 
-	GetBlobs() ([][32]byte, error)
-	PutBlob(checksum [32]byte, data []byte) error
-	CheckBlob(checksum [32]byte) (bool, error)
-	GetBlob(checksum [32]byte) ([]byte, error)
-	DeleteBlob(checksum [32]byte) error
-
 	GetStates() ([][32]byte, error)
 	PutState(checksum [32]byte, data []byte) error
 	GetState(checksum [32]byte) ([]byte, error)
@@ -479,75 +473,6 @@ func (store *Store) DeleteState(checksum [32]byte) error {
 		logger.Trace("store", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeleteState(checksum)
-}
-
-/* Blobs */
-func (store *Store) GetBlobs() ([][32]byte, error) {
-	store.readSharedLock.Lock()
-	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.GetBlobs", time.Since(t0))
-		logger.Trace("store", "GetBlobs(): %s", time.Since(t0))
-	}()
-	return store.backend.GetBlobs()
-}
-
-func (store *Store) PutBlob(checksum [32]byte, data []byte) error {
-	store.writeSharedLock.Lock()
-	defer store.writeSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.PutBlob", time.Since(t0))
-		logger.Trace("store", "PutBlob(%016x): %s", checksum, time.Since(t0))
-	}()
-	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-	return store.backend.PutBlob(checksum, data)
-}
-
-func (store *Store) CheckBlob(checksum [32]byte) (bool, error) {
-	store.readSharedLock.Lock()
-	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.CheckBlob", time.Since(t0))
-		logger.Trace("store", "CheckBlob(%016x): %s", checksum, time.Since(t0))
-	}()
-
-	return store.backend.CheckBlob(checksum)
-}
-
-func (store *Store) GetBlob(checksum [32]byte) ([]byte, error) {
-	store.readSharedLock.Lock()
-	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.GetBlob", time.Since(t0))
-		logger.Trace("store", "GetBlob(%016x): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := store.backend.GetBlob(checksum)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&store.rBytes, uint64(len(data)))
-	return data, nil
-}
-
-func (store *Store) DeleteBlob(checksum [32]byte) error {
-	store.writeSharedLock.Lock()
-	defer store.writeSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.DeleteBlob", time.Since(t0))
-		logger.Trace("store", "DeleteBlob(%064x): %s", checksum, time.Since(t0))
-	}()
-	return store.backend.DeleteBlob(checksum)
 }
 
 func (store *Store) Close() error {

@@ -121,16 +121,6 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS blobs (
-		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
-		data		BLOB
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS states (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
@@ -279,90 +269,6 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
 	}
-	return nil
-}
-
-// blobs
-func (repository *Repository) GetBlobs() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT checksum FROM blobs")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	checksums := make([][32]byte, 0)
-	for rows.Next() {
-		var checksum []byte
-		err = rows.Scan(&checksum)
-		if err != nil {
-			return nil, err
-		}
-		var checksum32 [32]byte
-		copy(checksum32[:], checksum)
-		checksums = append(checksums, checksum32)
-	}
-	return checksums, nil
-}
-
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO blobs (checksum, data) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(checksum[:], data)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		if sqliteErr, ok := err.(sqlite3.Error); !ok {
-			return err
-		} else if !errors.As(err, &sqliteErr) {
-			return err
-		} else if !errors.Is(sqliteErr.Code, sqlite3.ErrConstraint) {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT checksum=? FROM blobs WHERE checksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM blobs WHERE checksum=?`, checksum[:]).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *Repository) DeleteBlob(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM blobs WHERE checksum=?`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(checksum[:])
-	repository.wrMutex.Unlock()
-	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
-	}
-
 	return nil
 }
 

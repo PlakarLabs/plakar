@@ -152,108 +152,6 @@ func commitSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// blobs
-func getBlobs(w http.ResponseWriter, r *http.Request) {
-	var reqGetBlobs network.ReqGetBlobs
-	if err := json.NewDecoder(r.Body).Decode(&reqGetBlobs); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetBlobs network.ResGetBlobs
-	checksums, err := lrepository.GetBlobs()
-	if err != nil {
-		resGetBlobs.Err = err.Error()
-	} else {
-		resGetBlobs.Checksums = checksums
-	}
-	if err := json.NewEncoder(w).Encode(resGetBlobs); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func putBlob(w http.ResponseWriter, r *http.Request) {
-	var reqPutBlob network.ReqPutBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqPutBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resPutBlob network.ResPutBlob
-	_, err := lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
-	if err != nil {
-		resPutBlob.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resPutBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func checkBlob(w http.ResponseWriter, r *http.Request) {
-	var reqCheckBlob network.ReqCheckBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqCheckBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resCheckBlob network.ResCheckBlob
-	exists, err := lrepository.CheckBlob(reqCheckBlob.Checksum)
-	if err != nil {
-		resCheckBlob.Err = err.Error()
-	} else {
-		resCheckBlob.Exists = exists
-	}
-	if err := json.NewEncoder(w).Encode(resCheckBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func getBlob(w http.ResponseWriter, r *http.Request) {
-	var reqGetBlob network.ReqGetBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqGetBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetBlob network.ResGetBlob
-	data, err := lrepository.GetBlob(reqGetBlob.Checksum)
-	if err != nil {
-		resGetBlob.Err = err.Error()
-	} else {
-		resGetBlob.Data = data
-	}
-	if err := json.NewEncoder(w).Encode(resGetBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func deleteBlob(w http.ResponseWriter, r *http.Request) {
-	if lNoDelete {
-		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
-		return
-	}
-
-	var reqDeleteBlob network.ReqDeleteBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resDeleteBlob network.ResDeleteBlob
-	err := lrepository.DeleteBlob(reqDeleteBlob.Checksum)
-	if err != nil {
-		resDeleteBlob.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resDeleteBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 // states
 func getStates(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndexes network.ReqGetStates
@@ -454,12 +352,6 @@ func Server(repo *repository.Repository, addr string, noDelete bool) error {
 	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
 	r.HandleFunc("/snapshot", deleteSnapshot).Methods("DELETE")
 	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
-
-	r.HandleFunc("/blobs", getBlobs).Methods("GET")
-	r.HandleFunc("/blob", putBlob).Methods("PUT")
-	r.HandleFunc("/blob", getBlob).Methods("GET")
-	r.HandleFunc("/blob/check", checkBlob).Methods("GET")
-	r.HandleFunc("/blob", deleteBlob).Methods("DELETE")
 
 	r.HandleFunc("/indexes", getStates).Methods("GET")
 	r.HandleFunc("/index", putState).Methods("PUT")

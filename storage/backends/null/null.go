@@ -83,27 +83,6 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	return nil
 }
 
-// blobs
-func (repository *Repository) GetBlobs() ([][32]byte, error) {
-	return [][32]byte{}, nil
-}
-
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
-	return nil
-}
-
-func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
-	return false, nil
-}
-
-func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func (repository *Repository) DeleteBlob(checksum [32]byte) error {
-	return nil
-}
-
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	return [][32]byte{}, nil

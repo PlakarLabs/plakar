@@ -83,50 +83,6 @@ type ResDeleteSnapshot struct {
 	Err string
 }
 
-// blobs
-type ReqGetBlobs struct {
-}
-
-type ResGetBlobs struct {
-	Checksums [][32]byte
-	Err       string
-}
-
-type ReqPutBlob struct {
-	Checksum [32]byte
-	Data     []byte
-}
-
-type ResPutBlob struct {
-	Err string
-}
-
-type ReqCheckBlob struct {
-	Checksum [32]byte
-}
-
-type ResCheckBlob struct {
-	Exists bool
-	Err    string
-}
-
-type ReqGetBlob struct {
-	Checksum [32]byte
-}
-
-type ResGetBlob struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteBlob struct {
-	Checksum [32]byte
-	Data     []byte
-}
-type ResDeleteBlob struct {
-	Err string
-}
-
 // states
 type ReqGetStates struct {
 }
@@ -233,22 +189,6 @@ func ProtocolRegister() {
 
 	gob.Register(ReqDeleteSnapshot{})
 	gob.Register(ResDeleteSnapshot{})
-
-	// blobs
-	gob.Register(ReqGetBlobs{})
-	gob.Register(ResGetBlobs{})
-
-	gob.Register(ReqPutBlob{})
-	gob.Register(ResPutBlob{})
-
-	gob.Register(ReqCheckBlob{})
-	gob.Register(ResCheckBlob{})
-
-	gob.Register(ReqGetBlob{})
-	gob.Register(ResGetBlob{})
-
-	gob.Register(ReqDeleteBlob{})
-	gob.Register(ResDeleteBlob{})
 
 	// states
 	gob.Register(ReqGetStates{})

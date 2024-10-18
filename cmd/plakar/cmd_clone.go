@@ -105,32 +105,6 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 	wg.Wait()
 
 	wg = sync.WaitGroup{}
-	blobsChecksums, err := sourceRepository.GetBlobs()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get blobs list from repository: %s\n", sourceRepository.Location, err)
-		return 1
-	}
-	for _, _blobChecksum := range blobsChecksums {
-		wg.Add(1)
-		go func(blobChecksum [32]byte) {
-			defer wg.Done()
-
-			data, err := sourceRepository.GetBlob(blobChecksum)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get blob from repository: %s\n", sourceRepository.Location, err)
-				return
-			}
-
-			err = cloneRepository.PutBlob(blobChecksum, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put blob to repository: %s\n", cloneRepository.Location, err)
-				return
-			}
-		}(_blobChecksum)
-	}
-	wg.Wait()
-
-	wg = sync.WaitGroup{}
 	snapshots, err := sourceRepository.GetSnapshots()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location, err)

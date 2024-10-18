@@ -206,66 +206,6 @@ func (r *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 	return r.store.PutSnapshot(indexID, data)
 }
 
-func (r *Repository) GetBlobs() ([][32]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.GetBlobs", time.Since(t0))
-		logger.Trace("repository", "GetBlobs(): %s", time.Since(t0))
-	}()
-
-	return r.store.GetBlobs()
-}
-
-func (r *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.GetBlob", time.Since(t0))
-		logger.Trace("repository", "GetBlob(%x): %s", checksum, time.Since(t0))
-	}()
-
-	buffer, err := r.store.GetBlob(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.Decode(buffer)
-}
-
-func (r *Repository) PutBlob(checksum [32]byte, data []byte) (int, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.PutBlob", time.Since(t0))
-		logger.Trace("repository", "PutBlob(%x, ...): %s", checksum, time.Since(t0))
-	}()
-
-	data, err := r.Encode(data)
-	if err != nil {
-		return 0, err
-	}
-
-	return len(data), r.store.PutBlob(checksum, data)
-}
-
-func (r *Repository) CheckBlob(checksum [32]byte) (bool, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.CheckBlob", time.Since(t0))
-		logger.Trace("repository", "CheckBlob(%x): %s", checksum, time.Since(t0))
-	}()
-
-	return r.store.CheckBlob(checksum)
-}
-
-func (r *Repository) DeleteBlob(checksum [32]byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.DeleteBlob", time.Since(t0))
-		logger.Trace("repository", "DeleteBlob(%x): %s", checksum, time.Since(t0))
-	}()
-
-	return r.store.DeleteBlob(checksum)
-}
-
 func (r *Repository) GetStates() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {

@@ -239,7 +239,12 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
 	}()
 
-	buffer, err := repo.GetBlob(checksum)
+	packfile, offset, length, exists := repo.State().GetSubpartForData(checksum)
+	if !exists {
+		return nil, [32]byte{}, fmt.Errorf("metadata not found")
+	}
+
+	buffer, err := repo.GetPackfileBlob(packfile, offset, length)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}
@@ -539,55 +544,6 @@ func (snapshot *Snapshot) Commit() error {
 		if err != nil {
 			return err
 		}
-	}
-
-	// there are three bits we can parallelize here:
-	var serializedMetadata []byte
-	var metadataChecksum32 [32]byte
-
-	wg := sync.WaitGroup{}
-	errc := make(chan error)
-	errcDone := make(chan bool)
-	var parallelError error
-	go func() {
-		for err := range errc {
-			logger.Warn("commit error: %s", err)
-			parallelError = err
-		}
-		close(errcDone)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		var err error
-		serializedMetadata, err = snapshot.Metadata.Serialize()
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		metadataChecksum := snapshot.repository.Checksum(serializedMetadata)
-		copy(metadataChecksum32[:], metadataChecksum[:])
-
-		if exists, err := snapshot.repository.CheckBlob(metadataChecksum32); err != nil {
-			errc <- err
-			return
-		} else if !exists {
-			_, err := repo.PutBlob(metadataChecksum32, serializedMetadata)
-			if err != nil {
-				errc <- err
-				return
-			}
-		}
-	}()
-	wg.Wait()
-	close(errc)
-	<-errcDone
-
-	if parallelError != nil {
-		return parallelError
 	}
 
 	serializedHdr, err := snapshot.Header.Serialize()

@@ -35,11 +35,10 @@ type Header struct {
 	ScanSize          uint64
 	ScanProcessedSize uint64
 
-	ScannedDirectories []string
+	Root     [32]byte
+	Metadata [32]byte
 
-	Index    Blob
-	VFS      Blob
-	Metadata Blob
+	ScannedDirectories []string
 
 	ChunksCount  uint64
 	ChunksSize   uint64
@@ -75,6 +74,8 @@ func NewHeader(indexID uuid.UUID) *Header {
 		CommandLine:  "",
 		MachineID:    "",
 		PublicKey:    "",
+
+		Root: [32]byte{},
 
 		FileKind:      make(map[string]uint64),
 		FileType:      make(map[string]uint64),
@@ -121,4 +122,8 @@ func (h *Header) GetIndexID() uuid.UUID {
 
 func (h *Header) GetIndexShortID() string {
 	return h.IndexID.String()[:8]
+}
+
+func (h *Header) GetRoot() [32]byte {
+	return h.Root
 }

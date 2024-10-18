@@ -1,13 +1,12 @@
 package snapshot
 
 import (
+	"fmt"
 	"io"
-	"math"
 	"mime"
+	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
@@ -16,17 +15,428 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/PlakarLabs/plakar/snapshot/vfs2"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vmihailenco/msgpack/v5"
 )
+
+type NoOpLogger struct{}
+
+func (l *NoOpLogger) Errorf(format string, v ...interface{})   {}
+func (l *NoOpLogger) Warningf(format string, v ...interface{}) {}
+func (l *NoOpLogger) Infof(format string, v ...interface{})    {}
+func (l *NoOpLogger) Debugf(format string, v ...interface{})   {}
+func (l *NoOpLogger) Fatalf(format string, v ...interface{})   {}
+
+type scanCache struct {
+	db    *leveldb.DB
+	dbdir string
+}
+
+func newScanCache() (*scanCache, error) {
+	tempDir, err := os.MkdirTemp("", "leveldb-temp")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Open an in-memory LevelDB database (replace "/tmp/test" with "" for in-memory)
+	db, err := leveldb.OpenFile(tempDir, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &scanCache{
+		db:    db,
+		dbdir: tempDir,
+	}, nil
+}
+
+func (cache *scanCache) Close() error {
+	// Close the LevelDB database
+	if err := cache.db.Close(); err != nil {
+		return err
+	}
+
+	// Remove the temporary directory and its contents
+	if err := os.RemoveAll(cache.dbdir); err != nil {
+		return fmt.Errorf("failed to remove temp directory: %w", err)
+	}
+
+	return nil
+}
+
+func (cache *scanCache) RecordPathname(record importer.ScanRecord) error {
+	buffer, err := msgpack.Marshal(&record)
+	if err != nil {
+		return err
+	}
+
+	var key string
+	if record.Stat.Mode().IsDir() {
+		if record.Pathname == "/" {
+			key = "__pathname__:/"
+		} else {
+			key = fmt.Sprintf("__pathname__:%s/", record.Pathname)
+		}
+	} else {
+		key = fmt.Sprintf("__pathname__:%s", record.Pathname)
+	}
+
+	// Use LevelDB's Put method to store the key-value pair
+	return cache.db.Put([]byte(key), buffer, nil)
+}
+
+func (cache *scanCache) GetPathname(pathname string) (importer.ScanRecord, error) {
+	var record importer.ScanRecord
+
+	key := fmt.Sprintf("__pathname__:%s", pathname)
+	data, err := cache.db.Get([]byte(key), nil)
+	if err != nil {
+		return record, err
+	}
+
+	err = msgpack.Unmarshal(data, &record)
+	if err != nil {
+		return record, err
+	}
+
+	return record, nil
+}
+
+func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error {
+	pathname = strings.TrimSuffix(pathname, "/")
+	if pathname == "" {
+		pathname = "/"
+	}
+	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
+}
+
+func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
+	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	if len(data) != 32 {
+		return [32]byte{}, fmt.Errorf("invalid checksum length: %d", len(data))
+	}
+
+	ret := [32]byte{}
+	copy(ret[:], data)
+	return ret, nil
+}
+
+func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
+	// Create a channel to return the keys
+	keyChan := make(chan importer.ScanRecord)
+
+	// Start a goroutine to perform the iteration
+	go func() {
+		defer close(keyChan) // Ensure the channel is closed when the function exits
+
+		// Use LevelDB's iterator
+		iter := cache.db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		// Move to the last key and iterate backward
+		for iter.Last(); iter.Valid(); iter.Prev() {
+			key := iter.Key()
+
+			// Check if the key starts with the given prefix
+			if !strings.HasPrefix(string(key), prefix) {
+				continue
+			}
+
+			if isDirectory {
+				if !strings.HasSuffix(string(key), "/") {
+					continue
+				}
+			} else {
+				if strings.HasSuffix(string(key), "/") {
+					continue
+				}
+			}
+
+			// Retrieve the value for the current key
+			value := iter.Value()
+
+			var record importer.ScanRecord
+			err := msgpack.Unmarshal(value, &record)
+			if err != nil {
+				fmt.Printf("Error unmarshaling value: %v\n", err)
+				continue
+			}
+
+			// Send the record through the channel
+			keyChan <- record
+		}
+	}()
+
+	// Return the channel for the caller to consume
+	return keyChan, nil
+}
+
+func (cache *scanCache) EnumerateImmediateChildPathnames(directory string) (<-chan importer.ScanRecord, error) {
+	// Ensure directory ends with a trailing slash for consistency
+	if !strings.HasSuffix(directory, "/") {
+		directory += "/"
+	}
+
+	// Create a channel to return the keys
+	keyChan := make(chan importer.ScanRecord)
+
+	// Start a goroutine to perform the iteration
+	go func() {
+		defer close(keyChan) // Ensure the channel is closed when the function exits
+
+		iter := cache.db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		// Create the directory prefix to match keys
+		directoryKeyPrefix := "__pathname__:" + directory
+
+		// Iterate over keys in LevelDB
+		for iter.Seek([]byte(directoryKeyPrefix)); iter.Valid(); iter.Next() {
+			key := string(iter.Key())
+			if key == directoryKeyPrefix {
+				continue
+			}
+
+			// Check if the key starts with the directory prefix
+			if strings.HasPrefix(key, directoryKeyPrefix) {
+				// Remove the prefix and the directory to isolate the remaining part of the path
+				remainingPath := key[len(directoryKeyPrefix):]
+
+				// Determine if this is an immediate child
+				slashCount := strings.Count(remainingPath, "/")
+
+				// Immediate child should either:
+				// - Have no slash (a file)
+				// - Have exactly one slash at the end (a directory)
+				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
+					// Retrieve the value for the current key
+					value := iter.Value()
+
+					var record importer.ScanRecord
+					err := msgpack.Unmarshal(value, &record)
+					if err != nil {
+						fmt.Printf("Error unmarshaling value: %v\n", err)
+						continue
+					}
+
+					// Send the immediate child key through the channel
+					keyChan <- record
+				}
+			} else {
+				// Stop if the key is no longer within the expected prefix
+				break
+			}
+		}
+	}()
+
+	// Return the channel for the caller to consume
+	return keyChan, nil
+}
 
 type PushOptions struct {
 	MaxConcurrency uint64
 	Excludes       []glob.Glob
 }
 
-func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi objects.FileInfo) (*objects.Object, error) {
+func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record importer.ScanResult) bool {
+	var pathname string
+	switch record := record.(type) {
+	case importer.ScanError:
+		pathname = record.Pathname
+	case importer.ScanRecord:
+		pathname = record.Pathname
+	}
+	doExclude := false
+	for _, exclude := range options.Excludes {
+		if exclude.Match(pathname) {
+			doExclude = true
+			break
+		}
+	}
+	return doExclude
+}
+
+func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
+	sc, err := newScanCache()
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	imp, err := importer.NewImporter(scanDir)
+	if err != nil {
+		return err
+	}
+	defer imp.Close()
+
+	t0 := time.Now()
+
+	scanner, err := imp.Scan()
+	if err != nil {
+		return err
+	}
+	snapshot.Header.ScannedDirectories = make([]string, 0)
+
+	if !strings.Contains(scanDir, "://") {
+		scanDir, err = filepath.Abs(scanDir)
+		if err != nil {
+			logger.Warn("%s", err)
+			return err
+		}
+	} else {
+		scanDir = imp.Root()
+	}
+	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
+
+	filesCount := 0
+	directoriesCount := 0
+	symlinksCount := 0
+	nregularsCount := 0
+	errors := 0
+
+	t0 = time.Now()
+	for record := range scanner {
+		if snapshot.skipExcludedPathname(options, record) {
+			continue
+		}
+
+		switch record := record.(type) {
+		case importer.ScanError:
+			//logger.Warn("%s: %s", record.Pathname, record.Err)
+			errors++
+
+		case importer.ScanRecord:
+			switch record.Type {
+			case importer.RecordTypeFile:
+				filesCount++
+			case importer.RecordTypeDirectory:
+				directoriesCount++
+			case importer.RecordTypeSymlink:
+				symlinksCount++
+			default:
+				nregularsCount++
+			}
+			if err := sc.RecordPathname(record); err != nil {
+				return err
+			}
+		}
+	}
+
+	filenames, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", false)
+	if err != nil {
+		return err
+	}
+	for record := range filenames {
+		fileEntry := vfs2.NewFileEntry(filepath.Dir(record.Pathname), &record)
+
+		if record.Stat.Mode().IsRegular() {
+			object, err := chunkify2(snapshot, imp, record.Pathname, record.Stat)
+			if err != nil {
+				fmt.Println("error chunkifying", record.Pathname, err)
+				return err
+			}
+			for _, chunk := range object.Chunks {
+				fileEntry.AddChunk(chunk)
+			}
+			fileEntry.AddChecksum(object.Checksum)
+			if object.ContentType != "" {
+				fileEntry.AddContentType(object.ContentType)
+			}
+
+			err = snapshot.PutObject(object)
+			if err != nil {
+				return err
+			}
+		}
+
+		serialized, err := fileEntry.Serialize()
+		if err != nil {
+			return err
+		}
+
+		checksum := snapshot.repository.Checksum(serialized)
+		err = sc.RecordChecksum(record.Pathname, checksum)
+		if err != nil {
+			fmt.Println("error getting children for", record.Pathname, err)
+			return err
+		}
+
+		err = snapshot.PutFile(checksum, serialized)
+		if err != nil {
+			return err
+		}
+	}
+
+	directories, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", true)
+	if err != nil {
+		return err
+	}
+	for record := range directories {
+		dirEntry := vfs2.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
+
+		c, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
+		if err != nil {
+			fmt.Println("error getting children for", record.Pathname, err)
+			return err
+		}
+		for childrecord := range c {
+			value, err := sc.GetChecksum(childrecord.Pathname)
+			if err != nil {
+				fmt.Println("error getting checksum for", childrecord, err)
+				return err
+			}
+			dirEntry.AddChild(value, childrecord)
+		}
+
+		serialized, err := dirEntry.Serialize()
+		if err != nil {
+			return err
+		}
+
+		checksum := snapshot.repository.Checksum(serialized)
+		err = sc.RecordChecksum(record.Pathname, checksum)
+		if err != nil {
+			return err
+		}
+		err = snapshot.PutDirectory(checksum, serialized)
+		if err != nil {
+			return err
+		}
+	}
+
+	metadata, err := snapshot.Metadata.Serialize()
+	if err != nil {
+		return err
+	}
+	metadataChecksum := snapshot.repository.Checksum(metadata)
+	err = snapshot.PutData(metadataChecksum, metadata)
+	if err != nil {
+		return err
+	}
+
+	value, err := sc.GetChecksum("/")
+	if err != nil {
+		return err
+	}
+	snapshot.Header.Root = value
+	snapshot.Header.Metadata = metadataChecksum
+
+	fmt.Println(fmt.Sprintf("%x", value), "took", time.Since(t0), "files:", filesCount, "directories:", directoriesCount, "symlinks:", symlinksCount, "nregulars:", nregularsCount, "errors:", errors)
+
+	snapshot.Header.CreationDuration = time.Since(t0)
+
+	return snapshot.Commit()
+}
+
+/**/
+func chunkify2(snapshot *Snapshot, imp *importer.Importer, pathname string, fi objects.FileInfo) (*objects.Object, error) {
 	rd, err := imp.NewReader(filepath.FromSlash(pathname))
 	if err != nil {
 		return nil, err
@@ -56,21 +466,14 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 		chunk := objects.Chunk{}
 		chunk.Checksum = t32
 		chunk.Length = uint32(len(buf))
-		object.Chunks = append(object.Chunks, chunk.Checksum)
+		object.Chunks = append(object.Chunks, chunk)
 
-		indexChunk, err := snapshot.Index.LookupChunk(chunk.Checksum)
-		if err != nil && err != leveldb.ErrNotFound {
-			return nil, err
-		}
-		if indexChunk == nil {
-			exists := snapshot.CheckChunk(chunk.Checksum)
-			if !exists {
-				err := snapshot.PutChunk(chunk.Checksum, buf)
-				if err != nil {
-					return nil, err
-				}
+		exists := snapshot.CheckChunk(chunk.Checksum)
+		if !exists {
+			err := snapshot.PutChunk(chunk.Checksum, buf)
+			if err != nil {
+				return nil, err
 			}
-			snapshot.Index.AddChunk(&chunk)
 		}
 
 		return object, nil
@@ -121,22 +524,15 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 			chunk := objects.Chunk{}
 			chunk.Checksum = t32
 			chunk.Length = uint32(len(cdcChunk))
-			object.Chunks = append(object.Chunks, chunk.Checksum)
+			object.Chunks = append(object.Chunks, chunk)
 			cdcOffset += uint64(len(cdcChunk))
 
-			indexChunk, err := snapshot.Index.LookupChunk(chunk.Checksum)
-			if err != nil && err != leveldb.ErrNotFound {
-				return nil, err
-			}
-			if indexChunk == nil {
-				exists := snapshot.CheckChunk(chunk.Checksum)
-				if !exists {
-					err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
-					if err != nil {
-						return nil, err
-					}
+			exists := snapshot.CheckChunk(chunk.Checksum)
+			if !exists {
+				err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
+				if err != nil {
+					return nil, err
 				}
-				snapshot.Index.AddChunk(&chunk)
 			}
 		}
 
@@ -150,222 +546,4 @@ func chunkify(snapshot *Snapshot, imp *importer.Importer, pathname string, fi ob
 	object.Checksum = t32
 
 	return object, nil
-}
-
-func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record importer.ScanResult) bool {
-	var pathname string
-	switch record := record.(type) {
-	case importer.ScanError:
-		pathname = record.Pathname
-	case importer.ScanRecord:
-		pathname = record.Pathname
-	}
-	doExclude := false
-	for _, exclude := range options.Excludes {
-		if exclude.Match(pathname) {
-			doExclude = true
-			break
-		}
-	}
-	return doExclude
-}
-
-func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
-	imp, err := importer.NewImporter(scanDir)
-	if err != nil {
-		return err
-	}
-	defer imp.Close()
-
-	t0 := time.Now()
-
-	wg := sync.WaitGroup{}
-
-	scanner, err := imp.Scan()
-	if err != nil {
-		return err
-	}
-
-	maxConcurrency := make(chan struct{}, options.MaxConcurrency)
-
-	snapshot.Header.ScannedDirectories = make([]string, 0)
-
-	if !strings.Contains(scanDir, "://") {
-		scanDir, err = filepath.Abs(scanDir)
-		if err != nil {
-			logger.Warn("%s", err)
-			return err
-		}
-	} else {
-		scanDir = imp.Root()
-	}
-	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
-
-	//fscache, err := fscache.NewCache(snapshot.repository.Location)
-
-	fileCount := 0
-	dirCount := 0
-	linkCount := 0
-	nregularCount := 0
-
-	for record := range scanner {
-
-		if snapshot.skipExcludedPathname(options, record) {
-			continue
-		}
-
-		switch record := record.(type) {
-		case importer.ScanError:
-			logger.Warn("%s: %s", record.Pathname, record.Err)
-
-		case importer.ScanRecord:
-			if record.Type == importer.RecordTypeSymlink {
-				err := snapshot.Filesystem.RecordLink(record.Pathname, record.Target, record.Stat)
-				if err != nil {
-					logger.Warn("%s: %s", record.Pathname, err)
-					return err
-				}
-				linkCount++
-				continue
-			}
-
-			//
-			extension := strings.ToLower(filepath.Ext(record.Pathname))
-			if extension == "" {
-				extension = "none"
-			}
-			if _, exists := snapshot.Header.FileExtension[extension]; !exists {
-				snapshot.Header.FileExtension[extension] = 0
-			}
-			snapshot.Header.FileExtension[extension]++
-			//
-
-			err := snapshot.Filesystem.Record(record.Pathname, record.Stat)
-			if err != nil {
-				logger.Warn("%s: %s", record.Pathname, err)
-				return err
-			}
-			if record.Stat.IsDir() {
-				dirCount++
-				continue
-			} else if !record.Stat.Mode().IsRegular() {
-				nregularCount++
-				continue
-			} else {
-				fileCount++
-			}
-
-			maxConcurrency <- struct{}{}
-			wg.Add(1)
-			go func(_record importer.ScanRecord) {
-				defer func() { wg.Done() }()
-				defer func() { <-maxConcurrency }()
-
-				atomic.AddUint64(&snapshot.Header.ScanSize, uint64(_record.Stat.Size()))
-
-				var object *objects.Object
-				var exists bool
-				/*
-					object, err := pathnameCached(snapshot, _record.Stat, _record.Pathname)
-					if err != nil {
-						logger.Warn("%s: %s", _record.Pathname, err)
-					}
-					exists := false
-					if object != nil {
-						exists = snapshot.CheckObject(object.Checksum)
-					}
-				*/
-
-				// can't reuse object from cache, chunkify
-				if object == nil || !exists {
-					object, err = chunkify(snapshot, imp, _record.Pathname, _record.Stat)
-					if err != nil {
-						logger.Warn("%s: could not chunkify: %s", _record.Pathname, err)
-						return
-					}
-
-					exists, err := snapshot.Index.ObjectExists(object.Checksum)
-					if err != nil {
-						logger.Warn("%s: %s", _record.Pathname, err)
-						return
-					}
-
-					if !exists {
-						exists = snapshot.CheckObject(object.Checksum)
-						if !exists {
-							err := snapshot.PutObject(object)
-							if err != nil {
-								logger.Warn("%s: failed to store object: %s", _record.Pathname, err)
-								return
-							}
-							atomic.AddUint64(&snapshot.Header.ObjectsTransferCount, uint64(1))
-						}
-					}
-				}
-				snapshot.Index.AddObject(object)
-				snapshot.Metadata.AddMetadata(object.ContentType, object.Checksum)
-
-				pathnameChecksum := snapshot.repository.Checksum([]byte(_record.Pathname))
-				snapshot.Index.LinkPathnameToObject(pathnameChecksum, object)
-				atomic.AddUint64(&snapshot.Header.ScanProcessedSize, uint64(_record.Stat.Size()))
-			}(record)
-		}
-	}
-	wg.Wait()
-
-	snapshot.Header.ChunksCount = uint64(len(snapshot.Index.ListChunks()))
-	snapshot.Header.ObjectsCount = uint64(len(snapshot.Index.ListObjects()))
-	snapshot.Header.FilesCount = uint64(fileCount)
-	snapshot.Header.DirectoriesCount = uint64(dirCount)
-
-	for chunk := range snapshot.Index.ListChunks() {
-		chunkLength, exists, err := snapshot.Index.GetChunkLength(chunk)
-		if err != nil {
-			logger.Warn("could not get chunk length: %s", err)
-			return err
-		}
-		if !exists {
-			panic("ListChunks: corrupted index")
-		}
-		atomic.AddUint64(&snapshot.Header.ChunksSize, uint64(chunkLength))
-	}
-
-	for _, key := range snapshot.Metadata.ListKeys() {
-		objectType := strings.Split(key, ";")[0]
-		objectKind := strings.Split(key, "/")[0]
-		if objectType == "" {
-			objectType = "unknown"
-			objectKind = "unknown"
-		}
-		if _, exists := snapshot.Header.FileKind[objectKind]; !exists {
-			snapshot.Header.FileKind[objectKind] = 0
-		}
-		snapshot.Header.FileKind[objectKind] += uint64(len(snapshot.Metadata.ListValues(key)))
-
-		if _, exists := snapshot.Header.FileType[objectType]; !exists {
-			snapshot.Header.FileType[objectType] = 0
-		}
-		snapshot.Header.FileType[objectType] += uint64(len(snapshot.Metadata.ListValues(key)))
-	}
-
-	for key, value := range snapshot.Header.FileType {
-		snapshot.Header.FilePercentType[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
-	}
-	for key, value := range snapshot.Header.FileKind {
-		snapshot.Header.FilePercentKind[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
-	}
-	for key, value := range snapshot.Header.FileExtension {
-		snapshot.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snapshot.Header.FilesCount)*100)*100) / 100
-	}
-
-	snapshot.Header.NonRegularCount = uint64(nregularCount)
-	snapshot.Header.PathnamesCount = uint64(nregularCount + fileCount + dirCount)
-
-	snapshot.Header.CreationDuration = time.Since(t0)
-
-	err = snapshot.Commit()
-	if err != nil {
-		logger.Warn("could not commit snapshot: %s", err)
-	}
-	return err
 }

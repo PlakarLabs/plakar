@@ -25,6 +25,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 func init() {
@@ -47,17 +48,37 @@ func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 	if len(snapshots) != 1 {
 		return 0
 	}
-	snapshot := snapshots[0]
+	snap := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	pathnameChecksum := repo.Checksum([]byte(pathname))
-	object, err := snapshot.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
+
+	fs, err := snap.Filesystem()
 	if err != nil {
-		log.Fatal(err)
-	}
-	if object == nil {
+		logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 		return 0
 	}
+
+	fsinfo, err := fs.Stat(pathname)
+	if err != nil {
+		logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+		return 0
+	}
+
+	if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		logger.Error("%s: %s: is a directory", flags.Name(), pathname)
+		return 0
+	}
+
+	if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
+		logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
+		return 0
+	} else if fsinfo.FileInfo().Mode().IsRegular() {
+		logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
+		return 0
+	}
+
+	info := fsinfo.(*vfs.FileEntry)
+	object, err := snap.LookupObject(info.Checksum)
 
 	file, err := os.CreateTemp(os.TempDir(), "plakar")
 	if err != nil {
@@ -67,10 +88,10 @@ func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
 	file.Chmod(0500)
 
 	errors := 0
-	for _, chunkChecksum := range object.Chunks {
-		data, err := snapshot.GetChunk(chunkChecksum)
+	for _, chunk := range object.Chunks {
+		data, err := snap.GetChunk(chunk.Checksum)
 		if err != nil {
-			logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunkChecksum)
+			logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunk.Checksum)
 			errors++
 			break
 		}

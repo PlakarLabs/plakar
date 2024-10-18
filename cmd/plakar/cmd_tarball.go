@@ -29,6 +29,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot/vfs2"
 )
 
 func init() {
@@ -76,23 +77,38 @@ func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file := range snapshot.Filesystem.Pathnames() {
+		fs, err := snapshot.Filesystem()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for file := range fs.Pathnames() {
 
 			if prefix != "" {
 				if !pathIsWithin(file, prefix) {
 					continue
 				}
 			}
-			info, _ := snapshot.Filesystem.Stat(file)
+			info, _ := fs.Stat(file)
 			filepath := file
 			if tarballRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)
 			}
-			header := &tar.Header{
-				Name:    filepath,
-				Size:    info.Size(),
-				Mode:    int64(info.Mode()),
-				ModTime: info.ModTime(),
+
+			var header *tar.Header
+			switch info := info.(type) {
+			case *vfs2.FileEntry:
+			case *vfs2.DirEntry:
+				header = &tar.Header{
+					Name:    filepath,
+					Size:    info.Size,
+					Mode:    int64(info.Permissions),
+					ModTime: info.ModTime,
+				}
+			}
+
+			if info.(*vfs2.DirEntry) != nil {
+				continue
 			}
 
 			rd, err := snapshot.NewReader(file)

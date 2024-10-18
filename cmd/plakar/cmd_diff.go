@@ -16,23 +16,7 @@
 
 package main
 
-import (
-	"bytes"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"os"
-	"os/user"
-	"strings"
-
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/dustin/go-humanize"
-	"github.com/pmezard/go-difflib/difflib"
-)
-
+/*
 func init() {
 	registerCommand("diff", cmd_diff)
 }
@@ -40,6 +24,7 @@ func init() {
 func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.Parse(args)
+
 
 	if flags.NArg() < 2 {
 		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
@@ -70,13 +55,23 @@ func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
+			fs1, err := vfs2.NewFilesystem(repo, snapshot1.Header.Root)
+			if err != nil {
+				log.Fatalf("%s: could not create filesystem: %s", flag.CommandLine.Name(), err)
+			}
+
 			snapshot2, err := snapshot.Load(repo, res2[0])
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			for dir1 := range snapshot1.Filesystem.Directories() {
-				fi1, _ := snapshot1.Filesystem.Stat(dir1)
-				fi2, err := snapshot2.Filesystem.Stat(dir1)
+			fs2, err := vfs2.NewFilesystem(repo, snapshot2.Header.Root)
+			if err != nil {
+				log.Fatalf("%s: could not create filesystem: %s", flag.CommandLine.Name(), err)
+			}
+
+			for dir1 := range fs1.Directories() {
+				fi1, _ := fs1.Stat(dir1)
+				fi2, err := fs2.Stat(dir1)
 				if err != nil {
 					fmt.Println("- ", fiToDiff(*fi1), dir1)
 					continue
@@ -250,3 +245,4 @@ func diff_files(snapshot1 *snapshot.Snapshot, snapshot2 *snapshot.Snapshot, file
 	}
 	fmt.Printf("%s", text)
 }
+*/

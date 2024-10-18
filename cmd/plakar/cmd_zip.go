@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 func init() {
@@ -62,19 +63,30 @@ func cmd_zip(ctx Plakar, repo *repository.Repository, args []string) int {
 	for offset, snapshot := range snapshots {
 		_, prefix := parseSnapshotID(flags.Args()[offset])
 
-		for file := range snapshot.Filesystem.Pathnames() {
+		fs, err := snapshot.Filesystem()
+		if err != nil {
+			log.Fatal(err)
+			return 1
+		}
+
+		for file := range fs.Pathnames() {
 
 			if prefix != "" {
 				if !pathIsWithin(file, prefix) {
 					continue
 				}
 			}
-			info, _ := snapshot.Filesystem.Stat(file)
+			info, _ := fs.Stat(file)
 			filepath := file
 			if zipRebase {
 				filepath = strings.TrimPrefix(filepath, prefix)
 			}
-			header, err := zip.FileInfoHeader(info)
+
+			if info.(*vfs.DirEntry) != nil {
+				continue
+			}
+
+			header, err := zip.FileInfoHeader(info.(*vfs.FileEntry).FileInfo())
 			if err != nil {
 				log.Printf("could not create header for file %s: %s", file, err)
 				continue

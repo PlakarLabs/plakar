@@ -111,11 +111,7 @@ func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error)
 		if err != nil {
 			return nil, err
 		}
-
-		var filesystemChecksum32 [32]byte
-		copy(filesystemChecksum32[:], hdr.VFS.Checksum[:])
-
-		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
+		filesystem, err := vfs.NewFilesystem(fs.repository, hdr.Root)
 		if err != nil {
 			return nil, err
 		}
@@ -164,10 +160,19 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	}
 
 	// the inode path has a snapshot-uuid:/path format, strip prefix
-	fileinfo, err := filesystem.Stat(inode.path[36+1:])
+	fsinfo, err := filesystem.Stat(inode.path[36+1:])
 	if err != nil {
 		return fuseops.InodeAttributes{}, fuse.ENOENT
 	}
+
+	var fileinfo os.FileInfo
+	switch fsinfo := fsinfo.(type) {
+	case *vfs.DirEntry:
+		fileinfo = fsinfo.FileInfo()
+	case *vfs.FileEntry:
+		fileinfo = fsinfo.FileInfo()
+	}
+
 	return fuseops.InodeAttributes{
 		Nlink: 1,
 		Mode:  fileinfo.Mode(),
@@ -252,19 +257,27 @@ func (fs *plakarFS) LookUpInode(
 		return fuse.EIO
 	}
 
-	stat, err := filesystem.Stat(lookupPath)
+	fsinfo, err := filesystem.Stat(lookupPath)
 	if err != nil {
 		return fuse.ENOENT
 	}
 
+	var fileinfo os.FileInfo
+	switch fsinfo := fsinfo.(type) {
+	case *vfs.DirEntry:
+		fileinfo = fsinfo.FileInfo()
+	case *vfs.FileEntry:
+		fileinfo = fsinfo.FileInfo()
+	}
+
 	op.Entry.Child = inodeID
 	op.Entry.Attributes = fuseops.InodeAttributes{
-		Size:  uint64(stat.Size()),
+		Size:  uint64(fileinfo.Size()),
 		Nlink: 1,
-		Mode:  stat.Mode(),
-		Ctime: stat.ModTime(),
-		Atime: stat.ModTime(),
-		Mtime: stat.ModTime(),
+		Mode:  fileinfo.Mode(),
+		Ctime: fileinfo.ModTime(),
+		Atime: fileinfo.ModTime(),
+		Mtime: fileinfo.ModTime(),
 	}
 
 	return nil
@@ -304,7 +317,12 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	info, err := snap.Filesystem.Stat(inode.path[37:])
+	snapfs, err := snap.Filesystem()
+	if err != nil {
+		return fuse.EIO
+	}
+
+	info, err := snapfs.Stat(inode.path[37:])
 	if err != nil {
 		return fuse.ENOENT
 	}
@@ -314,7 +332,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	if op.Offset > info.Size() {
+	if op.Offset > info.(*vfs.FileEntry).Size {
 		return nil
 	}
 
@@ -473,7 +491,7 @@ func (fs *plakarFS) ReadDir(
 			}
 
 			dtype := fuseutil.DT_Directory
-			if stat.Mode().IsRegular() {
+			if stat.(os.FileInfo).Mode().IsRegular() {
 				dtype = fuseutil.DT_Char
 			}
 

@@ -162,12 +162,10 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 			// rebuild a new snapshot w/ identical fs, but destination specific index and rebuilt metadata
 			// should share same UUID but take into account configuration differnces
 			copySnapshot.Header = sourceSnapshot.Header
-			copySnapshot.Filesystem = sourceSnapshot.Filesystem
-			copySnapshot.Index = sourceSnapshot.Index
 			copySnapshot.Metadata = sourceSnapshot.Metadata
 
 			wg2 := sync.WaitGroup{}
-			for _chunkID := range sourceSnapshot.Index.ListChunks() {
+			for _chunkID := range sourceSnapshot.Repository().State().ListChunks() {
 				wg2.Add(1)
 				go func(chunkID [32]byte) {
 					defer wg2.Done()
@@ -197,7 +195,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 			wg2.Wait()
 
 			wg3 := sync.WaitGroup{}
-			for _objectID := range sourceSnapshot.Index.ListObjects() {
+			for _objectID := range sourceSnapshot.Repository().State().ListObjects() {
 				wg3.Add(1)
 				go func(objectID [32]byte) {
 					defer wg3.Done()
@@ -208,7 +206,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 					if !exists {
 						exists := copySnapshot.CheckObject(objectID)
 						if !exists {
-							object, err := sourceSnapshot.Index.LookupObject(objectID)
+							object, err := sourceSnapshot.LookupObject(objectID)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
 								return

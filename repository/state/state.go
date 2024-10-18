@@ -535,3 +535,39 @@ func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]
 		atomic.StoreInt32(&st.dirty, 1)
 	}
 }
+
+func (st *State) ListObjects() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		objectsList := make([][32]byte, 0)
+		st.muObjects.Lock()
+		for k := range st.Chunks {
+			objectsList = append(objectsList, st.IdToChecksum[k])
+		}
+		st.muObjects.Unlock()
+
+		for _, checksum := range objectsList {
+			ch <- checksum
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+func (st *State) ListChunks() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		chunksList := make([][32]byte, 0)
+		st.muChunks.Lock()
+		for k := range st.Chunks {
+			chunksList = append(chunksList, st.IdToChecksum[k])
+		}
+		st.muChunks.Unlock()
+
+		for _, checksum := range chunksList {
+			ch <- checksum
+		}
+		close(ch)
+	}()
+	return ch
+}

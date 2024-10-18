@@ -1,9 +1,10 @@
-package vfs2
+package vfs
 
 import (
 	"os"
 	"time"
 
+	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -32,6 +33,10 @@ type FileAttributes struct {
 	IsTemporary bool `msgpack:"isTemporary,omitempty"` // Temporary file (Windows)
 }
 
+type FSEntry interface {
+	fsEntry()
+}
+
 // FileEntry represents the comprehensive structure for a file entry, capturing all relevant metadata
 type FileEntry struct {
 	Version            uint32              `msgpack:"version"`                      // Version number of the file entry structure for compatibility
@@ -46,14 +51,17 @@ type FileEntry struct {
 	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
 	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the file (optional)
 	Checksum           [32]byte            `msgpack:"checksum,omitempty"`           // Checksum of the file contents (SHA-256, etc.)
-	Chunks             [][32]byte          `msgpack:"chunks,omitempty"`             // List of chunk checksums (optional)
+	Chunks             []objects.Chunk     `msgpack:"chunks,omitempty"`             // List of chunk checksums (optional)
 	ExtendedAttributes map[string][]byte   `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
 	FileAttributes     FileAttributes      `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
 	SymlinkTarget      string              `msgpack:"symlinkTarget,omitempty"`      // Target path if the entry is a symbolic link (optional)
+	ContentType        string              `msgpack:"contentType,omitempty"`        // MIME type of the file (optional)
 	CustomMetadata     map[string]string   `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the file or directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
 }
+
+func (*FileEntry) fsEntry() {}
 
 func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 	target := ""
@@ -78,11 +86,19 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 	}
 }
 
+func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
+	var f FileEntry
+	if err := msgpack.Unmarshal(serialized, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
 func (f *FileEntry) AddChecksum(checksum [32]byte) {
 	f.Checksum = checksum
 }
 
-func (f *FileEntry) AddChunk(chunk [32]byte) {
+func (f *FileEntry) AddChunk(chunk objects.Chunk) {
 	f.Chunks = append(f.Chunks, chunk)
 }
 
@@ -102,6 +118,10 @@ func (f *FileEntry) AddCustomMetadata(customMetadata map[string]string) {
 	f.CustomMetadata = customMetadata
 }
 
+func (f *FileEntry) AddContentType(contentType string) {
+	f.ContentType = contentType
+}
+
 func (f *FileEntry) AddTags(tags []string) {
 	f.Tags = tags
 }
@@ -112,6 +132,26 @@ func (f *FileEntry) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (f *FileEntry) FileInfo() *objects.FileInfo {
+	return &objects.FileInfo{
+		Lname:    f.Name,
+		Lsize:    f.Size,
+		Lmode:    f.Permissions,
+		LmodTime: f.ModTime,
+		Ldev:     f.DeviceID,
+		Lino:     f.InodeID,
+		Luid:     f.UserID,
+		Lgid:     f.GroupID,
+		Lnlink:   f.NumLinks,
+	}
+}
+
+type ChildEntry struct {
+	Checksum           [32]byte
+	FileInfo           objects.FileInfo
+	ExtendedAttributes map[string][]byte
 }
 
 // DirEntry represents the comprehensive structure for a directory entry
@@ -127,12 +167,14 @@ type DirEntry struct {
 	UserID             uint64              `msgpack:"userID,omitempty"`             // User ID of the owner (optional)
 	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
 	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the directory (optional)
-	Children           [][32]byte          `msgpack:"children,omitempty"`           // List of child entries' serialized checksums (files and subdirectories)
+	Children           []ChildEntry        `msgpack:"children,omitempty"`           // List of child entries' serialized checksums (files and subdirectories)
 	ExtendedAttributes map[string][]byte   `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
 	CustomMetadata     map[string][]byte   `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
 }
+
+func (*DirEntry) fsEntry() {}
 
 func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry {
 	return &DirEntry{
@@ -152,8 +194,20 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 	}
 }
 
-func (d *DirEntry) AddChild(child [32]byte) {
-	d.Children = append(d.Children, child)
+func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
+	var d DirEntry
+	if err := msgpack.Unmarshal(serialized, &d); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func (d *DirEntry) AddChild(checksum [32]byte, record importer.ScanRecord) {
+	d.Children = append(d.Children, ChildEntry{
+		Checksum:           checksum,
+		FileInfo:           record.Stat,
+		ExtendedAttributes: record.ExtendedAttributes,
+	})
 }
 
 func (d *DirEntry) AddCustomMetadata(customMetadata map[string][]byte) {
@@ -170,4 +224,18 @@ func (d *DirEntry) Serialize() ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (d *DirEntry) FileInfo() *objects.FileInfo {
+	return &objects.FileInfo{
+		Lname:    d.Name,
+		Lsize:    d.Size,
+		Lmode:    d.Permissions,
+		LmodTime: d.ModTime,
+		Ldev:     d.DeviceID,
+		Lino:     d.InodeID,
+		Luid:     d.UserID,
+		Lgid:     d.GroupID,
+		Lnlink:   d.NumLinks,
+	}
 }

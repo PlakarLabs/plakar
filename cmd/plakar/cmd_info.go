@@ -71,51 +71,42 @@ func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("info", flag.ExitOnError)
 	flags.Parse(args)
 
-	metadatas, err := getHeaders(repo, flags.Args())
+	headers, err := getHeaders(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, metadata := range metadatas {
-		fmt.Printf("IndexID: %s\n", metadata.GetIndexID())
-		fmt.Printf("CreationTime: %s\n", metadata.CreationTime)
-		fmt.Printf("CreationDuration: %s\n", metadata.CreationDuration)
+	for _, header := range headers {
+		fmt.Printf("IndexID: %s\n", header.GetIndexID())
+		fmt.Printf("CreationTime: %s\n", header.CreationTime)
+		fmt.Printf("CreationDuration: %s\n", header.CreationDuration)
+
+		fmt.Printf("Root: %x\n", header.Root)
+		fmt.Printf("Metadata: %x\n", header.Metadata)
 
 		fmt.Printf("Version: %s\n", repo.Configuration().Version)
-		fmt.Printf("Hostname: %s\n", metadata.Hostname)
-		fmt.Printf("Username: %s\n", metadata.Username)
-		fmt.Printf("CommandLine: %s\n", metadata.CommandLine)
-		fmt.Printf("OperatingSystem: %s\n", metadata.OperatingSystem)
-		fmt.Printf("MachineID: %s\n", metadata.MachineID)
-		fmt.Printf("PublicKey: %s\n", metadata.PublicKey)
-		fmt.Printf("Tags: %s\n", strings.Join(metadata.Tags, ", "))
-		fmt.Printf("Directories: %d\n", metadata.DirectoriesCount)
-		fmt.Printf("Files: %d\n", metadata.FilesCount)
-		fmt.Printf("NonRegular: %d\n", metadata.NonRegularCount)
-		fmt.Printf("Pathnames: %d\n", metadata.PathnamesCount)
+		fmt.Printf("Hostname: %s\n", header.Hostname)
+		fmt.Printf("Username: %s\n", header.Username)
+		fmt.Printf("CommandLine: %s\n", header.CommandLine)
+		fmt.Printf("OperatingSystem: %s\n", header.OperatingSystem)
+		fmt.Printf("MachineID: %s\n", header.MachineID)
+		fmt.Printf("PublicKey: %s\n", header.PublicKey)
+		fmt.Printf("Tags: %s\n", strings.Join(header.Tags, ", "))
+		fmt.Printf("Directories: %d\n", header.DirectoriesCount)
+		fmt.Printf("Files: %d\n", header.FilesCount)
+		fmt.Printf("NonRegular: %d\n", header.NonRegularCount)
+		fmt.Printf("Pathnames: %d\n", header.PathnamesCount)
 
-		fmt.Printf("Objects.Count: %d\n", metadata.ObjectsCount)
-		fmt.Printf("Objects.TransferCount: %d\n", metadata.ObjectsTransferCount)
-		fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ObjectsTransferSize), metadata.ObjectsTransferSize)
+		fmt.Printf("Objects.Count: %d\n", header.ObjectsCount)
+		fmt.Printf("Objects.TransferCount: %d\n", header.ObjectsTransferCount)
+		fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(header.ObjectsTransferSize), header.ObjectsTransferSize)
 
-		fmt.Printf("Chunks.Count: %d\n", metadata.ChunksCount)
-		fmt.Printf("Chunks.Size: %d\n", metadata.ChunksSize)
-		fmt.Printf("Chunks,TransferCount: %d\n", metadata.ChunksTransferCount)
-		fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(metadata.ChunksTransferSize), metadata.ChunksTransferSize)
+		fmt.Printf("Chunks.Count: %d\n", header.ChunksCount)
+		fmt.Printf("Chunks.Size: %d\n", header.ChunksSize)
+		fmt.Printf("Chunks,TransferCount: %d\n", header.ChunksTransferCount)
+		fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(header.ChunksTransferSize), header.ChunksTransferSize)
 
-		fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(metadata.ScanProcessedSize), metadata.ScanProcessedSize)
-
-		fmt.Printf("Index.Version: %s\n", metadata.Index.Version)
-		fmt.Printf("Index.Checksum: %064x\n", metadata.Index.Checksum)
-		fmt.Printf("Index.Size: %s (%d bytes)\n", humanize.Bytes(metadata.Index.Size), metadata.Index.Size)
-
-		fmt.Printf("VFS.Version: %s\n", metadata.VFS.Version)
-		fmt.Printf("VFS.Checksum: %064x\n", metadata.VFS.Checksum)
-		fmt.Printf("VFS.Size: %s (%d bytes)\n", humanize.Bytes(metadata.VFS.Size), metadata.VFS.Size)
-
-		fmt.Printf("Metadata.Version: %s\n", metadata.Metadata.Version)
-		fmt.Printf("Metadata.Checksum: %064x\n", metadata.Metadata.Checksum)
-		fmt.Printf("Metadata.Size: %s (%d bytes)\n", humanize.Bytes(metadata.Metadata.Size), metadata.Metadata.Size)
+		fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(header.ScanProcessedSize), header.ScanProcessedSize)
 	}
 
 	return 0
@@ -158,17 +149,12 @@ func info_plakar(repo *repository.Repository) int {
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)
 	totalIndexSize := uint64(0)
-	totalFilesystemSize := uint64(0)
 	totalMetadataSize := uint64(0)
 	for _, metadata := range metadatas {
 		totalSize += metadata.ScanProcessedSize
-		totalIndexSize += metadata.Index.Size
-		totalFilesystemSize += metadata.VFS.Size
-		totalMetadataSize += metadata.Metadata.Size
 	}
 	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
 	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)
-	fmt.Printf("Filesystem Size: %s (%d bytes)\n", humanize.Bytes(totalFilesystemSize), totalFilesystemSize)
 	fmt.Printf("Metadata Size: %s (%d bytes)\n", humanize.Bytes(totalMetadataSize), totalMetadataSize)
 
 	return 0

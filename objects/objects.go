@@ -67,9 +67,27 @@ func (f *File) Serialize() ([]byte, error) {
 }
 
 type Object struct {
-	Checksum    [32]byte
-	Chunks      [][32]byte
-	ContentType string
+	Checksum       [32]byte
+	Chunks         []Chunk
+	ContentType    string
+	CustomMetadata map[string]string
+	Tags           []string
+}
+
+func NewObjectFromBytes(serialized []byte) (*Object, error) {
+	var o Object
+	if err := msgpack.Unmarshal(serialized, &o); err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (o *Object) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
 }
 
 type Chunk struct {

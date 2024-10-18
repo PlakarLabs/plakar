@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"runtime"
@@ -15,7 +14,6 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/PlakarLabs/plakar/snapshot/index"
 	"github.com/PlakarLabs/plakar/snapshot/metadata"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/google/uuid"
@@ -26,11 +24,11 @@ type Snapshot struct {
 	repository *repository.Repository
 	stateDelta *state.State
 
+	filesystem *vfs.Filesystem
+
 	SkipDirs []string
 
-	Header     *header.Header
-	Index      *index.Index
-	Filesystem *vfs.Filesystem
+	Header *header.Header
 
 	Metadata *metadata.Metadata
 
@@ -51,24 +49,12 @@ func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
 	}()
 
-	fs, err := vfs.NewFilesystem()
-	if err != nil {
-		return nil, err
-	}
-
-	idx, err := index.NewIndex()
-	if err != nil {
-		return nil, err
-	}
-
 	snapshot := &Snapshot{
 		repository: repo,
 		stateDelta: state.New(),
 
-		Header:     header.NewHeader(indexID),
-		Index:      idx,
-		Filesystem: fs,
-		Metadata:   metadata.New(),
+		Header:   header.NewHeader(indexID),
+		Metadata: metadata.New(),
 
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
@@ -197,46 +183,9 @@ func Load(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		return nil, err
 	}
 
-	var indexChecksum32 [32]byte
-	copy(indexChecksum32[:], hdr.Index.Checksum[:])
-
-	index, verifyChecksum, err := GetIndex(repo, indexChecksum32)
-	if err != nil {
-		return nil, err
-	}
-
-	if !bytes.Equal(verifyChecksum[:], hdr.Index.Checksum[:]) {
-		return nil, fmt.Errorf("index mismatches hdr checksum")
-	}
-
-	var filesystemChecksum32 [32]byte
-	copy(filesystemChecksum32[:], hdr.VFS.Checksum[:])
-
-	filesystem, verifyChecksum, err := GetFilesystem(repo, filesystemChecksum32)
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(verifyChecksum[:], hdr.VFS.Checksum[:]) {
-		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
-	}
-
-	var metadataChecksum32 [32]byte
-	copy(metadataChecksum32[:], hdr.Metadata.Checksum[:])
-
-	md, verifyChecksum, err := GetMetadata(repo, metadataChecksum32)
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(verifyChecksum[:], hdr.Metadata.Checksum[:]) {
-		return nil, fmt.Errorf("metadata mismatches hdr checksum")
-	}
-
 	snapshot := &Snapshot{}
 	snapshot.repository = repo
 	snapshot.Header = hdr
-	snapshot.Index = index
-	snapshot.Filesystem = filesystem
-	snapshot.Metadata = md
 
 	logger.Trace("snapshot", "%s: Load()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
@@ -253,29 +202,10 @@ func Fork(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		return nil, err
 	}
 
-	index, verifyChecksum, err := GetIndex(repo, hdr.Index.Checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	if !bytes.Equal(verifyChecksum[:], hdr.Index.Checksum[:]) {
-		return nil, fmt.Errorf("index mismatches hdr checksum")
-	}
-
-	filesystem, verifyChecksum, err := GetFilesystem(repo, hdr.VFS.Checksum)
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(verifyChecksum[:], hdr.VFS.Checksum[:]) {
-		return nil, fmt.Errorf("filesystem mismatches hdr checksum")
-	}
-
 	snapshot := &Snapshot{
 		repository: repo,
 
-		Header:     hdr,
-		Index:      index,
-		Filesystem: filesystem,
+		Header: hdr,
 	}
 	snapshot.Header.IndexID = uuid.Must(uuid.NewRandom())
 
@@ -301,53 +231,6 @@ func GetSnapshot(repo *repository.Repository, indexID uuid.UUID) (*header.Header
 	}
 
 	return hdr, false, nil
-}
-
-func GetIndex(repo *repository.Repository, checksum [32]byte) (*index.Index, [32]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetIndex", time.Since(t0))
-	}()
-
-	buffer, err := repo.GetBlob(checksum)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	index, err := index.FromBytes(buffer)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	verifyChecksum := repo.Checksum(buffer)
-
-	verifyChecksum32 := [32]byte{}
-	copy(verifyChecksum32[:], verifyChecksum[:])
-
-	return index, verifyChecksum32, nil
-}
-
-func GetFilesystem(repo *repository.Repository, checksum [32]byte) (*vfs.Filesystem, [32]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetFilesystem", time.Since(t0))
-	}()
-
-	buffer, err := repo.GetBlob(checksum)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	filesystem, err := vfs.FromBytes(buffer)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	verifyChecksum := repo.Checksum(buffer)
-	verifyChecksum32 := [32]byte{}
-	copy(verifyChecksum32[:], verifyChecksum[:])
-
-	return filesystem, verifyChecksum32, nil
 }
 
 func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
@@ -388,6 +271,21 @@ func (snapshot *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (snapshot *Snapshot) PutData(checksum [32]byte, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutData", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: PutData(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	encoded, err := snapshot.repository.Encode(data)
+	if err != nil {
+		return err
+	}
+	snapshot.packerChan <- &PackerMsg{Type: packfile.TYPE_DATA, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	return nil
+}
+
 func (snapshot *Snapshot) Repository() *repository.Repository {
 	return snapshot.repository
 }
@@ -424,6 +322,21 @@ func (snapshot *Snapshot) PutFile(checksum [32]byte, data []byte) error {
 		return err
 	}
 	snapshot.packerChan <- &PackerMsg{Type: packfile.TYPE_FILE, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	return nil
+}
+
+func (snapshot *Snapshot) PutDirectory(checksum [32]byte, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutDirectory", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: PutDirectory(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	encoded, err := snapshot.repository.Encode(data)
+	if err != nil {
+		return err
+	}
+	snapshot.packerChan <- &PackerMsg{Type: packfile.TYPE_DIRECTORY, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
 	return nil
 }
 
@@ -577,7 +490,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return snapshot.repository.Decode(buffer)
+	return buffer, nil
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
@@ -587,11 +500,8 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	if exists, err := snapshot.Index.ChunkExists(checksum); err == nil && exists {
-		return true
-	} else {
-		return snapshot.Repository().State().ChunkExists(checksum)
-	}
+	return snapshot.Repository().State().ChunkExists(checksum)
+
 }
 
 func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
@@ -601,15 +511,10 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	if exists, err := snapshot.Index.ObjectExists(checksum); err == nil && exists {
-		return true
-	} else {
-		return snapshot.Repository().State().ObjectExists(checksum)
-	}
+	return snapshot.Repository().State().ObjectExists(checksum)
 }
 
 func (snapshot *Snapshot) Commit() error {
-	defer snapshot.Filesystem.Close()
 
 	repo := snapshot.repository
 
@@ -637,11 +542,7 @@ func (snapshot *Snapshot) Commit() error {
 	}
 
 	// there are three bits we can parallelize here:
-	var serializedIndex []byte
-	var serializedFilesystem []byte
 	var serializedMetadata []byte
-	var indexChecksum32 [32]byte
-	var filesystemChecksum32 [32]byte
 	var metadataChecksum32 [32]byte
 
 	wg := sync.WaitGroup{}
@@ -654,58 +555,6 @@ func (snapshot *Snapshot) Commit() error {
 			parallelError = err
 		}
 		close(errcDone)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		var err error
-		serializedIndex, err = snapshot.Index.Serialize()
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		indexChecksum := snapshot.repository.Checksum(serializedIndex)
-		copy(indexChecksum32[:], indexChecksum[:])
-
-		if exists, err := snapshot.repository.CheckBlob(indexChecksum32); err != nil {
-			errc <- err
-			return
-		} else if !exists {
-			_, err := repo.PutBlob(indexChecksum32, serializedIndex)
-			if err != nil {
-				errc <- err
-				return
-			}
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		var err error
-		serializedFilesystem, err = snapshot.Filesystem.Serialize()
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		filesystemChecksum := snapshot.repository.Checksum(serializedFilesystem)
-		copy(filesystemChecksum32[:], filesystemChecksum[:])
-
-		if exists, err := snapshot.repository.CheckBlob(filesystemChecksum32); err != nil {
-			errc <- err
-			return
-		} else if !exists {
-			_, err = repo.PutBlob(filesystemChecksum32, serializedFilesystem)
-			if err != nil {
-				errc <- err
-				return
-			}
-		}
 	}()
 
 	wg.Add(1)
@@ -741,31 +590,6 @@ func (snapshot *Snapshot) Commit() error {
 		return parallelError
 	}
 
-	indexBlob := header.Blob{
-		Type:     "index",
-		Version:  index.VERSION,
-		Checksum: indexChecksum32,
-		Size:     uint64(len(serializedIndex)),
-	}
-
-	vfsBlob := header.Blob{
-		Type:     "vfs",
-		Version:  vfs.VERSION,
-		Checksum: filesystemChecksum32,
-		Size:     uint64(len(serializedFilesystem)),
-	}
-
-	metadataBlob := header.Blob{
-		Type:     "content-type",
-		Version:  metadata.VERSION,
-		Checksum: metadataChecksum32,
-		Size:     uint64(len(serializedMetadata)),
-	}
-
-	snapshot.Header.Index = indexBlob
-	snapshot.Header.VFS = vfsBlob
-	snapshot.Header.Metadata = metadataBlob
-
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {
 		return err
@@ -777,4 +601,18 @@ func (snapshot *Snapshot) Commit() error {
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 	return NewReader(snapshot, pathname)
+}
+
+func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, error) {
+	packfile, offset, length, exists := snapshot.Repository().State().GetSubpartForObject(checksum)
+	if !exists {
+		return nil, fmt.Errorf("object not found")
+	}
+
+	buffer, err := snapshot.repository.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	return objects.NewObjectFromBytes(buffer)
 }

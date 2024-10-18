@@ -35,7 +35,6 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
 	"golang.org/x/term"
@@ -153,104 +152,6 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 					return nil, err
 				}
 				result = append(result, metadata)
-			}
-		}
-	}
-	return result, nil
-}
-
-func getFilesystems(repo *repository.Repository, prefixes []string) ([]*vfs.Filesystem, error) {
-	snapshotsList, err := getSnapshotsList(repo)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*vfs.Filesystem, 0)
-
-	// no prefixes, this is a full fetch
-	if prefixes == nil {
-		wg := sync.WaitGroup{}
-		mu := sync.Mutex{}
-		for _, snapshotUuid := range snapshotsList {
-			wg.Add(1)
-			go func(snapshotUuid uuid.UUID) {
-				defer wg.Done()
-
-				md, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-
-				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
-
-				filesystem, _, err := snapshot.GetFilesystem(repo, filesystemChecksum32)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				mu.Lock()
-				result = append(result, filesystem)
-				mu.Unlock()
-			}(snapshotUuid)
-		}
-		wg.Wait()
-		return result, nil
-	}
-
-	tags := make(map[string]uuid.UUID)
-	tagsTimestamp := make(map[string]time.Time)
-
-	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, tag := range metadata.Tags {
-			if recordTime, exists := tagsTimestamp[tag]; !exists {
-				tags[tag] = snapshotUuid
-				tagsTimestamp[tag] = metadata.CreationTime
-			} else if recordTime.Before(metadata.CreationTime) {
-				tags[tag] = snapshotUuid
-				tagsTimestamp[tag] = metadata.CreationTime
-			}
-		}
-	}
-
-	// prefixes, preprocess snapshots to only fetch necessary ones
-	for _, prefix := range prefixes {
-		parsedUuidPrefix, _ := parseSnapshotID(prefix)
-
-		matches := 0
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
-				matches++
-			}
-		}
-		if matches == 0 {
-			if _, exists := tags[parsedUuidPrefix]; !exists {
-				log.Fatalf("%s: no snapshot has prefix: %s", flag.CommandLine.Name(), parsedUuidPrefix)
-			}
-		} else if matches > 1 {
-			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
-		}
-
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				md, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
-				if err != nil {
-					return nil, err
-				}
-
-				var filesystemChecksum32 [32]byte
-				copy(filesystemChecksum32[:], md.VFS.Checksum[:])
-
-				filesystem, _, err := snapshot.GetFilesystem(repo, filesystemChecksum32)
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, filesystem)
 			}
 		}
 	}

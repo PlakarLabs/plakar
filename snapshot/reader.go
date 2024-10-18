@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 type Reader struct {
@@ -38,7 +39,7 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		// we have data to read from this chunk, fetch content
-		data, err := reader.snapshot.GetChunk(reader.object.Chunks[chunkOffset])
+		data, err := reader.snapshot.GetChunk(reader.object.Chunks[chunkOffset].Checksum)
 		if err != nil {
 			return -1, err
 		}
@@ -99,51 +100,33 @@ func (reader *Reader) Close() error {
 	return nil
 }
 
-func NewReader(snapshot *Snapshot, pathname string) (*Reader, error) {
+func NewReader(snap *Snapshot, pathname string) (*Reader, error) {
 	pathname = path.Clean(pathname)
 
-	st, err := snapshot.Filesystem.Stat(pathname)
+	fs, err := vfs.NewFilesystem(snap.Repository(), snap.Header.Root)
 	if err != nil {
 		return nil, err
 	}
 
-	if st.Mode()&os.ModeSymlink != 0 {
-		resolved, err := snapshot.Filesystem.Readlink(pathname)
-		if err != nil {
-			return nil, err
-		}
-		if !path.IsAbs(resolved) {
-			pathname = path.Join(path.Dir(pathname), resolved)
-		} else {
-			pathname = path.Clean(resolved)
-		}
-	}
-
-	pathnameHash := snapshot.repository.Checksum([]byte(pathname))
-	var key [32]byte
-	copy(key[:], pathnameHash[:32])
-
-	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	st, err := fs.Stat(pathname)
 	if err != nil {
 		return nil, err
-	}
-	if object == nil {
-		return nil, os.ErrNotExist
+	} else if _, isDir := st.(*vfs.DirEntry); isDir {
+		return nil, os.ErrInvalid
 	}
 
-	chunksLengths := make([]uint32, 0)
-	size := int64(0)
-	for _, chunkChecksum := range object.Chunks {
-		chunkLength, exists, err := snapshot.Index.GetChunkLength(chunkChecksum)
+	if st := st.(*vfs.FileEntry); st != nil {
+		object, err := snap.LookupObject(st.Checksum)
 		if err != nil {
 			return nil, err
 		}
-		if !exists {
-			return nil, os.ErrNotExist
+		chunksLengths := make([]uint32, 0)
+		size := int64(0)
+		for _, chunk := range object.Chunks {
+			chunksLengths = append(chunksLengths, chunk.Length)
+			size += int64(chunk.Length)
 		}
-		chunksLengths = append(chunksLengths, chunkLength)
-		size += int64(chunkLength)
+		return &Reader{snapshot: snap, object: object, chunksLengths: chunksLengths, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
 	}
-
-	return &Reader{snapshot: snapshot, object: object, chunksLengths: chunksLengths, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
+	return nil, os.ErrNotExist
 }

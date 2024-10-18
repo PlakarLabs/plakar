@@ -343,7 +343,11 @@ func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length ui
 		logger.Trace("repository", "GetPackfileBlob(%x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
-	return r.store.GetPackfileBlob(checksum, offset, length)
+	data, err := r.store.GetPackfileBlob(checksum, offset, length)
+	if err != nil {
+		return nil, err
+	}
+	return r.Decode(data)
 }
 
 func (r *Repository) PutPackfile(checksum [32]byte, data []byte) error {

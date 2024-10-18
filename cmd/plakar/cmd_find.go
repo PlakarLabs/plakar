@@ -53,12 +53,18 @@ func cmd_find(ctx Plakar, repo *repository.Repository, args []string) int {
 			return 1
 		}
 
+		fs, err := snap.Filesystem()
+		if err != nil {
+			log.Fatal(err)
+			return 1
+		}
+
 		result[snap] = make(map[string]bool)
 
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for pathname := range snap.Filesystem.Pathnames() {
+				for pathname := range fs.Pathnames() {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true
@@ -68,7 +74,7 @@ func cmd_find(ctx Plakar, repo *repository.Repository, args []string) int {
 			}
 
 			// try finding a directory or file
-			for name := range snap.Filesystem.Pathnames() {
+			for name := range fs.Pathnames() {
 				if filepath.Base(name) == arg {
 					if exists := result[snap][arg]; !exists {
 						result[snap][name] = true

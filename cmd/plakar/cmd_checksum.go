@@ -23,6 +23,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 func init() {
@@ -49,32 +50,51 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 
 	errors := 0
-	for offset, snapshot := range snapshots {
+	for offset, snap := range snapshots {
 		_, pathname := parseSnapshotID(flags.Args()[offset])
-
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Header.GetIndexShortID())
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snap.Header.GetIndexShortID())
 			errors++
 			continue
 		}
 
-		pathnameChecksum := repo.Checksum([]byte(pathname))
-		object, err := snapshot.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
+		fs, err := snap.Filesystem()
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
-		if object == nil {
-			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
+
+		fsinfo, err := fs.Stat(pathname)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
 
+		if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
+			logger.Error("%s: %s: is a directory", flags.Name(), pathname)
+			errors++
+			continue
+		}
+
+		if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
+			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
+			errors++
+			continue
+		} else if fsinfo.FileInfo().Mode().IsRegular() {
+			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
+			errors++
+			continue
+		}
+
+		info := fsinfo.(*vfs.FileEntry)
+		object, err := snap.LookupObject(info.Checksum)
+
 		if enableFastChecksum {
 			fmt.Printf("%064x %s\n", object.Checksum, pathname)
 		} else {
-			rd, err := snapshot.NewReader(pathname)
+			rd, err := snap.NewReader(pathname)
 			if err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 				errors++

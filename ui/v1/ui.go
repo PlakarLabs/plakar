@@ -35,6 +35,7 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/vfs2"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
@@ -162,14 +163,18 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	nFiles := 0
 	nNonRegular := 0
 	nPathnames := 0
-	for pathname := range snapshot.Filesystem.Pathnames() {
-		info, _ := snapshot.Filesystem.Stat(pathname)
-		if info.Mode().IsDir() {
+
+	fs, err := snapshot.Filesystem()
+	if err != nil {
+		panic(err)
+	}
+
+	for pathname := range fs.Pathnames() {
+		info, _ := fs.Stat(pathname)
+		if info.(*vfs2.DirEntry) != nil {
 			nDirectories++
-		} else if info.Mode().IsRegular() {
-			nFiles++
 		} else {
-			nNonRegular++
+			nFiles++
 		}
 		nPathnames++
 	}
@@ -181,8 +186,8 @@ func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
 	ss.Files = uint64(nFiles)
 	ss.NonRegular = uint64(nNonRegular)
 	ss.Pathnames = uint64(nPathnames)
-	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
-	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
+	ss.Objects = uint64(len(snapshot.Repository().State().ListObjects()))
+	ss.Chunks = uint64(len(snapshot.Repository().State().ListChunks()))
 	return ss
 }
 
@@ -284,7 +289,13 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 
-	_, err := snap.Filesystem.Stat(path)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = fs.Stat(path)
 	if err != nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -296,23 +307,34 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	symlinksResolve := make(map[string]string)
 	others := make([]*objects.FileInfo, 0)
 
-	children, _ := snap.Filesystem.Children(path)
+	children, err := fs.Children(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	for childname := range children {
-		fileinfo, _ := snap.Filesystem.Stat(filepath.Clean(fmt.Sprintf("%s/%s", path, childname)))
+		info, _ := fs.Stat(filepath.Clean(fmt.Sprintf("%s/%s", path, childname)))
+
+		var fileinfo *objects.FileInfo
+		switch info := info.(type) {
+		case *vfs2.DirEntry:
+			fileinfo = info.FileInfo()
+		case *vfs2.FileEntry:
+			fileinfo = info.FileInfo()
+		}
+
 		if fileinfo.Mode().IsDir() {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode().IsRegular() {
 			files = append(files, fileinfo)
+		} else if info.(*vfs2.FileEntry).SymlinkTarget != "" {
+			symlinks = append(symlinks, fileinfo)
+			symlinksResolve[fileinfo.Name()] = info.(*vfs2.FileEntry).SymlinkTarget
 		} else {
-			//pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name())
-			if pathname, err := snap.Filesystem.Readlink(filepath.Clean(fmt.Sprintf("%s/%s", path, fileinfo.Name()))); err != nil {
-				symlinks = append(symlinks, fileinfo)
-				symlinksResolve[fileinfo.Name()] = pathname
-			} else {
-				others = append(others, fileinfo)
-			}
-
+			others = append(others, fileinfo)
 		}
+
 	}
 
 	sort.Slice(directories, func(i, j int) bool {
@@ -370,8 +392,31 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	pathnameChecksum := lrepository.Checksum([]byte(path))
-	object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+		http.Error(w, "is directory", http.StatusInternalServerError)
+		return
+	}
+
+	info := fsinfo.(*vfs2.FileEntry).FileInfo()
+	if !info.Mode().IsRegular() {
+		http.Error(w, "not regular", http.StatusInternalServerError)
+		return
+	}
+
+	checksum := fsinfo.(*vfs2.FileEntry).Checksum
+	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -382,24 +427,22 @@ func object(w http.ResponseWriter, r *http.Request) {
 	}
 	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 
-	info, _ := snap.Filesystem.Stat(path)
-
 	chunks := make([]*objects.Chunk, 0)
-	for _, chunkChecksum := range object.Chunks {
-		chunk, err := snap.Index.LookupChunk(chunkChecksum)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		chunks = append(chunks, chunk)
+	for _, chunk := range object.Chunks {
+		//		chunk, err := snap.Index.LookupChunk(chunk.Checksum)
+		//		if err != nil {
+		//			http.Error(w, err.Error(), http.StatusInternalServerError)
+		//			return
+		//		}
+		chunks = append(chunks, &chunk)
 	}
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if st, err := snap.Filesystem.Stat(root); err != nil {
+		if st, err := fs.Stat(root); err != nil {
 			break
-		} else if !st.Mode().IsDir() {
+		} else if _, isDir := st.(*vfs2.DirEntry); isDir {
 			break
 		}
 	}
@@ -459,8 +502,31 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	pathnameChecksum := lrepository.Checksum([]byte(path))
-	object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+		http.Error(w, "is directory", http.StatusInternalServerError)
+		return
+	}
+
+	info := fsinfo.(*vfs2.FileEntry).FileInfo()
+	if !info.Mode().IsRegular() {
+		http.Error(w, "not regular", http.StatusInternalServerError)
+		return
+	}
+
+	checksum := fsinfo.(*vfs2.FileEntry).Checksum
+	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -485,8 +551,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		if download != "" {
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 		}
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snap.GetChunk(chunkChecksum)
+		for _, chunk := range object.Chunks {
+			data, err := snap.GetChunk(chunk.Checksum)
 			if err != nil {
 			}
 			w.Write(data)
@@ -495,8 +561,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := []byte("")
-	for _, chunkChecksum := range object.Chunks {
-		data, err := snap.GetChunk(chunkChecksum)
+	for _, chunk := range object.Chunks {
+		data, err := snap.GetChunk(chunk.Checksum)
 		if err != nil {
 		}
 		content = append(content, data...)
@@ -586,8 +652,14 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
+		fs, err := snap.Filesystem()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		if kind == "" && mime == "" && ext == "" {
-			for directory := range snap.Filesystem.Directories() {
+			for directory := range fs.Directories() {
 				if strings.Contains(directory, q) {
 					directories = append(directories, struct {
 						Snapshot string
@@ -597,32 +669,36 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		for file := range snap.Filesystem.Pathnames() {
+		for file := range fs.Pathnames() {
 			if strings.Contains(file, q) {
-				pathnameChecksum := lrepository.Checksum([]byte(file))
-				object, err := snap.Index.LookupObjectForPathnameChecksum(pathnameChecksum)
+				fsinfo, err := fs.Stat(file)
 				if err != nil {
 					continue
 				}
-				if object != nil {
-					object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
-					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
-						continue
-					}
-					if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
-						continue
-					}
-					if ext != "" && filepath.Ext(file) != ext {
-						continue
-					}
-
-					files = append(files, struct {
-						Snapshot string
-						Date     string
-						Mime     string
-						Path     string
-					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), object.ContentType, file})
+				if _, isDir := fsinfo.(*vfs2.DirEntry); isDir {
+					continue
 				}
+				object, err := snap.LookupObject(fsinfo.(*vfs2.FileEntry).Checksum)
+				if err != nil {
+					continue
+				}
+				object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
+				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
+					continue
+				}
+				if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
+					continue
+				}
+				if ext != "" && filepath.Ext(file) != ext {
+					continue
+				}
+
+				files = append(files, struct {
+					Snapshot string
+					Date     string
+					Mime     string
+					Path     string
+				}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), object.ContentType, file})
 			}
 		}
 	}

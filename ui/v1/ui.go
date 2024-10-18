@@ -71,59 +71,17 @@ type SnapshotSummary struct {
 	Roots       uint64
 	Directories uint64
 	Files       uint64
-	NonRegular  uint64
 	Pathnames   uint64
 	Objects     uint64
 	Chunks      uint64
-
-	Size uint64
+	Size        uint64
 }
 
 type TemplateFunctions struct {
 	HumanizeBytes func(uint64) string
 }
 
-func templateFunctions() TemplateFunctions {
-	return TemplateFunctions{
-		HumanizeBytes: func(nbytes uint64) string {
-			return humanize.Bytes(nbytes)
-		},
-	}
-}
-
-func getSnapshots(repo *repository.Repository) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := repo.GetSnapshots()
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*snapshot.Snapshot, 0)
-
-	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
-	for _, snapshotUuid := range snapshotsList {
-		wg.Add(1)
-		go func(snapshotUuid uuid.UUID) {
-			defer wg.Done()
-			snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			result = append(result, snapshotInstance)
-			mu.Unlock()
-		}(snapshotUuid)
-	}
-	wg.Wait()
-
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Header.CreationTime.Before(result[j].Header.CreationTime)
-	})
-
-	return result, nil
-}
-
-func getHeaders(repo *repository.Repository) ([]*header.Header, error) {
+func getSnapshots(repo *repository.Repository) ([]*header.Header, error) {
 	snapshotsList, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
@@ -158,42 +116,9 @@ func (summary *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(summary.Size)
 }
 
-func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
-	nDirectories := 0
-	nFiles := 0
-	nNonRegular := 0
-	nPathnames := 0
-
-	fs, err := snapshot.Filesystem()
-	if err != nil {
-		panic(err)
-	}
-
-	for pathname := range fs.Pathnames() {
-		info, _ := fs.Stat(pathname)
-		if info.(*vfs.DirEntry) != nil {
-			nDirectories++
-		} else {
-			nFiles++
-		}
-		nPathnames++
-	}
-
-	ss := &SnapshotSummary{}
-	ss.Header = snapshot.Header
-	ss.Roots = uint64(len(snapshot.Header.ScannedDirectories))
-	ss.Directories = uint64(nDirectories)
-	ss.Files = uint64(nFiles)
-	ss.NonRegular = uint64(nNonRegular)
-	ss.Pathnames = uint64(nPathnames)
-	ss.Objects = uint64(len(snapshot.Repository().State().ListObjects()))
-	ss.Chunks = uint64(len(snapshot.Repository().State().ListChunks()))
-	return ss
-}
-
 func viewRepository(w http.ResponseWriter, r *http.Request) {
 
-	hdrs, _ := getHeaders(lrepository)
+	hdrs, _ := getSnapshots(lrepository)
 
 	totalFiles := uint64(0)
 
@@ -425,15 +350,9 @@ func object(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 
 	chunks := make([]*objects.Chunk, 0)
 	for _, chunk := range object.Chunks {
-		//		chunk, err := snap.Index.LookupChunk(chunk.Checksum)
-		//		if err != nil {
-		//			http.Error(w, err.Error(), http.StatusInternalServerError)
-		//			return
-		//		}
 		chunks = append(chunks, &chunk)
 	}
 
@@ -535,7 +454,6 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
@@ -682,7 +600,6 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
 					continue
 				}

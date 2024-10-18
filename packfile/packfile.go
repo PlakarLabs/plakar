@@ -60,6 +60,16 @@ type PackFileFooter struct {
 	IndexChecksum [32]byte
 }
 
+type Configuration struct {
+	MaxSize uint32
+}
+
+func DefaultConfiguration() *Configuration {
+	return &Configuration{
+		MaxSize: (20 << 10) << 10,
+	}
+}
+
 func NewFooterFromBytes(serialized []byte) (PackFileFooter, error) {
 	t0 := time.Now()
 	defer func() {

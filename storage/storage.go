@@ -29,10 +29,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarLabs/plakar/chunking"
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/packfile"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/google/uuid"
 )
@@ -57,7 +59,7 @@ type Configuration struct {
 	ChunkingNormal int
 	ChunkingMax    int
 
-	PackfileSize int
+	PackfileSize uint32
 }
 
 func NewConfiguration() *Configuration {
@@ -67,11 +69,11 @@ func NewConfiguration() *Configuration {
 		CreationTime:   time.Now(),
 		Compression:    compression.DefaultAlgorithm(),
 		Hashing:        hashing.DefaultAlgorithm(),
-		Chunking:       "fastcdc",
-		ChunkingMin:    64 << 10,
-		ChunkingNormal: (1 << 10) << 10,
-		ChunkingMax:    (8 << 10) << 10,
-		PackfileSize:   (20 << 10) << 10,
+		Chunking:       chunking.DefaultAlgorithm(),
+		ChunkingMin:    chunking.DefaultConfiguration().MinSize,
+		ChunkingNormal: chunking.DefaultConfiguration().NormalSize,
+		ChunkingMax:    chunking.DefaultConfiguration().MaxSize,
+		PackfileSize:   packfile.DefaultConfiguration().MaxSize,
 	}
 }
 

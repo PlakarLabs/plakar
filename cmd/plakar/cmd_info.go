@@ -83,28 +83,21 @@ func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 
 		fmt.Printf("Root: %x\n", header.Root)
 		fmt.Printf("Metadata: %x\n", header.Metadata)
+		fmt.Printf("Statistics: %x\n", header.Statistics)
 
 		fmt.Printf("Version: %s\n", repo.Configuration().Version)
 		fmt.Printf("Hostname: %s\n", header.Hostname)
 		fmt.Printf("Username: %s\n", header.Username)
 		fmt.Printf("CommandLine: %s\n", header.CommandLine)
 		fmt.Printf("OperatingSystem: %s\n", header.OperatingSystem)
+		fmt.Printf("Architecture: %s\n", header.Architecture)
+		fmt.Printf("NumCPU: %d\n", header.NumCPU)
+
 		fmt.Printf("MachineID: %s\n", header.MachineID)
 		fmt.Printf("PublicKey: %s\n", header.PublicKey)
 		fmt.Printf("Tags: %s\n", strings.Join(header.Tags, ", "))
 		fmt.Printf("Directories: %d\n", header.DirectoriesCount)
 		fmt.Printf("Files: %d\n", header.FilesCount)
-		fmt.Printf("NonRegular: %d\n", header.NonRegularCount)
-		fmt.Printf("Pathnames: %d\n", header.PathnamesCount)
-
-		fmt.Printf("Objects.Count: %d\n", header.ObjectsCount)
-		fmt.Printf("Objects.TransferCount: %d\n", header.ObjectsTransferCount)
-		fmt.Printf("Objects.TransferSize: %s (%d bytes)\n", humanize.Bytes(header.ObjectsTransferSize), header.ObjectsTransferSize)
-
-		fmt.Printf("Chunks.Count: %d\n", header.ChunksCount)
-		fmt.Printf("Chunks.Size: %d\n", header.ChunksSize)
-		fmt.Printf("Chunks,TransferCount: %d\n", header.ChunksTransferCount)
-		fmt.Printf("Chunks.TransferSize: %s (%d bytes)\n", humanize.Bytes(header.ChunksTransferSize), header.ChunksTransferSize)
 
 		fmt.Printf("Snapshot.Size: %s (%d bytes)\n", humanize.Bytes(header.ScanProcessedSize), header.ScanProcessedSize)
 	}

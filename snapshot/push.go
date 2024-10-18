@@ -1,17 +1,17 @@
 package snapshot
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
-	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
@@ -263,7 +263,38 @@ func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record impo
 	return doExclude
 }
 
-func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
+func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
+	atomic.AddUint64(&snap.statistics.ImporterRecords, 1)
+
+	switch record := record.(type) {
+	case importer.ScanError:
+		atomic.AddUint64(&snap.statistics.ImporterErrors, 1)
+
+	case importer.ScanRecord:
+		switch record.Type {
+		case importer.RecordTypeFile:
+			atomic.AddUint64(&snap.statistics.ImporterFiles, 1)
+			if record.Stat.Nlink() > 1 {
+				atomic.AddUint64(&snap.statistics.ImporterLinks, 1)
+			}
+			atomic.AddUint64(&snap.statistics.ImporterSize, uint64(record.Stat.Size()))
+		case importer.RecordTypeDirectory:
+			atomic.AddUint64(&snap.statistics.ImporterDirectories, 1)
+		case importer.RecordTypeSymlink:
+			atomic.AddUint64(&snap.statistics.ImporterSymlinks, 1)
+		case importer.RecordTypeDevice:
+			atomic.AddUint64(&snap.statistics.ImporterDevices, 1)
+		case importer.RecordTypePipe:
+			atomic.AddUint64(&snap.statistics.ImporterPipes, 1)
+		case importer.RecordTypeSocket:
+			atomic.AddUint64(&snap.statistics.ImporterSockets, 1)
+		default:
+			panic("unexpected record type")
+		}
+	}
+}
+
+func (snap *Snapshot) Push(scanDir string, options *PushOptions) error {
 	sc, err := newScanCache()
 	if err != nil {
 		return err
@@ -276,13 +307,12 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	}
 	defer imp.Close()
 
-	t0 := time.Now()
+	//t0 := time.Now()
 
 	scanner, err := imp.Scan()
 	if err != nil {
 		return err
 	}
-	snapshot.Header.ScannedDirectories = make([]string, 0)
 
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)
@@ -293,84 +323,95 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	} else {
 		scanDir = imp.Root()
 	}
-	snapshot.Header.ScannedDirectories = append(snapshot.Header.ScannedDirectories, filepath.ToSlash(scanDir))
+	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
-	filesCount := 0
-	directoriesCount := 0
-	symlinksCount := 0
-	nregularsCount := 0
-	errors := 0
-
-	t0 = time.Now()
+	/* importer */
+	snap.statistics.ImporterStart = time.Now()
 	for record := range scanner {
-		if snapshot.skipExcludedPathname(options, record) {
+		if snap.skipExcludedPathname(options, record) {
 			continue
 		}
-
+		snap.updateImporterStatistics(record)
 		switch record := record.(type) {
 		case importer.ScanError:
-			//logger.Warn("%s: %s", record.Pathname, record.Err)
-			errors++
+			logger.Warn("%s: %s", record.Pathname, record.Err)
 
 		case importer.ScanRecord:
-			switch record.Type {
-			case importer.RecordTypeFile:
-				filesCount++
-			case importer.RecordTypeDirectory:
-				directoriesCount++
-			case importer.RecordTypeSymlink:
-				symlinksCount++
-			default:
-				nregularsCount++
-			}
 			if err := sc.RecordPathname(record); err != nil {
 				return err
 			}
+
+			extension := strings.ToLower(filepath.Ext(record.Pathname))
+			if extension == "" {
+				extension = "none"
+			}
+			if _, exists := snap.Header.FileExtension[extension]; !exists {
+				snap.Header.FileExtension[extension] = 0
+			}
+			snap.Header.FileExtension[extension]++
 		}
 	}
+	snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
 
-	filenames, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", false)
-	if err != nil {
+	/* scanner */
+	snap.statistics.ScannerStart = time.Now()
+	if filenames, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", false); err != nil {
 		return err
-	}
-	for record := range filenames {
-		fileEntry := vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
+	} else {
+		for record := range filenames {
+			fileEntry := vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 
-		if record.Stat.Mode().IsRegular() {
-			object, err := chunkify2(snapshot, imp, record.Pathname, record.Stat)
+			if record.Stat.Mode().IsRegular() {
+				object, err := snap.chunkify(imp, record)
+				if err != nil {
+					atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
+					return err
+				}
+
+				for _, chunk := range object.Chunks {
+					fileEntry.AddChunk(chunk)
+				}
+				fileEntry.AddChecksum(object.Checksum)
+				if object.ContentType != "" {
+					fileEntry.AddContentType(object.ContentType)
+				}
+
+				data, err := msgpack.Marshal(object)
+				if err != nil {
+					return err
+				}
+
+				atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
+				atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
+
+				err = snap.PutObject(object.Checksum, data)
+				if err != nil {
+					return err
+				}
+				atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
+
+				// XXX
+				snap.Metadata.AddMetadata(object.ContentType, object.Checksum)
+			}
+
+			serialized, err := fileEntry.Serialize()
 			if err != nil {
-				fmt.Println("error chunkifying", record.Pathname, err)
 				return err
 			}
-			for _, chunk := range object.Chunks {
-				fileEntry.AddChunk(chunk)
-			}
-			fileEntry.AddChecksum(object.Checksum)
-			if object.ContentType != "" {
-				fileEntry.AddContentType(object.ContentType)
-			}
 
-			err = snapshot.PutObject(object)
+			checksum := snap.repository.Checksum(serialized)
+			err = sc.RecordChecksum(record.Pathname, checksum)
 			if err != nil {
 				return err
 			}
-		}
 
-		serialized, err := fileEntry.Serialize()
-		if err != nil {
-			return err
-		}
+			atomic.AddUint64(&snap.statistics.VFSFilesCount, 1)
+			atomic.AddUint64(&snap.statistics.VFSFilesSize, uint64(len(serialized)))
 
-		checksum := snapshot.repository.Checksum(serialized)
-		err = sc.RecordChecksum(record.Pathname, checksum)
-		if err != nil {
-			fmt.Println("error getting children for", record.Pathname, err)
-			return err
-		}
-
-		err = snapshot.PutFile(checksum, serialized)
-		if err != nil {
-			return err
+			err = snap.PutFile(checksum, serialized)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -379,44 +420,58 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range directories {
-		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
-
-		c, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
-		if err != nil {
-			fmt.Println("error getting children for", record.Pathname, err)
+		if c, err := sc.EnumerateImmediateChildPathnames(record.Pathname); err != nil {
 			return err
-		}
-		for childrecord := range c {
-			value, err := sc.GetChecksum(childrecord.Pathname)
+		} else {
+			dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
+
+			for childrecord := range c {
+				value, err := sc.GetChecksum(childrecord.Pathname)
+				if err != nil {
+					return err
+				}
+				dirEntry.AddChild(value, childrecord)
+			}
+
+			serialized, err := dirEntry.Serialize()
 			if err != nil {
-				fmt.Println("error getting checksum for", childrecord, err)
 				return err
 			}
-			dirEntry.AddChild(value, childrecord)
-		}
 
-		serialized, err := dirEntry.Serialize()
-		if err != nil {
-			return err
-		}
+			checksum := snap.repository.Checksum(serialized)
+			err = sc.RecordChecksum(record.Pathname, checksum)
+			if err != nil {
+				return err
+			}
 
-		checksum := snapshot.repository.Checksum(serialized)
-		err = sc.RecordChecksum(record.Pathname, checksum)
-		if err != nil {
-			return err
-		}
-		err = snapshot.PutDirectory(checksum, serialized)
-		if err != nil {
-			return err
+			atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
+			atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, uint64(len(serialized)))
+
+			err = snap.PutDirectory(checksum, serialized)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)
 
-	metadata, err := snapshot.Metadata.Serialize()
+	// preparing commit
+	metadata, err := snap.Metadata.Serialize()
 	if err != nil {
 		return err
 	}
-	metadataChecksum := snapshot.repository.Checksum(metadata)
-	err = snapshot.PutData(metadataChecksum, metadata)
+	metadataChecksum := snap.repository.Checksum(metadata)
+	err = snap.PutData(metadataChecksum, metadata)
+	if err != nil {
+		return err
+	}
+
+	statistics, err := snap.statistics.Serialize()
+	if err != nil {
+		return err
+	}
+	statisticsChecksum := snap.repository.Checksum(statistics)
+	err = snap.PutData(statisticsChecksum, statistics)
 	if err != nil {
 		return err
 	}
@@ -425,125 +480,139 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 	if err != nil {
 		return err
 	}
-	snapshot.Header.Root = value
-	snapshot.Header.Metadata = metadataChecksum
 
-	fmt.Println(fmt.Sprintf("%x", value), "took", time.Since(t0), "files:", filesCount, "directories:", directoriesCount, "symlinks:", symlinksCount, "nregulars:", nregularsCount, "errors:", errors)
+	snap.Header.Root = value
+	snap.Header.Metadata = metadataChecksum
+	snap.Header.Statistics = statisticsChecksum
+	snap.Header.CreationDuration = time.Since(snap.statistics.ImporterStart)
+	snap.Header.DirectoriesCount = snap.statistics.ImporterDirectories
+	snap.Header.FilesCount = snap.statistics.ImporterFiles
+	snap.Header.ScanSize = snap.statistics.ImporterSize
+	snap.Header.ScanProcessedSize = snap.statistics.ScannerProcessedSize
 
-	snapshot.Header.CreationDuration = time.Since(t0)
+	//
+	for _, key := range snap.Metadata.ListKeys() {
+		objectType := strings.Split(key, ";")[0]
+		objectKind := strings.Split(key, "/")[0]
+		if objectType == "" {
+			objectType = "unknown"
+			objectKind = "unknown"
+		}
+		if _, exists := snap.Header.FileKind[objectKind]; !exists {
+			snap.Header.FileKind[objectKind] = 0
+		}
+		snap.Header.FileKind[objectKind] += uint64(len(snap.Metadata.ListValues(key)))
 
-	return snapshot.Commit()
+		if _, exists := snap.Header.FileType[objectType]; !exists {
+			snap.Header.FileType[objectType] = 0
+		}
+		snap.Header.FileType[objectType] += uint64(len(snap.Metadata.ListValues(key)))
+	}
+
+	for key, value := range snap.Header.FileType {
+		snap.Header.FilePercentType[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+	}
+	for key, value := range snap.Header.FileKind {
+		snap.Header.FilePercentKind[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+	}
+	for key, value := range snap.Header.FileExtension {
+		snap.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+	}
+	//
+
+	fmt.Println(snap.Header.GetIndexShortID(),
+		"took", snap.Header.CreationDuration,
+		"files:", snap.statistics.ImporterFiles,
+		"directories:", snap.statistics.ImporterDirectories,
+		"symlinks:", snap.statistics.ImporterSymlinks,
+		"errors:", snap.statistics.ImporterErrors)
+
+	json.NewEncoder(os.Stdout).Encode(snap.statistics)
+
+	return snap.Commit()
 }
 
-/**/
-func chunkify2(snapshot *Snapshot, imp *importer.Importer, pathname string, fi objects.FileInfo) (*objects.Object, error) {
-	rd, err := imp.NewReader(filepath.FromSlash(pathname))
+func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecord) (*objects.Object, error) {
+	atomic.AddUint64(&snap.statistics.ChunkerFiles, 1)
+
+	rd, err := imp.NewReader(record.Pathname)
 	if err != nil {
 		return nil, err
 	}
 	defer rd.Close()
 
-	object := &objects.Object{}
-	object.ContentType = mime.TypeByExtension(filepath.Ext(pathname))
-	objectHasher := snapshot.repository.Hasher()
+	object := objects.NewObject()
+	object.ContentType = mime.TypeByExtension(filepath.Ext(record.Pathname))
 
-	if fi.Size() < int64(snapshot.repository.Configuration().ChunkingMin) {
-		var t32 [32]byte
+	objectHasher := snap.repository.Hasher()
+	chunkHasher := snap.repository.Hasher()
 
+	var firstChunk = true
+	var cdcOffset uint64
+	var t32 [32]byte
+
+	// Helper function to process a chunk
+	processChunk := func(data []byte) error {
+		atomic.AddUint64(&snap.statistics.ChunkerChunks, 1)
+		if firstChunk {
+			if object.ContentType == "" {
+				object.ContentType = mimetype.Detect(data).String()
+			}
+			firstChunk = false
+		}
+		objectHasher.Write(data)
+
+		chunkHasher.Reset()
+		chunkHasher.Write(data)
+		copy(t32[:], chunkHasher.Sum(nil))
+
+		chunk := objects.Chunk{Checksum: t32, Length: uint32(len(data))}
+		object.Chunks = append(object.Chunks, chunk)
+		cdcOffset += uint64(len(data))
+
+		if !snap.CheckChunk(chunk.Checksum) {
+			atomic.AddUint64(&snap.statistics.ChunksCount, 1)
+			atomic.AddUint64(&snap.statistics.ChunksSize, uint64(len(data)))
+			return snap.PutChunk(chunk.Checksum, data)
+		}
+		return nil
+	}
+
+	// Small file case: read entire file into memory
+	if record.Stat.Size() < int64(snap.repository.Configuration().ChunkingMin) {
 		buf, err := io.ReadAll(rd)
 		if err != nil {
 			return nil, err
 		}
-
-		if object.ContentType == "" {
-			object.ContentType = mimetype.Detect(buf).String()
-		}
-
-		objectHasher.Write(buf)
-		copy(t32[:], objectHasher.Sum(nil))
-		object.Checksum = t32
-
-		chunk := objects.Chunk{}
-		chunk.Checksum = t32
-		chunk.Length = uint32(len(buf))
-		object.Chunks = append(object.Chunks, chunk)
-
-		exists := snapshot.CheckChunk(chunk.Checksum)
-		if !exists {
-			err := snapshot.PutChunk(chunk.Checksum, buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return object, nil
-	}
-
-	chunkingAlgorithm := snapshot.repository.Configuration().Chunking
-	chunkingMinSize := snapshot.repository.Configuration().ChunkingMin
-	chunkingNormalSize := snapshot.repository.Configuration().ChunkingNormal
-	chunkingMaxSize := snapshot.repository.Configuration().ChunkingMax
-
-	chk, err := chunkers.NewChunker(chunkingAlgorithm, rd, &chunkers.ChunkerOpts{
-		MinSize:    chunkingMinSize,
-		NormalSize: chunkingNormalSize,
-		MaxSize:    chunkingMaxSize,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	chunkHasher := snapshot.repository.Hasher()
-
-	firstChunk := true
-	cdcOffset := uint64(0)
-	for {
-		cdcChunk, err := chk.Next()
-		if err != nil && err != io.EOF {
+		if err := processChunk(buf); err != nil {
 			return nil, err
 		}
-
-		if cdcChunk != nil {
-			if firstChunk {
-				if object.ContentType == "" {
-					object.ContentType = mimetype.Detect(cdcChunk).String()
-				}
-				firstChunk = false
+	} else {
+		// Large file case: chunk file with chunker
+		chk, err := snap.repository.Chunker(rd)
+		if err != nil {
+			return nil, err
+		}
+		for {
+			cdcChunk, err := chk.Next()
+			if err != nil && err != io.EOF {
+				return nil, err
 			}
-
-			objectHasher.Write(cdcChunk)
-
-			if !firstChunk {
-				chunkHasher.Reset()
+			if cdcChunk == nil {
+				break
 			}
-			chunkHasher.Write(cdcChunk)
-
-			var t32 [32]byte
-			copy(t32[:], chunkHasher.Sum(nil))
-
-			chunk := objects.Chunk{}
-			chunk.Checksum = t32
-			chunk.Length = uint32(len(cdcChunk))
-			object.Chunks = append(object.Chunks, chunk)
-			cdcOffset += uint64(len(cdcChunk))
-
-			exists := snapshot.CheckChunk(chunk.Checksum)
-			if !exists {
-				err := snapshot.PutChunk(chunk.Checksum, cdcChunk)
-				if err != nil {
-					return nil, err
-				}
+			if err := processChunk(cdcChunk); err != nil {
+				return nil, err
+			}
+			if err == io.EOF {
+				break
 			}
 		}
-
-		if err == io.EOF {
-			break
-		}
-
 	}
-	var t32 [32]byte
+	atomic.AddUint64(&snap.statistics.ChunkerObjects, 1)
+	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.Stat.Size()))
+
 	copy(t32[:], objectHasher.Sum(nil))
 	object.Checksum = t32
-
 	return object, nil
 }

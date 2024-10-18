@@ -28,32 +28,24 @@ type Header struct {
 	Hostname        string
 	Username        string
 	OperatingSystem string
+	Architecture    string
+	NumCPU          int
 	MachineID       string
 	ProcessID       int
+	Client          string
 	CommandLine     string
 
 	ScanSize          uint64
 	ScanProcessedSize uint64
 
-	Root     [32]byte
-	Metadata [32]byte
+	Root       [32]byte
+	Metadata   [32]byte
+	Statistics [32]byte
 
 	ScannedDirectories []string
 
-	ChunksCount  uint64
-	ChunksSize   uint64
-	ObjectsCount uint64
-
 	FilesCount       uint64
 	DirectoriesCount uint64
-	NonRegularCount  uint64
-	PathnamesCount   uint64
-
-	ObjectsTransferCount uint64
-	ObjectsTransferSize  uint64
-
-	ChunksTransferCount uint64
-	ChunksTransferSize  uint64
 
 	FileKind      map[string]uint64
 	FileType      map[string]uint64

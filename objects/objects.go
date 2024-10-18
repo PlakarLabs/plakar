@@ -74,6 +74,12 @@ type Object struct {
 	Tags           []string
 }
 
+func NewObject() *Object {
+	return &Object{
+		CustomMetadata: make(map[string]string),
+	}
+}
+
 func NewObjectFromBytes(serialized []byte) (*Object, error) {
 	var o Object
 	if err := msgpack.Unmarshal(serialized, &o); err != nil {

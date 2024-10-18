@@ -92,7 +92,25 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 				return
 			}
 			fileinfo := objects.FileInfoFromStat(f)
-			c <- importer.ScanRecord{Pathname: filepath.ToSlash(path), Stat: fileinfo}
+
+			var recordType importer.RecordType
+			switch mode := fileinfo.Mode(); {
+			case mode.IsRegular():
+				recordType = importer.RecordTypeFile
+			case mode.IsDir():
+				recordType = importer.RecordTypeDirectory
+			case mode&os.ModeSymlink != 0:
+				recordType = importer.RecordTypeSymlink
+			case mode&os.ModeDevice != 0:
+				recordType = importer.RecordTypeDevice
+			case mode&os.ModeNamedPipe != 0:
+				recordType = importer.RecordTypePipe
+			case mode&os.ModeSocket != 0:
+				recordType = importer.RecordTypeSocket
+			default:
+				recordType = importer.RecordTypeFile // Default to file if type is unknown
+			}
+			c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo}
 		}
 
 		filepath.WalkDir(directory, func(path string, di fs.DirEntry, err error) error {

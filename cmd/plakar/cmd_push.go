@@ -109,6 +109,8 @@ func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
 	snap.Header.MachineID = ctx.MachineID
 	snap.Header.CommandLine = ctx.CommandLine
 	snap.Header.ProcessID = os.Getpid()
+	snap.Header.Architecture = runtime.GOARCH
+	snap.Header.NumCPU = runtime.NumCPU()
 
 	var tags []string
 	if opt_tags == "" {

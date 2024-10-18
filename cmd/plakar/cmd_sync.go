@@ -28,6 +28,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func init() {
@@ -211,7 +212,14 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
 								return
 							}
-							err = copySnapshot.PutObject(object)
+
+							data, err := msgpack.Marshal(object)
+							if err != nil {
+								fmt.Fprintf(os.Stderr, "%s: could not marshal object: %s\n", syncRepository, err)
+								return
+							}
+
+							err = copySnapshot.PutObject(object.Checksum, data)
 							if err != nil {
 								fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)
 								return

@@ -2,8 +2,12 @@ package repository
 
 import (
 	"hash"
+	"io"
 	"time"
 
+	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/hashing"
@@ -152,6 +156,19 @@ func (r *Repository) Checksum(data []byte) [32]byte {
 	copy(checksum[:], result)
 
 	return checksum
+}
+
+func (r *Repository) Chunker(rd io.ReadCloser) (*chunkers.Chunker, error) {
+	chunkingAlgorithm := r.configuration.Chunking
+	chunkingMinSize := r.configuration.ChunkingMin
+	chunkingNormalSize := r.configuration.ChunkingNormal
+	chunkingMaxSize := r.configuration.ChunkingMax
+
+	return chunkers.NewChunker(chunkingAlgorithm, rd, &chunkers.ChunkerOpts{
+		MinSize:    chunkingMinSize,
+		NormalSize: chunkingNormalSize,
+		MaxSize:    chunkingMaxSize,
+	})
 }
 
 func (r *Repository) State() *state.State {

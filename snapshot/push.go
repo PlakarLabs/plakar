@@ -15,7 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
-	"github.com/PlakarLabs/plakar/snapshot/vfs2"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -334,7 +334,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range filenames {
-		fileEntry := vfs2.NewFileEntry(filepath.Dir(record.Pathname), &record)
+		fileEntry := vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 
 		if record.Stat.Mode().IsRegular() {
 			object, err := chunkify2(snapshot, imp, record.Pathname, record.Stat)
@@ -379,7 +379,7 @@ func (snapshot *Snapshot) Push(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range directories {
-		dirEntry := vfs2.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
+		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
 		c, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
 		if err != nil {

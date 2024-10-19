@@ -46,7 +46,7 @@ type PackerMsg struct {
 	Data      []byte
 }
 
-func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
@@ -56,7 +56,7 @@ func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 		repository: repo,
 		stateDelta: state.New(),
 
-		Header:   header.NewHeader(indexID),
+		Header:   header.NewHeader(snapshotID),
 		Metadata: metadata.New(),
 
 		statistics: statistics.New(),
@@ -177,13 +177,13 @@ func New(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Load(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Load", time.Since(t0))
 	}()
 
-	hdr, _, err := GetSnapshot(repo, indexID)
+	hdr, _, err := GetSnapshot(repo, snapshotID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,13 +196,13 @@ func Load(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Fork(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
+func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Fork", time.Since(t0))
 	}()
 
-	hdr, _, err := GetSnapshot(repo, indexID)
+	hdr, _, err := GetSnapshot(repo, snapshotID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,20 +212,22 @@ func Fork(repo *repository.Repository, indexID uuid.UUID) (*Snapshot, error) {
 
 		Header: hdr,
 	}
-	snapshot.Header.IndexID = uuid.Must(uuid.NewRandom())
+
+	indexID := uuid.Must(uuid.NewRandom())
+	snapshot.Header.IndexID = repo.Checksum(indexID[:])
 
 	logger.Trace("snapshot", "%s: Fork(): %s", indexID, snapshot.Header.GetIndexShortID())
 	return snapshot, nil
 }
 
-func GetSnapshot(repo *repository.Repository, indexID uuid.UUID) (*header.Header, bool, error) {
+func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Header, bool, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetSnapshot", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "repository.GetSnapshot(%s)", indexID)
+	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
 
-	buffer, err := repo.GetSnapshot(indexID)
+	buffer, err := repo.GetSnapshot(snapshotID)
 	if err != nil {
 		return nil, false, err
 	}

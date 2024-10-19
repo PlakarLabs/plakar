@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -84,14 +85,15 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 		if !useUuid {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
-				metadata.GetIndexShortID(),
+				hex.EncodeToString(metadata.GetIndexShortID()),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))
 		} else {
+			indexID := metadata.GetIndexID()
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
-				metadata.GetIndexID(),
+				hex.EncodeToString(indexID[:]),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))

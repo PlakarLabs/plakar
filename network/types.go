@@ -40,8 +40,8 @@ type ResClose struct {
 }
 
 type ReqCommit struct {
-	IndexID uuid.UUID
-	Data    []byte
+	SnapshotID [32]byte
+	Data       []byte
 }
 
 type ResCommit struct {
@@ -53,13 +53,13 @@ type ReqGetSnapshots struct {
 }
 
 type ResGetSnapshots struct {
-	Snapshots []uuid.UUID
+	Snapshots [][32]byte
 	Err       string
 }
 
 type ReqPutSnapshot struct {
-	IndexID uuid.UUID
-	Data    []byte
+	SnapshotID [32]byte
+	Data       []byte
 }
 
 type ResPutSnapshot struct {
@@ -67,7 +67,7 @@ type ResPutSnapshot struct {
 }
 
 type ReqGetSnapshot struct {
-	IndexID uuid.UUID
+	SnapshotID [32]byte
 }
 
 type ResGetSnapshot struct {
@@ -76,7 +76,7 @@ type ResGetSnapshot struct {
 }
 
 type ReqDeleteSnapshot struct {
-	IndexID uuid.UUID
+	SnapshotID [32]byte
 }
 
 type ResDeleteSnapshot struct {

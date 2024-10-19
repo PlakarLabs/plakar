@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -77,7 +78,8 @@ func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 
 	for _, header := range headers {
-		fmt.Printf("IndexID: %s\n", header.GetIndexID())
+		indexID := header.GetIndexID()
+		fmt.Printf("IndexID: %s\n", hex.EncodeToString(indexID[:]))
 		fmt.Printf("CreationTime: %s\n", header.CreationTime)
 		fmt.Printf("CreationDuration: %s\n", header.CreationDuration)
 

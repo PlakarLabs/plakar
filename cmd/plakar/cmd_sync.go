@@ -27,7 +27,6 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -135,7 +134,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	syncIndexes := make([]uuid.UUID, 0)
+	syncIndexes := make([][32]byte, 0)
 
 	for _, index := range findSnapshotByPrefix(sourceIndexes, snapshotID) {
 		if !indexArrayContains(destIndexes, index) {
@@ -146,7 +145,7 @@ func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
 	wg := sync.WaitGroup{}
 	for _, _indexID := range syncIndexes {
 		wg.Add(1)
-		go func(indexID uuid.UUID) {
+		go func(indexID [32]byte) {
 			defer wg.Done()
 			sourceSnapshot, err := snapshot.Load(srcRepository, indexID)
 			if err != nil {

@@ -29,7 +29,6 @@ import (
 	"github.com/PlakarLabs/plakar/compression"
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/minio/minio-go/v7"
@@ -171,29 +170,38 @@ func (repository *Repository) Configuration() storage.Configuration {
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	ret := make([]uuid.UUID, 0)
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
 	for object := range repository.minioClient.ListObjects(context.Background(), repository.bucketName, minio.ListObjectsOptions{
 		Prefix:    "snapshots/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "snapshots/") && len(object.Key) >= 13 {
-			ret = append(ret, uuid.MustParse(object.Key[13:]))
+		if strings.HasPrefix(object.Key, "snapshots/") && len(object.Key) == 13 {
+			snapshotIDhex, err := hex.DecodeString(object.Key[13:])
+			if err != nil {
+				continue
+			}
+			if len(snapshotIDhex) != 64 {
+				continue
+			}
+			var snapshotID [32]byte
+			copy(snapshotID[:], snapshotIDhex)
+			ret = append(ret, snapshotID)
 		}
 	}
 	return ret, nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%x/%s", snapshotID[0], hex.EncodeToString(snapshotID[:])), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), minio.GetObjectOptions{})
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
+	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%x/%s", snapshotID[0], hex.EncodeToString(snapshotID[:])), minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -214,8 +222,8 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return dataBytes, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), minio.RemoveObjectOptions{})
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
+	err := repository.minioClient.RemoveObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%x/%s", snapshotID[0], hex.EncodeToString(snapshotID[:])), minio.RemoveObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -370,8 +378,8 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 //////
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%s/%s", indexID.String()[0:2], indexID.String()), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("snapshots/%x/%s", snapshotID[0], hex.EncodeToString(snapshotID[:])), bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}

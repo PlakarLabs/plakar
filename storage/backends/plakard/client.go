@@ -338,7 +338,7 @@ func (repository *Repository) Configuration() storage.Configuration {
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetSnapshots", network.ReqGetSnapshots{})
 	if err != nil {
 		return nil, err
@@ -350,10 +350,10 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	return result.Payload.(network.ResGetSnapshots).Snapshots, nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(indexID [32]byte, data []byte) error {
 	result, err := repository.sendRequest("ReqPutSnapshot", network.ReqPutSnapshot{
-		IndexID: indexID,
-		Data:    data,
+		SnapshotID: indexID,
+		Data:       data,
 	})
 	if err != nil {
 		return err
@@ -364,9 +364,9 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	return nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(indexID [32]byte) ([]byte, error) {
 	result, err := repository.sendRequest("ReqGetSnapshot", network.ReqGetSnapshot{
-		IndexID: indexID,
+		SnapshotID: indexID,
 	})
 	if err != nil {
 		return nil, err
@@ -377,9 +377,9 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return result.Payload.(network.ResGetSnapshot).Data, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(indexID [32]byte) error {
 	result, err := repository.sendRequest("ReqDeleteSnapshot", network.ReqDeleteSnapshot{
-		IndexID: indexID,
+		SnapshotID: indexID,
 	})
 	if err != nil {
 		return err
@@ -515,10 +515,10 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(indexID [32]byte, data []byte) error {
 	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
-		IndexID: indexID,
-		Data:    data,
+		SnapshotID: indexID,
+		Data:       data,
 	})
 	if err != nil {
 		return err

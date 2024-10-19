@@ -29,8 +29,6 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
-
-	"github.com/google/uuid"
 )
 
 type Repository struct {
@@ -137,8 +135,8 @@ func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	ret := make([]uuid.UUID, 0)
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
+	ret := make([][32]byte, 0)
 
 	buckets, err := os.ReadDir(repository.PathSnapshots())
 	if err != nil {
@@ -158,18 +156,24 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 			if index.IsDir() {
 				continue
 			}
-			indexID, err := uuid.Parse(index.Name())
+
+			indexID, err := hex.DecodeString(index.Name())
 			if err != nil {
-				return ret, err
+				continue
 			}
-			ret = append(ret, indexID)
+			if len(indexID) != 32 {
+				continue
+			}
+			var snapshotID [32]byte
+			copy(snapshotID[:], indexID)
+			ret = append(ret, snapshotID)
 		}
 	}
 	return ret, nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathSnapshot(indexID))
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
+	data, err := os.ReadFile(repository.PathSnapshot(snapshotID))
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +261,8 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	f, err := os.Create(repository.PathSnapshot(indexID))
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
+	f, err := os.Create(repository.PathSnapshot(snapshotID))
 	if err != nil {
 		return err
 	}
@@ -285,8 +289,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	return nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	return os.Remove(repository.PathSnapshot(indexID))
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
+	return os.Remove(repository.PathSnapshot(snapshotID))
 }
 
 func (repository *Repository) Close() error {
@@ -361,8 +365,8 @@ func (repository *Repository) DeleteState(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
-	f, err := os.CreateTemp(repository.PathTmp(), fmt.Sprintf("%s.*", indexID))
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
+	f, err := os.CreateTemp(repository.PathTmp(), fmt.Sprintf("%s.*", hex.EncodeToString(snapshotID[:])))
 	if err != nil {
 		return err
 	}
@@ -380,7 +384,7 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 		return err
 	}
 
-	err = os.Rename(name, repository.PathSnapshot(indexID))
+	err = os.Rename(name, repository.PathSnapshot(snapshotID))
 	if err != nil {
 		return err
 	}

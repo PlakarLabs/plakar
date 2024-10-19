@@ -24,7 +24,6 @@ import (
 
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
 type Repository struct {
@@ -104,7 +103,7 @@ func (repository *Repository) Configuration() storage.Configuration {
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/snapshots", network.ReqGetSnapshots{})
 	if err != nil {
 		return nil, err
@@ -120,10 +119,10 @@ func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	return resGetSnapshots.Snapshots, nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	r, err := repository.sendRequest("PUT", repository.Repository, "/snapshot", network.ReqPutSnapshot{
-		IndexID: indexID,
-		Data:    data,
+		SnapshotID: snapshotID,
+		Data:       data,
 	})
 	if err != nil {
 		return err
@@ -139,9 +138,9 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	return nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/snapshot", network.ReqGetSnapshot{
-		IndexID: indexID,
+		SnapshotID: snapshotID,
 	})
 	if err != nil {
 		return nil, err
@@ -157,9 +156,9 @@ func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return resGetSnapshot.Data, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	r, err := repository.sendRequest("DELETE", repository.Repository, "/snapshot", network.ReqDeleteSnapshot{
-		IndexID: indexID,
+		SnapshotID: snapshotID,
 	})
 	if err != nil {
 		return err
@@ -339,10 +338,10 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	r, err := repository.sendRequest("POST", repository.Repository, "/snapshot", network.ReqCommit{
-		IndexID: indexID,
-		Data:    data,
+		SnapshotID: snapshotID,
+		Data:       data,
 	})
 	if err != nil {
 		return err

@@ -30,7 +30,7 @@ type Repository struct {
 }
 
 type Transaction struct {
-	Uuid       uuid.UUID
+	Uuid       [32]byte
 	repository Repository
 }
 
@@ -67,19 +67,19 @@ func (repository *Repository) Configuration() storage.Configuration {
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	return []uuid.UUID{}, nil
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
+	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	return nil
 }
 
@@ -125,6 +125,6 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	return nil
 }

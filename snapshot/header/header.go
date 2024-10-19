@@ -1,12 +1,12 @@
 package header
 
 import (
+	"encoding/hex"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -17,8 +17,14 @@ type Blob struct {
 	Size     uint64
 }
 
+type SnapshotID [32]byte
+
+func (s SnapshotID) String() string {
+	return string(s[:])
+}
+
 type Header struct {
-	IndexID          uuid.UUID
+	IndexID          SnapshotID
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
@@ -56,7 +62,7 @@ type Header struct {
 	FilePercentExtension map[string]float64
 }
 
-func NewHeader(indexID uuid.UUID) *Header {
+func NewHeader(indexID [32]byte) *Header {
 	return &Header{
 		IndexID:      indexID,
 		CreationTime: time.Now(),
@@ -108,12 +114,20 @@ func (h *Header) Serialize() ([]byte, error) {
 	}
 }
 
-func (h *Header) GetIndexID() uuid.UUID {
+func (h *Header) GetIndexIDasString() string {
+	return hex.EncodeToString(h.IndexID[:])
+}
+
+func (h *Header) GetShortIndexIDasString() string {
+	return hex.EncodeToString(h.IndexID[:])
+}
+
+func (h *Header) GetIndexID() [32]byte {
 	return h.IndexID
 }
 
-func (h *Header) GetIndexShortID() string {
-	return h.IndexID.String()[:8]
+func (h *Header) GetIndexShortID() []byte {
+	return h.IndexID[:4]
 }
 
 func (h *Header) GetRoot() [32]byte {

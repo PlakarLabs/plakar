@@ -82,10 +82,10 @@ type Backend interface {
 	Open(repository string) error
 	Configuration() Configuration
 
-	GetSnapshots() ([]uuid.UUID, error)
-	PutSnapshot(indexID uuid.UUID, data []byte) error
-	GetSnapshot(indexID uuid.UUID) ([]byte, error)
-	DeleteSnapshot(indexID uuid.UUID) error
+	GetSnapshots() ([][32]byte, error)
+	PutSnapshot(snapshotID [32]byte, data []byte) error
+	GetSnapshot(snapshotID [32]byte) ([]byte, error)
+	DeleteSnapshot(snapshotID [32]byte) error
 
 	GetStates() ([][32]byte, error)
 	PutState(checksum [32]byte, data []byte) error
@@ -98,7 +98,7 @@ type Backend interface {
 	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
 
-	Commit(indexID uuid.UUID, data []byte) error
+	Commit(snapshotID [32]byte, data []byte) error
 
 	Close() error
 }
@@ -286,7 +286,7 @@ func (store *Store) Configuration() Configuration {
 }
 
 /* snapshots  */
-func (store *Store) GetSnapshots() ([]uuid.UUID, error) {
+func (store *Store) GetSnapshots() ([][32]byte, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -298,31 +298,31 @@ func (store *Store) GetSnapshots() ([]uuid.UUID, error) {
 	return store.backend.GetSnapshots()
 }
 
-func (store *Store) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (store *Store) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("store.PutSnapshot", time.Since(t0))
-		logger.Trace("store", "PutSnapshot(%s): %s", indexID, time.Since(t0))
+		logger.Trace("store", "PutSnapshot(%s): %s", snapshotID, time.Since(t0))
 	}()
 
 	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-	return store.backend.PutSnapshot(indexID, data)
+	return store.backend.PutSnapshot(snapshotID, data)
 }
 
-func (store *Store) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (store *Store) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("store.GetSnapshot", time.Since(t0))
-		logger.Trace("store", "GetSnapshot(%s): %s", indexID, time.Since(t0))
+		logger.Trace("store", "GetSnapshot(%s): %s", fmt.Sprintf("%x", snapshotID), time.Since(t0))
 	}()
 
-	data, err := store.backend.GetSnapshot(indexID)
+	data, err := store.backend.GetSnapshot(snapshotID)
 	if err != nil {
 		return nil, err
 	}
@@ -331,16 +331,16 @@ func (store *Store) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return data, nil
 }
 
-func (store *Store) DeleteSnapshot(indexID uuid.UUID) error {
+func (store *Store) DeleteSnapshot(snapshotID [32]byte) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("store.DeleteSnapshot", time.Since(t0))
-		logger.Trace("store", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
+		logger.Trace("store", "DeleteSnapshot(%s): %s", snapshotID, time.Since(t0))
 	}()
-	return store.backend.DeleteSnapshot(indexID)
+	return store.backend.DeleteSnapshot(snapshotID)
 }
 
 /* Packfiles */
@@ -486,16 +486,16 @@ func (store *Store) Close() error {
 	return store.backend.Close()
 }
 
-func (store *Store) Commit(indexID uuid.UUID, data []byte) error {
+func (store *Store) Commit(snapshotID [32]byte, data []byte) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("store.Commit", time.Since(t0))
-		logger.Trace("store", "Commit(%s): %s", indexID.String(), time.Since(t0))
+		logger.Trace("store", "Commit(%s): %s", fmt.Sprintf("%x", snapshotID), time.Since(t0))
 	}()
 	atomic.AddUint64(&store.wBytes, uint64(len(data)))
 
-	return store.backend.Commit(indexID, data)
+	return store.backend.Commit(snapshotID, data)
 }

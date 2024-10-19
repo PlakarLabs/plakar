@@ -144,7 +144,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				defer wg.Done()
 
 				logger.Trace("server", "%s: Commit()", clientUuid)
-				txUuid := request.Payload.(network.ReqCommit).IndexID
+				txUuid := request.Payload.(network.ReqCommit).SnapshotID
 				data := request.Payload.(network.ReqCommit).Data
 				err := lrepository.Commit(txUuid, data)
 				retErr := ""
@@ -222,8 +222,8 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(network.ReqPutSnapshot).IndexID)
-				err := lrepository.PutSnapshot(request.Payload.(network.ReqPutSnapshot).IndexID, request.Payload.(network.ReqPutSnapshot).Data)
+				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(network.ReqPutSnapshot).SnapshotID)
+				err := lrepository.PutSnapshot(request.Payload.(network.ReqPutSnapshot).SnapshotID, request.Payload.(network.ReqPutSnapshot).Data)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -245,8 +245,8 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).IndexID)
-				data, err := lrepository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).IndexID)
+				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).SnapshotID)
+				data, err := lrepository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).SnapshotID)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -270,12 +270,12 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).IndexID)
+				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).SnapshotID)
 				var err error
 				if options.NoDelete {
 					err = fmt.Errorf("not allowed to delete")
 				} else {
-					err = lrepository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).IndexID)
+					err = lrepository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).SnapshotID)
 				}
 				retErr := ""
 				if err != nil {

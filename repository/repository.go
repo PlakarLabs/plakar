@@ -15,7 +15,6 @@ import (
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
 type Repository struct {
@@ -183,7 +182,7 @@ func (r *Repository) Configuration() storage.Configuration {
 	return r.configuration
 }
 
-func (r *Repository) GetSnapshots() ([]uuid.UUID, error) {
+func (r *Repository) GetSnapshots() ([][32]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetSnapshots", time.Since(t0))
@@ -193,14 +192,14 @@ func (r *Repository) GetSnapshots() ([]uuid.UUID, error) {
 	return r.store.GetSnapshots()
 }
 
-func (r *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetSnapshot", time.Since(t0))
-		logger.Trace("repository", "GetSnapshot(%s): %s", indexID, time.Since(t0))
+		logger.Trace("repository", "GetSnapshot(%x): %s", snapshotID, time.Since(t0))
 	}()
 
-	buffer, err := r.store.GetSnapshot(indexID)
+	buffer, err := r.store.GetSnapshot(snapshotID)
 	if err != nil {
 		return nil, err
 	}
@@ -208,11 +207,11 @@ func (r *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
 	return r.Decode(buffer)
 }
 
-func (r *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (r *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutSnapshot", time.Since(t0))
-		logger.Trace("repository", "PutSnapshot(%s, ...): %s", indexID, time.Since(t0))
+		logger.Trace("repository", "PutSnapshot(%x, ...): %s", snapshotID, time.Since(t0))
 	}()
 
 	data, err := r.Encode(data)
@@ -220,7 +219,7 @@ func (r *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
 		return err
 	}
 
-	return r.store.PutSnapshot(indexID, data)
+	return r.store.PutSnapshot(snapshotID, data)
 }
 
 func (r *Repository) GetStates() ([][32]byte, error) {
@@ -327,26 +326,26 @@ func (r *Repository) DeletePackfile(checksum [32]byte) error {
 	return r.store.DeletePackfile(checksum)
 }
 
-func (r *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DeleteSnapshot", time.Since(t0))
-		logger.Trace("repository", "DeleteSnapshot(%s): %s", indexID, time.Since(t0))
+		logger.Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
 	}()
 
-	return r.store.DeleteSnapshot(indexID)
+	return r.store.DeleteSnapshot(snapshotID)
 }
 
-func (r *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (r *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.Commit", time.Since(t0))
-		logger.Trace("repository", "Commit(%s, ...): %s", indexID, time.Since(t0))
+		logger.Trace("repository", "Commit(%s, ...): %s", snapshotID, time.Since(t0))
 	}()
 
 	data, err := r.Encode(data)
 	if err != nil {
 		return err
 	}
-	return r.store.Commit(indexID, data)
+	return r.store.Commit(snapshotID, data)
 }

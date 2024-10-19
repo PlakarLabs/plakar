@@ -25,7 +25,6 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
 func init() {
@@ -112,7 +111,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 	for _, _snapshotID := range snapshots {
 		wg.Add(1)
-		go func(snapshotID uuid.UUID) {
+		go func(snapshotID [32]byte) {
 			defer wg.Done()
 
 			data, err := sourceRepository.GetSnapshot(snapshotID)

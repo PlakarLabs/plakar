@@ -17,6 +17,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"flag"
@@ -35,7 +36,6 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/google/uuid"
 	"golang.org/x/mod/semver"
 	"golang.org/x/term"
 	"golang.org/x/tools/blog/atom"
@@ -57,17 +57,17 @@ func parseSnapshotID(id string) (string, string) {
 	return prefix, pattern
 }
 
-func findSnapshotByPrefix(snapshots []uuid.UUID, prefix string) []uuid.UUID {
-	ret := make([]uuid.UUID, 0)
-	for _, snapshot := range snapshots {
-		if strings.HasPrefix(snapshot.String(), prefix) {
-			ret = append(ret, snapshot)
+func findSnapshotByPrefix(snapshots [][32]byte, prefix string) [][32]byte {
+	ret := make([][32]byte, 0)
+	for _, snapshotID := range snapshots {
+		if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), prefix) {
+			ret = append(ret, snapshotID)
 		}
 	}
 	return ret
 }
 
-func getSnapshotsList(repo *repository.Repository) ([]uuid.UUID, error) {
+func getSnapshotsList(repo *repository.Repository) ([][32]byte, error) {
 	snapshots, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
@@ -87,11 +87,11 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 	if prefixes == nil {
 		wg := sync.WaitGroup{}
 		mu := sync.Mutex{}
-		for _, snapshotUuid := range snapshotsList {
+		for _, snapshotID := range snapshotsList {
 			wg.Add(1)
-			go func(snapshotUuid uuid.UUID) {
+			go func(snapshotID [32]byte) {
 				defer wg.Done()
-				hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
+				hdr, _, err := snapshot.GetSnapshot(repo, snapshotID)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -99,7 +99,7 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 				mu.Lock()
 				result = append(result, hdr)
 				mu.Unlock()
-			}(snapshotUuid)
+			}(snapshotID)
 		}
 		wg.Wait()
 		sort.Slice(result, func(i, j int) bool {
@@ -108,20 +108,20 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 		return result, nil
 	}
 
-	tags := make(map[string]uuid.UUID)
+	tags := make(map[string][32]byte)
 	tagsTimestamp := make(map[string]time.Time)
 
-	for _, snapshotUuid := range snapshotsList {
-		hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
+	for _, snapshotID := range snapshotsList {
+		hdr, _, err := snapshot.GetSnapshot(repo, snapshotID)
 		if err != nil {
 			return nil, err
 		}
 		for _, tag := range hdr.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
-				tags[tag] = snapshotUuid
+				tags[tag] = snapshotID
 				tagsTimestamp[tag] = hdr.CreationTime
 			} else if recordTime.Before(hdr.CreationTime) {
-				tags[tag] = snapshotUuid
+				tags[tag] = snapshotID
 				tagsTimestamp[tag] = hdr.CreationTime
 			}
 		}
@@ -132,8 +132,8 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 		parsedUuidPrefix, _ := parseSnapshotID(prefix)
 
 		matches := 0
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
+		for _, snapshotID := range snapshotsList {
+			if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), parsedUuidPrefix) {
 				matches++
 			}
 		}
@@ -145,9 +145,9 @@ func getHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
 		}
 
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
+		for _, snapshotID := range snapshotsList {
+			if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), parsedUuidPrefix) || snapshotID == tags[parsedUuidPrefix] {
+				metadata, _, err := snapshot.GetSnapshot(repo, snapshotID)
 				if err != nil {
 					return nil, err
 				}
@@ -170,37 +170,37 @@ func getSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 	if prefixes == nil {
 		wg := sync.WaitGroup{}
 		mu := sync.Mutex{}
-		for _, snapshotUuid := range snapshotsList {
+		for _, snapshotID := range snapshotsList {
 			wg.Add(1)
-			go func(snapshotUuid uuid.UUID) {
+			go func(snapshotID [32]byte) {
 				defer wg.Done()
-				snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
+				snapshotInstance, err := snapshot.Load(repo, snapshotID)
 				if err != nil {
 					return
 				}
 				mu.Lock()
 				result = append(result, snapshotInstance)
 				mu.Unlock()
-			}(snapshotUuid)
+			}(snapshotID)
 		}
 		wg.Wait()
 		return sortSnapshotsByDate(result), nil
 	}
 
-	tags := make(map[string]uuid.UUID)
+	tags := make(map[string][32]byte)
 	tagsTimestamp := make(map[string]time.Time)
 
-	for _, snapshotUuid := range snapshotsList {
-		metadata, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
+	for _, snapshotID := range snapshotsList {
+		metadata, _, err := snapshot.GetSnapshot(repo, snapshotID)
 		if err != nil {
 			return nil, err
 		}
 		for _, tag := range metadata.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
-				tags[tag] = snapshotUuid
+				tags[tag] = snapshotID
 				tagsTimestamp[tag] = metadata.CreationTime
 			} else if recordTime.Before(metadata.CreationTime) {
-				tags[tag] = snapshotUuid
+				tags[tag] = snapshotID
 				tagsTimestamp[tag] = metadata.CreationTime
 			}
 		}
@@ -211,8 +211,8 @@ func getSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 		parsedUuidPrefix, _ := parseSnapshotID(prefix)
 
 		matches := 0
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) {
+		for _, snapshotID := range snapshotsList {
+			if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), parsedUuidPrefix) {
 				matches++
 			}
 		}
@@ -224,9 +224,9 @@ func getSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 			log.Fatalf("%s: snapshot ID is ambiguous: %s (matches %d snapshots)", flag.CommandLine.Name(), prefix, matches)
 		}
 
-		for _, snapshotUuid := range snapshotsList {
-			if strings.HasPrefix(snapshotUuid.String(), parsedUuidPrefix) || snapshotUuid == tags[parsedUuidPrefix] {
-				snapshotInstance, err := snapshot.Load(repo, snapshotUuid)
+		for _, snapshotID := range snapshotsList {
+			if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), parsedUuidPrefix) || snapshotID == tags[parsedUuidPrefix] {
+				snapshotInstance, err := snapshot.Load(repo, snapshotID)
 				if err != nil {
 					return nil, err
 				}
@@ -244,7 +244,7 @@ func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	return snapshots
 }
 
-func indexArrayContains(a []uuid.UUID, x uuid.UUID) bool {
+func indexArrayContains(a [][32]byte, x [32]byte) bool {
 	for _, n := range a {
 		if x == n {
 			return true

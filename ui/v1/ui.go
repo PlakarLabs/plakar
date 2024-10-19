@@ -18,6 +18,7 @@ package v1
 
 import (
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"math"
@@ -38,7 +39,6 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/alecthomas/chroma/formatters"
@@ -93,7 +93,7 @@ func getSnapshots(repo *repository.Repository) ([]*header.Header, error) {
 	mu := sync.Mutex{}
 	for _, snapshotUuid := range snapshotsList {
 		wg.Add(1)
-		go func(snapshotUuid uuid.UUID) {
+		go func(snapshotUuid [32]byte) {
 			defer wg.Done()
 			hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 			if err != nil {
@@ -198,8 +198,20 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -305,8 +317,20 @@ func object(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -409,8 +433,20 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	highlight := r.URL.Query().Get("highlight")
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -583,7 +619,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Snapshot string
 						Date     string
 						Path     string
-					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), directory})
+					}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), directory})
 				}
 			}
 		}
@@ -615,7 +651,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 					Date     string
 					Mime     string
 					Path     string
-				}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), object.ContentType, file})
+				}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), object.ContentType, file})
 			}
 		}
 	}

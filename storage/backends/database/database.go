@@ -25,7 +25,6 @@ import (
 	"sync"
 
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
@@ -188,7 +187,7 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -196,7 +195,7 @@ func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
 	defer statement.Close()
 
 	repository.wrMutex.Lock()
-	_, err = statement.Exec(indexID, data)
+	_, err = statement.Exec(snapshotID, data)
 	repository.wrMutex.Unlock()
 	if err != nil {
 		return err
@@ -210,26 +209,26 @@ func (repository *Repository) Configuration() storage.Configuration {
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
 	rows, err := repository.conn.Query("SELECT snapshotID FROM snapshots")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	indexes := make([]uuid.UUID, 0)
+	indexes := make([][32]byte, 0)
 	for rows.Next() {
-		var indexUuid string
+		var indexUuid [32]byte
 		err = rows.Scan(&indexUuid)
 		if err != nil {
 			return nil, err
 		}
-		indexes = append(indexes, uuid.Must(uuid.Parse(indexUuid)))
+		indexes = append(indexes, indexUuid)
 	}
 	return indexes, nil
 }
 
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
@@ -237,7 +236,7 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	defer statement.Close()
 
 	repository.wrMutex.Lock()
-	_, err = statement.Exec(indexID, data)
+	_, err = statement.Exec(snapshotID, data)
 	repository.wrMutex.Unlock()
 	if err != nil {
 		return err
@@ -246,16 +245,16 @@ func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error 
 	return nil
 }
 
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM snapshots WHERE snapshotID=?`, indexID).Scan(&data)
+	err := repository.conn.QueryRow(`SELECT data FROM snapshots WHERE snapshotID=?`, snapshotID).Scan(&data)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	statement, err := repository.conn.Prepare(`DELETE FROM snapshots WHERE snapshotID=?`)
 	if err != nil {
 		return err
@@ -263,7 +262,7 @@ func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
 	defer statement.Close()
 
 	repository.wrMutex.Lock()
-	_, err = statement.Exec(indexID)
+	_, err = statement.Exec(snapshotID)
 	repository.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write

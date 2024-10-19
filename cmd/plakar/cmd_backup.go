@@ -97,7 +97,14 @@ func cmd_backup(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 	_ = excludes
 
-	snap, err := snapshot.New(repo, uuid.Must(uuid.NewRandom()))
+	snapshotUUID := uuid.Must(uuid.NewRandom())
+	snapshotID, err := snapshotUUID.MarshalBinary()
+	if err != nil {
+		logger.Error("%s", err)
+		return 1
+	}
+
+	snap, err := snapshot.New(repo, repo.Checksum(snapshotID))
 	if err != nil {
 		logger.Error("%s", err)
 		return 1

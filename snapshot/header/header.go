@@ -1,7 +1,6 @@
 package header
 
 import (
-	"encoding/hex"
 	"time"
 
 	"github.com/PlakarLabs/plakar/logger"
@@ -17,14 +16,8 @@ type Blob struct {
 	Size     uint64
 }
 
-type SnapshotID [32]byte
-
-func (s SnapshotID) String() string {
-	return string(s[:])
-}
-
 type Header struct {
-	IndexID          SnapshotID
+	IndexID          [32]byte
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
@@ -112,14 +105,6 @@ func (h *Header) Serialize() ([]byte, error) {
 	} else {
 		return serialized, nil
 	}
-}
-
-func (h *Header) GetIndexIDasString() string {
-	return hex.EncodeToString(h.IndexID[:])
-}
-
-func (h *Header) GetShortIndexIDasString() string {
-	return hex.EncodeToString(h.IndexID[:])
 }
 
 func (h *Header) GetIndexID() [32]byte {

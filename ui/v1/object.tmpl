@@ -1,6 +1,6 @@
 {{template "base" .}}
 
-{{define "title"}}{{slice .Snapshot.Header.IndexID.String 0 8}}{{end}}
+{{define "title"}}{{slice .Snapshot.Header.IndexID 0 4 | ShortIDtoHex}}{{end}}
 
 {{define "main"}}
     {{$Snapshot:=.Snapshot}}
@@ -12,11 +12,11 @@
     {{$Navigation:=.Navigation}}
     {{$NavigationLinks:=.NavigationLinks}}
 
-    <h1><a href="/snapshot/{{$Snapshot.Header.IndexID}}:/">{{slice $Snapshot.Header.IndexID.String  0 8}}</a></h1>
+    <h1><a href="/snapshot/{{$Snapshot.Header.IndexID | IDtoHex}}:/">{{slice .Snapshot.Header.IndexID 0 4 | ShortIDtoHex}}</a></h1>
     <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
     <ol class="breadcrumb">
         {{range $atom := $Navigation }}
-            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Header.IndexID}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Header.IndexID | IDtoHex}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
         {{end}}
     </ol>
     </nav>
@@ -106,7 +106,7 @@
                         <tbody>
                             {{range $chunk := $Chunks}} 
                             <tr>
-                                <td>{{$chunk.Checksum}}</td>
+                                <td>{{$chunk.Checksum |IDtoHex}}</td>
                                 <td>{{$chunk.Length}}</td>
                             </tr>
                             {{end}}
@@ -121,7 +121,7 @@
     <hr />
     <div>
     
-    <a href="/raw/{{$Snapshot.Header.IndexID}}:{{$Path}}?download=true">
+    <a href="/raw/{{$Snapshot.Header.IndexID | IDtoHex}}:{{$Path}}?download=true">
         <button type="button" class="btn btn-primary btn-sm">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
                                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -148,14 +148,14 @@
                 <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
                     <div style="height: auto;" width="100%">
                         <div class="ratio ratio-16x9">
-                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.IndexID}}:{{$Path}}"></iframe>
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.IndexID | IDtoHex}}:{{$Path}}"></iframe>
                         </div>
                     </div>
                 </div>
                 <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
                     <div style="height: auto;" width="100%">
                         <div class="ratio ratio-16x9">
-                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.IndexID}}:{{$Path}}?highlight=true"></iframe>
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.IndexID | IDtoHex}}:{{$Path}}?highlight=true"></iframe>
                         </div>
                     </div>
                 </div>

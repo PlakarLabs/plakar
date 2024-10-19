@@ -687,25 +687,39 @@ func Ui(repo *repository.Repository, addr string, spawn bool) error {
 
 	t, err := template.New("repository").Funcs(template.FuncMap{
 		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
 	}).Parse(baseTemplate + repositoryTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("browse").Parse(baseTemplate + browseTemplate)
+	t, err = template.New("browse").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + browseTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("object").Parse(baseTemplate + objectTemplate)
+	t, err = template.New("object").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + objectTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("search").Parse(baseTemplate + searchTemplate)
+	t, err = template.New("search").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + searchTemplate)
 	if err != nil {
 		panic(err)
 	}

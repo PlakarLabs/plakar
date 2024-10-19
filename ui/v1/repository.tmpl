@@ -55,7 +55,7 @@
             <tbody>
                 {{range $hdr := $Headers}}
                 <tr>
-                    <th scope="row"><a href="/snapshot/{{$hdr.IndexID}}:/">{{slice $hdr.IndexID  0 8}}</a></th>
+                    <th scope="row"><a href="/snapshot/{{$hdr.IndexID | IDtoHex}}:/">{{slice $hdr.IndexID  0 4 | ShortIDtoHex}}</a></th>
                     <td>{{$hdr.Username }}</td>
                     <td>{{$hdr.Hostname }}</td>
                     <td>{{$hdr.CreationTime }}</td>

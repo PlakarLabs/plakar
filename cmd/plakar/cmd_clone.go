@@ -52,7 +52,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	packfileChecksums, err := sourceRepository.GetPackfiles()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location(), err)
 		return 1
 	}
 
@@ -64,7 +64,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 
 			data, err := sourceRepository.GetPackfile(packfileChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceRepository.Location(), err)
 				return
 			}
 
@@ -79,7 +79,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	indexesChecksums, err := sourceRepository.GetStates()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location(), err)
 		return 1
 	}
 
@@ -91,7 +91,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 
 			data, err := sourceRepository.GetState(indexChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location(), err)
 				return
 			}
 
@@ -107,7 +107,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 	wg = sync.WaitGroup{}
 	snapshots, err := sourceRepository.GetSnapshots()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location(), err)
 		return 1
 	}
 	for _, _snapshotID := range snapshots {
@@ -117,7 +117,7 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 
 			data, err := sourceRepository.GetSnapshot(snapshotID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get snapshot from repository: %s\n", sourceRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not get snapshot from repository: %s\n", sourceRepository.Location(), err)
 				return
 			}
 

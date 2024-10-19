@@ -35,7 +35,7 @@ import (
 )
 
 func init() {
-	registerCommand("push", cmd_push)
+	registerCommand("backup", cmd_backup)
 }
 
 type excludeFlags []string
@@ -49,14 +49,14 @@ func (e *excludeFlags) Set(value string) error {
 	return nil
 }
 
-func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_backup(ctx Plakar, repo *repository.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags
 	var opt_concurrency uint64
 
 	excludes := []glob.Glob{}
-	flags := flag.NewFlagSet("push", flag.ExitOnError)
+	flags := flag.NewFlagSet("backup", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
@@ -126,7 +126,7 @@ func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 
 	if flags.NArg() == 0 {
-		err = snap.Push(dir, opts)
+		err = snap.Backup(dir, opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -140,7 +140,7 @@ func cmd_push(ctx Plakar, repo *repository.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath, opts)
+		err = snap.Backup(cleanPath, opts)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

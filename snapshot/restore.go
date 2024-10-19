@@ -14,7 +14,7 @@ import (
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
-func (s *Snapshot) Pull(exp *exporter.Exporter, rebase bool, pattern string) error {
+func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) error {
 
 	hardlinks := make(map[string]string)
 	hardlinksMutex := sync.Mutex{}

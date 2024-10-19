@@ -29,10 +29,11 @@ import (
 )
 
 func init() {
-	registerCommand("pull", cmd_pull)
+	registerCommand("pull", cmd_restore)
+	registerCommand("restore", cmd_restore)
 }
 
-func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_restore(ctx Plakar, repo *repository.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter
@@ -42,7 +43,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 		log.Fatal(err)
 	}
 
-	flags := flag.NewFlagSet("pull", flag.ExitOnError)
+	flags := flag.NewFlagSet("restore`", flag.ExitOnError)
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
@@ -74,7 +75,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 					if err != nil {
 						return 1
 					}
-					snap.Pull(exporterInstance, true, dir)
+					snap.Restore(exporterInstance, true, dir)
 					return 0
 				}
 			}
@@ -90,7 +91,7 @@ func cmd_pull(ctx Plakar, repo *repository.Repository, args []string) int {
 
 	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snap.Pull(exporterInstance, pullRebase, pattern)
+		snap.Restore(exporterInstance, pullRebase, pattern)
 	}
 
 	return 0

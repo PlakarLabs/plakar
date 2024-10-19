@@ -17,7 +17,6 @@ require (
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pkg/xattr v0.4.10
-	github.com/pmezard/go-difflib v1.0.0
 	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
@@ -25,7 +24,7 @@ require (
 	github.com/zeebo/blake3 v0.2.3
 	golang.org/x/crypto v0.26.0
 	golang.org/x/mod v0.21.0
-	golang.org/x/term v0.23.0
+	golang.org/x/term v0.24.0
 	golang.org/x/tools v0.24.0
 )
 
@@ -44,7 +43,7 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.23.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

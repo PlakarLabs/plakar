@@ -1,7 +1,6 @@
 package snapshot
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +15,7 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
+	"github.com/dustin/go-humanize"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -294,7 +294,8 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) Push(scanDir string, options *PushOptions) error {
+func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
+
 	sc, err := newScanCache()
 	if err != nil {
 		return err
@@ -332,6 +333,7 @@ func (snap *Snapshot) Push(scanDir string, options *PushOptions) error {
 			continue
 		}
 		snap.updateImporterStatistics(record)
+
 		switch record := record.(type) {
 		case importer.ScanError:
 			logger.Warn("%s: %s", record.Pathname, record.Err)
@@ -520,14 +522,9 @@ func (snap *Snapshot) Push(scanDir string, options *PushOptions) error {
 	}
 	//
 
-	fmt.Println(snap.Header.GetIndexShortID(),
-		"took", snap.Header.CreationDuration,
-		"files:", snap.statistics.ImporterFiles,
-		"directories:", snap.statistics.ImporterDirectories,
-		"symlinks:", snap.statistics.ImporterSymlinks,
-		"errors:", snap.statistics.ImporterErrors)
-
-	json.NewEncoder(os.Stdout).Encode(snap.statistics)
+	fmt.Println("Snapshot", snap.Header.GetIndexShortID(),
+		"of size", humanize.Bytes(snap.statistics.ScannerProcessedSize),
+		"published in", snap.Header.CreationDuration)
 
 	return snap.Commit()
 }

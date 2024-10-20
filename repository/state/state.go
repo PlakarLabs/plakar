@@ -66,6 +66,9 @@ type State struct {
 	muSnapshots sync.Mutex
 	Snapshots   map[uint64]Location
 
+	muDeletedSnapshots sync.Mutex
+	DeletedSnapshots   map[uint64]time.Time
+
 	Metadata Metadata
 
 	dirty int32
@@ -73,14 +76,15 @@ type State struct {
 
 func New() *State {
 	return &State{
-		IdToChecksum: make(map[uint64][32]byte),
-		checksumToId: make(map[[32]byte]uint64),
-		Chunks:       make(map[uint64]Location),
-		Objects:      make(map[uint64]Location),
-		Files:        make(map[uint64]Location),
-		Directories:  make(map[uint64]Location),
-		Datas:        make(map[uint64]Location),
-		Snapshots:    make(map[uint64]Location),
+		IdToChecksum:     make(map[uint64][32]byte),
+		checksumToId:     make(map[[32]byte]uint64),
+		Chunks:           make(map[uint64]Location),
+		Objects:          make(map[uint64]Location),
+		Files:            make(map[uint64]Location),
+		Directories:      make(map[uint64]Location),
+		Datas:            make(map[uint64]Location),
+		Snapshots:        make(map[uint64]Location),
+		DeletedSnapshots: make(map[uint64]time.Time),
 		Metadata: Metadata{
 			Version:      VERSION,
 			CreationTime: time.Now(),
@@ -231,6 +235,15 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 		)
 	}
 	deltaState.muSnapshots.Unlock()
+
+	deltaState.muDeletedSnapshots.Lock()
+	for snapshotID := range st.DeletedSnapshots {
+		st.DeleteSnapshot(st.IdToChecksum[snapshotID])
+	}
+	for snapshotID := range deltaState.DeletedSnapshots {
+		st.DeleteSnapshot(deltaState.IdToChecksum[snapshotID])
+	}
+	deltaState.muDeletedSnapshots.Unlock()
 }
 
 func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
@@ -584,13 +597,38 @@ func (st *State) SetPackfileForSnapshot(packfileChecksum [32]byte, blobChecksum 
 	}
 }
 
+func (st *State) DeleteSnapshot(snapshotChecksum [32]byte) error {
+	snapshotID := st.getOrCreateIdForChecksum(snapshotChecksum)
+
+	st.muSnapshots.Lock()
+	_, exists := st.Snapshots[snapshotID]
+	st.muSnapshots.Unlock()
+
+	if !exists {
+		return fmt.Errorf("snapshot not found")
+	}
+	delete(st.Snapshots, snapshotID)
+
+	st.muDeletedSnapshots.Lock()
+	st.DeletedSnapshots[snapshotID] = time.Now()
+	st.muDeletedSnapshots.Unlock()
+
+	atomic.StoreInt32(&st.dirty, 1)
+	return nil
+}
+
 func (st *State) ListSnapshots() <-chan [32]byte {
 	ch := make(chan [32]byte)
 	go func() {
 		snapshotsList := make([][32]byte, 0)
 		st.muSnapshots.Lock()
 		for k := range st.Snapshots {
-			snapshotsList = append(snapshotsList, st.IdToChecksum[k])
+			st.muDeletedSnapshots.Lock()
+			_, deleted := st.DeletedSnapshots[k]
+			st.muDeletedSnapshots.Unlock()
+			if !deleted {
+				snapshotsList = append(snapshotsList, st.IdToChecksum[k])
+			}
 		}
 		st.muSnapshots.Unlock()
 

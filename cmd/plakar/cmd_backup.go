@@ -30,6 +30,7 @@ import (
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/dustin/go-humanize"
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
 )
@@ -157,6 +158,9 @@ func cmd_backup(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Header.GetIndexShortID())
+	logger.Info("created snapshot %x of size %s in %s",
+		snap.Header.GetIndexShortID(),
+		humanize.Bytes(snap.Header.ScanProcessedSize),
+		snap.Header.CreationDuration)
 	return 0
 }

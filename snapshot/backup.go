@@ -15,7 +15,6 @@ import (
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/dustin/go-humanize"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -520,13 +519,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	for key, value := range snap.Header.FileExtension {
 		snap.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
 	}
-	//
-
-	fmt.Printf("Snapshot %x of size %s published in %s\n",
-		snap.Header.GetIndexShortID(),
-		humanize.Bytes(snap.statistics.ScannerProcessedSize),
-		snap.Header.CreationDuration)
-
 	return snap.Commit()
 }
 

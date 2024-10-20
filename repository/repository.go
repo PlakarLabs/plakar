@@ -51,14 +51,14 @@ func (r *Repository) rebuildState() error {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
-	indexes, err := r.GetStates()
+	states, err := r.GetStates()
 	if err != nil {
 		return err
 	}
 
 	aggregateState := state.New()
-	for _, indexID := range indexes {
-		idx, err := r.GetState(indexID)
+	for _, stateID := range states {
+		idx, err := r.GetState(stateID)
 		if err != nil {
 			return err
 		}
@@ -66,8 +66,8 @@ func (r *Repository) rebuildState() error {
 		if err != nil {
 			return err
 		}
-		aggregateState.Merge(indexID, tmp)
-		aggregateState.Extends(indexID)
+		aggregateState.Merge(stateID, tmp)
+		aggregateState.Extends(stateID)
 	}
 
 	aggregateState.ResetDirty()
@@ -210,6 +210,30 @@ func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	}
 
 	return r.GetPackfileBlob(packfile, offset, length)
+}
+
+func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.DeleteSnapshot", time.Since(t0))
+		logger.Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
+	}()
+
+	ret := r.state.DeleteSnapshot(snapshotID)
+	if ret != nil {
+		return ret
+	}
+
+	buffer, err := r.state.Serialize()
+	if err != nil {
+		return err
+	}
+
+	checksum := r.Checksum(buffer)
+	if _, err := r.PutState(checksum, buffer); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *Repository) GetStates() ([][32]byte, error) {

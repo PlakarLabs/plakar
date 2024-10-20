@@ -162,7 +162,6 @@ func cmd_rm(ctx Plakar, repo *repository.Repository, args []string) int {
 				snap.Header.GetIndexShortID(),
 				humanize.Bytes(snap.Header.ScanProcessedSize),
 				time.Since(t0))
-
 		}(snap)
 	}
 	wg.Wait()

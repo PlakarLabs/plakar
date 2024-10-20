@@ -14,12 +14,14 @@ import (
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/repository/cache"
 	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
 type Repository struct {
 	store         *storage.Store
+	cache         *cache.Cache
 	state         *state.State
 	configuration storage.Configuration
 
@@ -33,8 +35,15 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
+	cacheDir := store.Location + "/cache"
+	cacheInstance, err := cache.New(cacheDir)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &Repository{
 		store:         store,
+		cache:         cacheInstance,
 		configuration: store.Configuration(),
 		secret:        secret,
 	}
@@ -51,23 +60,49 @@ func (r *Repository) rebuildState() error {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
-	states, err := r.GetStates()
+	localStates := make(map[[32]byte]struct{})
+	for stateID := range r.cache.List() {
+		localStates[stateID] = struct{}{}
+	}
+
+	remoteStates, err := r.GetStates()
 	if err != nil {
 		return err
 	}
 
+	states := make([][32]byte, 0)
+	for _, stateID := range remoteStates {
+		if _, exists := localStates[stateID]; !exists {
+			remoteState, err := r.GetState(stateID)
+			if err != nil {
+				return err
+			}
+			if r.cache != nil {
+				r.cache.Put(stateID, remoteState)
+			}
+			states = append(states, stateID)
+		}
+	}
+
 	aggregateState := state.New()
-	for _, stateID := range states {
-		idx, err := r.GetState(stateID)
-		if err != nil {
-			return err
+
+	if len(states) != 0 {
+		logger.Info("repository state requires synchronization...")
+		t0 = time.Now()
+		for _, stateID := range states {
+			idx, err := r.GetState(stateID)
+			if err != nil {
+				return err
+			}
+			tmp, err := state.NewFromBytes(idx)
+			if err != nil {
+				return err
+			}
+
+			aggregateState.Merge(stateID, tmp)
+			aggregateState.Extends(stateID)
 		}
-		tmp, err := state.NewFromBytes(idx)
-		if err != nil {
-			return err
-		}
-		aggregateState.Merge(stateID, tmp)
-		aggregateState.Extends(stateID)
+		logger.Info("repository state synchronized in %s from %d deltas", time.Since(t0), len(states))
 	}
 
 	aggregateState.ResetDirty()
@@ -253,6 +288,13 @@ func (r *Repository) GetState(checksum [32]byte) ([]byte, error) {
 		logger.Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
 	}()
 
+	if r.cache != nil {
+		buffer, err := r.cache.Get(checksum)
+		if err == nil {
+			return buffer, nil
+		}
+	}
+
 	buffer, err := r.store.GetState(checksum)
 	if err != nil {
 		return nil, err
@@ -268,12 +310,18 @@ func (r *Repository) PutState(checksum [32]byte, data []byte) (int, error) {
 		logger.Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
-	data, err := r.Encode(data)
+	encoded, err := r.Encode(data)
 	if err != nil {
 		return 0, err
 	}
 
-	return len(data), r.store.PutState(checksum, data)
+	ret := r.store.PutState(checksum, encoded)
+
+	if ret == nil && r.cache != nil {
+		r.cache.Put(checksum, data)
+	}
+
+	return len(encoded), ret
 }
 
 func (r *Repository) DeleteState(checksum [32]byte) error {

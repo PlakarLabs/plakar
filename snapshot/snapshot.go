@@ -569,6 +569,26 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	return buffer, nil
 }
 
+func (snapshot *Snapshot) CheckFile(checksum [32]byte) bool {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.CheckFile", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: CheckFile(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	return snapshot.Repository().State().FileExists(checksum)
+}
+
+func (snapshot *Snapshot) CheckDirectory(checksum [32]byte) bool {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.CheckDirectory", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: CheckDirectory(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	return snapshot.Repository().State().DirectoryExists(checksum)
+}
+
 func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {

@@ -60,6 +60,8 @@ func (r *Repository) rebuildState() error {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
+	syncTime := time.Now()
+
 	// identify local states
 	localStates := make(map[[32]byte]struct{})
 	for stateID := range r.cache.List() {
@@ -71,48 +73,74 @@ func (r *Repository) rebuildState() error {
 	if err != nil {
 		return err
 	}
+	remoteStatesMap := make(map[[32]byte]struct{})
+	for _, stateID := range remoteStates {
+		remoteStatesMap[stateID] = struct{}{}
+	}
 
-	// synchronize local state with unknown remote states
-	states := make([][32]byte, 0)
+	desynchronized := false
+
+	// build delta of local and remote states
+	missingStates := make([][32]byte, 0)
 	for _, stateID := range remoteStates {
 		if _, exists := localStates[stateID]; !exists {
-			remoteState, err := r.GetState(stateID)
-			if err != nil {
-				return err
-			}
-			if r.cache != nil {
-				r.cache.Put(stateID, remoteState)
-			}
-			states = append(states, stateID)
+			missingStates = append(missingStates, stateID)
+			desynchronized = true
 		}
-		delete(localStates, stateID)
+	}
+
+	outdatedStates := make([][32]byte, 0)
+	for stateID := range localStates {
+		if _, exists := remoteStatesMap[stateID]; !exists {
+			outdatedStates = append(outdatedStates, stateID)
+			desynchronized = true
+		}
+	}
+
+	if desynchronized {
+		logger.Info("local repository states desynchronized (%d missing / %d outdated), resynchronizing...",
+			len(missingStates), len(outdatedStates))
+	}
+
+	// synchronize local state with unknown remote states
+	for _, stateID := range missingStates {
+		remoteState, err := r.GetState(stateID)
+		if err != nil {
+			return err
+		}
+		if r.cache != nil {
+			r.cache.Put(stateID, remoteState)
+		}
+		localStates[stateID] = struct{}{}
 	}
 
 	// delete local states that are not present in remote
-	for stateID := range localStates {
+	for _, stateID := range outdatedStates {
+		delete(localStates, stateID)
 		r.cache.Delete(stateID)
+	}
+
+	if desynchronized {
+		logger.Info("local repository states resynchronized in %s !", time.Since(syncTime))
 	}
 
 	// merge all local states into a new aggregate state
 	aggregateState := state.New()
-	if len(states) != 0 {
-		logger.Info("repository state requires synchronization...")
-		t0 = time.Now()
-		for _, stateID := range states {
-			idx, err := r.GetState(stateID)
-			if err != nil {
-				return err
-			}
-			tmp, err := state.NewFromBytes(idx)
-			if err != nil {
-				return err
-			}
 
-			aggregateState.Merge(stateID, tmp)
-			aggregateState.Extends(stateID)
+	for stateID := range localStates {
+		idx, err := r.GetState(stateID)
+		if err != nil {
+			return err
 		}
-		logger.Info("repository state synchronized in %s from %d deltas", time.Since(t0), len(states))
+		tmp, err := state.NewFromBytes(idx)
+		if err != nil {
+			return err
+		}
+
+		aggregateState.Merge(stateID, tmp)
+		aggregateState.Extends(stateID)
 	}
+
 	aggregateState.ResetDirty()
 	r.state = aggregateState
 	return nil

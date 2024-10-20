@@ -63,6 +63,9 @@ type State struct {
 	muDatas sync.Mutex
 	Datas   map[uint64]Location
 
+	muSnapshots sync.Mutex
+	Snapshots   map[uint64]Location
+
 	Metadata Metadata
 
 	dirty int32
@@ -77,6 +80,7 @@ func New() *State {
 		Files:        make(map[uint64]Location),
 		Directories:  make(map[uint64]Location),
 		Datas:        make(map[uint64]Location),
+		Snapshots:    make(map[uint64]Location),
 		Metadata: Metadata{
 			Version:      VERSION,
 			CreationTime: time.Now(),
@@ -216,6 +220,17 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 		)
 	}
 	deltaState.muDatas.Unlock()
+
+	deltaState.muSnapshots.Lock()
+	for deltaSnapshotID, subpart := range deltaState.Snapshots {
+		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
+		deltaSnapshotID := deltaState.IdToChecksum[deltaSnapshotID]
+		st.SetPackfileForSnapshot(packfileChecksum, deltaSnapshotID,
+			subpart.Offset,
+			subpart.Length,
+		)
+	}
+	deltaState.muSnapshots.Unlock()
 }
 
 func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
@@ -369,6 +384,22 @@ func (st *State) GetSubpartForData(checksum [32]byte) ([32]byte, uint32, uint32,
 	defer st.muDatas.Unlock()
 
 	if subpart, exists := st.Datas[blobID]; !exists {
+		return [32]byte{}, 0, 0, false
+	} else {
+		st.muChecksum.Lock()
+		packfileChecksum := st.IdToChecksum[subpart.Packfile]
+		st.muChecksum.Unlock()
+		return packfileChecksum, subpart.Offset, subpart.Length, true
+	}
+}
+
+func (st *State) GetSubpartForSnapshot(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+	blobID := st.getOrCreateIdForChecksum(checksum)
+
+	st.muSnapshots.Lock()
+	defer st.muSnapshots.Unlock()
+
+	if subpart, exists := st.Snapshots[blobID]; !exists {
 		return [32]byte{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
@@ -536,17 +567,34 @@ func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]
 	}
 }
 
-func (st *State) ListObjects() <-chan [32]byte {
+func (st *State) SetPackfileForSnapshot(packfileChecksum [32]byte, blobChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
+
+	st.muSnapshots.Lock()
+	defer st.muSnapshots.Unlock()
+
+	if _, exists := st.Snapshots[blobID]; !exists {
+		st.Snapshots[blobID] = Location{
+			Packfile: packfileID,
+			Offset:   packfileOffset,
+			Length:   chunkLength,
+		}
+		atomic.StoreInt32(&st.dirty, 1)
+	}
+}
+
+func (st *State) ListSnapshots() <-chan [32]byte {
 	ch := make(chan [32]byte)
 	go func() {
-		objectsList := make([][32]byte, 0)
-		st.muObjects.Lock()
-		for k := range st.Chunks {
-			objectsList = append(objectsList, st.IdToChecksum[k])
+		snapshotsList := make([][32]byte, 0)
+		st.muSnapshots.Lock()
+		for k := range st.Snapshots {
+			snapshotsList = append(snapshotsList, st.IdToChecksum[k])
 		}
-		st.muObjects.Unlock()
+		st.muSnapshots.Unlock()
 
-		for _, checksum := range objectsList {
+		for _, checksum := range snapshotsList {
 			ch <- checksum
 		}
 		close(ch)
@@ -565,6 +613,24 @@ func (st *State) ListChunks() <-chan [32]byte {
 		st.muChunks.Unlock()
 
 		for _, checksum := range chunksList {
+			ch <- checksum
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+func (st *State) ListObjects() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		objectsList := make([][32]byte, 0)
+		st.muObjects.Lock()
+		for k := range st.Objects {
+			objectsList = append(objectsList, st.IdToChecksum[k])
+		}
+		st.muObjects.Unlock()
+
+		for _, checksum := range objectsList {
 			ch <- checksum
 		}
 		close(ch)

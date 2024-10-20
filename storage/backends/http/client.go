@@ -102,78 +102,6 @@ func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 
-// snapshots
-func (repository *Repository) GetSnapshots() ([][32]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/snapshots", network.ReqGetSnapshots{})
-	if err != nil {
-		return nil, err
-	}
-
-	var resGetSnapshots network.ResGetSnapshots
-	if err := json.NewDecoder(r.Body).Decode(&resGetSnapshots); err != nil {
-		return nil, err
-	}
-	if resGetSnapshots.Err != "" {
-		return nil, fmt.Errorf("%s", resGetSnapshots.Err)
-	}
-	return resGetSnapshots.Snapshots, nil
-}
-
-func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
-	r, err := repository.sendRequest("PUT", repository.Repository, "/snapshot", network.ReqPutSnapshot{
-		SnapshotID: snapshotID,
-		Data:       data,
-	})
-	if err != nil {
-		return err
-	}
-
-	var resPutSnapshot network.ResPutSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&resPutSnapshot); err != nil {
-		return err
-	}
-	if resPutSnapshot.Err != "" {
-		return fmt.Errorf("%s", resPutSnapshot.Err)
-	}
-	return nil
-}
-
-func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/snapshot", network.ReqGetSnapshot{
-		SnapshotID: snapshotID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var resGetSnapshot network.ResGetSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&resGetSnapshot); err != nil {
-		return nil, err
-	}
-	if resGetSnapshot.Err != "" {
-		return nil, fmt.Errorf("%s", resGetSnapshot.Err)
-	}
-	return resGetSnapshot.Data, nil
-}
-
-func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
-	r, err := repository.sendRequest("DELETE", repository.Repository, "/snapshot", network.ReqDeleteSnapshot{
-		SnapshotID: snapshotID,
-	})
-	if err != nil {
-		return err
-	}
-
-	var resDeleteSnapshot network.ResDeleteSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&resDeleteSnapshot); err != nil {
-		return err
-	}
-	if resDeleteSnapshot.Err != "" {
-		return fmt.Errorf("%s", resDeleteSnapshot.Err)
-	}
-	return nil
-}
-
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/states", network.ReqGetStates{})
@@ -334,25 +262,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	}
 	if resDeletePackfile.Err != "" {
 		return fmt.Errorf("%s", resDeletePackfile.Err)
-	}
-	return nil
-}
-
-func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
-	r, err := repository.sendRequest("POST", repository.Repository, "/snapshot", network.ReqCommit{
-		SnapshotID: snapshotID,
-		Data:       data,
-	})
-	if err != nil {
-		return err
-	}
-
-	var ResCommit network.ResCommit
-	if err := json.NewDecoder(r.Body).Decode(&ResCommit); err != nil {
-		return err
-	}
-	if ResCommit.Err != "" {
-		return fmt.Errorf("%s", ResCommit.Err)
 	}
 	return nil
 }

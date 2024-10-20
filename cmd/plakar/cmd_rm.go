@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 )
@@ -152,11 +151,11 @@ func cmd_rm(ctx Plakar, repo *repository.Repository, args []string) int {
 		fmt.Println("deleting snapshot", snap.Header.GetIndexID())
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := repo.DeleteSnapshot(snap.Header.GetIndexID())
-			if err != nil {
-				logger.Error("%s", err)
-				errors++
-			}
+			//			err := repo.DeleteSnapshot(snap.Header.GetIndexID())
+			//			if err != nil {
+			//				logger.Error("%s", err)
+			//				errors++
+			//			}
 			wg.Done()
 		}(snap)
 	}

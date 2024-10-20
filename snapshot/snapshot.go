@@ -73,6 +73,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 			go func() {
 				defer wg.Done()
 				var pack *packfile.PackFile
+				var snapshotHeaders map[[32]byte]struct{}
 				var chunks map[[32]byte]struct{}
 				var objects map[[32]byte]struct{}
 				var files map[[32]byte]struct{}
@@ -82,6 +83,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				for msg := range snapshot.packerChan {
 					if pack == nil {
 						pack = packfile.New()
+						snapshotHeaders = make(map[[32]byte]struct{})
 						chunks = make(map[[32]byte]struct{})
 						objects = make(map[[32]byte]struct{})
 						files = make(map[[32]byte]struct{})
@@ -95,6 +97,8 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						logger.Trace("packer", "%s: PackerMsg(%d, %064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
 						pack.AddBlob(msg.Type, msg.Checksum, msg.Data)
 						switch msg.Type {
+						case packfile.TYPE_SNAPSHOT:
+							snapshotHeaders[msg.Checksum] = struct{}{}
 						case packfile.TYPE_CHUNK:
 							chunks[msg.Checksum] = struct{}{}
 						case packfile.TYPE_OBJECT:
@@ -111,6 +115,10 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					}
 
 					if pack.Size() > uint32(repo.Configuration().PackfileSize) {
+						snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
+						for snapshotID := range snapshotHeaders {
+							snapshotHeadersList = append(snapshotHeadersList, snapshotID)
+						}
 						objectsList := make([][32]byte, len(objects))
 						for objectChecksum := range objects {
 							objectsList = append(objectsList, objectChecksum)
@@ -131,7 +139,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						for dataChecksum := range datas {
 							datasList = append(datasList, dataChecksum)
 						}
-						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList)
+						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
 						if err != nil {
 							panic(err)
 						}
@@ -140,6 +148,10 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				}
 
 				if pack != nil {
+					snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
+					for snapshotID := range snapshotHeaders {
+						snapshotHeadersList = append(snapshotHeadersList, snapshotID)
+					}
 					objectsList := make([][32]byte, len(objects))
 					for objectChecksum := range objects {
 						objectsList = append(objectsList, objectChecksum)
@@ -160,7 +172,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					for dataChecksum := range datas {
 						datasList = append(datasList, dataChecksum)
 					}
-					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList)
+					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
 					if err != nil {
 						panic(err)
 					}
@@ -268,6 +280,22 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 	return md, verifyChecksum32, nil
 }
 
+func (snap *Snapshot) PutHeader(checksum [32]byte, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutHeader", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%s: PutHeader(%064x)", snap.Header.GetIndexShortID(), checksum)
+
+	encoded, err := snap.repository.Encode(data)
+	if err != nil {
+		return err
+	}
+
+	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_SNAPSHOT, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	return nil
+}
+
 func (snap *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
@@ -366,7 +394,7 @@ func (snap *Snapshot) PutDirectory(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte) error {
+func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, snapshots [][32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
@@ -415,7 +443,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
-	logger.Trace("snapshot", "%s: PutPackfile(%016x, ...)", snap.Header.GetIndexShortID(), checksum32)
+	logger.Trace("snapshot", "%s: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
 	err = snap.repository.PutPackfile(checksum32, serializedPackfile)
 	if err != nil {
 		panic("could not write pack file")
@@ -503,6 +531,22 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 			}
 		}
 	}
+
+	for _, snapshotID := range snapshots {
+		for idx, chunk := range pack.Index {
+			if chunk.Checksum == snapshotID {
+				snap.Repository().State().SetPackfileForSnapshot(checksum32,
+					snapshotID,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				snap.stateDelta.SetPackfileForSnapshot(checksum32,
+					snapshotID,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				break
+			}
+		}
+	}
 	return nil
 }
 
@@ -555,31 +599,33 @@ func (snapshot *Snapshot) Commit() error {
 		profiler.RecordEvent("snapshot.Commit", time.Since(t0))
 	}()
 
-	close(snapshot.packerChan)
-	<-snapshot.packerChanDone
-
-	if snapshot.stateDelta.Dirty() {
-		serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
-		if err != nil {
-			logger.Warn("could not serialize repository index: %s", err)
-			return err
-		}
-		indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
-		indexChecksum32 := [32]byte{}
-		copy(indexChecksum32[:], indexChecksum[:])
-		_, err = repo.PutState(indexChecksum32, serializedRepositoryIndex)
-		if err != nil {
-			return err
-		}
-	}
-
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {
 		return err
 	}
 
+	if err := snapshot.PutHeader(snapshot.Header.IndexID, serializedHdr); err != nil {
+		return err
+	}
+
+	close(snapshot.packerChan)
+	<-snapshot.packerChanDone
+
+	serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
+	if err != nil {
+		logger.Warn("could not serialize repository index: %s", err)
+		return err
+	}
+	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
+	indexChecksum32 := [32]byte{}
+	copy(indexChecksum32[:], indexChecksum[:])
+	_, err = repo.PutState(indexChecksum32, serializedRepositoryIndex)
+	if err != nil {
+		return err
+	}
+
 	logger.Trace("snapshot", "%s: Commit()", snapshot.Header.GetIndexShortID())
-	return snapshot.repository.Commit(snapshot.Header.IndexID, serializedHdr)
+	return nil
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {

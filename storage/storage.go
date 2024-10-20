@@ -82,11 +82,6 @@ type Backend interface {
 	Open(repository string) error
 	Configuration() Configuration
 
-	GetSnapshots() ([][32]byte, error)
-	PutSnapshot(snapshotID [32]byte, data []byte) error
-	GetSnapshot(snapshotID [32]byte) ([]byte, error)
-	DeleteSnapshot(snapshotID [32]byte) error
-
 	GetStates() ([][32]byte, error)
 	PutState(checksum [32]byte, data []byte) error
 	GetState(checksum [32]byte) ([]byte, error)
@@ -97,8 +92,6 @@ type Backend interface {
 	GetPackfile(checksum [32]byte) ([]byte, error)
 	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
 	DeletePackfile(checksum [32]byte) error
-
-	Commit(snapshotID [32]byte, data []byte) error
 
 	Close() error
 }
@@ -285,64 +278,6 @@ func (store *Store) Configuration() Configuration {
 	return store.backend.Configuration()
 }
 
-/* snapshots  */
-func (store *Store) GetSnapshots() ([][32]byte, error) {
-	store.readSharedLock.Lock()
-	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.GetSnapshots", time.Since(t0))
-		logger.Trace("store", "GetSnapshots(): %s", time.Since(t0))
-	}()
-	return store.backend.GetSnapshots()
-}
-
-func (store *Store) PutSnapshot(snapshotID [32]byte, data []byte) error {
-	store.writeSharedLock.Lock()
-	defer store.writeSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.PutSnapshot", time.Since(t0))
-		logger.Trace("store", "PutSnapshot(%s): %s", snapshotID, time.Since(t0))
-	}()
-
-	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-	return store.backend.PutSnapshot(snapshotID, data)
-}
-
-func (store *Store) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
-	store.readSharedLock.Lock()
-	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.GetSnapshot", time.Since(t0))
-		logger.Trace("store", "GetSnapshot(%s): %s", fmt.Sprintf("%x", snapshotID), time.Since(t0))
-	}()
-
-	data, err := store.backend.GetSnapshot(snapshotID)
-	if err != nil {
-		return nil, err
-	}
-	atomic.AddUint64(&store.rBytes, uint64(len(data)))
-
-	return data, nil
-}
-
-func (store *Store) DeleteSnapshot(snapshotID [32]byte) error {
-	store.writeSharedLock.Lock()
-	defer store.writeSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.DeleteSnapshot", time.Since(t0))
-		logger.Trace("store", "DeleteSnapshot(%s): %s", snapshotID, time.Since(t0))
-	}()
-	return store.backend.DeleteSnapshot(snapshotID)
-}
-
 /* Packfiles */
 func (store *Store) GetPackfiles() ([][32]byte, error) {
 	store.readSharedLock.Lock()
@@ -484,18 +419,4 @@ func (store *Store) Close() error {
 		logger.Trace("store", "Close(): %s", time.Since(t0))
 	}()
 	return store.backend.Close()
-}
-
-func (store *Store) Commit(snapshotID [32]byte, data []byte) error {
-	store.writeSharedLock.Lock()
-	defer store.writeSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("store.Commit", time.Since(t0))
-		logger.Trace("store", "Commit(%s): %s", fmt.Sprintf("%x", snapshotID), time.Since(t0))
-	}()
-	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-
-	return store.backend.Commit(snapshotID, data)
 }

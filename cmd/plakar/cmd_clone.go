@@ -103,31 +103,5 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 	}
 	wg.Wait()
 
-	wg = sync.WaitGroup{}
-	snapshots, err := sourceRepository.GetSnapshots()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location(), err)
-		return 1
-	}
-	for _, _snapshotID := range snapshots {
-		wg.Add(1)
-		go func(snapshotID [32]byte) {
-			defer wg.Done()
-
-			data, err := sourceRepository.GetSnapshot(snapshotID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get snapshot from repository: %s\n", sourceRepository.Location(), err)
-				return
-			}
-
-			err = cloneRepository.PutSnapshot(snapshotID, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put snapshot to repository: %s\n", cloneRepository.Location, err)
-				return
-			}
-		}(_snapshotID)
-	}
-	wg.Wait()
-
 	return 0
 }

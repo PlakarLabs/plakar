@@ -65,14 +65,11 @@ func (repository *Repository) Create(location string, config storage.Configurati
 
 	os.MkdirAll(filepath.Join(repository.root, "states"), 0700)
 	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "snapshots"), 0700)
-
 	os.MkdirAll(filepath.Join(repository.root, "tmp"), 0700)
 
 	for i := 0; i < 256; i++ {
 		os.MkdirAll(filepath.Join(repository.root, "states", fmt.Sprintf("%02x", i)), 0700)
 		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "snapshots", fmt.Sprintf("%02x", i)), 0700)
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")
@@ -133,52 +130,6 @@ func (repository *Repository) Open(location string) error {
 
 func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
-}
-
-func (repository *Repository) GetSnapshots() ([][32]byte, error) {
-	ret := make([][32]byte, 0)
-
-	buckets, err := os.ReadDir(repository.PathSnapshots())
-	if err != nil {
-		return ret, err
-	}
-
-	for _, bucket := range buckets {
-		if !bucket.IsDir() {
-			continue
-		}
-		pathBuckets := filepath.Join(repository.PathSnapshots(), bucket.Name())
-		indexes, err := os.ReadDir(pathBuckets)
-		if err != nil {
-			return ret, err
-		}
-		for _, index := range indexes {
-			if index.IsDir() {
-				continue
-			}
-
-			indexID, err := hex.DecodeString(index.Name())
-			if err != nil {
-				continue
-			}
-			if len(indexID) != 32 {
-				continue
-			}
-			var snapshotID [32]byte
-			copy(snapshotID[:], indexID)
-			ret = append(ret, snapshotID)
-		}
-	}
-	return ret, nil
-}
-
-func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathSnapshot(snapshotID))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
 
 func (repository *Repository) GetPackfiles() ([][32]byte, error) {
@@ -261,20 +212,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
-	f, err := os.Create(repository.PathSnapshot(snapshotID))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
 	f, err := os.Create(repository.PathPackfile(checksum))
 	if err != nil {
@@ -287,10 +224,6 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 		return err
 	}
 	return nil
-}
-
-func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
-	return os.Remove(repository.PathSnapshot(snapshotID))
 }
 
 func (repository *Repository) Close() error {
@@ -362,32 +295,5 @@ func (repository *Repository) DeleteState(checksum [32]byte) error {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
-	f, err := os.CreateTemp(repository.PathTmp(), fmt.Sprintf("%s.*", hex.EncodeToString(snapshotID[:])))
-	if err != nil {
-		return err
-	}
-
-	_, err = f.Write(data)
-	if err != nil {
-		f.Close()
-		return err
-	}
-
-	name := f.Name()
-
-	err = f.Close()
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(name, repository.PathSnapshot(snapshotID))
-	if err != nil {
-		return err
-	}
-
 	return nil
 }

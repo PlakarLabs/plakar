@@ -522,9 +522,10 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	//
 
-	fmt.Println("Snapshot", snap.Header.GetIndexShortID(),
-		"of size", humanize.Bytes(snap.statistics.ScannerProcessedSize),
-		"published in", snap.Header.CreationDuration)
+	fmt.Printf("Snapshot %x of size %s published in %s\n",
+		snap.Header.GetIndexShortID(),
+		humanize.Bytes(snap.statistics.ScannerProcessedSize),
+		snap.Header.CreationDuration)
 
 	return snap.Commit()
 }

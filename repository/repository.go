@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"hash"
 	"io"
 	"time"
@@ -189,7 +190,11 @@ func (r *Repository) GetSnapshots() ([][32]byte, error) {
 		logger.Trace("repository", "GetSnapshots(): %s", time.Since(t0))
 	}()
 
-	return r.store.GetSnapshots()
+	ret := make([][32]byte, 0)
+	for snapshotID := range r.state.ListSnapshots() {
+		ret = append(ret, snapshotID)
+	}
+	return ret, nil
 }
 
 func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
@@ -199,27 +204,12 @@ func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 		logger.Trace("repository", "GetSnapshot(%x): %s", snapshotID, time.Since(t0))
 	}()
 
-	buffer, err := r.store.GetSnapshot(snapshotID)
-	if err != nil {
-		return nil, err
+	packfile, offset, length, exists := r.state.GetSubpartForSnapshot(snapshotID)
+	if !exists {
+		return nil, fmt.Errorf("snapshot not found")
 	}
 
-	return r.Decode(buffer)
-}
-
-func (r *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.PutSnapshot", time.Since(t0))
-		logger.Trace("repository", "PutSnapshot(%x, ...): %s", snapshotID, time.Since(t0))
-	}()
-
-	data, err := r.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	return r.store.PutSnapshot(snapshotID, data)
+	return r.GetPackfileBlob(packfile, offset, length)
 }
 
 func (r *Repository) GetStates() ([][32]byte, error) {
@@ -324,28 +314,4 @@ func (r *Repository) DeletePackfile(checksum [32]byte) error {
 	}()
 
 	return r.store.DeletePackfile(checksum)
-}
-
-func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.DeleteSnapshot", time.Since(t0))
-		logger.Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
-	}()
-
-	return r.store.DeleteSnapshot(snapshotID)
-}
-
-func (r *Repository) Commit(snapshotID [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.Commit", time.Since(t0))
-		logger.Trace("repository", "Commit(%s, ...): %s", snapshotID, time.Since(t0))
-	}()
-
-	data, err := r.Encode(data)
-	if err != nil {
-		return err
-	}
-	return r.store.Commit(snapshotID, data)
 }

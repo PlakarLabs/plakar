@@ -337,60 +337,6 @@ func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 
-// snapshots
-func (repository *Repository) GetSnapshots() ([][32]byte, error) {
-	result, err := repository.sendRequest("ReqGetSnapshots", network.ReqGetSnapshots{})
-	if err != nil {
-		return nil, err
-	}
-
-	if result.Payload.(network.ResGetSnapshots).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetSnapshots).Err)
-	}
-	return result.Payload.(network.ResGetSnapshots).Snapshots, nil
-}
-
-func (repository *Repository) PutSnapshot(indexID [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqPutSnapshot", network.ReqPutSnapshot{
-		SnapshotID: indexID,
-		Data:       data,
-	})
-	if err != nil {
-		return err
-	}
-	if result.Payload.(network.ResPutSnapshot).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResPutSnapshot).Err)
-	}
-	return nil
-}
-
-func (repository *Repository) GetSnapshot(indexID [32]byte) ([]byte, error) {
-	result, err := repository.sendRequest("ReqGetSnapshot", network.ReqGetSnapshot{
-		SnapshotID: indexID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if result.Payload.(network.ResGetSnapshot).Err != "" {
-		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetSnapshot).Err)
-	}
-	return result.Payload.(network.ResGetSnapshot).Data, nil
-}
-
-func (repository *Repository) DeleteSnapshot(indexID [32]byte) error {
-	result, err := repository.sendRequest("ReqDeleteSnapshot", network.ReqDeleteSnapshot{
-		SnapshotID: indexID,
-	})
-	if err != nil {
-		return err
-	}
-
-	if result.Payload.(network.ResDeleteSnapshot).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResDeleteSnapshot).Err)
-	}
-	return nil
-}
-
 // states
 func (repository *Repository) GetStates() ([][32]byte, error) {
 	result, err := repository.sendRequest("ReqGetStates", network.ReqGetStates{})
@@ -511,21 +457,6 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 	if result.Payload.(network.ResDeletePackfile).Err != "" {
 		return fmt.Errorf("%s", result.Payload.(network.ResDeletePackfile).Err)
-	}
-	return nil
-}
-
-func (repository *Repository) Commit(indexID [32]byte, data []byte) error {
-	result, err := repository.sendRequest("ReqCommit", network.ReqCommit{
-		SnapshotID: indexID,
-		Data:       data,
-	})
-	if err != nil {
-		return err
-	}
-
-	if result.Payload.(network.ResCommit).Err != "" {
-		return fmt.Errorf("%s", result.Payload.(network.ResCommit).Err)
 	}
 	return nil
 }

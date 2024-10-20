@@ -78,6 +78,16 @@ func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
 				}
 			}
 
+			fmt.Println(st.Snapshots)
+
+			for snapshotID, subpart := range st.Snapshots {
+				fmt.Printf("snapshot %x : packfile %x, offset %d, length %d\n",
+					st.IdToChecksum[snapshotID],
+					st.IdToChecksum[subpart.Packfile],
+					subpart.Offset,
+					subpart.Length)
+			}
+
 			for chunk, subpart := range st.Chunks {
 				fmt.Printf("chunk %x : packfile %x, offset %d, length %d\n",
 					st.IdToChecksum[chunk],

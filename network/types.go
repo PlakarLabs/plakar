@@ -39,50 +39,6 @@ type ResClose struct {
 	Err string
 }
 
-type ReqCommit struct {
-	SnapshotID [32]byte
-	Data       []byte
-}
-
-type ResCommit struct {
-	Err string
-}
-
-// snapshots
-type ReqGetSnapshots struct {
-}
-
-type ResGetSnapshots struct {
-	Snapshots [][32]byte
-	Err       string
-}
-
-type ReqPutSnapshot struct {
-	SnapshotID [32]byte
-	Data       []byte
-}
-
-type ResPutSnapshot struct {
-	Err string
-}
-
-type ReqGetSnapshot struct {
-	SnapshotID [32]byte
-}
-
-type ResGetSnapshot struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteSnapshot struct {
-	SnapshotID [32]byte
-}
-
-type ResDeleteSnapshot struct {
-	Err string
-}
-
 // states
 type ReqGetStates struct {
 }
@@ -171,24 +127,8 @@ func ProtocolRegister() {
 	gob.Register(ReqOpen{})
 	gob.Register(ResOpen{})
 
-	gob.Register(ReqCommit{})
-	gob.Register(ResCommit{})
-
 	gob.Register(ReqClose{})
 	gob.Register(ResClose{})
-
-	// snapshots
-	gob.Register(ReqGetSnapshots{})
-	gob.Register(ResGetSnapshots{})
-
-	gob.Register(ReqPutSnapshot{})
-	gob.Register(ResPutSnapshot{})
-
-	gob.Register(ReqGetSnapshot{})
-	gob.Register(ResGetSnapshot{})
-
-	gob.Register(ReqDeleteSnapshot{})
-	gob.Register(ResDeleteSnapshot{})
 
 	// states
 	gob.Register(ReqGetStates{})

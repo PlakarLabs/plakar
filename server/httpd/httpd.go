@@ -51,107 +51,6 @@ func closeRepository(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// snapshots
-func getSnapshots(w http.ResponseWriter, r *http.Request) {
-	var reqGetSnapshots network.ReqGetSnapshots
-	if err := json.NewDecoder(r.Body).Decode(&reqGetSnapshots); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetSnapshots network.ResGetSnapshots
-	snapshots, err := lrepository.GetSnapshots()
-	if err != nil {
-		resGetSnapshots.Err = err.Error()
-	} else {
-		resGetSnapshots.Snapshots = snapshots
-	}
-	if err := json.NewEncoder(w).Encode(resGetSnapshots); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func putSnapshot(w http.ResponseWriter, r *http.Request) {
-	var reqPutSnapshot network.ReqPutSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqPutSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resPutSnapshot network.ResPutSnapshot
-	err := lrepository.PutSnapshot(reqPutSnapshot.SnapshotID, reqPutSnapshot.Data)
-	if err != nil {
-		resPutSnapshot.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resPutSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func getSnapshot(w http.ResponseWriter, r *http.Request) {
-	var reqGetSnapshot network.ReqGetSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqGetSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetSnapshot network.ResGetSnapshot
-	data, err := lrepository.GetSnapshot(reqGetSnapshot.SnapshotID)
-	if err != nil {
-		resGetSnapshot.Err = err.Error()
-	} else {
-		resGetSnapshot.Data = data
-	}
-	if err := json.NewEncoder(w).Encode(resGetSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
-	if lNoDelete {
-		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
-		return
-	}
-
-	var reqDeleteSnapshot network.ReqDeleteSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resDeleteSnapshot network.ResDeleteSnapshot
-	err := lrepository.DeleteSnapshot(reqDeleteSnapshot.SnapshotID)
-	if err != nil {
-		resDeleteSnapshot.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resDeleteSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func commitSnapshot(w http.ResponseWriter, r *http.Request) {
-	var ReqCommit network.ReqCommit
-	if err := json.NewDecoder(r.Body).Decode(&ReqCommit); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var ResCommit network.ResCommit
-	err := lrepository.Commit(ReqCommit.SnapshotID, ReqCommit.Data)
-	if err != nil {
-		ResCommit.Err = err.Error()
-	}
-
-	if err := json.NewEncoder(w).Encode(ResCommit); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 // states
 func getStates(w http.ResponseWriter, r *http.Request) {
 	var reqGetIndexes network.ReqGetStates
@@ -346,12 +245,6 @@ func Server(repo *repository.Repository, addr string, noDelete bool) error {
 	r := mux.NewRouter()
 	r.HandleFunc("/", openRepository).Methods("GET")
 	r.HandleFunc("/", closeRepository).Methods("POST")
-
-	r.HandleFunc("/snapshots", getSnapshots).Methods("GET")
-	r.HandleFunc("/snapshot", putSnapshot).Methods("PUT")
-	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
-	r.HandleFunc("/snapshot", deleteSnapshot).Methods("DELETE")
-	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
 
 	r.HandleFunc("/indexes", getStates).Methods("GET")
 	r.HandleFunc("/index", putState).Methods("PUT")

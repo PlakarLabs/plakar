@@ -15,6 +15,7 @@ import (
 const VERSION = 100
 
 const (
+	TYPE_SNAPSHOT  = 0
 	TYPE_CHUNK     = 1
 	TYPE_OBJECT    = 2
 	TYPE_FILE      = 3
@@ -31,6 +32,8 @@ type Blob struct {
 
 func (b Blob) TypeName() string {
 	switch b.Type {
+	case TYPE_SNAPSHOT:
+		return "snapshot"
 	case TYPE_CHUNK:
 		return "chunk"
 	case TYPE_OBJECT:

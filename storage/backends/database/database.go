@@ -110,16 +110,6 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS snapshots (
-		snapshotID	VARCHAR(36) NOT NULL PRIMARY KEY,
-		data		BLOB
-	);`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-	statement.Exec()
-
 	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS states (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
@@ -206,69 +196,6 @@ func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 
 func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
-}
-
-// snapshots
-func (repository *Repository) GetSnapshots() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT snapshotID FROM snapshots")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	indexes := make([][32]byte, 0)
-	for rows.Next() {
-		var indexUuid [32]byte
-		err = rows.Scan(&indexUuid)
-		if err != nil {
-			return nil, err
-		}
-		indexes = append(indexes, indexUuid)
-	}
-	return indexes, nil
-}
-
-func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(snapshotID, data)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
-	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM snapshots WHERE snapshotID=?`, snapshotID).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM snapshots WHERE snapshotID=?`)
-	if err != nil {
-		return err
-	}
-	defer statement.Close()
-
-	repository.wrMutex.Lock()
-	_, err = statement.Exec(snapshotID)
-	repository.wrMutex.Unlock()
-	if err != nil {
-		// if err is that it's already present, we should discard err and assume a concurrent write
-		return err
-	}
-	return nil
 }
 
 // states

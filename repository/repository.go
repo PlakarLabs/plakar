@@ -60,16 +60,19 @@ func (r *Repository) rebuildState() error {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
+	// identify local states
 	localStates := make(map[[32]byte]struct{})
 	for stateID := range r.cache.List() {
 		localStates[stateID] = struct{}{}
 	}
 
+	// identify remote states
 	remoteStates, err := r.GetStates()
 	if err != nil {
 		return err
 	}
 
+	// synchronize local state with unknown remote states
 	states := make([][32]byte, 0)
 	for _, stateID := range remoteStates {
 		if _, exists := localStates[stateID]; !exists {
@@ -82,10 +85,16 @@ func (r *Repository) rebuildState() error {
 			}
 			states = append(states, stateID)
 		}
+		delete(localStates, stateID)
 	}
 
-	aggregateState := state.New()
+	// delete local states that are not present in remote
+	for stateID := range localStates {
+		r.cache.Delete(stateID)
+	}
 
+	// merge all local states into a new aggregate state
+	aggregateState := state.New()
 	if len(states) != 0 {
 		logger.Info("repository state requires synchronization...")
 		t0 = time.Now()
@@ -104,7 +113,6 @@ func (r *Repository) rebuildState() error {
 		}
 		logger.Info("repository state synchronized in %s from %d deltas", time.Since(t0), len(states))
 	}
-
 	aggregateState.ResetDirty()
 	r.state = aggregateState
 	return nil

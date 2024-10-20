@@ -363,8 +363,8 @@ func (store *Store) GetStates() ([][32]byte, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetIndexes", time.Since(t0))
-		logger.Trace("store", "GetIndexes(): %s", time.Since(t0))
+		profiler.RecordEvent("store.GetStates", time.Since(t0))
+		logger.Trace("store", "GetStates(): %s", time.Since(t0))
 	}()
 	return store.backend.GetStates()
 }

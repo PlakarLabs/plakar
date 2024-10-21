@@ -17,44 +17,34 @@
 package fs
 
 import (
-	"io"
+	"fmt"
 	"os"
-	"strings"
 
-	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/pkg/xattr"
 )
 
-type FSImporter struct {
-	importer.ImporterBackend
-	rootDir string
-}
+func getExtendedAttributes(path string) (map[string][]byte, error) {
+	attrs := make(map[string][]byte)
 
-func init() {
-	importer.Register("fs", NewFSImporter)
-}
-
-func NewFSImporter(location string) (importer.ImporterBackend, error) {
-	if strings.HasPrefix(location, "fs://") {
-		location = location[4:]
+	// Get the list of attribute names
+	attributes, err := xattr.List(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list extended attributes for %s: %w", path, err)
 	}
-	return &FSImporter{
-		rootDir: location,
-	}, nil
-}
 
-func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
-	//return walkDir_walker(p.rootDir, 256)
-	return cwalk_walker(p.rootDir, 256)
-}
+	// Iterate over each attribute and retrieve its value
+	for _, attr := range attributes {
+		value, err := xattr.Get(path, attr)
+		if err != nil {
+			// Log the error and continue instead of failing
+			if os.IsPermission(err) {
+				fmt.Printf("permission denied for attribute %s on %s\n", attr, path)
+				continue
+			}
+			return nil, fmt.Errorf("failed to get value for attribute %s: %w", attr, err)
+		}
+		attrs[attr] = value
+	}
 
-func (p *FSImporter) NewReader(pathname string) (io.ReadCloser, error) {
-	return os.Open(pathname)
-}
-
-func (p *FSImporter) Close() error {
-	return nil
-}
-
-func (p *FSImporter) Root() string {
-	return p.rootDir
+	return attrs, nil
 }

@@ -12,6 +12,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
+	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
 	github.com/jacobsa/fuse v0.0.0-20230624161425-b8484ee15dad
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/minio/minio-go/v7 v7.0.61

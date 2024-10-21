@@ -173,9 +173,8 @@ func (f *FileEntry) FileInfo() *objects.FileInfo {
 }
 
 type ChildEntry struct {
-	Checksum           [32]byte
-	FileInfo           objects.FileInfo
-	ExtendedAttributes map[string][]byte
+	Checksum [32]byte
+	FileInfo objects.FileInfo
 }
 
 // DirEntry represents the comprehensive structure for a directory entry
@@ -238,11 +237,10 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	return &d, nil
 }
 
-func (d *DirEntry) AddChild(checksum [32]byte, record importer.ScanRecord) {
+func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo) {
 	d.Children = append(d.Children, ChildEntry{
-		Checksum:           checksum,
-		FileInfo:           record.Stat,
-		ExtendedAttributes: record.ExtendedAttributes,
+		Checksum: checksum,
+		FileInfo: fileInfo,
 	})
 }
 

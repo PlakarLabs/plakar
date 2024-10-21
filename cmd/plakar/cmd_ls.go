@@ -140,7 +140,6 @@ func list_snapshot(repo *repository.Repository, args []string) {
 			} else {
 				for _, name := range entries {
 					finfo, _ := pvfs.Stat(path.Clean(fmt.Sprintf("%s/%s", prefix, name)))
-					fmt.Printf("%s %T\n", path.Clean(fmt.Sprintf("%s/%s", prefix, name)), finfo)
 
 					var info *objects.FileInfo
 					switch finfo := finfo.(type) {
@@ -167,6 +166,7 @@ func list_snapshot(repo *repository.Repository, args []string) {
 			case *vfs.FileEntry:
 				info = finfo.FileInfo()
 			default:
+				fmt.Printf("%T\n", finfo)
 				panic("unreachable")
 			}
 

@@ -335,238 +335,235 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
 
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
-	wg := sync.WaitGroup{}
 
 	/* importer */
 	snap.statistics.ImporterStart = time.Now()
 
 	mu := sync.Mutex{}
 
-	for _record := range scanner {
-		if snap.skipExcludedPathname(options, _record) {
-			continue
+	importerWg := sync.WaitGroup{}
+	filesChannel := make(chan importer.ScanRecord, 1000)
+	go func() {
+		for _record := range scanner {
+			if snap.skipExcludedPathname(options, _record) {
+				continue
+			}
+
+			maxConcurrency <- true
+			importerWg.Add(1)
+			go func(record importer.ScanResult) {
+				defer func() {
+					<-maxConcurrency
+					importerWg.Done()
+				}()
+				snap.updateImporterStatistics(record)
+
+				switch record := record.(type) {
+				case importer.ScanError:
+					logger.Warn("%s: %s", record.Pathname, record.Err)
+
+				case importer.ScanRecord:
+					if record.Stat.Mode().IsDir() {
+						if err := sc.RecordPathname(record); err != nil {
+							//return err
+							return
+						}
+					} else {
+						filesChannel <- record
+					}
+					extension := strings.ToLower(filepath.Ext(record.Pathname))
+					if extension == "" {
+						extension = "none"
+					}
+					mu.Lock()
+					if _, exists := snap.Header.FileExtension[extension]; !exists {
+						snap.Header.FileExtension[extension] = 0
+					}
+					snap.Header.FileExtension[extension]++
+					mu.Unlock()
+				}
+			}(_record)
 		}
+		importerWg.Wait()
+		close(filesChannel)
+		snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
+	}()
 
+	/* scanner */
+	scannerWg := sync.WaitGroup{}
+	snap.statistics.ScannerStart = time.Now()
+	for _record := range filesChannel {
 		maxConcurrency <- true
-		wg.Add(1)
-
-		go func(record importer.ScanResult) {
+		scannerWg.Add(1)
+		go func(record importer.ScanRecord) {
 			defer func() {
 				<-maxConcurrency
-				wg.Done()
+				scannerWg.Done()
 			}()
-			snap.updateImporterStatistics(record)
 
-			switch record := record.(type) {
-			case importer.ScanError:
-				logger.Warn("%s: %s", record.Pathname, record.Err)
+			var fileEntry *vfs.FileEntry
+			var object *objects.Object
 
-			case importer.ScanRecord:
-				if err := sc.RecordPathname(record); err != nil {
+			// Check if the file entry and underlying objects are already in the cache
+			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
+			if err == nil && cachedFileEntry != nil {
+				if cachedFileEntry.ModTime.Equal(record.Stat.ModTime()) && cachedFileEntry.Size == record.Stat.Size() {
+					fileEntry = cachedFileEntry
+					cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Checksum)
+					if err == nil && cachedObject != nil {
+						object = cachedObject
+					}
+				}
+			}
+
+			//object = nil
+
+			// Chunkify the file if it is a regular file and we don't have a cached object
+			if record.Stat.Mode().IsRegular() {
+				if object == nil || !snap.CheckObject(object.Checksum) {
+					object, err = snap.chunkify(imp, record)
+					if err != nil {
+						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
+						//return err
+						return
+					}
+					if err := cacheInstance.RecordObject(object); err != nil {
+						//return err
+						return
+					}
+				}
+			}
+
+			var fileEntryChecksum [32]byte
+			var fileEntrySize uint64
+			if fileEntry != nil && snap.CheckFile(cachedFileEntryChecksum) {
+				fileEntryChecksum = cachedFileEntryChecksum
+				fileEntrySize = cachedFileEntrySize
+			} else {
+				fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
+				if object != nil {
+					for _, chunk := range object.Chunks {
+						fileEntry.AddChunk(chunk)
+					}
+					fileEntry.AddChecksum(object.Checksum)
+					if object.ContentType != "" {
+						fileEntry.AddContentType(object.ContentType)
+					}
+				}
+
+				// Serialize the FileEntry and store it in the repository
+				serialized, err := fileEntry.Serialize()
+				if err != nil {
 					//return err
 					return
 				}
 
-				extension := strings.ToLower(filepath.Ext(record.Pathname))
-				if extension == "" {
-					extension = "none"
+				fileEntryChecksum = snap.repository.Checksum(serialized)
+				fileEntrySize = uint64(len(serialized))
+				err = snap.PutFile(fileEntryChecksum, serialized)
+				if err != nil {
+					return
+					//return err
 				}
-				mu.Lock()
-				if _, exists := snap.Header.FileExtension[extension]; !exists {
-					snap.Header.FileExtension[extension] = 0
+
+				// Store the newly generated FileEntry in the cache for future runs
+				err = cacheInstance.RecordFilename(scanDir, record.Pathname, fileEntry)
+				if err != nil {
+					return
+					//						return err
 				}
-				snap.Header.FileExtension[extension]++
-				mu.Unlock()
 			}
+			atomic.AddUint64(&snap.statistics.VFSFilesCount, 1)
+			atomic.AddUint64(&snap.statistics.VFSFilesSize, fileEntrySize)
+
+			// Record the checksum of the FileEntry in the cache
+			err = sc.RecordChecksum(record.Pathname, fileEntryChecksum)
+			if err != nil {
+				// return err
+				return
+			}
+
+			// if object does not exist in repository, store it
+			if object != nil {
+				if !snap.CheckObject(object.Checksum) {
+					data, err := object.Serialize()
+					if err != nil {
+						//return err
+						return
+					}
+					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
+					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
+					err = snap.PutObject(object.Checksum, data)
+					if err != nil {
+						//return err
+						return
+					}
+				}
+				snap.Metadata.AddMetadata(object.ContentType, object.Checksum) // XXX
+			}
+			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
 		}(_record)
 	}
-	wg.Wait()
-	snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
-
-	/* scanner */
-	snap.statistics.ScannerStart = time.Now()
-	if filenames, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", false); err != nil {
-		return err
-	} else {
-		for _record := range filenames {
-
-			maxConcurrency <- true
-			wg.Add(1)
-			go func(record importer.ScanRecord) {
-				defer func() {
-					<-maxConcurrency
-					wg.Done()
-				}()
-
-				var fileEntry *vfs.FileEntry
-				var object *objects.Object
-
-				// Check if the file entry and underlying objects are already in the cache
-				cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
-				if err == nil && cachedFileEntry != nil {
-					if cachedFileEntry.ModTime.Equal(record.Stat.ModTime()) && cachedFileEntry.Size == record.Stat.Size() {
-						fileEntry = cachedFileEntry
-						cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Checksum)
-						if err == nil && cachedObject != nil {
-							object = cachedObject
-						}
-					}
-				}
-
-				//object = nil
-
-				// Chunkify the file if it is a regular file and we don't have a cached object
-				if record.Stat.Mode().IsRegular() {
-					if object == nil || !snap.CheckObject(object.Checksum) {
-						object, err = snap.chunkify(imp, record)
-						if err != nil {
-							atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
-							//return err
-							return
-						}
-						if err := cacheInstance.RecordObject(object); err != nil {
-							//return err
-							return
-						}
-					}
-				}
-
-				var fileEntryChecksum [32]byte
-				var fileEntrySize uint64
-				if fileEntry != nil && snap.CheckFile(cachedFileEntryChecksum) {
-					fileEntryChecksum = cachedFileEntryChecksum
-					fileEntrySize = cachedFileEntrySize
-				} else {
-					fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
-					if object != nil {
-						for _, chunk := range object.Chunks {
-							fileEntry.AddChunk(chunk)
-						}
-						fileEntry.AddChecksum(object.Checksum)
-						if object.ContentType != "" {
-							fileEntry.AddContentType(object.ContentType)
-						}
-					}
-
-					// Serialize the FileEntry and store it in the repository
-					serialized, err := fileEntry.Serialize()
-					if err != nil {
-						//return err
-						return
-					}
-
-					fileEntryChecksum = snap.repository.Checksum(serialized)
-					fileEntrySize = uint64(len(serialized))
-					err = snap.PutFile(fileEntryChecksum, serialized)
-					if err != nil {
-						return
-						//return err
-					}
-
-					// Store the newly generated FileEntry in the cache for future runs
-					err = cacheInstance.RecordFilename(scanDir, record.Pathname, fileEntry)
-					if err != nil {
-						return
-						//						return err
-					}
-				}
-				atomic.AddUint64(&snap.statistics.VFSFilesCount, 1)
-				atomic.AddUint64(&snap.statistics.VFSFilesSize, fileEntrySize)
-
-				// Record the checksum of the FileEntry in the cache
-				err = sc.RecordChecksum(record.Pathname, fileEntryChecksum)
-				if err != nil {
-					// return err
-					return
-				}
-
-				// if object does not exist in repository, store it
-				if object != nil {
-					if !snap.CheckObject(object.Checksum) {
-						data, err := object.Serialize()
-						if err != nil {
-							//return err
-							return
-						}
-						atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
-						atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
-						err = snap.PutObject(object.Checksum, data)
-						if err != nil {
-							//return err
-							return
-						}
-					}
-					snap.Metadata.AddMetadata(object.ContentType, object.Checksum) // XXX
-				}
-				atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
-			}(_record)
-		}
-	}
-	wg.Wait()
+	scannerWg.Wait()
 
 	directories, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", true)
 	if err != nil {
 		return err
 	}
 	for record := range directories {
-		if c, err := sc.EnumerateImmediateChildPathnames(record.Pathname); err != nil {
-			return err
+
+		var dirEntry *vfs.DirEntry
+
+		// Check if the file entry and underlying objects are already in the cache
+		cachedDirEntry, cachedDirEntryChecksum, cachedDirEntrySize, err := cacheInstance.LookupDirectory(scanDir, record.Pathname)
+		if err == nil && cachedDirEntry != nil {
+			if cachedDirEntry.ModTime.Equal(record.Stat.ModTime()) && cachedDirEntry.Size == record.Stat.Size() {
+				dirEntry = cachedDirEntry
+			}
+		}
+
+		//dirEntry = nil
+
+		var dirEntryChecksum [32]byte
+		var dirEntrySize uint64
+		if dirEntry != nil && snap.CheckDirectory(cachedDirEntryChecksum) {
+			dirEntryChecksum = cachedDirEntryChecksum
+			dirEntrySize = cachedDirEntrySize
 		} else {
-			var dirEntry *vfs.DirEntry
+			dirEntry = vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
-			// Check if the file entry and underlying objects are already in the cache
-			cachedDirEntry, cachedDirEntryChecksum, cachedDirEntrySize, err := cacheInstance.LookupDirectory(scanDir, record.Pathname)
-			if err == nil && cachedDirEntry != nil {
-				if cachedDirEntry.ModTime.Equal(record.Stat.ModTime()) && cachedDirEntry.Size == record.Stat.Size() {
-					dirEntry = cachedDirEntry
+			for _, child := range record.Children {
+				value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
+				if err != nil {
+					return err
 				}
+				dirEntry.AddChild(value, child)
 			}
 
-			//dirEntry = nil
-
-			var dirEntryChecksum [32]byte
-			var dirEntrySize uint64
-			if dirEntry != nil && snap.CheckDirectory(cachedDirEntryChecksum) {
-				dirEntryChecksum = cachedDirEntryChecksum
-				dirEntrySize = cachedDirEntrySize
-			} else {
-				dirEntry = vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
-
-				for childrecord := range c {
-					value, err := sc.GetChecksum(childrecord.Pathname)
-					if err != nil {
-						return err
-					}
-					dirEntry.AddChild(value, childrecord)
-				}
-
-				serialized, err := dirEntry.Serialize()
-				if err != nil {
-					return err
-				}
-				dirEntryChecksum = snap.repository.Checksum(serialized)
-				dirEntrySize = uint64(len(serialized))
-
-				err = snap.PutDirectory(dirEntryChecksum, serialized)
-				if err != nil {
-					return err
-				}
-
-				//fmt.Println("recording directory", record.Pathname, dirEntryChecksum)
-
-				// Store the newly generated DirEntry in the cache for future runs
-				err = cacheInstance.RecordDirectory(scanDir, record.Pathname, dirEntry)
-				if err != nil {
-					return err
-				}
-			}
-			err = sc.RecordChecksum(record.Pathname, dirEntryChecksum)
+			serialized, err := dirEntry.Serialize()
 			if err != nil {
 				return err
 			}
-			atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
-			atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
+			dirEntryChecksum = snap.repository.Checksum(serialized)
+			dirEntrySize = uint64(len(serialized))
+
+			err = snap.PutDirectory(dirEntryChecksum, serialized)
+			if err != nil {
+				return err
+			}
+
+			// Store the newly generated DirEntry in the cache for future runs
+			err = cacheInstance.RecordDirectory(scanDir, record.Pathname, dirEntry)
+			if err != nil {
+				return err
+			}
 		}
+		err = sc.RecordChecksum(record.Pathname, dirEntryChecksum)
+		if err != nil {
+			return err
+		}
+		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
+		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
 	}
 
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)

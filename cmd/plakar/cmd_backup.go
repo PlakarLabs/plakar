@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -158,8 +159,9 @@ func cmd_backup(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %x of size %s in %s",
+	logger.Info("created snapshot %x with root %s of size %s in %s",
 		snap.Header.GetIndexShortID(),
+		base64.RawStdEncoding.EncodeToString(snap.Header.Root[:]),
 		humanize.Bytes(snap.Header.ScanProcessedSize),
 		snap.Header.CreationDuration)
 	return 0

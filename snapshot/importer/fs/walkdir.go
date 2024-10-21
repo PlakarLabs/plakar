@@ -28,7 +28,7 @@ import (
 )
 
 // Worker pool to handle file scanning in parallel
-func walkDir_worker(id int, jobs <-chan string, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
+func walkDir_worker(rootDir string, id int, jobs <-chan string, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for path := range jobs {
@@ -65,18 +65,40 @@ func walkDir_worker(id int, jobs <-chan string, results chan<- importer.ScanResu
 		}
 
 		fileinfo := objects.FileInfoFromStat(info)
-		if fileinfo.IsDir() {
+
+		if fileinfo.Mode().IsDir() {
 			entries, err := os.ReadDir(path)
 			if err != nil {
 				results <- importer.ScanError{Pathname: path, Err: err}
 				continue
 			}
 			var children []objects.FileInfo
+			prefix := rootDir
+			if rootDir != "/" {
+				prefix = prefix + "/"
+			}
 			for _, child := range entries {
 				info, err := child.Info()
 				if err != nil {
 					results <- importer.ScanError{Pathname: path, Err: err}
 					continue
+				}
+
+				fullpath := filepath.Join(path, child.Name())
+				if !info.IsDir() {
+					if !strings.HasPrefix(fullpath, prefix) {
+						continue
+					}
+				} else {
+					if len(fullpath) < len(prefix) {
+						if !strings.HasPrefix(prefix, fullpath) {
+							continue
+						}
+					} else {
+						if !strings.HasPrefix(fullpath, prefix) {
+							continue
+						}
+					}
 				}
 				children = append(children, objects.FileInfoFromStat(info))
 			}
@@ -128,7 +150,7 @@ func walkDir_walker(rootDir string, numWorkers int) (<-chan importer.ScanResult,
 	// Launch worker pool
 	for w := 1; w <= numWorkers; w++ {
 		wg.Add(1)
-		go walkDir_worker(w, jobs, results, &wg)
+		go walkDir_worker(rootDir, w, jobs, results, &wg)
 	}
 
 	// Start walking the directory and sending file paths to workers

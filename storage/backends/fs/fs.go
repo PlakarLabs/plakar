@@ -73,7 +73,10 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")
-	f, err := os.Create(configPath)
+
+	tmpfile := filepath.Join(repository.PathTmp(), "CONFIG")
+
+	f, err := os.Create(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -96,7 +99,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 
 	repository.config = config
 
-	return nil
+	return os.Rename(tmpfile, configPath)
 }
 
 func (repository *Repository) Open(location string) error {
@@ -213,7 +216,9 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 }
 
 func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
-	f, err := os.Create(repository.PathPackfile(checksum))
+	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
+
+	f, err := os.Create(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -223,7 +228,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return os.Rename(tmpfile, repository.PathPackfile(checksum))
 }
 
 func (repository *Repository) Close() error {
@@ -268,7 +274,8 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 }
 
 func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
-	f, err := os.Create(repository.PathState(checksum))
+	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
+	f, err := os.Create(tmpfile)
 	if err != nil {
 		return err
 	}
@@ -278,7 +285,8 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return os.Rename(tmpfile, repository.PathState(checksum))
 }
 
 func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {

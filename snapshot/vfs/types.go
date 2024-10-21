@@ -2,6 +2,7 @@ package vfs
 
 import (
 	"os"
+	"sort"
 	"time"
 
 	"github.com/PlakarLabs/plakar/objects"
@@ -37,6 +38,16 @@ type FSEntry interface {
 	fsEntry()
 }
 
+type ExtendedAttribute struct {
+	Name  string `msgpack:"name"`
+	Value []byte `msgpack:"value"`
+}
+
+type CustomMetadata struct {
+	Key   string `msgpack:"key"`
+	Value string `msgpack:"value"`
+}
+
 // FileEntry represents the comprehensive structure for a file entry, capturing all relevant metadata
 type FileEntry struct {
 	Version            uint32              `msgpack:"version"`                      // Version number of the file entry structure for compatibility
@@ -52,11 +63,11 @@ type FileEntry struct {
 	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the file (optional)
 	Checksum           [32]byte            `msgpack:"checksum,omitempty"`           // Checksum of the file contents (SHA-256, etc.)
 	Chunks             []objects.Chunk     `msgpack:"chunks,omitempty"`             // List of chunk checksums (optional)
-	ExtendedAttributes map[string][]byte   `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
 	FileAttributes     FileAttributes      `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
 	SymlinkTarget      string              `msgpack:"symlinkTarget,omitempty"`      // Target path if the entry is a symbolic link (optional)
 	ContentType        string              `msgpack:"contentType,omitempty"`        // MIME type of the file (optional)
-	CustomMetadata     map[string]string   `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
+	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the file or directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
 }
@@ -68,6 +79,19 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 	if record.Type == importer.RecordTypeSymlink {
 		target = record.Target
 	}
+
+	ExtendedAttributes := make([]ExtendedAttribute, 0)
+	for name, value := range record.ExtendedAttributes {
+		ExtendedAttributes = append(ExtendedAttributes, ExtendedAttribute{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	sort.Slice(ExtendedAttributes, func(i, j int) bool {
+		return ExtendedAttributes[i].Name < ExtendedAttributes[j].Name
+	})
+
 	return &FileEntry{
 		Version:            VERSION,
 		Name:               record.Stat.Name(),
@@ -81,7 +105,7 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 		GroupID:            record.Stat.Gid(),
 		NumLinks:           record.Stat.Nlink(),
 		SymlinkTarget:      target,
-		ExtendedAttributes: record.ExtendedAttributes,
+		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
 	}
 }
@@ -102,9 +126,9 @@ func (f *FileEntry) AddChunk(chunk objects.Chunk) {
 	f.Chunks = append(f.Chunks, chunk)
 }
 
-func (f *FileEntry) AddExtendedAttributes(extendedAttributes map[string][]byte) {
-	f.ExtendedAttributes = extendedAttributes
-}
+//func (f *FileEntry) AddExtendedAttributes(extendedAttributes map[string][]byte) {
+//	f.ExtendedAttributes = extendedAttributes
+//}
 
 func (f *FileEntry) AddFileAttributes(fileAttributes FileAttributes) {
 	f.FileAttributes = fileAttributes
@@ -114,9 +138,9 @@ func (f *FileEntry) AddSymlinkTarget(symlinkTarget string) {
 	f.SymlinkTarget = symlinkTarget
 }
 
-func (f *FileEntry) AddCustomMetadata(customMetadata map[string]string) {
-	f.CustomMetadata = customMetadata
-}
+//func (f *FileEntry) AddCustomMetadata(customMetadata map[string]string) {
+//	f.CustomMetadata = customMetadata
+//}
 
 func (f *FileEntry) AddContentType(contentType string) {
 	f.ContentType = contentType
@@ -168,8 +192,8 @@ type DirEntry struct {
 	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
 	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the directory (optional)
 	Children           []ChildEntry        `msgpack:"children,omitempty"`           // List of child entries' serialized checksums (files and subdirectories)
-	ExtendedAttributes map[string][]byte   `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
-	CustomMetadata     map[string][]byte   `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
+	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
 }
@@ -177,6 +201,18 @@ type DirEntry struct {
 func (*DirEntry) fsEntry() {}
 
 func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry {
+	ExtendedAttributes := make([]ExtendedAttribute, 0)
+	for name, value := range record.ExtendedAttributes {
+		ExtendedAttributes = append(ExtendedAttributes, ExtendedAttribute{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	sort.Slice(ExtendedAttributes, func(i, j int) bool {
+		return ExtendedAttributes[i].Name < ExtendedAttributes[j].Name
+	})
+
 	return &DirEntry{
 		Version:            VERSION,
 		Name:               record.Stat.Name(),
@@ -189,7 +225,7 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 		UserID:             record.Stat.Uid(),
 		GroupID:            record.Stat.Gid(),
 		NumLinks:           record.Stat.Nlink(),
-		ExtendedAttributes: record.ExtendedAttributes,
+		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
 	}
 }
@@ -208,10 +244,6 @@ func (d *DirEntry) AddChild(checksum [32]byte, record importer.ScanRecord) {
 		FileInfo:           record.Stat,
 		ExtendedAttributes: record.ExtendedAttributes,
 	})
-}
-
-func (d *DirEntry) AddCustomMetadata(customMetadata map[string][]byte) {
-	d.CustomMetadata = customMetadata
 }
 
 func (d *DirEntry) AddTags(tags []string) {

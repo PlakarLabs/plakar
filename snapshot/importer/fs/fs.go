@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
@@ -113,69 +114,81 @@ func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 			c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo}
 		}
 
-		filepath.WalkDir(directory, func(path string, di fs.DirEntry, err error) error {
-			if err != nil {
-				c <- importer.ScanError{Pathname: path, Err: err}
-				return nil
-			}
+		maxConcurrency := make(chan bool, 256)
+		wg := sync.WaitGroup{}
 
-			path, err = filepath.Abs(path)
-			if err != nil {
-				c <- importer.ScanError{Pathname: path, Err: err}
-				return nil
-			}
-
-			info, err := di.Info()
-			if err != nil {
-				c <- importer.ScanError{Pathname: path, Err: err}
-				return nil
-			}
-
-			var recordType importer.RecordType
-			switch mode := info.Mode(); {
-			case mode.IsRegular():
-				recordType = importer.RecordTypeFile
-			case mode.IsDir():
-				recordType = importer.RecordTypeDirectory
-			case mode&os.ModeSymlink != 0:
-				recordType = importer.RecordTypeSymlink
-			case mode&os.ModeDevice != 0:
-				recordType = importer.RecordTypeDevice
-			case mode&os.ModeNamedPipe != 0:
-				recordType = importer.RecordTypePipe
-			case mode&os.ModeSocket != 0:
-				recordType = importer.RecordTypeSocket
-			default:
-				recordType = importer.RecordTypeFile // Default to file if type is unknown
-			}
-
-			extendedAttributes, err := getExtendedAttributes(path)
-			if err != nil {
-				c <- importer.ScanError{Pathname: path, Err: err}
-			}
-
-			fileinfo := objects.FileInfoFromStat(info)
-			c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, ExtendedAttributes: extendedAttributes}
-
-			if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
-				lstat, err := os.Lstat(path)
+		filepath.WalkDir(directory, func(_path string, _di fs.DirEntry, _err error) error {
+			maxConcurrency <- true
+			wg.Add(1)
+			go func(path string, di fs.DirEntry, err error) {
+				defer func() {
+					<-maxConcurrency
+					wg.Done()
+				}()
 				if err != nil {
 					c <- importer.ScanError{Pathname: path, Err: err}
-					return nil
+					return
 				}
 
-				lfileinfo := objects.FileInfoFromStat(lstat)
-				if lfileinfo.Mode()&os.ModeSymlink != 0 {
-					originFile, err := os.Readlink(path)
+				path, err = filepath.Abs(path)
+				if err != nil {
+					c <- importer.ScanError{Pathname: path, Err: err}
+					return
+				}
+
+				info, err := di.Info()
+				if err != nil {
+					c <- importer.ScanError{Pathname: path, Err: err}
+					return
+				}
+
+				var recordType importer.RecordType
+				switch mode := info.Mode(); {
+				case mode.IsRegular():
+					recordType = importer.RecordTypeFile
+				case mode.IsDir():
+					recordType = importer.RecordTypeDirectory
+				case mode&os.ModeSymlink != 0:
+					recordType = importer.RecordTypeSymlink
+				case mode&os.ModeDevice != 0:
+					recordType = importer.RecordTypeDevice
+				case mode&os.ModeNamedPipe != 0:
+					recordType = importer.RecordTypePipe
+				case mode&os.ModeSocket != 0:
+					recordType = importer.RecordTypeSocket
+				default:
+					recordType = importer.RecordTypeFile // Default to file if type is unknown
+				}
+
+				extendedAttributes, err := getExtendedAttributes(path)
+				if err != nil {
+					c <- importer.ScanError{Pathname: path, Err: err}
+				}
+
+				fileinfo := objects.FileInfoFromStat(info)
+				c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, ExtendedAttributes: extendedAttributes}
+
+				if !fileinfo.Mode().IsDir() && !fileinfo.Mode().IsRegular() {
+					lstat, err := os.Lstat(path)
 					if err != nil {
 						c <- importer.ScanError{Pathname: path, Err: err}
-						return nil
+						return
 					}
-					c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: lfileinfo, ExtendedAttributes: extendedAttributes}
+
+					lfileinfo := objects.FileInfoFromStat(lstat)
+					if lfileinfo.Mode()&os.ModeSymlink != 0 {
+						originFile, err := os.Readlink(path)
+						if err != nil {
+							c <- importer.ScanError{Pathname: path, Err: err}
+							return
+						}
+						c <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: lfileinfo, ExtendedAttributes: extendedAttributes}
+					}
 				}
-			}
+			}(_path, _di, _err)
 			return nil
 		})
+		wg.Wait()
 		close(c)
 	}()
 	return c, nil

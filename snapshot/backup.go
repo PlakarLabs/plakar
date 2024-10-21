@@ -295,66 +295,34 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
-
-	cacheDir := filepath.Join(snap.repository.Location(), "cache", "fs")
-	cacheInstance, err := cache.New(cacheDir)
-	if err != nil {
-		return err
-	}
-	defer cacheInstance.Close()
-
-	sc, err := newScanCache()
-	if err != nil {
-		return err
-	}
-	defer sc.Close()
-
+func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, func(), error) {
 	imp, err := importer.NewImporter(scanDir)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	defer imp.Close()
-
-	//t0 := time.Now()
 
 	scanner, err := imp.Scan()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-
-	if !strings.Contains(scanDir, "://") {
-		scanDir, err = filepath.Abs(scanDir)
-		if err != nil {
-			logger.Warn("%s", err)
-			return err
-		}
-	} else {
-		scanDir = imp.Root()
-	}
-	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
-
-	maxConcurrency := make(chan bool, options.MaxConcurrency)
-
-	/* importer */
-	snap.statistics.ImporterStart = time.Now()
 
 	mu := sync.Mutex{}
-
-	importerWg := sync.WaitGroup{}
+	wg := sync.WaitGroup{}
 	filesChannel := make(chan importer.ScanRecord, 1000)
+
 	go func() {
+		snap.statistics.ImporterStart = time.Now()
 		for _record := range scanner {
 			if snap.skipExcludedPathname(options, _record) {
 				continue
 			}
 
 			maxConcurrency <- true
-			importerWg.Add(1)
+			wg.Add(1)
 			go func(record importer.ScanResult) {
 				defer func() {
 					<-maxConcurrency
-					importerWg.Done()
+					wg.Done()
 				}()
 				snap.updateImporterStatistics(record)
 
@@ -384,10 +352,56 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 			}(_record)
 		}
-		importerWg.Wait()
+		wg.Wait()
 		close(filesChannel)
 		snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
 	}()
+
+	return filesChannel, func() { imp.Close() }, nil
+}
+
+func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
+
+	cacheDir := filepath.Join(snap.repository.Location(), "cache", "fs")
+	cacheInstance, err := cache.New(cacheDir)
+	if err != nil {
+		return err
+	}
+	defer cacheInstance.Close()
+
+	sc, err := newScanCache()
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	imp, err := importer.NewImporter(scanDir)
+	if err != nil {
+		return err
+	}
+	defer imp.Close()
+
+	//t0 := time.Now()
+
+	if !strings.Contains(scanDir, "://") {
+		scanDir, err = filepath.Abs(scanDir)
+		if err != nil {
+			logger.Warn("%s", err)
+			return err
+		}
+	} else {
+		scanDir = imp.Root()
+	}
+	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
+
+	maxConcurrency := make(chan bool, options.MaxConcurrency)
+
+	/* importer */
+	filesChannel, closeImporter, err := snap.importerJob(sc, scanDir, options, maxConcurrency)
+	if err != nil {
+		return err
+	}
+	defer closeImporter()
 
 	/* scanner */
 	scannerWg := sync.WaitGroup{}

@@ -389,8 +389,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	} else {
 		for _record := range filenames {
-			var fileEntry *vfs.FileEntry
-			var object *objects.Object
 
 			maxConcurrency <- true
 			wg.Add(1)
@@ -399,8 +397,12 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					<-maxConcurrency
 					wg.Done()
 				}()
+
+				var fileEntry *vfs.FileEntry
+				var object *objects.Object
+
 				// Check if the file entry and underlying objects are already in the cache
-				cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename("localhost", record.Pathname)
+				cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
 				if err == nil && cachedFileEntry != nil {
 					if cachedFileEntry.ModTime.Equal(record.Stat.ModTime()) && cachedFileEntry.Size == record.Stat.Size() {
 						fileEntry = cachedFileEntry
@@ -410,6 +412,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 						}
 					}
 				}
+
+				//object = nil
 
 				// Chunkify the file if it is a regular file and we don't have a cached object
 				if record.Stat.Mode().IsRegular() {
@@ -433,7 +437,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					fileEntryChecksum = cachedFileEntryChecksum
 					fileEntrySize = cachedFileEntrySize
 				} else {
-					fmt.Println("recording filename", record.Pathname)
 					fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 					if object != nil {
 						for _, chunk := range object.Chunks {
@@ -461,7 +464,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					}
 
 					// Store the newly generated FileEntry in the cache for future runs
-					err = cacheInstance.RecordFilename("localhost", record.Pathname, fileEntry)
+					err = cacheInstance.RecordFilename(scanDir, record.Pathname, fileEntry)
 					if err != nil {
 						return
 						//						return err
@@ -480,7 +483,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				// if object does not exist in repository, store it
 				if object != nil {
 					if !snap.CheckObject(object.Checksum) {
-						data, err := msgpack.Marshal(object)
+						data, err := object.Serialize()
 						if err != nil {
 							//return err
 							return
@@ -512,12 +515,14 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			var dirEntry *vfs.DirEntry
 
 			// Check if the file entry and underlying objects are already in the cache
-			cachedDirEntry, cachedDirEntryChecksum, cachedDirEntrySize, err := cacheInstance.LookupDirectory("localhost", record.Pathname)
+			cachedDirEntry, cachedDirEntryChecksum, cachedDirEntrySize, err := cacheInstance.LookupDirectory(scanDir, record.Pathname)
 			if err == nil && cachedDirEntry != nil {
 				if cachedDirEntry.ModTime.Equal(record.Stat.ModTime()) && cachedDirEntry.Size == record.Stat.Size() {
 					dirEntry = cachedDirEntry
 				}
 			}
+
+			//dirEntry = nil
 
 			var dirEntryChecksum [32]byte
 			var dirEntrySize uint64
@@ -550,7 +555,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				//fmt.Println("recording directory", record.Pathname, dirEntryChecksum)
 
 				// Store the newly generated DirEntry in the cache for future runs
-				err = cacheInstance.RecordDirectory("localhost", record.Pathname, dirEntry)
+				err = cacheInstance.RecordDirectory(scanDir, record.Pathname, dirEntry)
 				if err != nil {
 					return err
 				}
@@ -563,6 +568,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
 		}
 	}
+
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)
 
 	// preparing commit

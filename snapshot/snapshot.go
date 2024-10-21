@@ -204,7 +204,7 @@ func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	snapshot.repository = repo
 	snapshot.Header = hdr
 
-	logger.Trace("snapshot", "%s: Load()", snapshot.Header.GetIndexShortID())
+	logger.Trace("snapshot", "%x: Load()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
 }
 

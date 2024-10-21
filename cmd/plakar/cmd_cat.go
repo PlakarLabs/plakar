@@ -56,7 +56,7 @@ func cmd_cat(ctx Plakar, repo *repository.Repository, args []string) int {
 
 		rd, err := snap.NewReader(pathname)
 		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			logger.Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}

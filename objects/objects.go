@@ -66,17 +66,22 @@ func (f *File) Serialize() ([]byte, error) {
 	return serialized, nil
 }
 
+type CustomMetadata struct {
+	Key   string
+	Value []byte
+}
+
 type Object struct {
 	Checksum       [32]byte
 	Chunks         []Chunk
 	ContentType    string
-	CustomMetadata map[string]string
+	CustomMetadata []CustomMetadata
 	Tags           []string
 }
 
 func NewObject() *Object {
 	return &Object{
-		CustomMetadata: make(map[string]string),
+		CustomMetadata: make([]CustomMetadata, 0),
 	}
 }
 

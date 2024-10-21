@@ -45,7 +45,7 @@ type ExtendedAttribute struct {
 
 type CustomMetadata struct {
 	Key   string `msgpack:"key"`
-	Value string `msgpack:"value"`
+	Value []byte `msgpack:"value"`
 }
 
 // FileEntry represents the comprehensive structure for a file entry, capturing all relevant metadata

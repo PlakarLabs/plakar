@@ -147,22 +147,14 @@ func (c *Cache) LookupObject(checksum [32]byte) (*objects.Object, error) {
 		}
 		return nil, err
 	}
-
-	var object objects.Object
-	err = msgpack.Unmarshal(data, &object)
-	if err != nil {
-		return nil, err
-	}
-
-	return &object, nil
+	return objects.NewObjectFromBytes(data)
 }
 
 func (c *Cache) RecordObject(object *objects.Object) error {
 
 	key := []byte(fmt.Sprintf("__object__:%x", object.Checksum))
 
-	// Serialize the FileInfo to JSON
-	data, err := msgpack.Marshal(object)
+	data, err := object.Serialize()
 	if err != nil {
 		return err
 	}

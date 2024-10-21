@@ -121,7 +121,7 @@ func list_snapshot(repo *repository.Repository, args []string) {
 		content := make([]string, 0)
 		children := make(map[string]*objects.FileInfo)
 
-		if finfo.(*vfs.DirEntry) != nil {
+		if _, isDir := finfo.(*vfs.DirEntry); isDir {
 			entries := make([]string, 0)
 			iter, err := pvfs.Children(prefix)
 			if err != nil {

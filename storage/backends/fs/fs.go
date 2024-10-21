@@ -73,7 +73,6 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	}
 
 	configPath := filepath.Join(repository.root, "CONFIG")
-
 	tmpfile := filepath.Join(repository.PathTmp(), "CONFIG")
 
 	f, err := os.Create(tmpfile)

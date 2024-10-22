@@ -430,8 +430,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 			}
 
-			//object = nil
-
 			// Chunkify the file if it is a regular file and we don't have a cached object
 			if record.Stat.Mode().IsRegular() {
 				if object == nil || !snap.CheckObject(object.Checksum) {
@@ -446,6 +444,24 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 						return
 					}
 				}
+			}
+
+			if object != nil {
+				if !snap.CheckObject(object.Checksum) {
+					data, err := object.Serialize()
+					if err != nil {
+						//return err
+						return
+					}
+					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
+					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
+					err = snap.PutObject(object.Checksum, data)
+					if err != nil {
+						//return err
+						return
+					}
+				}
+				snap.Metadata.AddMetadata(object.ContentType, object.Checksum) // XXX
 			}
 
 			var fileEntryChecksum [32]byte
@@ -497,24 +513,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				return
 			}
 
-			// if object does not exist in repository, store it
-			if object != nil {
-				if !snap.CheckObject(object.Checksum) {
-					data, err := object.Serialize()
-					if err != nil {
-						//return err
-						return
-					}
-					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
-					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
-					err = snap.PutObject(object.Checksum, data)
-					if err != nil {
-						//return err
-						return
-					}
-				}
-				snap.Metadata.AddMetadata(object.ContentType, object.Checksum) // XXX
-			}
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
 		}(_record)
 	}
@@ -661,14 +659,16 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 	object.ContentType = mime.TypeByExtension(filepath.Ext(record.Pathname))
 
 	objectHasher := snap.repository.Hasher()
-	chunkHasher := snap.repository.Hasher()
 
 	var firstChunk = true
 	var cdcOffset uint64
-	var t32 [32]byte
+	var object_t32 [32]byte
 
 	// Helper function to process a chunk
 	processChunk := func(data []byte) error {
+		var chunk_t32 [32]byte
+		chunkHasher := snap.repository.Hasher()
+
 		atomic.AddUint64(&snap.statistics.ChunkerChunks, 1)
 		if firstChunk {
 			if object.ContentType == "" {
@@ -680,9 +680,9 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 
 		chunkHasher.Reset()
 		chunkHasher.Write(data)
-		copy(t32[:], chunkHasher.Sum(nil))
+		copy(chunk_t32[:], chunkHasher.Sum(nil))
 
-		chunk := objects.Chunk{Checksum: t32, Length: uint32(len(data))}
+		chunk := objects.Chunk{Checksum: chunk_t32, Length: uint32(len(data))}
 		object.Chunks = append(object.Chunks, chunk)
 		cdcOffset += uint64(len(data))
 
@@ -728,7 +728,7 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 	atomic.AddUint64(&snap.statistics.ChunkerObjects, 1)
 	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.Stat.Size()))
 
-	copy(t32[:], objectHasher.Sum(nil))
-	object.Checksum = t32
+	copy(object_t32[:], objectHasher.Sum(nil))
+	object.Checksum = object_t32
 	return object, nil
 }

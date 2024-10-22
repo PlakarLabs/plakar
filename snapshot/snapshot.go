@@ -453,8 +453,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	atomic.AddUint64(&snap.statistics.PackfilesTransferSize, uint64(len(serializedPackfile)))
 
 	for _, chunkChecksum := range chunks {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == chunkChecksum {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == chunkChecksum && blob.Type == packfile.TYPE_CHUNK {
 				snap.Repository().State().SetPackfileForChunk(checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
@@ -469,8 +469,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	}
 
 	for _, objectChecksum := range objects {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == objectChecksum {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == objectChecksum && blob.Type == packfile.TYPE_OBJECT {
 				snap.Repository().State().SetPackfileForObject(checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
@@ -485,8 +485,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	}
 
 	for _, fileChecksum := range files {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == fileChecksum {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == fileChecksum && blob.Type == packfile.TYPE_FILE {
 				snap.Repository().State().SetPackfileForFile(checksum32,
 					fileChecksum,
 					pack.Index[idx].Offset,
@@ -501,8 +501,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	}
 
 	for _, directoryChecksum := range directories {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == directoryChecksum {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == directoryChecksum && blob.Type == packfile.TYPE_DIRECTORY {
 				snap.Repository().State().SetPackfileForDirectory(checksum32,
 					directoryChecksum,
 					pack.Index[idx].Offset,
@@ -517,8 +517,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	}
 
 	for _, dataChecksum := range datas {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == dataChecksum {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DIRECTORY {
 				snap.Repository().State().SetPackfileForData(checksum32,
 					dataChecksum,
 					pack.Index[idx].Offset,
@@ -533,8 +533,8 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	}
 
 	for _, snapshotID := range snapshots {
-		for idx, chunk := range pack.Index {
-			if chunk.Checksum == snapshotID {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == snapshotID && blob.Type == packfile.TYPE_SNAPSHOT {
 				snap.Repository().State().SetPackfileForSnapshot(checksum32,
 					snapshotID,
 					pack.Index[idx].Offset,
@@ -555,7 +555,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	defer func() {
 		profiler.RecordEvent("snapshot.GetChunk", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%s: GetChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+	logger.Trace("snapshot", "%x: GetChunk(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
 	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForChunk(checksum)
 	if !exists {

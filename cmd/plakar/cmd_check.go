@@ -36,6 +36,38 @@ func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
 	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.Parse(args)
 
+	failures := false
+	for _, arg := range flags.Args() {
+		snapshotPrefix, pathname := parseSnapshotID(arg)
+
+		snap, err := openSnapshotByPrefix(repo, snapshotPrefix)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if ok, err := check_snapshot(snap, pathname, enableFastCheck); err != nil {
+			logger.Warn("%s", err)
+		} else if !ok {
+			failures = true
+		}
+	}
+
+	if failures {
+		return 1
+	}
+	return 0
+}
+
+func check_snapshot(snap *snapshot.Snapshot, pattern string, enableFastCheck bool) (bool, error) {
+	return snap.Check(pattern, enableFastCheck)
+}
+
+func cmd_check2(ctx Plakar, repo *repository.Repository, args []string) int {
+	var enableFastCheck bool
+
+	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
+	flags.Parse(args)
+
 	var snapshots []*snapshot.Snapshot
 	var err error
 	failures := false

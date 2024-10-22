@@ -136,6 +136,7 @@ func diff_pathnames(snap1 *snapshot.Snapshot, pathname1 string, snap2 *snapshot.
 	if isFile1 && isFile2 {
 		return diff_files(snap1, fileEntry1, snap2, fileEntry2)
 	}
+
 	return "", fmt.Errorf("not implemented yet")
 }
 

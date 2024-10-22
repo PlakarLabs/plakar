@@ -90,10 +90,14 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 
 		info := fsinfo.(*vfs.FileEntry)
 		object, err := snap.LookupObject(info.Checksum)
+		if err != nil {
+			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
 
-		if enableFastChecksum {
-			fmt.Printf("%064x %s\n", object.Checksum, pathname)
-		} else {
+		checksum := object.Checksum
+		if !enableFastChecksum {
 			rd, err := snap.NewReader(pathname)
 			if err != nil {
 				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
@@ -107,8 +111,8 @@ func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
 				errors++
 				continue
 			}
-			fmt.Printf("%064x %s\n", hasher.Sum(nil), pathname)
 		}
+		fmt.Printf("SHA256 (%s) = %x\n", pathname, checksum)
 	}
 
 	return 0

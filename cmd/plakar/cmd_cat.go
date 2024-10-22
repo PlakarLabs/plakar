@@ -17,12 +17,16 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"io"
 	"os"
 
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 )
 
 func init() {
@@ -30,7 +34,9 @@ func init() {
 }
 
 func cmd_cat(ctx Plakar, repo *repository.Repository, args []string) int {
+	var opt_highlight bool
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
+	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -63,7 +69,53 @@ func cmd_cat(ctx Plakar, repo *repository.Repository, args []string) int {
 
 		var outRd io.ReadCloser = rd
 
-		_, err = io.Copy(os.Stdout, outRd)
+		if opt_highlight {
+			lexer := lexers.Match(pathname)
+			if lexer == nil {
+				lexer = lexers.Get(rd.GetContentType())
+			}
+			if lexer == nil {
+				lexer = lexers.Fallback // Fallback if no lexer is found
+			}
+			formatter := formatters.Get("terminal")
+			style := styles.Get("dracula")
+
+			reader := bufio.NewReader(rd)
+			buffer := make([]byte, 4096) // Fixed-size buffer for chunked reading
+			for {
+				n, err := reader.Read(buffer) // Read up to the size of the buffer
+				if n > 0 {
+					chunk := string(buffer[:n])
+
+					// Tokenize the chunk and apply syntax highlighting
+					iterator, errTokenize := lexer.Tokenise(nil, chunk)
+					if errTokenize != nil {
+						logger.Error("%s: %s: %s", flags.Name(), pathname, errTokenize)
+						errors++
+						break
+					}
+
+					errFormat := formatter.Format(os.Stdout, style, iterator)
+					if errFormat != nil {
+						logger.Error("%s: %s: %s", flags.Name(), pathname, errFormat)
+						errors++
+						break
+					}
+				}
+
+				// Check for end of file (EOF)
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					errors++
+					break
+				}
+			}
+
+		} else {
+			_, err = io.Copy(os.Stdout, outRd)
+		}
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

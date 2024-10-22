@@ -18,6 +18,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/pierrec/lz4/v4 v4.1.18
 	github.com/pkg/xattr v0.4.10
+	github.com/pmezard/go-difflib v1.0.0
 	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5

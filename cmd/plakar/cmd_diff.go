@@ -16,26 +16,182 @@
 
 package main
 
-/*
+import (
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+
+	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
+	"github.com/alecthomas/chroma/quick"
+	"github.com/pmezard/go-difflib/difflib"
+)
+
 func init() {
 	registerCommand("diff", cmd_diff)
 }
 
 func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
+	var opt_highlight bool
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
+	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")
 	flags.Parse(args)
 
-
-	if flags.NArg() < 2 {
-		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to cat", flag.CommandLine.Name())
+	if flags.NArg() != 2 {
+		fmt.Println("args", flags.Args())
+		log.Fatalf("%s: needs two snapshot ID and/or snapshot files to diff", flag.CommandLine.Name())
 	}
 
-	snapshots, err := getSnapshotsList(repo)
+	snapshotPrefix1, pathname1 := parseSnapshotID(flags.Arg(0))
+	snapshotPrefix2, pathname2 := parseSnapshotID(flags.Arg(1))
+
+	snap1, err := openSnapshotByPrefix(repo, snapshotPrefix1)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%s: could not open snapshot: %s", flag.CommandLine.Name(), snapshotPrefix1)
 	}
-	//checkSnapshotsArgs(snapshots)
 
+	snap2, err := openSnapshotByPrefix(repo, snapshotPrefix2)
+	if err != nil {
+		log.Fatalf("%s: could not open snapshot: %s", flag.CommandLine.Name(), snapshotPrefix2)
+	}
+
+	var diff string
+	if pathname1 == "" && pathname2 == "" {
+		diff, err = diff_filesystems(snap1, snap2)
+		if err != nil {
+			log.Fatalf("%s: could not diff snapshots: %s", flag.CommandLine.Name(), err)
+		}
+	} else {
+		if pathname1 == "" {
+			pathname1 = pathname2
+		}
+		if pathname2 == "" {
+			pathname2 = pathname1
+		}
+		diff, err = diff_pathnames(snap1, pathname1, snap2, pathname2)
+		if err != nil {
+			log.Fatalf("%s: could not diff pathnames: %s", flag.CommandLine.Name(), err)
+		}
+	}
+
+	if opt_highlight {
+		err = quick.Highlight(os.Stdout, diff, "diff", "terminal", "dracula")
+		if err != nil {
+			log.Fatalf("%s: could not highlight diff: %s", flag.CommandLine.Name(), err)
+		}
+	} else {
+		fmt.Printf("%s", diff)
+	}
+	return 0
+}
+
+func diff_filesystems(snap1 *snapshot.Snapshot, snap2 *snapshot.Snapshot) (string, error) {
+	vfs1, err := snap1.Filesystem()
+	if err != nil {
+		return "", err
+	}
+
+	vfs2, err := snap2.Filesystem()
+	if err != nil {
+		return "", err
+	}
+
+	stat1, err1 := vfs1.Stat("/")
+	stat2, err2 := vfs2.Stat("/")
+	if err1 != nil && err2 != nil {
+		return "", fmt.Errorf("root not found in both snapshots")
+	}
+	return diff_directories(stat1.(*vfs.DirEntry), stat2.(*vfs.DirEntry))
+}
+
+func diff_pathnames(snap1 *snapshot.Snapshot, pathname1 string, snap2 *snapshot.Snapshot, pathname2 string) (string, error) {
+	vfs1, err := snap1.Filesystem()
+	if err != nil {
+		return "", err
+	}
+
+	vfs2, err := snap2.Filesystem()
+	if err != nil {
+		return "", err
+	}
+
+	stat1, err1 := vfs1.Stat(pathname1)
+	stat2, err2 := vfs2.Stat(pathname2)
+	if err1 != nil && err2 != nil {
+		return "", fmt.Errorf("file not found in both snapshots")
+	}
+
+	dirEntry1, isDir1 := stat1.(*vfs.DirEntry)
+	dirEntry2, isDir2 := stat2.(*vfs.DirEntry)
+	if isDir1 && isDir2 {
+		return diff_directories(dirEntry1, dirEntry2)
+	}
+
+	fileEntry1, isFile1 := stat1.(*vfs.FileEntry)
+	fileEntry2, isFile2 := stat2.(*vfs.FileEntry)
+	if isFile1 && isFile2 {
+		return diff_files(snap1, fileEntry1, snap2, fileEntry2)
+	}
+	return "", fmt.Errorf("not implemented yet")
+}
+
+func diff_directories(dirEntry1 *vfs.DirEntry, dirEntry2 *vfs.DirEntry) (string, error) {
+	_ = dirEntry1
+	_ = dirEntry2
+	return "", fmt.Errorf("not implemented yet")
+}
+
+func diff_files(snap1 *snapshot.Snapshot, fileEntry1 *vfs.FileEntry, snap2 *snapshot.Snapshot, fileEntry2 *vfs.FileEntry) (string, error) {
+	_ = fileEntry1
+	_ = fileEntry2
+
+	if fileEntry1.Checksum == fileEntry2.Checksum {
+		fmt.Printf("%s:%s and %s:%s are identical\n",
+			fmt.Sprintf("%x", snap1.Header.GetIndexShortID()), filepath.Join(fileEntry1.ParentPath, fileEntry1.Name),
+			fmt.Sprintf("%x", snap2.Header.GetIndexShortID()), filepath.Join(fileEntry2.ParentPath, fileEntry2.Name))
+		return "", nil
+	}
+
+	filename1 := filepath.Join(fileEntry1.ParentPath, fileEntry1.Name)
+	filename2 := filepath.Join(fileEntry2.ParentPath, fileEntry2.Name)
+
+	buf1 := make([]byte, 0)
+	rd1, err := snap1.NewReader(filename1)
+	if err == nil {
+		buf1, err = io.ReadAll(rd1)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	buf2 := make([]byte, 0)
+	rd2, err := snap2.NewReader(filename2)
+	if err == nil {
+		buf2, err = io.ReadAll(rd2)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	diff := difflib.UnifiedDiff{
+		A:        difflib.SplitLines(string(buf1)),
+		B:        difflib.SplitLines(string(buf2)),
+		FromFile: fmt.Sprintf("%x", snap1.Header.GetIndexShortID()) + ":" + filename1,
+		ToFile:   fmt.Sprintf("%x", snap2.Header.GetIndexShortID()) + ":" + filename2,
+		Context:  3,
+	}
+	text, err := difflib.GetUnifiedDiffString(diff)
+	if err != nil {
+		return "", err
+	}
+	return text, nil
+}
+
+/*
 	if len(flags.Args()) == 2 {
 		// check if snapshot id's both reference a file
 		// if not, stat diff of snapshots, else diff files
@@ -55,7 +211,7 @@ func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res1[0])
 			}
-			fs1, err := vfs2.NewFilesystem(repo, snapshot1.Header.Root)
+			fs1, err := vfs.NewFilesystem(repo, snapshot1.Header.Root)
 			if err != nil {
 				log.Fatalf("%s: could not create filesystem: %s", flag.CommandLine.Name(), err)
 			}
@@ -64,7 +220,7 @@ func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 			if err != nil {
 				log.Fatalf("%s: could not open snapshot %s", flag.CommandLine.Name(), res2[0])
 			}
-			fs2, err := vfs2.NewFilesystem(repo, snapshot2.Header.Root)
+			fs2, err := vfs.NewFilesystem(repo, snapshot2.Header.Root)
 			if err != nil {
 				log.Fatalf("%s: could not create filesystem: %s", flag.CommandLine.Name(), err)
 			}
@@ -72,8 +228,9 @@ func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
 			for dir1 := range fs1.Directories() {
 				fi1, _ := fs1.Stat(dir1)
 				fi2, err := fs2.Stat(dir1)
+
 				if err != nil {
-					fmt.Println("- ", fiToDiff(*fi1), dir1)
+					fmt.Println("- ", fiToDiff(*fi1.Stat), dir1)
 					continue
 				}
 				if *fi1 != *fi2 {

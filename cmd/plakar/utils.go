@@ -67,6 +67,35 @@ func findSnapshotByPrefix(snapshots [][32]byte, prefix string) [][32]byte {
 	return ret
 }
 
+func lookupSnapshotByPrefix(repo *repository.Repository, prefix string) [][32]byte {
+	ret := make([][32]byte, 0)
+	for snapshotID := range repo.State().ListSnapshots() {
+		if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), prefix) {
+			ret = append(ret, snapshotID)
+		}
+	}
+	return ret
+}
+
+func locateSnapshotByPrefix(repo *repository.Repository, prefix string) ([32]byte, error) {
+	snapshots := lookupSnapshotByPrefix(repo, prefix)
+	if len(snapshots) == 0 {
+		return [32]byte{}, fmt.Errorf("no snapshot has prefix: %s", prefix)
+	}
+	if len(snapshots) > 1 {
+		return [32]byte{}, fmt.Errorf("snapshot ID is ambiguous: %s (matches %d snapshots)", prefix, len(snapshots))
+	}
+	return snapshots[0], nil
+}
+
+func openSnapshotByPrefix(repo *repository.Repository, prefix string) (*snapshot.Snapshot, error) {
+	snapshotID, err := locateSnapshotByPrefix(repo, prefix)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Load(repo, snapshotID)
+}
+
 func getSnapshotsList(repo *repository.Repository) ([][32]byte, error) {
 	snapshots, err := repo.GetSnapshots()
 	if err != nil {

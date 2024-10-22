@@ -40,18 +40,16 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 		return 1
 	}
 
-	sourceRepository := repo
-	repositoryConfig := sourceRepository.Configuration()
-
-	cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)
+	sourceStore := repo.Store()
+	cloneStore, err := storage.Create(flags.Arg(1), sourceStore.Configuration())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", flags.Arg(1), err)
 		return 1
 	}
 
-	packfileChecksums, err := sourceRepository.GetPackfiles()
+	packfileChecksums, err := sourceStore.GetPackfiles()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location(), err)
+		fmt.Fprintf(os.Stderr, "%s: could not get packfiles list from repository: %s\n", sourceStore.Location, err)
 		return 1
 	}
 
@@ -61,24 +59,24 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 		go func(packfileChecksum [32]byte) {
 			defer wg.Done()
 
-			data, err := sourceRepository.GetPackfile(packfileChecksum)
+			data, err := sourceStore.GetPackfile(packfileChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceRepository.Location(), err)
+				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceStore.Location, err)
 				return
 			}
 
-			err = cloneRepository.PutPackfile(packfileChecksum, data)
+			err = cloneStore.PutPackfile(packfileChecksum, data)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneStore.Location, err)
 				return
 			}
 		}(_packfileChecksum)
 	}
 	wg.Wait()
 
-	indexesChecksums, err := sourceRepository.GetStates()
+	indexesChecksums, err := sourceStore.GetStates()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location(), err)
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceStore.Location, err)
 		return 1
 	}
 
@@ -88,15 +86,15 @@ func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
 		go func(indexChecksum [32]byte) {
 			defer wg.Done()
 
-			data, err := sourceRepository.GetState(indexChecksum)
+			data, err := sourceStore.GetState(indexChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location(), err)
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceStore.Location, err)
 				return
 			}
 
-			err = cloneRepository.PutState(indexChecksum, data)
+			err = cloneStore.PutState(indexChecksum, data)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneStore.Location, err)
 				return
 			}
 		}(_indexChecksum)

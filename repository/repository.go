@@ -146,6 +146,10 @@ func (r *Repository) rebuildState() error {
 	return nil
 }
 
+func (r *Repository) Store() *storage.Store {
+	return r.store
+}
+
 func (r *Repository) Events() *events.EventsReceiver {
 	return r.events
 }

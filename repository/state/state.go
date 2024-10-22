@@ -500,15 +500,16 @@ func (st *State) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [3
 	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
 
 	st.muChunks.Lock()
-	defer st.muChunks.Unlock()
-
 	if _, exists := st.Chunks[chunkID]; !exists {
 		st.Chunks[chunkID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muChunks.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muChunks.Unlock()
 	}
 }
 
@@ -517,15 +518,16 @@ func (st *State) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum 
 	objectID := st.getOrCreateIdForChecksum(objectChecksum)
 
 	st.muObjects.Lock()
-	defer st.muObjects.Unlock()
-
 	if _, exists := st.Objects[objectID]; !exists {
 		st.Objects[objectID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muObjects.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muObjects.Unlock()
 	}
 }
 
@@ -534,15 +536,16 @@ func (st *State) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum [32]
 	fileID := st.getOrCreateIdForChecksum(fileChecksum)
 
 	st.muFiles.Lock()
-	defer st.muFiles.Unlock()
-
 	if _, exists := st.Files[fileID]; !exists {
 		st.Files[fileID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muFiles.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muFiles.Unlock()
 	}
 }
 
@@ -551,15 +554,16 @@ func (st *State) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChe
 	directoryID := st.getOrCreateIdForChecksum(directoryChecksum)
 
 	st.muDirectories.Lock()
-	defer st.muDirectories.Unlock()
-
 	if _, exists := st.Directories[directoryID]; !exists {
 		st.Directories[directoryID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muDirectories.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muDirectories.Unlock()
 	}
 }
 
@@ -568,15 +572,16 @@ func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	st.muDatas.Lock()
-	defer st.muDatas.Unlock()
-
 	if _, exists := st.Datas[blobID]; !exists {
 		st.Datas[blobID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muDatas.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muDatas.Unlock()
 	}
 }
 
@@ -585,15 +590,16 @@ func (st *State) SetPackfileForSnapshot(packfileChecksum [32]byte, blobChecksum 
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	st.muSnapshots.Lock()
-	defer st.muSnapshots.Unlock()
-
 	if _, exists := st.Snapshots[blobID]; !exists {
 		st.Snapshots[blobID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
+		st.muSnapshots.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muSnapshots.Unlock()
 	}
 }
 
@@ -601,12 +607,13 @@ func (st *State) DeleteSnapshot(snapshotChecksum [32]byte) error {
 	snapshotID := st.getOrCreateIdForChecksum(snapshotChecksum)
 
 	st.muSnapshots.Lock()
+	defer st.muSnapshots.Unlock()
 	_, exists := st.Snapshots[snapshotID]
-	st.muSnapshots.Unlock()
 
 	if !exists {
 		return fmt.Errorf("snapshot not found")
 	}
+
 	delete(st.Snapshots, snapshotID)
 
 	st.muDeletedSnapshots.Lock()

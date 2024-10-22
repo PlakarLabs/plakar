@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"fmt"
 	"hash"
 	"io"
@@ -106,7 +107,7 @@ func (r *Repository) rebuildState() error {
 
 		// synchronize local state with unknown remote states
 		for _, stateID := range missingStates {
-			remoteState, err := r.GetState(stateID)
+			remoteState, _, err := r.GetState(stateID)
 			if err != nil {
 				return err
 			}
@@ -128,7 +129,7 @@ func (r *Repository) rebuildState() error {
 	aggregateState := state.New()
 
 	for stateID := range localStates {
-		idx, err := r.GetState(stateID)
+		idx, _, err := r.GetState(stateID)
 		if err != nil {
 			return err
 		}
@@ -290,7 +291,17 @@ func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 		return nil, fmt.Errorf("snapshot not found")
 	}
 
-	return r.GetPackfileBlob(packfile, offset, length)
+	blob, _, err := r.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(blob)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
@@ -311,7 +322,7 @@ func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	}
 
 	checksum := r.Checksum(buffer)
-	if _, err := r.PutState(checksum, buffer); err != nil {
+	if _, err := r.PutState(checksum, bytes.NewBuffer(buffer), int64(len(buffer))); err != nil {
 		return err
 	}
 	return nil
@@ -327,7 +338,7 @@ func (r *Repository) GetStates() ([][32]byte, error) {
 	return r.store.GetStates()
 }
 
-func (r *Repository) GetState(checksum [32]byte) ([]byte, error) {
+func (r *Repository) GetState(checksum [32]byte) ([]byte, int64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetState", time.Since(t0))
@@ -337,31 +348,46 @@ func (r *Repository) GetState(checksum [32]byte) ([]byte, error) {
 	if r.cache != nil {
 		buffer, err := r.cache.Get(checksum)
 		if err == nil {
-			return buffer, nil
+			return buffer, 0, nil
 		}
 	}
 
-	buffer, err := r.store.GetState(checksum)
+	rd, _, err := r.store.GetState(checksum)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return r.Decode(buffer)
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	data, err := r.Decode(buffer)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return data, int64(len(data)), err
 }
 
-func (r *Repository) PutState(checksum [32]byte, data []byte) (int, error) {
+func (r *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutState", time.Since(t0))
 		logger.Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return 0, err
+	}
+
 	encoded, err := r.Encode(data)
 	if err != nil {
 		return 0, err
 	}
 
-	ret := r.store.PutState(checksum, encoded)
+	ret := r.store.PutState(checksum, bytes.NewReader(encoded), int64(len(encoded)))
 
 	if ret == nil && r.cache != nil {
 		r.cache.Put(checksum, data)
@@ -390,7 +416,7 @@ func (r *Repository) GetPackfiles() ([][32]byte, error) {
 	return r.store.GetPackfiles()
 }
 
-func (r *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+func (r *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfile", time.Since(t0))
@@ -400,28 +426,39 @@ func (r *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
 	return r.store.GetPackfile(checksum)
 }
 
-func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfileBlob", time.Since(t0))
 		logger.Trace("repository", "GetPackfileBlob(%x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
-	data, err := r.store.GetPackfileBlob(checksum, offset, length)
+	rd, _, err := r.store.GetPackfileBlob(checksum, offset, length)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return r.Decode(data)
+
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	decoded, err := r.Decode(data)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return bytes.NewBuffer(decoded), int64(len(decoded)), nil
 }
 
-func (r *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+func (r *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutPackfile", time.Since(t0))
 		logger.Trace("repository", "PutPackfile(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
-	return r.store.PutPackfile(checksum, data)
+	return r.store.PutPackfile(checksum, rd, size)
 }
 
 func (r *Repository) DeletePackfile(checksum [32]byte) error {

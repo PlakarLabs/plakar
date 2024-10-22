@@ -19,6 +19,7 @@ package storage
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -83,14 +84,14 @@ type Backend interface {
 	Configuration() Configuration
 
 	GetStates() ([][32]byte, error)
-	PutState(checksum [32]byte, data []byte) error
-	GetState(checksum [32]byte) ([]byte, error)
+	PutState(checksum [32]byte, rd io.Reader, size int64) error
+	GetState(checksum [32]byte) (io.Reader, int64, error)
 	DeleteState(checksum [32]byte) error
 
 	GetPackfiles() ([][32]byte, error)
-	PutPackfile(checksum [32]byte, data []byte) error
-	GetPackfile(checksum [32]byte) ([]byte, error)
-	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error)
+	PutPackfile(checksum [32]byte, rd io.Reader, size int64) error
+	GetPackfile(checksum [32]byte) (io.Reader, int64, error)
+	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error)
 	DeletePackfile(checksum [32]byte) error
 
 	Close() error
@@ -291,7 +292,7 @@ func (store *Store) GetPackfiles() ([][32]byte, error) {
 	return store.backend.GetPackfiles()
 }
 
-func (store *Store) GetPackfile(checksum [32]byte) ([]byte, error) {
+func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -301,15 +302,15 @@ func (store *Store) GetPackfile(checksum [32]byte) ([]byte, error) {
 		logger.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
-	data, err := store.backend.GetPackfile(checksum)
+	rd, datalen, err := store.backend.GetPackfile(checksum)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	atomic.AddUint64(&store.rBytes, uint64(len(data)))
-	return data, nil
+	atomic.AddUint64(&store.rBytes, uint64(datalen))
+	return rd, datalen, nil
 }
 
-func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -319,15 +320,15 @@ func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uin
 		logger.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
-	data, err := store.backend.GetPackfileBlob(checksum, offset, length)
+	rd, datalen, err := store.backend.GetPackfileBlob(checksum, offset, length)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	atomic.AddUint64(&store.rBytes, uint64(len(data)))
-	return data, nil
+	atomic.AddUint64(&store.rBytes, uint64(datalen))
+	return rd, datalen, nil
 }
 
-func (store *Store) PutPackfile(checksum [32]byte, data []byte) error {
+func (store *Store) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -340,8 +341,8 @@ func (store *Store) PutPackfile(checksum [32]byte, data []byte) error {
 	store.bufferedPackfiles <- struct{}{}
 	defer func() { <-store.bufferedPackfiles }()
 
-	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-	return store.backend.PutPackfile(checksum, data)
+	atomic.AddUint64(&store.wBytes, uint64(size))
+	return store.backend.PutPackfile(checksum, rd, size)
 }
 
 func (store *Store) DeletePackfile(checksum [32]byte) error {
@@ -369,20 +370,24 @@ func (store *Store) GetStates() ([][32]byte, error) {
 	return store.backend.GetStates()
 }
 
-func (store *Store) PutState(checksum [32]byte, data []byte) error {
+func (store *Store) PutState(checksum [32]byte, rd io.Reader, size int64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.PutIndex", time.Since(t0))
-		logger.Trace("store", "PutIndex(%016x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.PutState", time.Since(t0))
+		logger.Trace("store", "PutState(%016x): %s", checksum, time.Since(t0))
 	}()
-	atomic.AddUint64(&store.wBytes, uint64(len(data)))
-	return store.backend.PutState(checksum, data)
+
+	err := store.backend.PutState(checksum, rd, size)
+	if err != nil {
+		return err
+	}
+	return err
 }
 
-func (store *Store) GetState(checksum [32]byte) ([]byte, error) {
+func (store *Store) GetState(checksum [32]byte) (io.Reader, int64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -392,12 +397,11 @@ func (store *Store) GetState(checksum [32]byte) ([]byte, error) {
 		logger.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
 	}()
 
-	data, err := store.backend.GetState(checksum)
+	rd, size, err := store.backend.GetState(checksum)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	atomic.AddUint64(&store.rBytes, uint64(len(data)))
-	return data, nil
+	return rd, size, nil
 }
 
 func (store *Store) DeleteState(checksum [32]byte) error {
@@ -406,8 +410,8 @@ func (store *Store) DeleteState(checksum [32]byte) error {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.DeleteIndex", time.Since(t0))
-		logger.Trace("store", "DeleteIndex(%064x): %s", checksum, time.Since(t0))
+		profiler.RecordEvent("store.DeleteState", time.Since(t0))
+		logger.Trace("store", "DeleteState(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeleteState(checksum)
 }

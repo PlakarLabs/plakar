@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
@@ -119,7 +120,12 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return resGetStates.Checksums, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
+
 	r, err := repository.sendRequest("PUT", repository.Repository, "/state", network.ReqPutState{
 		Checksum: checksum,
 		Data:     data,
@@ -138,22 +144,22 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetState{
 		Checksum: checksum,
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var resGetState network.ResGetState
 	if err := json.NewDecoder(r.Body).Decode(&resGetState); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resGetState.Err != "" {
-		return nil, fmt.Errorf("%s", resGetState.Err)
+		return nil, 0, fmt.Errorf("%s", resGetState.Err)
 	}
-	return resGetState.Data, nil
+	return bytes.NewBuffer(resGetState.Data), int64(len(resGetState.Data)), nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
@@ -191,7 +197,11 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return resGetPackfiles.Checksums, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+	data, err := io.ReadAll(rd)
+	if err != nil {
+		return err
+	}
 	r, err := repository.sendRequest("PUT", repository.Repository, "/packfile", network.ReqPutPackfile{
 		Checksum: checksum,
 		Data:     data,
@@ -210,42 +220,42 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/packfile", network.ReqGetPackfile{
 		Checksum: checksum,
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var resGetPackfile network.ResGetPackfile
 	if err := json.NewDecoder(r.Body).Decode(&resGetPackfile); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resGetPackfile.Err != "" {
-		return nil, fmt.Errorf("%s", resGetPackfile.Err)
+		return nil, 0, fmt.Errorf("%s", resGetPackfile.Err)
 	}
-	return resGetPackfile.Data, nil
+	return bytes.NewBuffer(resGetPackfile.Data), int64(len(resGetPackfile.Data)), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileBlob{
 		Checksum: checksum,
 		Offset:   offset,
 		Length:   length,
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var resGetPackfileBlob network.ResGetPackfileBlob
 	if err := json.NewDecoder(r.Body).Decode(&resGetPackfileBlob); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if resGetPackfileBlob.Err != "" {
-		return nil, fmt.Errorf("%s", resGetPackfileBlob.Err)
+		return nil, 0, fmt.Errorf("%s", resGetPackfileBlob.Err)
 	}
-	return resGetPackfileBlob.Data, nil
+	return bytes.NewBuffer(resGetPackfileBlob.Data), int64(len(resGetPackfileBlob.Data)), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {

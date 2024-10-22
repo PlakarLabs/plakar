@@ -2,6 +2,7 @@ package vfs
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -20,7 +21,12 @@ func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, err
 		return nil, fmt.Errorf("directory not found")
 	}
 
-	blob, err := repo.GetPackfileBlob(packfile, offset, length)
+	rd, _, err := repo.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	blob, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +53,15 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 			return
 		}
 
-		blob, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
 		if err != nil {
 			fmt.Println("packfile blob not found for directory")
+			return
+		}
+
+		blob, err := io.ReadAll(rd)
+		if err != nil {
+			fmt.Println("could not read packfile blob for directory")
 			return
 		}
 
@@ -87,7 +99,12 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 		if !exists {
 			return
 		}
-		blob, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			return
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			return
 		}
@@ -128,7 +145,12 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 		if !exists {
 			return
 		}
-		blob, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			return
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			return
 		}
@@ -178,7 +200,12 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 			return nil, fmt.Errorf("file not found")
 		}
 
-		blob, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			return nil, err
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +233,12 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 			return nil, fmt.Errorf("directory not found")
 		}
 
-		blob, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			return nil, err
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			return nil, err
 		}

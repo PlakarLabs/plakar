@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/PlakarLabs/plakar/repository"
@@ -59,7 +60,12 @@ func cmd_stats(ctx Plakar, repo *repository.Repository, args []string) int {
 			fmt.Println("  Subpart: (not found)")
 		}
 
-		blob, err := repo.GetPackfileBlob(packfileID, offset, length)
+		rd, _, err := repo.GetPackfileBlob(packfileID, offset, length)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			log.Fatal(err)
 		}

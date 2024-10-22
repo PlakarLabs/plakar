@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -55,7 +56,12 @@ func cmd_object(ctx Plakar, repo *repository.Repository, args []string) int {
 			log.Fatal(err)
 		}
 
-		blob, err := repo.GetPackfileBlob(packfileID, offset, length)
+		rd, _, err := repo.GetPackfileBlob(packfileID, offset, length)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		blob, err := io.ReadAll(rd)
 		if err != nil {
 			log.Fatal(err)
 		}

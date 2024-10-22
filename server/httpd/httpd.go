@@ -1,8 +1,10 @@
 package httpd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
@@ -80,7 +82,9 @@ func putState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutIndex network.ResPutState
-	_, err := lrepository.PutState(reqPutState.Checksum, reqPutState.Data)
+	data := reqPutState.Data
+	datalen := int64(len(data))
+	_, err := lrepository.PutState(reqPutState.Checksum, bytes.NewBuffer(data), datalen)
 	if err != nil {
 		resPutIndex.Err = err.Error()
 	}
@@ -98,7 +102,7 @@ func getState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetState network.ResGetState
-	data, err := lrepository.GetState(reqGetState.Checksum)
+	data, _, err := lrepository.GetState(reqGetState.Checksum)
 	if err != nil {
 		resGetState.Err = err.Error()
 	} else {
@@ -162,7 +166,7 @@ func putPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutPackfile network.ResPutPackfile
-	err := lrepository.PutPackfile(reqPutPackfile.Checksum, reqPutPackfile.Data)
+	err := lrepository.PutPackfile(reqPutPackfile.Checksum, bytes.NewBuffer(reqPutPackfile.Data), int64(len(reqPutPackfile.Data)))
 	if err != nil {
 		resPutPackfile.Err = err.Error()
 	}
@@ -180,11 +184,16 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetPackfile network.ResGetPackfile
-	data, err := lrepository.GetPackfile(reqGetPackfile.Checksum)
+	rd, _, err := lrepository.GetPackfile(reqGetPackfile.Checksum)
 	if err != nil {
 		resGetPackfile.Err = err.Error()
 	} else {
-		resGetPackfile.Data = data
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			resGetPackfile.Err = err.Error()
+		} else {
+			resGetPackfile.Data = data
+		}
 	}
 	if err := json.NewEncoder(w).Encode(resGetPackfile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -200,11 +209,16 @@ func GetPackfileBlob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetPackfileBlob network.ResGetPackfileBlob
-	data, err := lrepository.GetPackfileBlob(reqGetPackfileBlob.Checksum, reqGetPackfileBlob.Offset, reqGetPackfileBlob.Length)
+	rd, _, err := lrepository.GetPackfileBlob(reqGetPackfileBlob.Checksum, reqGetPackfileBlob.Offset, reqGetPackfileBlob.Length)
 	if err != nil {
 		resGetPackfileBlob.Err = err.Error()
 	} else {
-		resGetPackfileBlob.Data = data
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			resGetPackfileBlob.Err = err.Error()
+		} else {
+			resGetPackfileBlob.Data = data
+		}
 	}
 	if err := json.NewEncoder(w).Encode(resGetPackfileBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

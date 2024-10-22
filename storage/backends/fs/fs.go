@@ -17,6 +17,7 @@
 package fs
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -170,40 +171,45 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathPackfile(checksum))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
 	fp, err := os.Open(repository.PathPackfile(checksum))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	info, err := fp.Stat()
+	if err != nil {
+		fp.Close()
+		return nil, 0, err
+	}
+
+	return fp, int64(info.Size()), nil
+}
+
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+	fp, err := os.Open(repository.PathPackfile(checksum))
+	if err != nil {
+		return nil, 0, err
 	}
 	defer fp.Close()
 
 	if _, err := fp.Seek(int64(offset), io.SeekStart); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	st, err := fp.Stat()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if length == 0 || length > (uint32(st.Size())-offset) {
-		return nil, fmt.Errorf("invalid length")
+		return nil, 0, fmt.Errorf("invalid length")
 	}
 
 	data := make([]byte, length)
 	if _, err := fp.Read(data); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return data, nil
+	return bytes.NewBuffer(data), int64(len(data)), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
@@ -214,7 +220,7 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
 
 	f, err := os.Create(tmpfile)
@@ -223,11 +229,11 @@ func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error 
 	}
 	defer f.Close()
 
-	_, err = f.Write(data)
-	if err != nil {
+	if n, err := io.Copy(f, rd); err != nil {
 		return err
+	} else if n != size {
+		return fmt.Errorf("short write")
 	}
-
 	return os.Rename(tmpfile, repository.PathPackfile(checksum))
 }
 
@@ -272,7 +278,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
 	f, err := os.Create(tmpfile)
 	if err != nil {
@@ -280,21 +286,28 @@ func (repository *Repository) PutState(checksum [32]byte, data []byte) error {
 	}
 	defer f.Close()
 
-	_, err = f.Write(data)
+	w, err := io.Copy(f, rd)
 	if err != nil {
 		return err
 	}
-
+	if w != size {
+		return fmt.Errorf("short write")
+	}
 	return os.Rename(tmpfile, repository.PathState(checksum))
 }
 
-func (repository *Repository) GetState(checksum [32]byte) ([]byte, error) {
-	data, err := os.ReadFile(repository.PathState(checksum))
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
+	fp, err := os.Open(repository.PathState(checksum))
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+	info, err := fp.Stat()
+	if err != nil {
+		fp.Close()
+		return nil, 0, err
 	}
 
-	return data, nil
+	return fp, info.Size(), nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {

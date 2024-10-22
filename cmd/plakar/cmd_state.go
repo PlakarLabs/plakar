@@ -59,7 +59,7 @@ func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rawState, err := repo.GetState(byteArray)
+			rawState, _, err := repo.GetState(byteArray)
 			if err != nil {
 				log.Fatal(err)
 			}

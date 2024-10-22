@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -63,7 +64,12 @@ func cmd_packfile(ctx Plakar, repo *repository.Repository, args []string) int {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rawPackfile, err := repo.GetPackfile(byteArray)
+			rd, _, err := repo.GetPackfile(byteArray)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			rawPackfile, err := io.ReadAll(rd)
 			if err != nil {
 				log.Fatal(err)
 			}

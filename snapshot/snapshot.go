@@ -1,8 +1,10 @@
 package snapshot
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -263,7 +265,12 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 		return nil, [32]byte{}, fmt.Errorf("metadata not found")
 	}
 
-	buffer, err := repo.GetPackfileBlob(packfile, offset, length)
+	rd, _, err := repo.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, [32]byte{}, err
+	}
+
+	buffer, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}
@@ -444,7 +451,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
 	logger.Trace("snapshot", "%s: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
-	err = snap.repository.PutPackfile(checksum32, serializedPackfile)
+	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), int64(len(serializedPackfile)))
 	if err != nil {
 		panic("could not write pack file")
 	}
@@ -562,10 +569,16 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 		return nil, fmt.Errorf("packfile not found")
 	}
 
-	buffer, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
 	if err != nil {
 		return nil, err
 	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
 	return buffer, nil
 }
 
@@ -639,7 +652,7 @@ func (snapshot *Snapshot) Commit() error {
 	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
 	indexChecksum32 := [32]byte{}
 	copy(indexChecksum32[:], indexChecksum[:])
-	_, err = repo.PutState(indexChecksum32, serializedRepositoryIndex)
+	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
 	if err != nil {
 		return err
 	}
@@ -658,7 +671,12 @@ func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, erro
 		return nil, fmt.Errorf("object not found")
 	}
 
-	buffer, err := snapshot.repository.GetPackfileBlob(packfile, offset, length)
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, err
 	}

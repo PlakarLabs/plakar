@@ -387,7 +387,7 @@ func (r *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) (int,
 		return 0, err
 	}
 
-	ret := r.store.PutState(checksum, bytes.NewReader(encoded), int64(len(encoded)))
+	ret := r.store.PutState(checksum, bytes.NewReader(encoded), uint64(len(encoded)))
 
 	if ret == nil && r.cache != nil {
 		r.cache.Put(checksum, data)
@@ -416,7 +416,7 @@ func (r *Repository) GetPackfiles() ([][32]byte, error) {
 	return r.store.GetPackfiles()
 }
 
-func (r *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (r *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfile", time.Since(t0))
@@ -451,7 +451,7 @@ func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length ui
 	return bytes.NewBuffer(decoded), int64(len(decoded)), nil
 }
 
-func (r *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (r *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutPackfile", time.Since(t0))

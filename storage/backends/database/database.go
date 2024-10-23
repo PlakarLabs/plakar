@@ -222,7 +222,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
@@ -250,13 +250,13 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT data FROM states WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, 0, err
 	}
-	return bytes.NewBuffer(data), int64(len(data)), nil
+	return bytes.NewBuffer(data), uint64(len(data)), nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
@@ -298,7 +298,7 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
@@ -326,22 +326,22 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT data FROM packfiles WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, 0, err
 	}
-	return bytes.NewReader(data), int64(len(data)), nil
+	return bytes.NewReader(data), uint64(len(data)), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	var data []byte
 	err := repository.conn.QueryRow(`SELECT substr(data, ?, ?) FROM packfiles WHERE checksum=?`, offset+1, length, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, 0, err
 	}
-	return bytes.NewBuffer(data), int64(len(data)), nil
+	return bytes.NewBuffer(data), uint32(len(data)), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {

@@ -171,7 +171,7 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	fp, err := os.Open(repository.PathPackfile(checksum))
 	if err != nil {
 		return nil, 0, err
@@ -182,10 +182,10 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, 
 		return nil, 0, err
 	}
 
-	return fp, int64(info.Size()), nil
+	return fp, uint64(info.Size()), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	fp, err := os.Open(repository.PathPackfile(checksum))
 	if err != nil {
 		return nil, 0, err
@@ -209,7 +209,7 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 	if _, err := fp.Read(data); err != nil {
 		return nil, 0, err
 	}
-	return bytes.NewBuffer(data), int64(len(data)), nil
+	return bytes.NewBuffer(data), uint32(len(data)), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
@@ -220,7 +220,7 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
 
 	f, err := os.Create(tmpfile)
@@ -231,7 +231,7 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 
 	if n, err := io.Copy(f, rd); err != nil {
 		return err
-	} else if n != size {
+	} else if uint64(n) != size {
 		return fmt.Errorf("short write")
 	}
 	return os.Rename(tmpfile, repository.PathPackfile(checksum))
@@ -278,7 +278,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
 	f, err := os.Create(tmpfile)
 	if err != nil {
@@ -289,14 +289,13 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int
 	w, err := io.Copy(f, rd)
 	if err != nil {
 		return err
-	}
-	if w != size {
+	} else if uint64(w) != size {
 		return fmt.Errorf("short write")
 	}
 	return os.Rename(tmpfile, repository.PathState(checksum))
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	fp, err := os.Open(repository.PathState(checksum))
 	if err != nil {
 		return nil, 0, err
@@ -307,7 +306,7 @@ func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, err
 		return nil, 0, err
 	}
 
-	return fp, info.Size(), nil
+	return fp, uint64(info.Size()), nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {

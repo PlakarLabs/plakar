@@ -451,7 +451,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
 	logger.Trace("snapshot", "%s: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
-	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), int64(len(serializedPackfile)))
+	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), uint64(len(serializedPackfile)))
 	if err != nil {
 		panic("could not write pack file")
 	}

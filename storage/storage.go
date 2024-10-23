@@ -84,14 +84,14 @@ type Backend interface {
 	Configuration() Configuration
 
 	GetStates() ([][32]byte, error)
-	PutState(checksum [32]byte, rd io.Reader, size int64) error
-	GetState(checksum [32]byte) (io.Reader, int64, error)
+	PutState(checksum [32]byte, rd io.Reader, size uint64) error
+	GetState(checksum [32]byte) (io.Reader, uint64, error)
 	DeleteState(checksum [32]byte) error
 
 	GetPackfiles() ([][32]byte, error)
-	PutPackfile(checksum [32]byte, rd io.Reader, size int64) error
-	GetPackfile(checksum [32]byte) (io.Reader, int64, error)
-	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error)
+	PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error
+	GetPackfile(checksum [32]byte) (io.Reader, uint64, error)
+	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error)
 	DeletePackfile(checksum [32]byte) error
 
 	Close() error
@@ -292,7 +292,7 @@ func (store *Store) GetPackfiles() ([][32]byte, error) {
 	return store.backend.GetPackfiles()
 }
 
-func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -310,7 +310,7 @@ func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
 	return rd, datalen, nil
 }
 
-func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -328,7 +328,7 @@ func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uin
 	return rd, datalen, nil
 }
 
-func (store *Store) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (store *Store) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -370,7 +370,7 @@ func (store *Store) GetStates() ([][32]byte, error) {
 	return store.backend.GetStates()
 }
 
-func (store *Store) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+func (store *Store) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -387,7 +387,7 @@ func (store *Store) PutState(checksum [32]byte, rd io.Reader, size int64) error 
 	return err
 }
 
-func (store *Store) GetState(checksum [32]byte) (io.Reader, int64, error) {
+func (store *Store) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 

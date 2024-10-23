@@ -303,7 +303,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				defer wg.Done()
 				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
 				err := lrepository.PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum,
-					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data), int64(len(request.Payload.(network.ReqPutPackfile).Data)))
+					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data), uint64(len(request.Payload.(network.ReqPutPackfile).Data)))
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()

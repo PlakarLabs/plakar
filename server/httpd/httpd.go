@@ -166,7 +166,7 @@ func putPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutPackfile network.ResPutPackfile
-	err := lrepository.PutPackfile(reqPutPackfile.Checksum, bytes.NewBuffer(reqPutPackfile.Data), int64(len(reqPutPackfile.Data)))
+	err := lrepository.PutPackfile(reqPutPackfile.Checksum, bytes.NewBuffer(reqPutPackfile.Data), uint64(len(reqPutPackfile.Data)))
 	if err != nil {
 		resPutPackfile.Err = err.Error()
 	}

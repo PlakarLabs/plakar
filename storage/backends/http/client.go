@@ -120,7 +120,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return resGetStates.Checksums, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetState{
 		Checksum: checksum,
 	})
@@ -159,7 +159,7 @@ func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, err
 	if resGetState.Err != "" {
 		return nil, 0, fmt.Errorf("%s", resGetState.Err)
 	}
-	return bytes.NewBuffer(resGetState.Data), int64(len(resGetState.Data)), nil
+	return bytes.NewBuffer(resGetState.Data), uint64(len(resGetState.Data)), nil
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
@@ -197,7 +197,7 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return resGetPackfiles.Checksums, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
@@ -220,7 +220,7 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/packfile", network.ReqGetPackfile{
 		Checksum: checksum,
 	})
@@ -235,10 +235,10 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, 
 	if resGetPackfile.Err != "" {
 		return nil, 0, fmt.Errorf("%s", resGetPackfile.Err)
 	}
-	return bytes.NewBuffer(resGetPackfile.Data), int64(len(resGetPackfile.Data)), nil
+	return bytes.NewBuffer(resGetPackfile.Data), uint64(len(resGetPackfile.Data)), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileBlob{
 		Checksum: checksum,
 		Offset:   offset,
@@ -255,7 +255,7 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 	if resGetPackfileBlob.Err != "" {
 		return nil, 0, fmt.Errorf("%s", resGetPackfileBlob.Err)
 	}
-	return bytes.NewBuffer(resGetPackfileBlob.Data), int64(len(resGetPackfileBlob.Data)), nil
+	return bytes.NewBuffer(resGetPackfileBlob.Data), uint32(len(resGetPackfileBlob.Data)), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {

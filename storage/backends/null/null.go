@@ -90,11 +90,11 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	return bytes.NewBuffer([]byte{}), 0, nil
 }
 
@@ -107,15 +107,15 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size int64) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	return bytes.NewBuffer([]byte{}), 0, nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	return bytes.NewBuffer([]byte{}), 0, nil
 }
 

@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
@@ -185,7 +187,16 @@ func entryPoint() int {
 	ctx.HomeDir = opt_userDefault.HomeDir
 
 	if flag.NArg() == 0 {
-		fmt.Fprintf(os.Stderr, "%s: a command must be provided\n", flag.CommandLine.Name())
+		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))
+		subcommands := make([]string, 0, len(commands))
+		for k := range commands {
+			subcommands = append(subcommands, k)
+		}
+		sort.Strings(subcommands)
+		for _, k := range subcommands {
+			fmt.Fprintf(os.Stderr, "  %s\n", k)
+		}
+
 		return 1
 	}
 

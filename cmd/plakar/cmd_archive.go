@@ -59,7 +59,6 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 		"tarball": ".tar.gz",
 		"zip":     ".zip",
 	}
-
 	if _, ok := supportedFormats[opt_format]; !ok {
 		log.Fatalf("%s: unsupported format %s", flag.CommandLine.Name(), opt_format)
 	}

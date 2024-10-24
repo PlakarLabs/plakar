@@ -32,6 +32,7 @@ import (
 
 	"github.com/PlakarLabs/plakar/chunking"
 	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/locking"
 	"github.com/PlakarLabs/plakar/logger"
@@ -101,13 +102,9 @@ var muBackends sync.Mutex
 var backends map[string]func() Backend = make(map[string]func() Backend)
 
 type Store struct {
-	backend Backend
-
-	Location    string
-	Username    string
-	Hostname    string
-	CommandLine string
-	MachineID   string
+	backend  Backend
+	context  *context.Context
+	location string
 
 	wBytes uint64
 	rBytes uint64
@@ -118,7 +115,7 @@ type Store struct {
 	bufferedPackfiles chan struct{}
 }
 
-func NewStore(name string, location string) (*Store, error) {
+func NewStore(ctx *context.Context, name string, location string) (*Store, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -126,8 +123,8 @@ func NewStore(name string, location string) (*Store, error) {
 		return nil, fmt.Errorf("backend '%s' does not exist", name)
 	} else {
 		store := &Store{}
-		store.Location = location
 		store.backend = backend()
+		store.location = location
 		store.writeSharedLock = locking.NewSharedLock("store.write", runtime.NumCPU()*8+1)
 		store.readSharedLock = locking.NewSharedLock("store.read", runtime.NumCPU()*8+1)
 		store.bufferedPackfiles = make(chan struct{}, runtime.NumCPU()*2+1)
@@ -159,7 +156,7 @@ func Backends() []string {
 	return ret
 }
 
-func New(location string) (*Store, error) {
+func New(ctx *context.Context, location string) (*Store, error) {
 	backendName := "fs"
 	if !strings.HasPrefix(location, "/") {
 		if strings.HasPrefix(location, "plakar://") || strings.HasPrefix(location, "ssh://") || strings.HasPrefix(location, "stdio://") {
@@ -188,11 +185,11 @@ func New(location string) (*Store, error) {
 			location = tmp
 		}
 	}
-	return NewStore(backendName, location)
+	return NewStore(ctx, backendName, location)
 }
 
-func Open(location string) (*Store, error) {
-	store, err := New(location)
+func Open(ctx *context.Context, location string) (*Store, error) {
+	store, err := New(ctx, location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return nil, err
@@ -211,8 +208,8 @@ func Open(location string) (*Store, error) {
 	}
 }
 
-func Create(location string, configuration Configuration) (*Store, error) {
-	store, err := New(location)
+func Create(ctx *context.Context, location string, configuration Configuration) (*Store, error) {
+	store, err := New(ctx, location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return nil, err
@@ -231,48 +228,20 @@ func Create(location string, configuration Configuration) (*Store, error) {
 	}
 }
 
+func (store *Store) Context() *context.Context {
+	return store.context
+}
+
+func (store *Store) Location() string {
+	return store.location
+}
+
 func (store *Store) GetRBytes() uint64 {
 	return atomic.LoadUint64(&store.rBytes)
 }
 
 func (store *Store) GetWBytes() uint64 {
 	return atomic.LoadUint64(&store.wBytes)
-}
-
-func (store *Store) GetUsername() string {
-	return store.Username
-}
-
-func (store *Store) GetHostname() string {
-	return store.Hostname
-}
-
-func (store *Store) GetCommandLine() string {
-	return store.CommandLine
-}
-
-func (store *Store) GetMachineID() string {
-	return store.MachineID
-}
-
-func (store *Store) SetUsername(username string) error {
-	store.Username = username
-	return nil
-}
-
-func (store *Store) SetHostname(hostname string) error {
-	store.Hostname = hostname
-	return nil
-}
-
-func (store *Store) SetCommandLine(commandLine string) error {
-	store.CommandLine = commandLine
-	return nil
-}
-
-func (store *Store) SetMachineID(machineID string) error {
-	store.MachineID = machineID
-	return nil
 }
 
 func (store *Store) Configuration() Configuration {

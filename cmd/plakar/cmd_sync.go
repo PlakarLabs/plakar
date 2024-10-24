@@ -68,17 +68,17 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	var err error
 	if direction == "to" {
 		srcRepository = repo
-		dstStorage, err = storage.Open(syncRepository)
+		dstStorage, err = storage.Open(ctx, syncRepository)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", syncRepository, err)
 			return 1
 		}
 		targetStorage = dstStorage
 	} else if direction == "from" {
 		dstRepository = repo
-		srcStorage, err = storage.Open(syncRepository)
+		srcStorage, err = storage.Open(ctx, syncRepository)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
+			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", syncRepository, err)
 			return 1
 		}
 		targetStorage = srcStorage
@@ -107,7 +107,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	}
 	targetRepository, err = repository.New(targetStorage, targetSecret)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", targetStorage, err)
 		return 1
 	}
 
@@ -125,13 +125,13 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 
 	sourceIndexes, err := srcRepository.GetSnapshots()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", srcRepository.Location(), err)
 		return 1
 	}
 
 	destIndexes, err := dstRepository.GetSnapshots()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", dstRepository.Location(), err)
 		return 1
 	}
 
@@ -150,7 +150,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 			defer wg.Done()
 			sourceSnapshot, err := snapshot.Load(srcRepository, indexID)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not load snapshot from repository: %s\n", ctx.Repository, err)
+				fmt.Fprintf(os.Stderr, "%s: could not load snapshot from repository: %s\n", srcRepository.Location(), err)
 				return
 			}
 
@@ -178,7 +178,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 						if !exists {
 							data, err := sourceSnapshot.GetChunk(chunkID)
 							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
+								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", srcRepository.Location(), err)
 								return
 							}
 							err = copySnapshot.PutChunk(chunkID, data)
@@ -209,7 +209,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 						if !exists {
 							object, err := sourceSnapshot.LookupObject(objectID)
 							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
+								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", srcRepository.Location(), err)
 								return
 							}
 

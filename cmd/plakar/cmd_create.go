@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
@@ -74,21 +75,21 @@ func cmd_create(ctx *context.Context, args []string) int {
 
 	switch flags.NArg() {
 	case 0:
-		repository, err := storage.Create(ctx.Repository, *storageConfiguration)
+		repository, err := storage.Create(ctx, filepath.Join(ctx.GetHomeDir(), ".plakar"), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repository.Close()
 	case 1:
-		repository, err := storage.Create(flags.Arg(0), *storageConfiguration)
+		repository, err := storage.Create(ctx, flags.Arg(0), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repository.Close()
 	default:
-		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", ctx.Repository)
+		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", flag.CommandLine.Name())
 		return 1
 	}
 

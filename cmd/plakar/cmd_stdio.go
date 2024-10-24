@@ -39,7 +39,7 @@ func cmd_stdio(ctx *context.Context, args []string) int {
 	options := &plakard.ServerOptions{
 		NoDelete: noDelete,
 	}
-	if err := plakard.Stdio(options); err != nil {
+	if err := plakard.Stdio(ctx, options); err != nil {
 		return 1
 	}
 	return 0

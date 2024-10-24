@@ -38,7 +38,7 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
-	cacheDir := store.Location + "/cache/states"
+	cacheDir := store.Location() + "/cache/states"
 	cacheInstance, err := cache.New(cacheDir)
 	if err != nil {
 		return nil, err
@@ -258,7 +258,7 @@ func (r *Repository) State() *state.State {
 }
 
 func (r *Repository) Location() string {
-	return r.store.Location
+	return r.store.Location()
 }
 
 func (r *Repository) Configuration() storage.Configuration {

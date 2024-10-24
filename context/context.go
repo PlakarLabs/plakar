@@ -6,7 +6,6 @@ type Context struct {
 	Username    string
 	HomeDir     string
 	Hostname    string
-	Repository  string
 	CommandLine string
 	MachineID   string
 	KeyFromFile string
@@ -38,14 +37,6 @@ func (c *Context) SetHostname(hostname string) {
 
 func (c *Context) GetHostname() string {
 	return c.Hostname
-}
-
-func (c *Context) SetRepository(repository string) {
-	c.Repository = repository
-}
-
-func (c *Context) GetRepository() string {
-	return c.Repository
 }
 
 func (c *Context) SetCommandLine(commandLine string) {

@@ -38,7 +38,7 @@ func cmd_shell(ctx *context.Context, repo *repository.Repository, args []string)
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Printf("%s> ", ctx.Repository)
+		fmt.Printf("%s> ", repo.Location())
 		text, err := reader.ReadString('\n')
 		if err != nil {
 			return 1

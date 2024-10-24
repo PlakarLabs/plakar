@@ -52,7 +52,7 @@ func cmd_server(ctx *context.Context, repo *repository.Repository, args []string
 			NoCreate: true,
 			NoDelete: opt_nodelete,
 		}
-		plakard.Server(repo, addr, options)
+		plakard.Server(ctx, repo, addr, options)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

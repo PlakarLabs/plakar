@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/repository"
@@ -24,7 +25,7 @@ type ServerOptions struct {
 	NoDelete bool
 }
 
-func Server(repo *repository.Repository, addr string, options *ServerOptions) {
+func Server(ctx *context.Context, repo *repository.Repository, addr string, options *ServerOptions) {
 
 	network.ProtocolRegister()
 
@@ -39,18 +40,18 @@ func Server(repo *repository.Repository, addr string, options *ServerOptions) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(repo, c, c, options)
+		go handleConnection(ctx, repo, c, c, options)
 	}
 }
 
-func Stdio(options *ServerOptions) error {
+func Stdio(ctx *context.Context, options *ServerOptions) error {
 	network.ProtocolRegister()
 
-	handleConnection(nil, os.Stdin, os.Stdout, options)
+	handleConnection(ctx, nil, os.Stdin, os.Stdout, options)
 	return nil
 }
 
-func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
+func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
 	var lrepository *repository.Repository
 
 	lrepository = repo
@@ -83,7 +84,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				}
 
 				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
-				st, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).Configuration)
+				st, err := storage.Create(ctx, dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -111,7 +112,7 @@ func handleConnection(repo *repository.Repository, rd io.Reader, wr io.Writer, o
 				logger.Trace("server", "%s: Open()", clientUuid)
 
 				location := request.Payload.(network.ReqOpen).Repository
-				st, err := storage.Open(location)
+				st, err := storage.Open(ctx, location)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()

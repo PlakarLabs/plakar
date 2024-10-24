@@ -82,7 +82,6 @@ func entryPoint() int {
 	opt_machineIdDefault = strings.ToLower(opt_machineIdDefault)
 
 	opt_usernameDefault := opt_userDefault.Username
-	opt_repositoryDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
 	opt_configDefault := path.Join(opt_userDefault.HomeDir, ".plakarconfig")
 
 	// command line overrides
@@ -167,7 +166,6 @@ func entryPoint() int {
 	ctx.SetNumCPU(opt_cpuCount)
 	ctx.SetUsername(opt_username)
 	ctx.SetHostname(opt_hostname)
-	ctx.SetRepository(opt_repositoryDefault)
 	ctx.SetCommandLine(strings.Join(os.Args, " "))
 	ctx.SetMachineID(opt_machineIdDefault)
 	ctx.SetKeyFromFile(secretFromKeyfile)
@@ -205,6 +203,7 @@ func entryPoint() int {
 	//		return cmd_agent(ctx, args)
 	//	}
 
+	var repositoryPath string
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
 			log.Fatalf("%s: missing plakar repository", flag.CommandLine.Name())
@@ -212,12 +211,12 @@ func entryPoint() int {
 		if len(flag.Args()) < 3 {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())
 		}
-		ctx.Repository = flag.Arg(1)
+		repositoryPath = flag.Arg(1)
 		command, args = flag.Arg(2), flag.Args()[3:]
 	} else {
-		repositoryPath := os.Getenv("PLAKAR_REPOSITORY")
-		if repositoryPath != "" {
-			ctx.Repository = repositoryPath
+		repositoryPath = os.Getenv("PLAKAR_REPOSITORY")
+		if repositoryPath == "" {
+			repositoryPath = filepath.Join(ctx.GetHomeDir(), ".plakar")
 		}
 	}
 
@@ -244,7 +243,7 @@ func entryPoint() int {
 		skipPassphrase = true
 	}
 
-	store, err := storage.Open(ctx.Repository)
+	store, err := storage.Open(ctx, repositoryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
@@ -295,12 +294,6 @@ func entryPoint() int {
 			}
 		}
 	}
-
-	//
-	store.SetUsername(ctx.Username)
-	store.SetHostname(ctx.Hostname)
-	store.SetCommandLine(ctx.CommandLine)
-	store.SetMachineID(ctx.MachineID)
 
 	done := make(chan bool, 1)
 	if opt_stats > 0 {

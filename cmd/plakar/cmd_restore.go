@@ -44,7 +44,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 		log.Fatal(err)
 	}
 
-	flags := flag.NewFlagSet("restore`", flag.ExitOnError)
+	flags := flag.NewFlagSet("restore", flag.ExitOnError)
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)

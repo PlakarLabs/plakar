@@ -20,12 +20,13 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/PlakarLabs/plakar/context"
 	"golang.org/x/mod/semver"
 )
 
 const VERSION = "v0.4.22-alpha"
 
-func cmd_version(ctx Plakar, args []string) int {
+func cmd_version(ctx *context.Context, args []string) int {
 	flags := flag.NewFlagSet("version", flag.ExitOnError)
 	flags.Parse(args)
 

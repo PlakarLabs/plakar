@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/anmitsu/go-shlex"
 )
@@ -31,7 +32,7 @@ func init() {
 	registerCommand("shell", cmd_shell)
 }
 
-func cmd_shell(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_shell(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("shell", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -20,6 +20,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 )
@@ -28,7 +29,7 @@ func init() {
 	registerCommand("fork", cmd_fork)
 }
 
-func cmd_fork(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_fork(ctx *context.Context, repo *repository.Repository, args []string) int {
 
 	flags := flag.NewFlagSet("fork", flag.ExitOnError)
 	flags.Parse(args)

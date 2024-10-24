@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -35,7 +36,7 @@ func init() {
 	registerCommand("diff", cmd_diff)
 }
 
-func cmd_diff(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_diff(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_highlight bool
 	flags := flag.NewFlagSet("diff", flag.ExitOnError)
 	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")

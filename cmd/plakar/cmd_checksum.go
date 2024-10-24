@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -30,7 +31,7 @@ func init() {
 	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_checksum(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var enableFastChecksum bool
 
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)

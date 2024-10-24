@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
@@ -31,7 +32,7 @@ func init() {
 	registerCommand("clone", cmd_clone)
 }
 
-func cmd_clone(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 

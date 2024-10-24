@@ -20,6 +20,7 @@ import (
 	"flag"
 	"log"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -29,7 +30,7 @@ func init() {
 	registerCommand("check", cmd_check)
 }
 
-func cmd_check(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
@@ -61,7 +62,7 @@ func check_snapshot(snap *snapshot.Snapshot, pattern string, enableFastCheck boo
 	return snap.Check(pattern, enableFastCheck)
 }
 
-func cmd_check2(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_check2(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var enableFastCheck bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)

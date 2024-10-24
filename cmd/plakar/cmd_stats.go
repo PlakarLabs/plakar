@@ -22,6 +22,7 @@ import (
 	"io"
 	"log"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/statistics"
 	"github.com/dustin/go-humanize"
@@ -41,7 +42,7 @@ func printCompressionRatio(size, transferSize uint64, label string) {
 	}
 }
 
-func cmd_stats(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_stats(ctx *context.Context, repo *repository.Repository, args []string) int {
 	if len(args) == 0 {
 		return info_plakar(repo)
 	}

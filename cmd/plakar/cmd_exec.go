@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -32,7 +33,7 @@ func init() {
 	registerCommand("exec", cmd_exec)
 }
 
-func cmd_exec(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_exec(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 

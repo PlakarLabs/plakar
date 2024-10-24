@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/repository/state"
 )
@@ -30,7 +31,7 @@ func init() {
 	registerCommand("state", cmd_state)
 }
 
-func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_state(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("state", flag.ExitOnError)
 	flags.Parse(args)
 

@@ -22,6 +22,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
@@ -34,7 +35,7 @@ func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 

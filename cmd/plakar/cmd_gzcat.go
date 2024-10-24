@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -30,7 +31,7 @@ func init() {
 	registerCommand("gzcat", cmd_gzcat)
 }
 
-func cmd_gzcat(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_gzcat(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("gzcat", flag.ExitOnError)
 	flags.Parse(args)
 

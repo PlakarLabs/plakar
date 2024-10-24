@@ -23,6 +23,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/dustin/go-humanize"
@@ -64,7 +65,7 @@ func init() {
 	registerCommand("info", cmd_info)
 }
 
-func cmd_info(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) int {
 	if len(args) == 0 {
 		return info_plakar(repo)
 	}

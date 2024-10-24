@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
@@ -33,7 +34,7 @@ import (
 func init() {
 	registerCommand("zip", cmd_zip)
 }
-func cmd_zip(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_zip(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var zipPath string
 	var zipRebase bool
 

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -36,7 +37,7 @@ func init() {
 	registerCommand("tarball", cmd_tarball)
 }
 
-func cmd_tarball(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_tarball(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var tarballPath string
 	var tarballRebase bool
 

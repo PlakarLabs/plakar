@@ -27,6 +27,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
@@ -51,7 +52,7 @@ func (e *excludeFlags) Set(value string) error {
 	return nil
 }
 
-func cmd_backup(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags

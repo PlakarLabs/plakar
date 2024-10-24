@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/server/httpd"
@@ -29,7 +30,7 @@ func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_server(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_protocol string
 	var opt_nodelete bool
 	flags := flag.NewFlagSet("server", flag.ExitOnError)

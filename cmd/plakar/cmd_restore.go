@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/exporter"
@@ -33,7 +34,7 @@ func init() {
 	registerCommand("restore", cmd_restore)
 }
 
-func cmd_restore(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_restore(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter

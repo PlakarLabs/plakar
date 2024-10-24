@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -30,7 +31,7 @@ func init() {
 	registerCommand("vfs", cmd_vfs)
 }
 
-func cmd_vfs(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_vfs(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("vfs", flag.ExitOnError)
 	flags.Parse(args)
 

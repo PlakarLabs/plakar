@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 )
@@ -33,7 +34,7 @@ func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 

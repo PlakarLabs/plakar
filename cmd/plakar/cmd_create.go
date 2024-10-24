@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/storage"
 )
 
-func cmd_create(ctx Plakar, args []string) int {
+func cmd_create(ctx *context.Context, args []string) int {
 	var opt_noencryption bool
 	var opt_nocompression bool
 	var opt_hashing string

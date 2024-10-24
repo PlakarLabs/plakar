@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/alecthomas/chroma/formatters"
@@ -33,7 +34,7 @@ func init() {
 	registerCommand("cat", cmd_cat)
 }
 
-func cmd_cat(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_highlight bool
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
 	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")

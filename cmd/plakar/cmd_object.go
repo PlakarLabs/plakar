@@ -24,6 +24,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 )
@@ -32,7 +33,7 @@ func init() {
 	registerCommand("object", cmd_object)
 }
 
-func cmd_object(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_object(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("packfile", flag.ExitOnError)
 	flags.Parse(args)
 

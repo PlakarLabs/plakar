@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
@@ -39,7 +40,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, repo *repository.Repository, args []string) int {
+func cmd_ls(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_recursive bool
 	var opt_tag string
 	var opt_uuid bool

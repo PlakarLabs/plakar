@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
@@ -38,28 +39,13 @@ import (
 	_ "github.com/PlakarLabs/plakar/snapshot/exporter/s3"
 )
 
-type Plakar struct {
-	NumCPU      int
-	Hostname    string
-	Username    string
-	Repository  string
-	CommandLine string
-	MachineID   string
+var commands map[string]func(*context.Context, *repository.Repository, []string) int = make(map[string]func(*context.Context, *repository.Repository, []string) int)
 
-	HomeDir string
-
-	KeyFromFile string
-
-	//	maxConcurrency chan struct{}
-}
-
-var commands map[string]func(Plakar, *repository.Repository, []string) int = make(map[string]func(Plakar, *repository.Repository, []string) int)
-
-func registerCommand(command string, fn func(Plakar, *repository.Repository, []string) int) {
+func registerCommand(command string, fn func(*context.Context, *repository.Repository, []string) int) {
 	commands[command] = fn
 }
 
-func executeCommand(ctx Plakar, repo *repository.Repository, command string, args []string) (int, error) {
+func executeCommand(ctx *context.Context, repo *repository.Repository, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
@@ -127,6 +113,8 @@ func entryPoint() int {
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
 
+	ctx := context.NewContext()
+
 	// best effort check if security or reliability fix have been issued
 	if rus, err := checkUpdate(); err == nil {
 		if rus.SecurityFix || rus.ReliabilityFix {
@@ -176,15 +164,14 @@ func entryPoint() int {
 		secretFromKeyfile = strings.TrimSuffix(string(data), "\n")
 	}
 
-	ctx := Plakar{}
-	ctx.NumCPU = opt_cpuCount
-	ctx.Username = opt_username
-	ctx.Hostname = opt_hostname
-	ctx.Repository = opt_repositoryDefault
-	ctx.CommandLine = strings.Join(os.Args, " ")
-	ctx.MachineID = opt_machineIdDefault
-	ctx.KeyFromFile = secretFromKeyfile
-	ctx.HomeDir = opt_userDefault.HomeDir
+	ctx.SetNumCPU(opt_cpuCount)
+	ctx.SetUsername(opt_username)
+	ctx.SetHostname(opt_hostname)
+	ctx.SetRepository(opt_repositoryDefault)
+	ctx.SetCommandLine(strings.Join(os.Args, " "))
+	ctx.SetMachineID(opt_machineIdDefault)
+	ctx.SetKeyFromFile(secretFromKeyfile)
+	ctx.SetHomeDir(opt_userDefault.HomeDir)
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))

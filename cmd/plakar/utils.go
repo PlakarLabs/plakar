@@ -406,3 +406,37 @@ func getPassphraseConfirm(prefix string) ([]byte, error) {
 
 	return passphrase1, nil
 }
+
+func GetCacheDir(appName string) (string, error) {
+	var cacheDir string
+
+	switch runtime.GOOS {
+	case "windows":
+		// Use %LocalAppData%
+		cacheDir = os.Getenv("LocalAppData")
+		if cacheDir == "" {
+			return "", fmt.Errorf("LocalAppData environment variable not set")
+		}
+		cacheDir = filepath.Join(cacheDir, appName)
+	default:
+		// Use XDG_CACHE_HOME or default to ~/.cache
+		cacheDir = os.Getenv("XDG_CACHE_HOME")
+		if cacheDir == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return "", err
+			}
+			cacheDir = filepath.Join(homeDir, ".cache", appName)
+		} else {
+			cacheDir = filepath.Join(cacheDir, appName)
+		}
+	}
+
+	// Create the cache directory if it doesn't exist
+	err := os.MkdirAll(cacheDir, 0700)
+	if err != nil {
+		return "", err
+	}
+
+	return cacheDir, nil
+}

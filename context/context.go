@@ -2,13 +2,14 @@ package context
 
 type Context struct {
 	// The name of the context
-	NumCPU      int
-	Username    string
-	HomeDir     string
-	Hostname    string
-	CommandLine string
-	MachineID   string
-	KeyFromFile string
+	numCPU      int
+	username    string
+	homeDir     string
+	hostname    string
+	commandLine string
+	machineID   string
+	keyFromFile string
+	cacheDir    string
 }
 
 func NewContext() *Context {
@@ -16,57 +17,65 @@ func NewContext() *Context {
 }
 
 func (c *Context) SetNumCPU(numCPU int) {
-	c.NumCPU = numCPU
+	c.numCPU = numCPU
 }
 
 func (c *Context) GetNumCPU() int {
-	return c.NumCPU
+	return c.numCPU
 }
 
 func (c *Context) SetUsername(username string) {
-	c.Username = username
+	c.username = username
 }
 
 func (c *Context) GetUsername() string {
-	return c.Username
+	return c.username
 }
 
 func (c *Context) SetHostname(hostname string) {
-	c.Hostname = hostname
+	c.hostname = hostname
 }
 
 func (c *Context) GetHostname() string {
-	return c.Hostname
+	return c.hostname
 }
 
 func (c *Context) SetCommandLine(commandLine string) {
-	c.CommandLine = commandLine
+	c.commandLine = commandLine
 }
 
 func (c *Context) GetCommandLine() string {
-	return c.CommandLine
+	return c.commandLine
 }
 
 func (c *Context) SetMachineID(machineID string) {
-	c.MachineID = machineID
+	c.machineID = machineID
 }
 
 func (c *Context) GetMachineID() string {
-	return c.MachineID
+	return c.machineID
 }
 
 func (c *Context) SetKeyFromFile(keyFromFile string) {
-	c.KeyFromFile = keyFromFile
+	c.keyFromFile = keyFromFile
 }
 
 func (c *Context) GetKeyFromFile() string {
-	return c.KeyFromFile
+	return c.keyFromFile
 }
 
 func (c *Context) SetHomeDir(homeDir string) {
-	c.HomeDir = homeDir
+	c.homeDir = homeDir
 }
 
 func (c *Context) GetHomeDir() string {
-	return c.HomeDir
+	return c.homeDir
+}
+
+func (c *Context) SetCacheDir(cacheDir string) {
+	c.cacheDir = cacheDir
+}
+
+func (c *Context) GetCacheDir() string {
+	return c.cacheDir
 }

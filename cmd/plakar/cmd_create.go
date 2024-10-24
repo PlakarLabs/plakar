@@ -52,7 +52,7 @@ func cmd_create(ctx *context.Context, args []string) int {
 		var passphrase []byte
 
 		envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
-		if ctx.KeyFromFile == "" {
+		if ctx.GetKeyFromFile() == "" {
 			if envPassphrase != "" {
 				passphrase = []byte(envPassphrase)
 			} else {
@@ -67,7 +67,7 @@ func cmd_create(ctx *context.Context, args []string) int {
 				}
 			}
 		} else {
-			passphrase = []byte(ctx.KeyFromFile)
+			passphrase = []byte(ctx.GetKeyFromFile())
 		}
 		storageConfiguration.Encryption = "AES256-GCM"
 		storageConfiguration.EncryptionKey = encryption.BuildSecretFromPassphrase(passphrase)

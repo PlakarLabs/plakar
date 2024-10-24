@@ -114,6 +114,13 @@ func entryPoint() int {
 
 	ctx := context.NewContext()
 
+	cacheDir, err := GetCacheDir("plakar")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get cache directory: %s\n", flag.CommandLine.Name(), err)
+		return 1
+	}
+	ctx.SetCacheDir(cacheDir)
+
 	// best effort check if security or reliability fix have been issued
 	if rus, err := checkUpdate(); err == nil {
 		if rus.SecurityFix || rus.ReliabilityFix {
@@ -259,7 +266,7 @@ func entryPoint() int {
 	if !skipPassphrase {
 		if store.Configuration().Encryption != "" {
 			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
-			if ctx.KeyFromFile == "" {
+			if ctx.GetKeyFromFile() == "" {
 				attempts := 0
 				for {
 					var passphrase []byte
@@ -286,7 +293,7 @@ func entryPoint() int {
 					break
 				}
 			} else {
-				secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), store.Configuration().EncryptionKey)
+				secret, err = encryption.DeriveSecret([]byte(ctx.GetKeyFromFile()), store.Configuration().EncryptionKey)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					os.Exit(1)

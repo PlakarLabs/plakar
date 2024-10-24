@@ -60,7 +60,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 
 	excludes := []glob.Glob{}
 	flags := flag.NewFlagSet("backup", flag.ExitOnError)
-	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
+	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
@@ -113,14 +113,14 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		return 1
 	}
 
-	snap.Header.Hostname = ctx.Hostname
-	snap.Header.Username = ctx.Username
+	snap.Header.Hostname = ctx.GetHostname()
+	snap.Header.Username = ctx.GetUsername()
 	snap.Header.OperatingSystem = runtime.GOOS
-	snap.Header.MachineID = ctx.MachineID
-	snap.Header.CommandLine = ctx.CommandLine
+	snap.Header.MachineID = ctx.GetMachineID()
+	snap.Header.CommandLine = ctx.GetCommandLine()
 	snap.Header.ProcessID = os.Getpid()
 	snap.Header.Architecture = runtime.GOARCH
-	snap.Header.NumCPU = runtime.NumCPU()
+	snap.Header.NumCPU = ctx.GetNumCPU()
 
 	var tags []string
 	if opt_tags == "" {

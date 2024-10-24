@@ -123,6 +123,7 @@ func NewStore(ctx *context.Context, name string, location string) (*Store, error
 		return nil, fmt.Errorf("backend '%s' does not exist", name)
 	} else {
 		store := &Store{}
+		store.context = ctx
 		store.backend = backend()
 		store.location = location
 		store.writeSharedLock = locking.NewSharedLock("store.write", runtime.NumCPU()*8+1)

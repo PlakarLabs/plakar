@@ -17,12 +17,15 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"log"
 
 	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/dustin/go-humanize"
 )
 
 func init() {
@@ -52,6 +55,13 @@ func cmd_fork(ctx *context.Context, repo *repository.Repository, args []string) 
 		if err := nsnap.Commit(); err != nil {
 			log.Fatal(err)
 		}
+
+		logger.Info("created snapshot %x with root %s of size %s in %s",
+			nsnap.Header.GetIndexShortID(),
+			base64.RawStdEncoding.EncodeToString(nsnap.Header.Root[:]),
+			humanize.Bytes(nsnap.Header.ScanProcessedSize),
+			nsnap.Header.CreationDuration)
+
 	}
 	return 0
 }

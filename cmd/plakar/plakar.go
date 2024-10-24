@@ -229,13 +229,13 @@ func entryPoint() int {
 		}
 	}
 
+	if command == "version" {
+		return cmd_version(args)
+	}
+
 	// cmd_create must be ran after workdir.New() but before other commands
 	if command == "create" {
 		return cmd_create(ctx, args)
-	}
-
-	if command == "version" {
-		return cmd_version(ctx, args)
 	}
 
 	if command == "stdio" {

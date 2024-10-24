@@ -29,38 +29,6 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type JSONChunk struct {
-	Length uint32
-}
-
-type JSONObject struct {
-	Chunks      []uint32
-	ContentType uint32
-}
-
-type JSONIndex struct {
-
-	// Pathnames -> Object checksum
-	Pathnames map[uint32]uint64
-
-	ContentTypes map[string]uint32
-
-	// Object checksum -> Object
-	Objects map[uint32]*JSONObject
-
-	// Chunk checksum -> Chunk
-	Chunks map[uint32]*JSONChunk
-
-	// Chunk checksum -> Object checksums
-	ChunkToObjects map[uint32][]uint32
-
-	// Object checksum -> Filenames
-	ObjectToPathnames map[uint32][]uint32
-
-	// Content Type -> Object checksums
-	ContentTypeToObjects map[uint32][]uint32
-}
-
 func init() {
 	registerCommand("info", cmd_info)
 }

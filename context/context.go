@@ -10,6 +10,10 @@ type Context struct {
 	machineID   string
 	keyFromFile string
 	cacheDir    string
+
+	operatingSystem string
+	architecture    string
+	processID       int
 }
 
 func NewContext() *Context {
@@ -78,4 +82,28 @@ func (c *Context) SetCacheDir(cacheDir string) {
 
 func (c *Context) GetCacheDir() string {
 	return c.cacheDir
+}
+
+func (c *Context) SetOperatingSystem(operatingSystem string) {
+	c.operatingSystem = operatingSystem
+}
+
+func (c *Context) GetOperatingSystem() string {
+	return c.operatingSystem
+}
+
+func (c *Context) SetArchitecture(architecture string) {
+	c.architecture = architecture
+}
+
+func (c *Context) GetArchitecture() string {
+	return c.architecture
+}
+
+func (c *Context) SetProcessID(processID int) {
+	c.processID = processID
+}
+
+func (c *Context) GetProcessID() int {
+	return c.processID
 }

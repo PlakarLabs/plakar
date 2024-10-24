@@ -24,7 +24,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 
 	"github.com/PlakarLabs/plakar/context"
@@ -115,11 +114,11 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 
 	snap.Header.Hostname = ctx.GetHostname()
 	snap.Header.Username = ctx.GetUsername()
-	snap.Header.OperatingSystem = runtime.GOOS
+	snap.Header.OperatingSystem = ctx.GetOperatingSystem()
 	snap.Header.MachineID = ctx.GetMachineID()
 	snap.Header.CommandLine = ctx.GetCommandLine()
-	snap.Header.ProcessID = os.Getpid()
-	snap.Header.Architecture = runtime.GOARCH
+	snap.Header.ProcessID = ctx.GetProcessID()
+	snap.Header.Architecture = ctx.GetArchitecture()
 	snap.Header.NumCPU = ctx.GetNumCPU()
 
 	var tags []string

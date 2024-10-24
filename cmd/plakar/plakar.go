@@ -143,7 +143,6 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: can't use more cores than available: %d\n", flag.CommandLine.Name(), runtime.NumCPU())
 		return 1
 	}
-
 	runtime.GOMAXPROCS(opt_cpuCount)
 
 	if opt_cpuProfile != "" {
@@ -170,6 +169,8 @@ func entryPoint() int {
 		secretFromKeyfile = strings.TrimSuffix(string(data), "\n")
 	}
 
+	ctx.SetOperatingSystem(runtime.GOOS)
+	ctx.SetArchitecture(runtime.GOARCH)
 	ctx.SetNumCPU(opt_cpuCount)
 	ctx.SetUsername(opt_username)
 	ctx.SetHostname(opt_hostname)
@@ -177,6 +178,7 @@ func entryPoint() int {
 	ctx.SetMachineID(opt_machineIdDefault)
 	ctx.SetKeyFromFile(secretFromKeyfile)
 	ctx.SetHomeDir(opt_userDefault.HomeDir)
+	ctx.SetProcessID(os.Getpid())
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))
@@ -231,10 +233,6 @@ func entryPoint() int {
 	if command == "create" {
 		return cmd_create(ctx, args)
 	}
-
-	//	if command == "config" {
-	//		return cmd_config(ctx, args)
-	//	}
 
 	if command == "version" {
 		return cmd_version(ctx, args)

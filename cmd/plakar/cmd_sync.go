@@ -107,7 +107,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	}
 	targetRepository, err = repository.New(targetStorage, targetSecret)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", targetStorage, err)
+		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", targetStorage.Location(), err)
 		return 1
 	}
 

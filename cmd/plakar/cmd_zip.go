@@ -83,7 +83,7 @@ func cmd_zip(ctx *context.Context, repo *repository.Repository, args []string) i
 				filepath = strings.TrimPrefix(filepath, prefix)
 			}
 
-			if info.(*vfs.DirEntry) != nil {
+			if _, isDir := info.(*vfs.DirEntry); isDir {
 				continue
 			}
 

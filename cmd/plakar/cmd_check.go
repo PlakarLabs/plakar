@@ -18,12 +18,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot"
 )
 
 func init() {
@@ -37,87 +37,26 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.Parse(args)
 
-	failures := false
-	for _, arg := range flags.Args() {
-		snapshotPrefix, pathname := parseSnapshotID(arg)
+	var snapshots []string
+	if flags.NArg() == 0 {
+		for snapshotID := range repo.State().ListSnapshots() {
+			snapshots = append(snapshots, fmt.Sprintf("%x", snapshotID))
+		}
+	} else {
+		snapshots = flags.Args()
+	}
 
+	failures := false
+	for _, arg := range snapshots {
+		snapshotPrefix, pathname := parseSnapshotID(arg)
 		snap, err := openSnapshotByPrefix(repo, snapshotPrefix)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if ok, err := check_snapshot(snap, pathname, enableFastCheck); err != nil {
+		if ok, err := snap.Check(pathname, enableFastCheck); err != nil {
 			logger.Warn("%s", err)
 		} else if !ok {
 			failures = true
-		}
-	}
-
-	if failures {
-		return 1
-	}
-	return 0
-}
-
-func check_snapshot(snap *snapshot.Snapshot, pattern string, enableFastCheck bool) (bool, error) {
-	return snap.Check(pattern, enableFastCheck)
-}
-
-func cmd_check2(ctx *context.Context, repo *repository.Repository, args []string) int {
-	var enableFastCheck bool
-
-	flags := flag.NewFlagSet("check", flag.ExitOnError)
-	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
-	flags.Parse(args)
-
-	var snapshots []*snapshot.Snapshot
-	var err error
-	failures := false
-
-	if flags.NArg() == 0 {
-		uuids, err := repo.GetSnapshots()
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, uuid := range uuids {
-			snapshot, err := snapshot.Load(repo, uuid)
-			if err != nil {
-				logger.Warn("%s", err)
-				continue
-			}
-			snapshots = append(snapshots, snapshot)
-		}
-
-		for _, snapshot := range snapshots {
-			ok, err := snapshot.Check("/", enableFastCheck)
-			if err != nil {
-				logger.Warn("%s", err)
-			}
-
-			if !ok {
-				failures = true
-			}
-		}
-
-	} else {
-		snapshots, err = getSnapshots(repo, flags.Args())
-		if err != nil {
-			log.Fatal(err)
-		}
-		if len(snapshots) == 0 {
-			log.Fatal("check needs at least one snapshot ID")
-		}
-
-		for offset, snapshot := range snapshots {
-			_, pattern := parseSnapshotID(flags.Args()[offset])
-
-			ok, err := snapshot.Check(pattern, enableFastCheck)
-			if err != nil {
-				logger.Warn("%s", err)
-			}
-
-			if !ok {
-				failures = true
-			}
 		}
 	}
 

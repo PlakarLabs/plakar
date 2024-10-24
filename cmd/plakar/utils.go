@@ -348,10 +348,10 @@ func checkUpdate() (ReleaseUpdateSummary, error) {
 				}
 			}
 			if latestEntry.Content != nil {
-				if strings.Contains(*&latestEntry.Content.Body, "SECURITY") {
+				if strings.Contains(latestEntry.Content.Body, "SECURITY") {
 					sawSecurityFix = true
 				}
-				if strings.Contains(*&latestEntry.Content.Body, "RELIABILITY") {
+				if strings.Contains(latestEntry.Content.Body, "RELIABILITY") {
 					sawReliabilityFix = true
 				}
 			}

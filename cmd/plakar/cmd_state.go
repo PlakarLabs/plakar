@@ -31,7 +31,7 @@ func init() {
 }
 
 func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
-	flags := flag.NewFlagSet("packfile", flag.ExitOnError)
+	flags := flag.NewFlagSet("state", flag.ExitOnError)
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -77,8 +77,6 @@ func cmd_state(ctx Plakar, repo *repository.Repository, args []string) int {
 					fmt.Printf("  %x\n", stateID)
 				}
 			}
-
-			fmt.Println(st.Snapshots)
 
 			for snapshotID, subpart := range st.Snapshots {
 				fmt.Printf("snapshot %x : packfile %x, offset %d, length %d\n",

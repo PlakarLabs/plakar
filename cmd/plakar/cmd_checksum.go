@@ -20,10 +20,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
@@ -52,6 +54,11 @@ func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []stri
 
 	errors := 0
 	for offset, snap := range snapshots {
+		fs, err := snap.Filesystem()
+		if err != nil {
+			continue
+		}
+
 		_, pathname := parseSnapshotID(flags.Args()[offset])
 		if pathname == "" {
 			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snap.Header.GetIndexShortID())
@@ -59,62 +66,52 @@ func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []stri
 			continue
 		}
 
-		fs, err := snap.Filesystem()
-		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-			errors++
-			continue
-		}
+		displayChecksums(fs, repo, snap, pathname, enableFastChecksum)
 
-		fsinfo, err := fs.Stat(pathname)
-		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-			errors++
-			continue
-		}
-
-		if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
-			logger.Error("%s: %s: is a directory", flags.Name(), pathname)
-			errors++
-			continue
-		}
-
-		if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
-			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
-			errors++
-			continue
-		} else if !fsinfo.FileInfo().Mode().IsRegular() {
-			logger.Error("%s: %s: is not a regular file", flags.Name(), pathname)
-			errors++
-			continue
-		}
-
-		info := fsinfo.(*vfs.FileEntry)
-		object, err := snap.LookupObject(info.Checksum)
-		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-			errors++
-			continue
-		}
-
-		checksum := object.Checksum
-		if !enableFastChecksum {
-			rd, err := snap.NewReader(pathname)
-			if err != nil {
-				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-				errors++
-				continue
-			}
-
-			hasher := repo.Hasher()
-			if _, err := io.Copy(hasher, rd); err != nil {
-				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-				errors++
-				continue
-			}
-		}
-		fmt.Printf("SHA256 (%s) = %x\n", pathname, checksum)
 	}
 
 	return 0
+}
+
+func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *snapshot.Snapshot, pathname string, fastcheck bool) error {
+	fsinfo, err := fs.Stat(pathname)
+	if err != nil {
+		return err
+	}
+
+	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		for _, entry := range dirEntry.Children {
+			if err := displayChecksums(fs, repo, snap, filepath.Join(pathname, entry.FileInfo.Name()), fastcheck); err != nil {
+				return err
+			}
+		}
+	}
+
+	if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
+		return err
+	} else if !fsinfo.FileInfo().Mode().IsRegular() {
+		return err
+	}
+
+	info := fsinfo.(*vfs.FileEntry)
+	object, err := snap.LookupObject(info.Checksum)
+	if err != nil {
+		return err
+	}
+
+	checksum := object.Checksum
+	if !fastcheck {
+		rd, err := snap.NewReader(pathname)
+		if err != nil {
+			return err
+		}
+		defer rd.Close()
+
+		hasher := repo.Hasher()
+		if _, err := io.Copy(hasher, rd); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("SHA256 (%s) = %x\n", pathname, checksum)
+	return nil
 }

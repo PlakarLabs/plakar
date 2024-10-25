@@ -273,15 +273,6 @@ func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	return snapshots
 }
 
-func indexArrayContains(a [][32]byte, x [32]byte) bool {
-	for _, n := range a {
-		if x == n {
-			return true
-		}
-	}
-	return false
-}
-
 func HumanToDuration(human string) (time.Duration, error) {
 	// support either one of the following:
 	// - time.Duration string

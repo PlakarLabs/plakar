@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"flag"
 	"io"
 	"os"
@@ -35,8 +36,11 @@ func init() {
 }
 
 func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) int {
+	var opt_nodecompress bool
 	var opt_highlight bool
+
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
+	flags.BoolVar(&opt_nodecompress, "no-decompress", false, "do not try to decompress output")
 	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")
 	flags.Parse(args)
 
@@ -69,6 +73,18 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		}
 
 		var outRd io.ReadCloser = rd
+
+		if !opt_nodecompress {
+			if rd.GetContentType() == "application/gzip" && !opt_nodecompress {
+				gzRd, err := gzip.NewReader(outRd)
+				if err != nil {
+					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					errors++
+					continue
+				}
+				outRd = gzRd
+			}
+		}
 
 		if opt_highlight {
 			lexer := lexers.Match(pathname)

@@ -94,7 +94,9 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 		archiveTarball(snap, out, fs, pathname, opt_rebase)
 	case "tarball":
 		gzipWriter := gzip.NewWriter(out)
-		archiveTarball(snap, gzipWriter, fs, pathname, opt_rebase)
+		if err := archiveTarball(snap, gzipWriter, fs, pathname, opt_rebase); err != nil {
+			return 1
+		}
 		gzipWriter.Close()
 	case "zip":
 		archiveZip(snap, out, fs, pathname, opt_rebase)
@@ -113,7 +115,7 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 	return 0
 }
 
-func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) {
+func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) error {
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 
@@ -149,6 +151,8 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 				Mode:    int64(info.Permissions),
 				ModTime: info.ModTime,
 			}
+		default:
+			logger.Error("could not stat file %T: %s %s", file, file, err)
 		}
 
 		if _, isDir := info.(*vfs.DirEntry); isDir {
@@ -172,10 +176,13 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 		if err != nil {
 			logger.Error("could not write file %s: %s", file, err)
 			rd.Close()
-			continue
+			return err
 		}
+		fmt.Println("###4")
 		rd.Close()
 	}
+
+	return nil
 }
 
 func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) {

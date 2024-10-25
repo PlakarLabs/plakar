@@ -82,24 +82,30 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 	if opt_output == "-" {
 		out = os.Stdout
 	} else {
-		out, err := os.CreateTemp("", "plakar-archive-")
+		tmp, err := os.CreateTemp("", "plakar-archive-")
 		if err != nil {
 			log.Fatalf("%s: %s: %s", flag.CommandLine.Name(), pathname, err)
 		}
-		defer os.Remove(out.Name())
+		defer os.Remove(tmp.Name())
+		out = tmp
 	}
 
 	switch opt_format {
 	case "tar":
-		archiveTarball(snap, out, fs, pathname, opt_rebase)
+		if err := archiveTarball(snap, out, fs, pathname, opt_rebase); err != nil {
+			log.Fatal(err)
+		}
 	case "tarball":
 		gzipWriter := gzip.NewWriter(out)
+		fmt.Println(gzipWriter)
+		defer gzipWriter.Close()
 		if err := archiveTarball(snap, gzipWriter, fs, pathname, opt_rebase); err != nil {
-			return 1
+			log.Fatal(err)
 		}
-		gzipWriter.Close()
 	case "zip":
-		archiveZip(snap, out, fs, pathname, opt_rebase)
+		if err := archiveZip(snap, out, fs, pathname, opt_rebase); err != nil {
+			log.Fatal(err)
+		}
 	default:
 		log.Fatalf("%s: unsupported format %s", flag.CommandLine.Name(), opt_format)
 	}
@@ -178,14 +184,13 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 			rd.Close()
 			return err
 		}
-		fmt.Println("###4")
 		rd.Close()
 	}
 
 	return nil
 }
 
-func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) {
+func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) error {
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
 
@@ -235,4 +240,5 @@ func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path
 		}
 		rd.Close()
 	}
+	return nil
 }

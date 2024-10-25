@@ -105,7 +105,7 @@ func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) 
 		})
 
 		for _, pathname := range files {
-			fmt.Printf("%s  %s %s\n", snap.Header.CreationTime.UTC().Format(time.RFC3339), snap.Header.GetIndexShortID(), pathname)
+			fmt.Printf("%s  %x %s\n", snap.Header.CreationTime.UTC().Format(time.RFC3339), snap.Header.GetIndexShortID(), pathname)
 		}
 	}
 

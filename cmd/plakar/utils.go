@@ -57,16 +57,6 @@ func parseSnapshotID(id string) (string, string) {
 	return prefix, pattern
 }
 
-func findSnapshotByPrefix(snapshots [][32]byte, prefix string) [][32]byte {
-	ret := make([][32]byte, 0)
-	for _, snapshotID := range snapshots {
-		if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), prefix) {
-			ret = append(ret, snapshotID)
-		}
-	}
-	return ret
-}
-
 func lookupSnapshotByPrefix(repo *repository.Repository, prefix string) [][32]byte {
 	ret := make([][32]byte, 0)
 	for snapshotID := range repo.State().ListSnapshots() {

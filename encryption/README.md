@@ -91,7 +91,6 @@ This library provides a secure, efficient mechanism for encrypting and decryptin
 
 ## Future Enhancements
 
-- **Support for Additional Encryption Modes**: Add support for other modes, like AES-CTR with HMAC, for cases where integrity is managed separately.
 - **Dynamic Chunk Size Configuration**: Allow users to specify the chunk size for improved control over memory and performance.
 - **Parallelizaiton**: Allow users to specify a concurrency value for parallel chunk decryption
 

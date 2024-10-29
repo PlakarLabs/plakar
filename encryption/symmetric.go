@@ -17,6 +17,10 @@ const (
 	chunkSize = 1024 // Size of each chunk for encryption/decryption
 )
 
+func DefaultAlgorithm() string {
+	return "AES256-GCM"
+}
+
 // BuildSecretFromPassphrase generates a secret from a passphrase using scrypt
 func BuildSecretFromPassphrase(passphrase []byte) (string, error) {
 	// Generate a random salt

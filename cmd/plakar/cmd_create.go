@@ -69,7 +69,6 @@ func cmd_create(ctx *context.Context, args []string) int {
 		} else {
 			passphrase = []byte(ctx.GetKeyFromFile())
 		}
-		storageConfiguration.Encryption = "AES256-GCM"
 
 		encryptionKey, err := encryption.BuildSecretFromPassphrase(passphrase)
 		if err != nil {
@@ -77,6 +76,7 @@ func cmd_create(ctx *context.Context, args []string) int {
 			return 1
 		}
 
+		storageConfiguration.Encryption = encryption.DefaultAlgorithm()
 		storageConfiguration.EncryptionKey = encryptionKey
 	}
 

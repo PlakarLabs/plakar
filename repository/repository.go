@@ -179,19 +179,25 @@ func (r *Repository) Decode(buffer []byte) ([]byte, error) {
 	}()
 
 	if r.secret != nil {
-		tmp, err := encryption.Decrypt(r.secret, buffer)
+		tmp, err := encryption.DecryptStream(r.secret, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
-		buffer = tmp
+		buffer, err = io.ReadAll(tmp)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if r.configuration.Compression != "" {
-		tmp, err := compression.Inflate(r.configuration.Compression, buffer)
+		tmp, err := compression.InflateStream(r.configuration.Compression, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
-		buffer = tmp
+		buffer, err = io.ReadAll(tmp)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return buffer, nil
 }
@@ -204,19 +210,25 @@ func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 	}()
 
 	if r.configuration.Compression != "" {
-		tmp, err := compression.Deflate(r.configuration.Compression, buffer)
+		tmp, err := compression.DeflateStream(r.configuration.Compression, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
-		buffer = tmp
+		buffer, err = io.ReadAll(tmp)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if r.secret != nil {
-		tmp, err := encryption.Encrypt(r.secret, buffer)
+		tmp, err := encryption.EncryptStream(r.secret, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
-		buffer = tmp
+		buffer, err = io.ReadAll(tmp)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return buffer, nil

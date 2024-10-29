@@ -92,12 +92,17 @@ func (repository *Repository) Create(location string, config storage.Configurati
 		return err
 	}
 
-	compressedConfig, err := compression.Deflate("gzip", jconfig)
+	compressedConfig, err := compression.DeflateStream("gzip", bytes.NewReader(jconfig))
 	if err != nil {
 		return err
 	}
 
-	_, err = repository.minioClient.PutObject(context.Background(), repository.bucketName, "CONFIG", bytes.NewReader(compressedConfig), int64(len(compressedConfig)), minio.PutObjectOptions{})
+	data, err := io.ReadAll(compressedConfig)
+	if err != nil {
+		return err
+	}
+
+	_, err = repository.minioClient.PutObject(context.Background(), repository.bucketName, "CONFIG", bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
@@ -145,13 +150,18 @@ func (repository *Repository) Open(location string) error {
 	}
 	object.Close()
 
-	jconfig, err := compression.Inflate("gzip", compressed)
+	jconfig, err := compression.InflateStream("gzip", bytes.NewReader(compressed))
+	if err != nil {
+		return err
+	}
+
+	data, err := io.ReadAll(jconfig)
 	if err != nil {
 		return err
 	}
 
 	var config storage.Configuration
-	err = msgpack.Unmarshal(jconfig, &config)
+	err = msgpack.Unmarshal(data, &config)
 	if err != nil {
 		return err
 	}

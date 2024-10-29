@@ -87,12 +87,12 @@ func (repository *Repository) Create(location string, config storage.Configurati
 		return err
 	}
 
-	compressedConfig, err := compression.Deflate("gzip", jconfig)
+	compressedConfig, err := compression.DeflateStream("gzip", bytes.NewReader(jconfig))
 	if err != nil {
 		return err
 	}
 
-	_, err = f.Write(compressedConfig)
+	_, err = io.Copy(f, compressedConfig)
 	if err != nil {
 		return err
 	}
@@ -110,18 +110,23 @@ func (repository *Repository) Open(location string) error {
 	repository.root = location
 
 	configPath := filepath.Join(repository.root, "CONFIG")
-	compressed, err := os.ReadFile(configPath)
+	rd, err := os.Open(configPath)
 	if err != nil {
 		return err
 	}
 
-	jconfig, err := compression.Inflate("gzip", compressed)
+	jconfig, err := compression.InflateStream("gzip", rd)
+	if err != nil {
+		return err
+	}
+
+	data, err := io.ReadAll(jconfig)
 	if err != nil {
 		return err
 	}
 
 	config := storage.Configuration{}
-	err = msgpack.Unmarshal(jconfig, &config)
+	err = msgpack.Unmarshal(data, &config)
 	if err != nil {
 		return err
 	}

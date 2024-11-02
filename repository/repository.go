@@ -138,11 +138,9 @@ func (r *Repository) rebuildState() error {
 		if err != nil {
 			return err
 		}
-
 		aggregateState.Merge(stateID, tmp)
 		aggregateState.Extends(stateID)
 	}
-
 	aggregateState.ResetDirty()
 	r.state = aggregateState
 	return nil

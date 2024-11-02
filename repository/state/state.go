@@ -237,11 +237,10 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 	deltaState.muSnapshots.Unlock()
 
 	deltaState.muDeletedSnapshots.Lock()
-	for snapshotID := range st.DeletedSnapshots {
-		st.DeleteSnapshot(st.IdToChecksum[snapshotID])
-	}
-	for snapshotID := range deltaState.DeletedSnapshots {
-		st.DeleteSnapshot(deltaState.IdToChecksum[snapshotID])
+	for originalSnapshotID, tm := range deltaState.DeletedSnapshots {
+		originalChecksum := deltaState.IdToChecksum[originalSnapshotID]
+		snapshotID := st.getOrCreateIdForChecksum(originalChecksum)
+		st.DeletedSnapshots[snapshotID] = tm
 	}
 	deltaState.muDeletedSnapshots.Unlock()
 }

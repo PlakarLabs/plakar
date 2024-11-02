@@ -524,48 +524,25 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	for record := range directories {
 
-		var dirEntry *vfs.DirEntry
+		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
-		// Check if the file entry and underlying objects are already in the cache
-		cachedDirEntry, cachedDirEntryChecksum, cachedDirEntrySize, err := cacheInstance.LookupDirectory(scanDir, record.Pathname)
-		if err == nil && cachedDirEntry != nil {
-			if cachedDirEntry.ModTime.Equal(record.Stat.ModTime()) && cachedDirEntry.Size == record.Stat.Size() {
-				dirEntry = cachedDirEntry
+		for _, child := range record.Children {
+			value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
+			if err != nil {
+				return err
 			}
+			dirEntry.AddChild(value, child)
 		}
 
-		//dirEntry = nil
+		serialized, err := dirEntry.Serialize()
+		if err != nil {
+			return err
+		}
+		dirEntryChecksum := snap.repository.Checksum(serialized)
+		dirEntrySize := uint64(len(serialized))
 
-		var dirEntryChecksum [32]byte
-		var dirEntrySize uint64
-		if dirEntry != nil && snap.CheckDirectory(cachedDirEntryChecksum) {
-			dirEntryChecksum = cachedDirEntryChecksum
-			dirEntrySize = cachedDirEntrySize
-		} else {
-			dirEntry = vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
-
-			for _, child := range record.Children {
-				value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
-				if err != nil {
-					return err
-				}
-				dirEntry.AddChild(value, child)
-			}
-
-			serialized, err := dirEntry.Serialize()
-			if err != nil {
-				return err
-			}
-			dirEntryChecksum = snap.repository.Checksum(serialized)
-			dirEntrySize = uint64(len(serialized))
-
+		if !snap.CheckDirectory(dirEntryChecksum) {
 			err = snap.PutDirectory(dirEntryChecksum, serialized)
-			if err != nil {
-				return err
-			}
-
-			// Store the newly generated DirEntry in the cache for future runs
-			err = cacheInstance.RecordDirectory(scanDir, record.Pathname, dirEntry)
 			if err != nil {
 				return err
 			}

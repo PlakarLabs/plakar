@@ -23,14 +23,12 @@ func TestSerializeAndDeserialize(t *testing.T) {
 	checksum1 := [32]byte{1, 2, 3}
 	checksum2 := [32]byte{4, 5, 6}
 	chunkSubpart := Location{
-		Packfile: 0,
-		Offset:   100,
-		Length:   200,
+		Offset: 100,
+		Length: 200,
 	}
 	objectSubpart := Location{
-		Packfile: 0,
-		Offset:   300,
-		Length:   400,
+		Offset: 300,
+		Length: 400,
 	}
 
 	st.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)

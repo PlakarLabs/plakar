@@ -33,7 +33,7 @@ type ScanEntry struct {
 	Info     fs.FileInfo
 }
 
-func cwalk_worker(rootDir string, id int, jobs <-chan ScanEntry, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
+func cwalk_worker(rootDir string, jobs <-chan ScanEntry, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for path := range jobs {
@@ -154,7 +154,7 @@ func cwalk_walker(rootDir string, numWorkers int) (<-chan importer.ScanResult, e
 	// Launch worker pool
 	for w := 1; w <= numWorkers; w++ {
 		wg.Add(1)
-		go cwalk_worker(rootDir, w, jobs, results, &wg)
+		go cwalk_worker(rootDir, jobs, results, &wg)
 	}
 
 	// Start walking the directory and sending file paths to workers using cwalk

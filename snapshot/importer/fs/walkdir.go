@@ -28,7 +28,7 @@ import (
 )
 
 // Worker pool to handle file scanning in parallel
-func walkDir_worker(rootDir string, id int, jobs <-chan string, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
+func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for path := range jobs {
@@ -150,7 +150,7 @@ func walkDir_walker(rootDir string, numWorkers int) (<-chan importer.ScanResult,
 	// Launch worker pool
 	for w := 1; w <= numWorkers; w++ {
 		wg.Add(1)
-		go walkDir_worker(rootDir, w, jobs, results, &wg)
+		go walkDir_worker(rootDir, jobs, results, &wg)
 	}
 
 	// Start walking the directory and sending file paths to workers

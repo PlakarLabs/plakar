@@ -193,3 +193,15 @@ func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, d
 func (fileinfo *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fileinfo.Size()))
 }
+
+func (fileinfo *FileInfo) Equal(fi *FileInfo) bool {
+	return fileinfo.Lname == fi.Lname &&
+		fileinfo.Lsize == fi.Lsize &&
+		fileinfo.Lmode == fi.Lmode &&
+		fileinfo.LmodTime == fi.LmodTime &&
+		fileinfo.Ldev == fi.Ldev &&
+		fileinfo.Lino == fi.Lino &&
+		fileinfo.Luid == fi.Luid &&
+		fileinfo.Lgid == fi.Lgid &&
+		fileinfo.Lnlink == fi.Lnlink
+}

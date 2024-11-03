@@ -64,6 +64,10 @@ func (repository *Repository) Open(location string) error {
 	return nil
 }
 
+func (repository *Repository) Close() error {
+	return nil
+}
+
 func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
@@ -120,10 +124,6 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	return nil
-}
-
-func (repository *Repository) Close() error {
 	return nil
 }
 

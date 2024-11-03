@@ -247,8 +247,8 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 		Prefix:    "states/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "states/") && len(object.Key) >= 11 {
-			t, err := hex.DecodeString(object.Key[11:])
+		if strings.HasPrefix(object.Key, "states/") && len(object.Key) >= 10 {
+			t, err := hex.DecodeString(object.Key[10:])
 			if err != nil {
 				return nil, err
 			}
@@ -300,8 +300,8 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 		Prefix:    "packfiles/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "packfiles/") && len(object.Key) >= 13 {
-			t, err := hex.DecodeString(object.Key[13:])
+		if strings.HasPrefix(object.Key, "packfiles/") && len(object.Key) >= 10 {
+			t, err := hex.DecodeString(object.Key[10:])
 			if err != nil {
 				return nil, err
 			}
@@ -343,7 +343,27 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 	if err != nil {
 		return nil, 0, err
 	}
-	return object, uint32(length), nil
+	stat, err := object.Stat()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if stat.Size < int64(offset+length) {
+		return nil, 0, fmt.Errorf("invalid range")
+	}
+
+	if _, err := object.Seek(int64(offset), io.SeekStart); err != nil {
+		return nil, 0, err
+	}
+
+	buffer := make([]byte, length)
+	if nbytes, err := object.Read(buffer); err != nil {
+		return nil, 0, err
+	} else if nbytes != int(length) {
+		return nil, 0, fmt.Errorf("short read")
+	}
+
+	return bytes.NewBuffer(buffer), uint32(length), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {

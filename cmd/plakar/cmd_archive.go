@@ -97,7 +97,6 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 		}
 	case "tarball":
 		gzipWriter := gzip.NewWriter(out)
-		fmt.Println(gzipWriter)
 		defer gzipWriter.Close()
 		if err := archiveTarball(snap, gzipWriter, fs, pathname, opt_rebase); err != nil {
 			log.Fatal(err)

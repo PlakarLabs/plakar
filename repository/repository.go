@@ -284,31 +284,6 @@ func (r *Repository) GetSnapshots() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (r *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("repository.GetSnapshot", time.Since(t0))
-		logger.Trace("repository", "GetSnapshot(%x): %s", snapshotID, time.Since(t0))
-	}()
-
-	packfile, offset, length, exists := r.state.GetSubpartForSnapshot(snapshotID)
-	if !exists {
-		return nil, fmt.Errorf("snapshot not found")
-	}
-
-	blob, _, err := r.GetPackfileBlob(packfile, offset, length)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(blob)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
 func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	t0 := time.Now()
 	defer func() {
@@ -474,4 +449,124 @@ func (r *Repository) DeletePackfile(checksum [32]byte) error {
 	}()
 
 	return r.store.DeletePackfile(checksum)
+}
+
+func (r *Repository) GetChunk(checksum [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetChunk", time.Since(t0))
+		logger.Trace("repository", "GetChunk(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForChunk(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
+func (r *Repository) GetObject(checksum [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetObject", time.Since(t0))
+		logger.Trace("repository", "GetObject(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForObject(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
+func (r *Repository) GetFile(checksum [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetFile", time.Since(t0))
+		logger.Trace("repository", "GetFile(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForFile(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
+func (r *Repository) GetDirectory(checksum [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetDirectory", time.Since(t0))
+		logger.Trace("repository", "GetDirectory(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForDirectory(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
+func (r *Repository) GetData(checksum [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetData", time.Since(t0))
+		logger.Trace("repository", "GetData(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForData(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
+func (r *Repository) GetSnapshot(snapshotID [32]byte) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetSnapshot", time.Since(t0))
+		logger.Trace("repository", "GetSnapshot(%x): %s", snapshotID, time.Since(t0))
+	}()
+
+	packfile, offset, length, exists := r.state.GetSubpartForSnapshot(snapshotID)
+	if !exists {
+		return nil, 0, fmt.Errorf("snapshot not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfile, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
 }

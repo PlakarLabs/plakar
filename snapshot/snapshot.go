@@ -364,7 +364,12 @@ func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Head
 	}()
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
 
-	buffer, err := repo.GetSnapshot(snapshotID)
+	rd, _, err := repo.GetSnapshot(snapshotID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	buffer, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, false, err
 	}

@@ -62,13 +62,11 @@ func (repository *Repository) connect(location *url.URL) error {
 	scheme := location.Scheme
 	switch scheme {
 	case "tcp":
-		fmt.Println("#####")
 		err := repository.connectTCP(location)
 		if err != nil {
 			return err
 		}
 	case "ssh":
-		fmt.Println("@@@@@ ")
 		err := repository.connectSSH(location)
 		if err != nil {
 			return err

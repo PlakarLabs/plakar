@@ -239,7 +239,7 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64,
 }
 
 func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/subpart", network.ReqGetPackfileBlob{
+	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/blob", network.ReqGetPackfileBlob{
 		Checksum: checksum,
 		Offset:   offset,
 		Length:   length,

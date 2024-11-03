@@ -46,6 +46,45 @@ func TestEncryptDecryptStream(t *testing.T) {
 	}
 }
 
+func TestEncryptDecryptEmptyStream(t *testing.T) {
+	passphrase := []byte("strong passphrase")
+	secret, err := BuildSecretFromPassphrase(passphrase)
+	if err != nil {
+		t.Fatalf("Failed to build secret from passphrase: %v", err)
+	}
+	derivedKey, err := DeriveSecret(passphrase, secret)
+	if err != nil {
+		t.Fatalf("Failed to derive key from passphrase: %v", err)
+	}
+
+	// Original data to encrypt and decrypt
+	originalData := ""
+	r := strings.NewReader(originalData)
+
+	// Encrypt the data
+	encryptedReader, err := EncryptStream(derivedKey, r)
+	if err != nil {
+		t.Fatalf("Failed to encrypt data: %v", err)
+	}
+
+	// Decrypt the data
+	decryptedReader, err := DecryptStream(derivedKey, encryptedReader)
+	if err != nil {
+		t.Fatalf("Failed to decrypt data: %v", err)
+	}
+
+	// Read the decrypted data
+	decryptedData, err := io.ReadAll(decryptedReader)
+	if err != nil {
+		t.Fatalf("Failed to read decrypted data: %v", err)
+	}
+
+	// Verify the decrypted data matches the original data
+	if string(decryptedData) != originalData {
+		t.Errorf("Decrypted data does not match original. Got: %q, want: %q", string(decryptedData), originalData)
+	}
+}
+
 func TestEncryptDecryptStreamWithIncorrectKey(t *testing.T) {
 	passphrase := []byte("secure passphrase")
 	secret, err := BuildSecretFromPassphrase(passphrase)

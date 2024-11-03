@@ -22,7 +22,6 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/whilp/git-urls v1.0.0
-	github.com/zeebo/blake3 v0.2.3
 	golang.org/x/crypto v0.26.0
 	golang.org/x/mod v0.21.0
 	golang.org/x/term v0.24.0

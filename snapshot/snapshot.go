@@ -3,7 +3,6 @@ package snapshot
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"runtime"
 	"sync"
@@ -56,7 +55,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 
 	snapshot := &Snapshot{
 		repository: repo,
-		stateDelta: state.New(),
+		stateDelta: repo.NewStateDelta(),
 
 		Header:   header.NewHeader(snapshotID),
 		Metadata: metadata.New(),
@@ -66,7 +65,6 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
-	snapshot.stateDelta.Metadata.Extends = repo.State().Metadata.Extends
 
 	go func() {
 		wg := sync.WaitGroup{}
@@ -364,7 +362,12 @@ func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Head
 	}()
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
 
-	buffer, err := repo.GetSnapshot(snapshotID)
+	rd, _, err := repo.GetSnapshot(snapshotID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	buffer, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, false, err
 	}
@@ -383,12 +386,7 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
 	}()
 
-	packfile, offset, length, exists := repo.State().GetSubpartForData(checksum)
-	if !exists {
-		return nil, [32]byte{}, fmt.Errorf("metadata not found")
-	}
-
-	rd, _, err := repo.GetPackfileBlob(packfile, offset, length)
+	rd, _, err := repo.GetData(checksum)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}
@@ -585,7 +583,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, chunkChecksum := range chunks {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == chunkChecksum && blob.Type == packfile.TYPE_CHUNK {
-				snap.Repository().State().SetPackfileForChunk(checksum32,
+				snap.Repository().SetPackfileForChunk(checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -601,7 +599,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, objectChecksum := range objects {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == objectChecksum && blob.Type == packfile.TYPE_OBJECT {
-				snap.Repository().State().SetPackfileForObject(checksum32,
+				snap.Repository().SetPackfileForObject(checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -617,7 +615,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, fileChecksum := range files {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == fileChecksum && blob.Type == packfile.TYPE_FILE {
-				snap.Repository().State().SetPackfileForFile(checksum32,
+				snap.Repository().SetPackfileForFile(checksum32,
 					fileChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -633,7 +631,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, directoryChecksum := range directories {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == directoryChecksum && blob.Type == packfile.TYPE_DIRECTORY {
-				snap.Repository().State().SetPackfileForDirectory(checksum32,
+				snap.Repository().SetPackfileForDirectory(checksum32,
 					directoryChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -649,7 +647,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, dataChecksum := range datas {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DATA {
-				snap.Repository().State().SetPackfileForData(checksum32,
+				snap.Repository().SetPackfileForData(checksum32,
 					dataChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -665,7 +663,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, snapshotID := range snapshots {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == snapshotID && blob.Type == packfile.TYPE_SNAPSHOT {
-				snap.Repository().State().SetPackfileForSnapshot(checksum32,
+				snap.Repository().SetPackfileForSnapshot(checksum32,
 					snapshotID,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -687,12 +685,7 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetChunk(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForChunk(checksum)
-	if !exists {
-		return nil, fmt.Errorf("packfile not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetChunk(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -712,12 +705,7 @@ func (snapshot *Snapshot) GetFile(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetFile(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForFile(checksum)
-	if !exists {
-		return nil, fmt.Errorf("packfile not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetFile(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -737,12 +725,7 @@ func (snapshot *Snapshot) GetDirectory(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetDirectory(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForDirectory(checksum)
-	if !exists {
-		return nil, fmt.Errorf("packfile not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetDirectory(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -762,7 +745,7 @@ func (snapshot *Snapshot) CheckFile(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckFile(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	return snapshot.Repository().State().FileExists(checksum)
+	return snapshot.Repository().FileExists(checksum)
 }
 
 func (snapshot *Snapshot) CheckDirectory(checksum [32]byte) bool {
@@ -772,7 +755,7 @@ func (snapshot *Snapshot) CheckDirectory(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckDirectory(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	return snapshot.Repository().State().DirectoryExists(checksum)
+	return snapshot.Repository().DirectoryExists(checksum)
 }
 
 func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
@@ -782,7 +765,7 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	return snapshot.Repository().State().ChunkExists(checksum)
+	return snapshot.Repository().ChunkExists(checksum)
 
 }
 
@@ -793,12 +776,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetObject(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForObject(checksum)
-	if !exists {
-		return nil, fmt.Errorf("packfile not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetObject(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -818,7 +796,7 @@ func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
 	}()
 	logger.Trace("snapshot", "%s: CheckObject(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	return snapshot.Repository().State().ObjectExists(checksum)
+	return snapshot.Repository().ObjectExists(checksum)
 }
 
 func (snapshot *Snapshot) Commit() error {
@@ -866,12 +844,7 @@ func (snapshot *Snapshot) GetData(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetData(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForData(checksum)
-	if !exists {
-		return nil, fmt.Errorf("packfile not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	rd, _, err := snapshot.repository.GetData(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -889,21 +862,10 @@ func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 }
 
 func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, error) {
-	packfile, offset, length, exists := snapshot.Repository().State().GetSubpartForObject(checksum)
-	if !exists {
-		return nil, fmt.Errorf("object not found")
-	}
-
-	rd, _, err := snapshot.repository.GetPackfileBlob(packfile, offset, length)
+	buffer, err := snapshot.GetObject(checksum)
 	if err != nil {
 		return nil, err
 	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
 	return objects.NewObjectFromBytes(buffer)
 }
 

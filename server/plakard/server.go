@@ -175,7 +175,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetStates()", clientUuid)
-				checksums, err := lrepository.Store().GetStates()
+				checksums, err := lrepository.GetStates()
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()

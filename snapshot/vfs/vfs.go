@@ -16,12 +16,7 @@ type Filesystem struct {
 }
 
 func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, error) {
-	packfile, offset, length, exists := repo.State().GetSubpartForDirectory(root)
-	if !exists {
-		return nil, fmt.Errorf("directory not found")
-	}
-
-	rd, _, err := repo.GetPackfileBlob(packfile, offset, length)
+	rd, _, err := repo.GetDirectory(root)
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +42,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			fmt.Println("packfile not found for directory")
-			return
-		}
-
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			fmt.Println("packfile blob not found for directory")
 			return
@@ -74,7 +63,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
 			continue
 		}
 		out <- filepath.Join(baseDir, child.FileInfo.Name())
@@ -95,11 +84,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			return
-		}
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			return
 		}
@@ -117,8 +102,8 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.State().FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
 				return
 			}
 			fsc.filesRecursive(child.Checksum, out)
@@ -141,11 +126,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			return
-		}
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			return
 		}
@@ -164,8 +145,8 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 	out <- baseDir
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.State().FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
 				return
 			}
 			fsc.pathnamesRecursive(child.Checksum, out)
@@ -193,14 +174,9 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 	}
 
 	// Check if checksum refers to a file
-	if fsc.repo.State().FileExists(checksum) {
+	if fsc.repo.FileExists(checksum) {
 		// Retrieve the file metadata
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForFile(checksum)
-		if !exists {
-			return nil, fmt.Errorf("file not found")
-		}
-
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetFile(checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -226,14 +202,9 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 	}
 
 	// Check if checksum refers to a directory
-	if fsc.repo.State().DirectoryExists(checksum) {
+	if fsc.repo.DirectoryExists(checksum) {
 		// Retrieve the directory metadata
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			return nil, fmt.Errorf("directory not found")
-		}
-
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -314,11 +285,7 @@ func (fsc *Filesystem) Children(path string) (<-chan string, error) {
 func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
 	currentEntry := fsc.rootEntry
 	if fsc.root != checksum {
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			return
-		}
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			return
 		}
@@ -335,8 +302,8 @@ func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]by
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.State().FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
 				return
 			}
 			fsc.fileChecksumsRecursive(child.Checksum, out)
@@ -358,13 +325,7 @@ func (fsc *Filesystem) FileChecksums() <-chan [32]byte {
 func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
 	currentEntry := fsc.rootEntry
 	if fsc.root != checksum {
-		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
-		if !exists {
-			fmt.Println("packfile not found for directory")
-			return
-		}
-
-		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		rd, _, err := fsc.repo.GetDirectory(checksum)
 		if err != nil {
 			fmt.Println("packfile blob not found for directory")
 			return
@@ -384,7 +345,7 @@ func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
 			continue
 		}
 		out <- child.Checksum

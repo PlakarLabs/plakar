@@ -1,0 +1,66 @@
+.Dd November 3, 2024
+.Dt PLAKAR RESTORE 1
+.Os
+.Sh NAME
+.Nm plakar restore
+.Nd Restore files from a Plakar snapshot
+.Sh SYNOPSIS
+.Nm
+.Op Fl to Ar directory
+.Op Fl rebase
+.Ar snapshotID ...
+.Sh DESCRIPTION
+The
+.Nm
+command is used to restore files and directories from a specified Plakar snapshot to the local file system. Users can specify a destination directory for the restore operation and use the
+.Fl rebase
+option to remove path prefixes from restored files.
+
+.Bl -tag -width Ds
+.It Fl to Ar directory
+Specify the base directory to which the files will be restored. If omitted, files are restored to the current working directory.
+
+.It Fl rebase
+Strip the original path from each restored file, placing files directly in the specified directory (or the current working directory if
+.Fl to
+is omitted).
+
+.El
+
+.Sh ARGUMENTS
+.Bl -tag -width Ds
+.It Ar snapshotID
+One or more snapshot IDs specifying the snapshots to restore from. If no snapshot ID is provided, the command attempts to restore the current working directory from the latest matching snapshot.
+.El
+
+.Sh EXAMPLES
+To illustrate usage:
+
+.Bl -tag -width Ds
+.It Restore all files from a specific snapshot to the current directory:
+.Bd -literal -offset indent
+plakar restore abc123
+.Ed
+
+.It Restore to a specific directory:
+.Bd -literal -offset indent
+plakar restore -to /path/to/restore abc123
+.Ed
+
+.It Restore with rebase option, placing files directly in the target directory:
+.Bd -literal -offset indent
+plakar restore -rebase -to /path/to/restore abc123
+.Ed
+.El
+
+.Sh DIAGNOSTICS
+.Ex -std
+.Bl -tag -width Ds
+.It 0
+Command completed successfully.
+.It >0
+An error occurred, such as a failure to locate the snapshot or a destination directory issue.
+.El
+
+.Sh SEE ALSO
+.Xr plakar 1

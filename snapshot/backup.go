@@ -362,7 +362,7 @@ func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOp
 
 func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
-	cacheDir := filepath.Join(snap.repository.Store().Context().GetCacheDir(), "fscache")
+	cacheDir := filepath.Join(snap.repository.Context().GetCacheDir(), "fscache")
 	cacheInstance, err := cache.New(cacheDir)
 	if err != nil {
 		return err

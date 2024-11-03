@@ -12,6 +12,7 @@ import (
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarLabs/plakar/compression"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/hashing"
 	"github.com/PlakarLabs/plakar/logger"
@@ -138,6 +139,10 @@ func (r *Repository) rebuildState() error {
 	aggregateState.ResetDirty()
 	r.state = aggregateState
 	return nil
+}
+
+func (r *Repository) Context() *context.Context {
+	return r.store.Context()
 }
 
 func (r *Repository) Store() *storage.Store {

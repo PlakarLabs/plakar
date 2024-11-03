@@ -45,7 +45,7 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	sourceStore := repo.Store()
 
 	configuration := sourceStore.Configuration()
-	configuration.StoreID = uuid.Must(uuid.NewRandom())
+	configuration.RepositoryID = uuid.Must(uuid.NewRandom())
 
 	cloneStore, err := storage.Create(ctx, flags.Arg(1), configuration)
 	if err != nil {

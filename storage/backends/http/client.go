@@ -82,7 +82,7 @@ func (repository *Repository) Open(location string) error {
 
 func (repository *Repository) Close() error {
 	r, err := repository.sendRequest("POST", repository.Repository, "/", network.ReqClose{
-		Uuid: repository.config.StoreID.String(),
+		Uuid: repository.config.RepositoryID.String(),
 	})
 	if err != nil {
 		return err

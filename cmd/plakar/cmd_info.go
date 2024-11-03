@@ -110,7 +110,7 @@ func info_repository(repo *repository.Repository) int {
 		return 1
 	}
 
-	fmt.Println("RepositoryID:", repo.Configuration().StoreID)
+	fmt.Println("RepositoryID:", repo.Configuration().RepositoryID)
 	fmt.Printf("CreationTime: %s\n", repo.Configuration().CreationTime)
 	fmt.Println("Version:", repo.Configuration().Version)
 

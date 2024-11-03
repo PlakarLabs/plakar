@@ -39,7 +39,7 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
-	cacheDir := filepath.Join(store.Context().GetCacheDir(), "repository", store.Configuration().StoreID.String(), "states")
+	cacheDir := filepath.Join(store.Context().GetCacheDir(), "repository", store.Configuration().RepositoryID.String(), "states")
 	cacheInstance, err := cache.New(cacheDir)
 	if err != nil {
 		return nil, err

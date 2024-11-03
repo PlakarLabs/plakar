@@ -40,7 +40,7 @@ func closeRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if reqClose.Uuid != lrepository.Configuration().StoreID.String() {
+	if reqClose.Uuid != lrepository.Configuration().RepositoryID.String() {
 		http.Error(w, "UUID mismatch", http.StatusBadRequest)
 		return
 	}

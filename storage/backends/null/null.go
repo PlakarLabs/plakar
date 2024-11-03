@@ -46,7 +46,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 func (repository *Repository) Open(location string) error {
 	repositoryConfig := storage.Configuration{}
 	repositoryConfig.Version = storage.VERSION
-	repositoryConfig.StoreID = uuid.Must(uuid.NewRandom())
+	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
 	repositoryConfig.CreationTime = time.Now()
 	repositoryConfig.Hashing = "sha256"
 	repositoryConfig.Chunking = "fastcdc"

@@ -47,7 +47,7 @@ type Configuration struct {
 	Version      string
 	CreationTime time.Time
 
-	StoreID uuid.UUID
+	RepositoryID uuid.UUID
 
 	Encryption    string
 	EncryptionKey string
@@ -67,7 +67,7 @@ type Configuration struct {
 func NewConfiguration() *Configuration {
 	return &Configuration{
 		Version:        VERSION,
-		StoreID:        uuid.Must(uuid.NewRandom()),
+		RepositoryID:   uuid.Must(uuid.NewRandom()),
 		CreationTime:   time.Now(),
 		Compression:    compression.DefaultAlgorithm(),
 		Hashing:        hashing.DefaultAlgorithm(),

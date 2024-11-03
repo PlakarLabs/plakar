@@ -1,0 +1,45 @@
+.Dd November 3, 2024
+.Dt PLAKAR FIND 1
+.Os
+.Sh NAME
+.Nm plakar find
+.Nd Search for files or directories in Plakar snapshots
+.Sh SYNOPSIS
+.Nm
+.Ar pattern ...
+.Sh DESCRIPTION
+The
+.Nm
+command searches for files or directories across all snapshots in a Plakar repository that match a given pattern. It supports searching by full pathname or filename within snapshots and lists the results chronologically by snapshot creation time.
+
+.Bl -tag -width Ds
+.It Ar pattern
+One or more search patterns specifying filenames or pathnames to search for in the snapshots. Patterns can be a full pathname or simply a file or directory name.
+.El
+
+.Sh EXAMPLES
+To illustrate usage:
+
+.Bl -tag -width Ds
+.It Find a file by full pathname:
+.Bd -literal -offset indent
+plakar find /path/to/file.txt
+.Ed
+
+.It Find all snapshots containing files or directories named "backup":
+.Bd -literal -offset indent
+plakar find backup
+.Ed
+.El
+
+.Sh DIAGNOSTICS
+.Ex -std
+.Bl -tag -width Ds
+.It 0
+Command completed successfully.
+.It >0
+An error occurred, such as failure to load snapshots or an invalid pattern.
+.El
+
+.Sh SEE ALSO
+.Xr plakar 1

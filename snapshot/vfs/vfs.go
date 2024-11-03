@@ -310,3 +310,92 @@ func (fsc *Filesystem) Children(path string) (<-chan string, error) {
 	}()
 	return ch, nil
 }
+
+func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
+	currentEntry := fsc.rootEntry
+	if fsc.root != checksum {
+		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
+		if !exists {
+			return
+		}
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			return
+		}
+
+		blob, err := io.ReadAll(rd)
+		if err != nil {
+			return
+		}
+
+		currentEntry, err = DirEntryFromBytes(blob)
+		if err != nil {
+			return
+		}
+	}
+
+	for _, child := range currentEntry.Children {
+		if exists := fsc.repo.State().FileExists(child.Checksum); !exists {
+			if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+				return
+			}
+			fsc.fileChecksumsRecursive(child.Checksum, out)
+		} else {
+			out <- child.Checksum
+		}
+	}
+}
+
+func (fsc *Filesystem) FileChecksums() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		fsc.fileChecksumsRecursive(fsc.root, ch)
+		close(ch)
+	}()
+	return ch
+}
+
+func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
+	currentEntry := fsc.rootEntry
+	if fsc.root != checksum {
+		packfile, offset, length, exists := fsc.repo.State().GetSubpartForDirectory(checksum)
+		if !exists {
+			fmt.Println("packfile not found for directory")
+			return
+		}
+
+		rd, _, err := fsc.repo.GetPackfileBlob(packfile, offset, length)
+		if err != nil {
+			fmt.Println("packfile blob not found for directory")
+			return
+		}
+
+		blob, err := io.ReadAll(rd)
+		if err != nil {
+			fmt.Println("could not read packfile blob for directory")
+			return
+		}
+
+		currentEntry, err = DirEntryFromBytes(blob)
+		if err != nil {
+			fmt.Println("error decoding directory entry")
+			return
+		}
+	}
+
+	for _, child := range currentEntry.Children {
+		if exists := fsc.repo.State().DirectoryExists(child.Checksum); !exists {
+			continue
+		}
+		out <- child.Checksum
+		fsc.directoryChecksumsRecursive(child.Checksum, out)
+	}
+}
+func (fsc *Filesystem) DirectoryChecksums() <-chan [32]byte {
+	ch := make(chan [32]byte)
+	go func() {
+		fsc.directoryChecksumsRecursive(fsc.root, ch)
+		close(ch)
+	}()
+	return ch
+}

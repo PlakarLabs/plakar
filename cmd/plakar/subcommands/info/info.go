@@ -393,12 +393,7 @@ func info_object(repo *repository.Repository, objectID string) error {
 	var byteArray [32]byte
 	copy(byteArray[:], b)
 
-	packfileID, offset, length, exists := repo.State().GetSubpartForObject(byteArray)
-	if !exists {
-		log.Fatal(err)
-	}
-
-	rd, _, err := repo.GetPackfileBlob(packfileID, offset, length)
+	rd, _, err := repo.GetObject(byteArray)
 	if err != nil {
 		log.Fatal(err)
 	}

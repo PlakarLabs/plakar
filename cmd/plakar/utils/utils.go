@@ -59,7 +59,7 @@ func ParseSnapshotID(id string) (string, string) {
 
 func LookupSnapshotByPrefix(repo *repository.Repository, prefix string) [][32]byte {
 	ret := make([][32]byte, 0)
-	for snapshotID := range repo.State().ListSnapshots() {
+	for snapshotID := range repo.ListSnapshots() {
 		if strings.HasPrefix(hex.EncodeToString(snapshotID[:]), prefix) {
 			ret = append(ret, snapshotID)
 		}

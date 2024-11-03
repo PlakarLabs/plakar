@@ -41,7 +41,7 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 
 	var snapshots []string
 	if flags.NArg() == 0 {
-		for snapshotID := range repo.State().ListSnapshots() {
+		for snapshotID := range repo.ListSnapshots() {
 			snapshots = append(snapshots, fmt.Sprintf("%x", snapshotID))
 		}
 	} else {

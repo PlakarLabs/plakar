@@ -94,6 +94,12 @@ func New() *State {
 	}
 }
 
+func (st *State) Derive() *State {
+	nst := New()
+	nst.Metadata.Extends = st.Metadata.Extends
+	return nst
+}
+
 func (st *State) rebuildChecksums() {
 	st.muChecksum.Lock()
 	defer st.muChecksum.Unlock()

@@ -197,7 +197,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for chunkID := range c {
-		if !dstRepository.State().ChunkExists(chunkID) {
+		if !dstRepository.ChunkExists(chunkID) {
 			chunkData, err := srcSnapshot.GetChunk(chunkID)
 			if err != nil {
 				return err
@@ -211,7 +211,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for objectID := range c {
-		if !dstRepository.State().ObjectExists(objectID) {
+		if !dstRepository.ObjectExists(objectID) {
 			objectData, err := srcSnapshot.GetObject(objectID)
 			if err != nil {
 				return err
@@ -225,7 +225,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for fileID := range c {
-		if !dstRepository.State().FileExists(fileID) {
+		if !dstRepository.FileExists(fileID) {
 			fileData, err := srcSnapshot.GetFile(fileID)
 			if err != nil {
 				return err
@@ -239,7 +239,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for directoryID := range c {
-		if !dstRepository.State().DirectoryExists(directoryID) {
+		if !dstRepository.DirectoryExists(directoryID) {
 			directoryData, err := srcSnapshot.GetDirectory(directoryID)
 			if err != nil {
 				return err
@@ -253,7 +253,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for dataID := range c {
-		if !dstRepository.State().DataExists(dataID) {
+		if !dstRepository.DataExists(dataID) {
 			dataData, err := srcSnapshot.GetData(dataID)
 			if err != nil {
 				return err

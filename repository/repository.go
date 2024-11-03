@@ -65,8 +65,6 @@ func (r *Repository) rebuildState() error {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
-	syncTime := time.Now()
-
 	// identify local states
 	localStates := make(map[[32]byte]struct{})
 	for stateID := range r.cache.List() {
@@ -103,9 +101,6 @@ func (r *Repository) rebuildState() error {
 	}
 
 	if desynchronized {
-		logger.Info("local repository states desynchronized (%d missing / %d outdated), resynchronizing...",
-			len(missingStates), len(outdatedStates))
-
 		// synchronize local state with unknown remote states
 		for _, stateID := range missingStates {
 			remoteState, _, err := r.GetState(stateID)
@@ -123,7 +118,6 @@ func (r *Repository) rebuildState() error {
 			delete(localStates, stateID)
 			r.cache.Delete(stateID)
 		}
-		logger.Info("local repository states resynchronized in %s !", time.Since(syncTime))
 	}
 
 	// merge all local states into a new aggregate state

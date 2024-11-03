@@ -31,11 +31,6 @@ type Repository struct {
 	Repository string
 }
 
-type Transaction struct {
-	Uuid       [32]byte
-	repository Repository
-}
-
 func init() {
 	storage.Register("null", NewRepository)
 }

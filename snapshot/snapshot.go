@@ -648,7 +648,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 
 	for _, dataChecksum := range datas {
 		for idx, blob := range pack.Index {
-			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DIRECTORY {
+			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DATA {
 				snap.Repository().State().SetPackfileForData(checksum32,
 					dataChecksum,
 					pack.Index[idx].Offset,
@@ -705,6 +705,56 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	return buffer, nil
 }
 
+func (snapshot *Snapshot) GetFile(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetFile", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetFile(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForFile(checksum)
+	if !exists {
+		return nil, fmt.Errorf("packfile not found")
+	}
+
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
+func (snapshot *Snapshot) GetDirectory(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetDirectory", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetDirectory(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForDirectory(checksum)
+	if !exists {
+		return nil, fmt.Errorf("packfile not found")
+	}
+
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
 func (snapshot *Snapshot) CheckFile(checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {
@@ -734,6 +784,31 @@ func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
 
 	return snapshot.Repository().State().ChunkExists(checksum)
 
+}
+
+func (snapshot *Snapshot) GetObject(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetObject", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetObject(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForObject(checksum)
+	if !exists {
+		return nil, fmt.Errorf("packfile not found")
+	}
+
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
 }
 
 func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
@@ -784,6 +859,31 @@ func (snapshot *Snapshot) Commit() error {
 	return nil
 }
 
+func (snapshot *Snapshot) GetData(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetData", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetData(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	packfileChecksum, offset, length, exists := snapshot.Repository().State().GetSubpartForData(checksum)
+	if !exists {
+		return nil, fmt.Errorf("packfile not found")
+	}
+
+	rd, _, err := snapshot.repository.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
 	return NewReader(snapshot, pathname)
 }
@@ -805,4 +905,87 @@ func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, erro
 	}
 
 	return objects.NewObjectFromBytes(buffer)
+}
+
+func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return nil, err
+	}
+	c := make(chan [32]byte)
+	go func() {
+		for filename := range fs.Files() {
+			fsentry, err := fs.Stat(filename)
+			if err != nil {
+				break
+			}
+			for _, chunk := range fsentry.(*vfs.FileEntry).Chunks {
+				c <- chunk.Checksum
+			}
+		}
+		close(c)
+	}()
+	return c, nil
+}
+
+func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return nil, err
+	}
+	c := make(chan [32]byte)
+	go func() {
+		for filename := range fs.Files() {
+			fsentry, err := fs.Stat(filename)
+			if err != nil {
+				break
+			}
+			c <- fsentry.(*vfs.FileEntry).Checksum
+		}
+		close(c)
+	}()
+	return c, nil
+}
+
+func (snap *Snapshot) ListFiles() (<-chan [32]byte, error) {
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return nil, err
+	}
+	c := make(chan [32]byte)
+	go func() {
+		for checksum := range fs.FileChecksums() {
+			c <- checksum
+		}
+		close(c)
+	}()
+	return c, nil
+}
+
+func (snap *Snapshot) ListDirectories() (<-chan [32]byte, error) {
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return nil, err
+	}
+	c := make(chan [32]byte)
+	go func() {
+		c <- snap.Header.Root
+		for checksum := range fs.DirectoryChecksums() {
+			c <- checksum
+		}
+		close(c)
+	}()
+	return c, nil
+}
+
+func (snap *Snapshot) ListDatas() (<-chan [32]byte, error) {
+	c := make(chan [32]byte)
+
+	go func() {
+		c <- snap.Header.Metadata
+		c <- snap.Header.Statistics
+		close(c)
+	}()
+
+	return c, nil
 }

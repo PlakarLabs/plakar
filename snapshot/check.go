@@ -50,7 +50,7 @@ func snapshotCheckPath(snapshot *Snapshot, pathname string, fast bool) (bool, er
 				}
 				data, err := snapshot.GetChunk(chunk.Checksum)
 				if err != nil {
-					logger.Warn("%x: missing chunk %x for file %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname)
+					logger.Warn("%x: missing chunk %x for file %s: %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname, err)
 					complete = false
 				}
 

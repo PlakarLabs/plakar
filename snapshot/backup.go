@@ -671,8 +671,13 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		return nil
 	}
 
-	// Small file case: read entire file into memory
-	if record.Stat.Size() < int64(snap.repository.Configuration().ChunkingMin) {
+	if record.Stat.Size() == 0 {
+		// Produce an empty chunk for empty file
+		if err := processChunk([]byte{}); err != nil {
+			return nil, err
+		}
+	} else if record.Stat.Size() < int64(snap.repository.Configuration().ChunkingMin) {
+		// Small file case: read entire file into memory
 		buf, err := io.ReadAll(rd)
 		if err != nil {
 			return nil, err

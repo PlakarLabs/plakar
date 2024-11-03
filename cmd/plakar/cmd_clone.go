@@ -26,6 +26,7 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -42,7 +43,11 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	}
 
 	sourceStore := repo.Store()
-	cloneStore, err := storage.Create(ctx, flags.Arg(1), sourceStore.Configuration())
+
+	configuration := sourceStore.Configuration()
+	configuration.StoreID = uuid.Must(uuid.NewRandom())
+
+	cloneStore, err := storage.Create(ctx, flags.Arg(1), configuration)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", flags.Arg(1), err)
 		return 1

@@ -66,6 +66,8 @@ type ScanRecord struct {
 	Children           []objects.FileInfo
 	ExtendedAttributes map[string][]byte
 	FileAttributes     []string
+	User               string
+	Group              string
 }
 
 func (r ScanRecord) scanResult() {}

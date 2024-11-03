@@ -17,8 +17,10 @@
 package fs
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -66,6 +68,19 @@ func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.
 
 		fileinfo := objects.FileInfoFromStat(info)
 
+		var username string
+		var groupname string
+
+		u, err := user.LookupId(fmt.Sprintf("%d", fileinfo.Uid()))
+		if err == nil {
+			username = u.Username
+		}
+
+		g, err := user.LookupGroupId(fmt.Sprintf("%d", fileinfo.Gid()))
+		if err == nil {
+			groupname = g.Name
+		}
+
 		if fileinfo.Mode().IsDir() {
 			entries, err := os.ReadDir(path)
 			if err != nil {
@@ -102,9 +117,9 @@ func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.
 				}
 				children = append(children, objects.FileInfoFromStat(info))
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, ExtendedAttributes: extendedAttributes, Children: children}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Stat: fileinfo, ExtendedAttributes: extendedAttributes, Children: children}
 		} else {
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, ExtendedAttributes: extendedAttributes}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Stat: fileinfo, ExtendedAttributes: extendedAttributes}
 		}
 
 		// Handle symlinks separately
@@ -114,7 +129,7 @@ func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.
 				results <- importer.ScanError{Pathname: path, Err: err}
 				continue
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: fileinfo, ExtendedAttributes: extendedAttributes}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Target: originFile, Stat: fileinfo, ExtendedAttributes: extendedAttributes}
 		}
 	}
 }

@@ -1,0 +1,25 @@
+package main
+
+import (
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/archive"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/backup"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/cat"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/check"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/checksum"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/cleanup"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/clone"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/create"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/diff"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/exec"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/find"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/info"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/ls"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/mount"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/restore"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/rm"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/server"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/stdio"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/sync"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/ui"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/version"
+)

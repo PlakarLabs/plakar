@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarLabs/plakar/cmd/plakar/utils"
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/logger"
@@ -38,20 +40,6 @@ import (
 	_ "github.com/PlakarLabs/plakar/snapshot/exporter/fs"
 	_ "github.com/PlakarLabs/plakar/snapshot/exporter/s3"
 )
-
-var commands map[string]func(*context.Context, *repository.Repository, []string) int = make(map[string]func(*context.Context, *repository.Repository, []string) int)
-
-func registerCommand(command string, fn func(*context.Context, *repository.Repository, []string) int) {
-	commands[command] = fn
-}
-
-func executeCommand(ctx *context.Context, repo *repository.Repository, command string, args []string) (int, error) {
-	fn, exists := commands[command]
-	if !exists {
-		return 1, fmt.Errorf("unknown command: %s", command)
-	}
-	return fn(ctx, repo, args), nil
-}
 
 func main() {
 	os.Exit(entryPoint())
@@ -114,7 +102,7 @@ func entryPoint() int {
 
 	ctx := context.NewContext()
 
-	cacheDir, err := GetCacheDir("plakar")
+	cacheDir, err := utils.GetCacheDir("plakar")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not get cache directory: %s\n", flag.CommandLine.Name(), err)
 		return 1
@@ -122,7 +110,7 @@ func entryPoint() int {
 	ctx.SetCacheDir(cacheDir)
 
 	// best effort check if security or reliability fix have been issued
-	if rus, err := checkUpdate(); err == nil {
+	if rus, err := utils.CheckUpdate(); err == nil {
 		if rus.SecurityFix || rus.ReliabilityFix {
 			concerns := ""
 			if rus.SecurityFix {
@@ -182,12 +170,9 @@ func entryPoint() int {
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))
-		subcommands := make([]string, 0, len(commands))
-		for k := range commands {
-			subcommands = append(subcommands, k)
-		}
-		sort.Strings(subcommands)
-		for _, k := range subcommands {
+		items := append(make([]string, 0, len(subcommands.List())), subcommands.List()...)
+		sort.Strings(items)
+		for _, k := range items {
 			fmt.Fprintf(os.Stderr, "  %s\n", k)
 		}
 
@@ -229,20 +214,23 @@ func entryPoint() int {
 		}
 	}
 
-	if command == "version" {
-		return cmd_version(args)
+	/*
+
+		if command == "version" {
+				return subcommands.Version(ctx, args)
+			}
+	*/
+
+	// these commands need to be ran before the repository is opened
+	if command == "create" || command == "version" || command == "stdio" {
+		retval, err := subcommands.Execute(ctx, nil, command, args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+			return retval
+		}
 	}
 
-	// cmd_create must be ran after workdir.New() but before other commands
-	if command == "create" {
-		return cmd_create(ctx, args)
-	}
-
-	if command == "stdio" {
-		return cmd_stdio(ctx, args)
-	}
-
-	// special case, server does not need a cache but does not return immediately either
+	// special case, server skips passphrase as it only serves storage layer
 	skipPassphrase := false
 	if command == "server" {
 		skipPassphrase = true
@@ -269,7 +257,7 @@ func entryPoint() int {
 				for {
 					var passphrase []byte
 					if envPassphrase == "" {
-						passphrase, err = getPassphrase("repository")
+						passphrase, err = utils.GetPassphrase("repository")
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "%s\n", err)
 							continue
@@ -385,7 +373,7 @@ func entryPoint() int {
 
 	// commands below all operate on an open repository
 	t0 := time.Now()
-	status, err := executeCommand(ctx, repo, command, args)
+	status, err := subcommands.Execute(ctx, repo, command, args)
 	t1 := time.Since(t0)
 	done <- true
 

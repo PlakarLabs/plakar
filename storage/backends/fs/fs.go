@@ -206,7 +206,11 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 		return nil, 0, err
 	}
 
-	if length == 0 || length > (uint32(st.Size())-offset) {
+	if st.Size() == 0 {
+		return bytes.NewBuffer([]byte{}), 0, nil
+	}
+
+	if length > (uint32(st.Size()) - offset) {
 		return nil, 0, fmt.Errorf("invalid length")
 	}
 

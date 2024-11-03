@@ -300,8 +300,8 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 		Prefix:    "packfiles/",
 		Recursive: true,
 	}) {
-		if strings.HasPrefix(object.Key, "packfiles/") && len(object.Key) >= 10 {
-			t, err := hex.DecodeString(object.Key[10:])
+		if strings.HasPrefix(object.Key, "packfiles/") && len(object.Key) >= 13 {
+			t, err := hex.DecodeString(object.Key[13:])
 			if err != nil {
 				return nil, err
 			}

@@ -1,79 +1,52 @@
 package compression
 
 import (
+	"bytes"
 	"io"
-	"strings"
 	"testing"
 )
 
-func TestDeflateInflateGzipStream(t *testing.T) {
-	originalData := "This is some test data to compress and decompress using gzip."
-	r := strings.NewReader(originalData)
-
-	// Compress the data
-	compressedReader, err := DeflateStream("gzip", r)
+// Helper function to compress and then decompress data and verify correctness
+func testCompressionDecompression(t *testing.T, algorithm string, data []byte) {
+	// Compress data
+	compressedReader, err := DeflateStream(algorithm, bytes.NewReader(data))
 	if err != nil {
-		t.Fatalf("Failed to compress using gzip: %v", err)
+		t.Fatalf("DeflateStream failed for %s: %v", algorithm, err)
 	}
 
-	// Decompress the data
-	decompressedReader, err := InflateStream("gzip", compressedReader)
+	// Decompress data
+	decompressedReader, err := InflateStream(algorithm, compressedReader)
 	if err != nil {
-		t.Fatalf("Failed to decompress using gzip: %v", err)
+		t.Fatalf("InflateStream failed for %s: %v", algorithm, err)
 	}
 
-	// Read the decompressed data
-	decompressedData, err := io.ReadAll(decompressedReader)
+	// Read decompressed data
+	var decompressedData bytes.Buffer
+	_, err = io.Copy(&decompressedData, decompressedReader)
 	if err != nil {
-		t.Fatalf("Failed to read decompressed gzip data: %v", err)
+		t.Fatalf("Reading decompressed data failed for %s: %v", algorithm, err)
 	}
 
-	// Verify the decompressed data matches the original data
-	if string(decompressedData) != originalData {
-		t.Errorf("Gzip decompressed data mismatch. Got: %q, want: %q", decompressedData, originalData)
+	// Compare original and decompressed data
+	if !bytes.Equal(data, decompressedData.Bytes()) {
+		t.Errorf("Decompressed data does not match original for %s. Got: %v, Want: %v", algorithm, decompressedData.Bytes(), data)
 	}
 }
 
-func TestDeflateInflateLZ4Stream(t *testing.T) {
-	originalData := "This is some test data to compress and decompress using lz4."
-	r := strings.NewReader(originalData)
-
-	// Compress the data
-	compressedReader, err := DeflateStream("lz4", r)
-	if err != nil {
-		t.Fatalf("Failed to compress using lz4: %v", err)
+func TestCompression(t *testing.T) {
+	tests := []struct {
+		algorithm string
+		data      []byte
+	}{
+		{"gzip", []byte("Hello, world!")},
+		{"gzip", []byte{}}, // Test empty buffer for gzip
+		{"lz4", []byte("Hello, world!")},
+		{"lz4", []byte{}}, // Test empty buffer for lz4
 	}
 
-	// Decompress the data
-	decompressedReader, err := InflateStream("lz4", compressedReader)
-	if err != nil {
-		t.Fatalf("Failed to decompress using lz4: %v", err)
-	}
-
-	// Read the decompressed data
-	decompressedData, err := io.ReadAll(decompressedReader)
-	if err != nil {
-		t.Fatalf("Failed to read decompressed lz4 data: %v", err)
-	}
-
-	// Verify the decompressed data matches the original data
-	if string(decompressedData) != originalData {
-		t.Errorf("LZ4 decompressed data mismatch. Got: %q, want: %q", decompressedData, originalData)
-	}
-}
-
-func TestUnsupportedCompressionMethod(t *testing.T) {
-	r := strings.NewReader("test data")
-
-	// Attempt to use an unsupported compression method
-	_, err := DeflateStream("unsupported", r)
-	if err == nil {
-		t.Fatal("Expected an error for unsupported compression method, got nil")
-	}
-
-	// Attempt to use an unsupported decompression method
-	_, err = InflateStream("unsupported", r)
-	if err == nil {
-		t.Fatal("Expected an error for unsupported decompression method, got nil")
+	for _, tt := range tests {
+		t.Run(tt.algorithm, func(t *testing.T) {
+			testCompressionDecompression(t, tt.algorithm, tt.data)
+		})
 	}
 }

@@ -1,6 +1,7 @@
 package compression
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -13,6 +14,17 @@ func DefaultAlgorithm() string {
 }
 
 func DeflateStream(name string, r io.Reader) (io.Reader, error) {
+	// Check if input is empty
+	buf := make([]byte, 1)
+	n, err := r.Read(buf)
+	if err == io.EOF {
+		return bytes.NewReader([]byte{}), nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Rewind to re-read initial byte if not empty
+	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
+
 	m := map[string]func(io.Reader) (io.Reader, error){
 		"gzip": DeflateGzipStream,
 		"lz4":  DeflateLZ4Stream,
@@ -52,6 +64,17 @@ func DeflateLZ4Stream(r io.Reader) (io.Reader, error) {
 }
 
 func InflateStream(name string, r io.Reader) (io.Reader, error) {
+	// Check if input is empty
+	buf := make([]byte, 1)
+	n, err := r.Read(buf)
+	if err == io.EOF {
+		return bytes.NewReader([]byte{}), nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Rewind to re-read initial byte if not empty
+	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
+
 	m := map[string]func(io.Reader) (io.Reader, error){
 		"gzip": InflateGzipStream,
 		"lz4":  InflateLZ4Stream,

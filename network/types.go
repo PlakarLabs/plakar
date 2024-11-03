@@ -14,8 +14,8 @@ type Request struct {
 }
 
 type ReqCreate struct {
-	Repository       string
-	RepositoryConfig storage.RepositoryConfig
+	Repository    string
+	Configuration storage.Configuration
 }
 
 type ResCreate struct {
@@ -27,8 +27,8 @@ type ReqOpen struct {
 }
 
 type ResOpen struct {
-	RepositoryConfig *storage.RepositoryConfig
-	Err              string
+	Configuration *storage.Configuration
+	Err           string
 }
 
 type ReqClose struct {
@@ -39,160 +39,37 @@ type ResClose struct {
 	Err string
 }
 
-type ReqCommit struct {
-	IndexID uuid.UUID
-	Data    []byte
+// states
+type ReqGetStates struct {
 }
 
-type ResCommit struct {
-	Err string
-}
-
-// snapshots
-type ReqGetSnapshots struct {
-}
-
-type ResGetSnapshots struct {
-	Snapshots []uuid.UUID
-	Err       string
-}
-
-type ReqPutSnapshot struct {
-	IndexID uuid.UUID
-	Data    []byte
-}
-
-type ResPutSnapshot struct {
-	Err string
-}
-
-type ReqGetSnapshot struct {
-	IndexID uuid.UUID
-}
-
-type ResGetSnapshot struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteSnapshot struct {
-	IndexID uuid.UUID
-}
-
-type ResDeleteSnapshot struct {
-	Err string
-}
-
-// snapshots
-type ReqGetLocks struct {
-}
-
-type ResGetLocks struct {
-	Locks []uuid.UUID
-	Err   string
-}
-
-type ReqPutLock struct {
-	IndexID uuid.UUID
-	Data    []byte
-}
-
-type ResPutLock struct {
-	Err string
-}
-
-type ReqGetLock struct {
-	IndexID uuid.UUID
-}
-
-type ResGetLock struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteLock struct {
-	IndexID uuid.UUID
-}
-
-type ResDeleteLock struct {
-	Err string
-}
-
-// blobs
-type ReqGetBlobs struct {
-}
-
-type ResGetBlobs struct {
+type ResGetStates struct {
 	Checksums [][32]byte
 	Err       string
 }
 
-type ReqPutBlob struct {
+type ReqPutState struct {
 	Checksum [32]byte
 	Data     []byte
 }
 
-type ResPutBlob struct {
+type ResPutState struct {
 	Err string
 }
 
-type ReqCheckBlob struct {
+type ReqGetState struct {
 	Checksum [32]byte
 }
 
-type ResCheckBlob struct {
-	Exists bool
-	Err    string
-}
-
-type ReqGetBlob struct {
-	Checksum [32]byte
-}
-
-type ResGetBlob struct {
+type ResGetState struct {
 	Data []byte
 	Err  string
 }
 
-type ReqDeleteBlob struct {
-	Checksum [32]byte
-	Data     []byte
-}
-type ResDeleteBlob struct {
-	Err string
-}
-
-// indexes
-type ReqGetIndexes struct {
-}
-
-type ResGetIndexes struct {
-	Checksums [][32]byte
-	Err       string
-}
-
-type ReqPutIndex struct {
-	Checksum [32]byte
-	Data     []byte
-}
-
-type ResPutIndex struct {
-	Err string
-}
-
-type ReqGetIndex struct {
+type ReqDeleteState struct {
 	Checksum [32]byte
 }
-
-type ResGetIndex struct {
-	Data []byte
-	Err  string
-}
-
-type ReqDeleteIndex struct {
-	Checksum [32]byte
-}
-type ResDeleteIndex struct {
+type ResDeleteState struct {
 	Err string
 }
 
@@ -223,13 +100,13 @@ type ResGetPackfile struct {
 	Err  string
 }
 
-type ReqGetPackfileSubpart struct {
+type ReqGetPackfileBlob struct {
 	Checksum [32]byte
 	Offset   uint32
 	Length   uint32
 }
 
-type ResGetPackfileSubpart struct {
+type ResGetPackfileBlob struct {
 	Data []byte
 	Err  string
 }
@@ -250,66 +127,21 @@ func ProtocolRegister() {
 	gob.Register(ReqOpen{})
 	gob.Register(ResOpen{})
 
-	gob.Register(ReqCommit{})
-	gob.Register(ResCommit{})
-
 	gob.Register(ReqClose{})
 	gob.Register(ResClose{})
 
-	// snapshots
-	gob.Register(ReqGetSnapshots{})
-	gob.Register(ResGetSnapshots{})
+	// states
+	gob.Register(ReqGetStates{})
+	gob.Register(ResGetStates{})
 
-	gob.Register(ReqPutSnapshot{})
-	gob.Register(ResPutSnapshot{})
+	gob.Register(ReqPutState{})
+	gob.Register(ResPutState{})
 
-	gob.Register(ReqGetSnapshot{})
-	gob.Register(ResGetSnapshot{})
+	gob.Register(ReqGetState{})
+	gob.Register(ResGetState{})
 
-	gob.Register(ReqDeleteSnapshot{})
-	gob.Register(ResDeleteSnapshot{})
-
-	//
-	gob.Register(ReqGetLocks{})
-	gob.Register(ResGetLocks{})
-
-	gob.Register(ReqPutLock{})
-	gob.Register(ResPutLock{})
-
-	gob.Register(ReqGetLock{})
-	gob.Register(ResGetLock{})
-
-	gob.Register(ReqDeleteLock{})
-	gob.Register(ResDeleteLock{})
-
-	// blobs
-	gob.Register(ReqGetBlobs{})
-	gob.Register(ResGetBlobs{})
-
-	gob.Register(ReqPutBlob{})
-	gob.Register(ResPutBlob{})
-
-	gob.Register(ReqCheckBlob{})
-	gob.Register(ResCheckBlob{})
-
-	gob.Register(ReqGetBlob{})
-	gob.Register(ResGetBlob{})
-
-	gob.Register(ReqDeleteBlob{})
-	gob.Register(ResDeleteBlob{})
-
-	// indexes
-	gob.Register(ReqGetIndexes{})
-	gob.Register(ResGetIndexes{})
-
-	gob.Register(ReqPutIndex{})
-	gob.Register(ResPutIndex{})
-
-	gob.Register(ReqGetIndex{})
-	gob.Register(ResGetIndex{})
-
-	gob.Register(ReqDeleteIndex{})
-	gob.Register(ResDeleteIndex{})
+	gob.Register(ReqDeleteState{})
+	gob.Register(ResDeleteState{})
 
 	// packfiles
 	gob.Register(ReqGetPackfiles{})
@@ -321,8 +153,8 @@ func ProtocolRegister() {
 	gob.Register(ReqGetPackfile{})
 	gob.Register(ResGetPackfile{})
 
-	gob.Register(ReqGetPackfileSubpart{})
-	gob.Register(ResGetPackfileSubpart{})
+	gob.Register(ReqGetPackfileBlob{})
+	gob.Register(ResGetPackfileBlob{})
 
 	gob.Register(ReqDeletePackfile{})
 	gob.Register(ResDeletePackfile{})

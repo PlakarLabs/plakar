@@ -2,15 +2,15 @@ package plakarfs
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 	"github.com/jacobsa/fuse"
 	"github.com/jacobsa/fuse/fuseops"
 	"github.com/jacobsa/fuse/fuseutil"
@@ -24,7 +24,7 @@ type inodeEntry struct {
 	inodeID    fuseops.InodeID
 	name       string
 	path       string
-	snapshotID uuid.UUID
+	snapshotID [32]byte
 }
 
 func allocateInodeID() fuseops.InodeID {
@@ -39,7 +39,7 @@ func allocateInodeID() fuseops.InodeID {
 type plakarFS struct {
 	fuseutil.NotImplementedFileSystem
 
-	repository *storage.Repository
+	repository *repository.Repository
 	mountpoint string
 
 	inodeEntries *sync.Map
@@ -49,10 +49,10 @@ type plakarFS struct {
 	fsCache     *sync.Map
 }
 
-func NewPlakarFS(repository *storage.Repository, mountpoint string) (fuse.Server, error) {
+func NewPlakarFS(repo *repository.Repository, mountpoint string) (fuse.Server, error) {
 
 	fs := &plakarFS{
-		repository:   repository,
+		repository:   repo,
 		mountpoint:   mountpoint,
 		inodeEntries: &sync.Map{},
 		inode:        &sync.Map{},
@@ -91,7 +91,7 @@ func (fs *plakarFS) getInode(pathname string) (fuseops.InodeID, bool) {
 	return entry.(fuseops.InodeID), true
 }
 
-func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
+func (fs *plakarFS) getHeader(snapshotID [32]byte) (*header.Header, error) {
 	entry, exists := fs.headerCache.Load(snapshotID)
 	if !exists {
 		md, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
@@ -104,18 +104,14 @@ func (fs *plakarFS) getHeader(snapshotID uuid.UUID) (*header.Header, error) {
 	return entry.(*header.Header), nil
 }
 
-func (fs *plakarFS) getFilesystem(snapshotID uuid.UUID) (*vfs.Filesystem, error) {
+func (fs *plakarFS) getFilesystem(snapshotID [32]byte) (*vfs.Filesystem, error) {
 	entry, exists := fs.fsCache.Load(snapshotID)
 	if !exists {
 		hdr, _, err := snapshot.GetSnapshot(fs.repository, snapshotID)
 		if err != nil {
 			return nil, err
 		}
-
-		var filesystemChecksum32 [32]byte
-		copy(filesystemChecksum32[:], hdr.VFS.Checksum[:])
-
-		filesystem, _, err := snapshot.GetFilesystem(fs.repository, filesystemChecksum32)
+		filesystem, err := vfs.NewFilesystem(fs.repository, hdr.Root)
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +138,17 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	if inode.parentID == fuseops.RootInodeID {
 		// snapshots are right below root,
 		// they're a special case as there's no fileinfo for them.
-		metadata, err := fs.getHeader(uuid.MustParse(inode.name))
+		inodeName, err := hex.DecodeString(inode.name)
+		if err != nil {
+			return fuseops.InodeAttributes{}, fuse.EIO
+		}
+		if len(inodeName) != 32 {
+			return fuseops.InodeAttributes{}, fuse.EIO
+		}
+		inodeName32 := [32]byte{}
+		copy(inodeName32[:], inodeName)
+
+		metadata, err := fs.getHeader(inodeName32)
 		if err != nil {
 			return fuseops.InodeAttributes{}, fuse.EIO
 		}
@@ -164,10 +170,19 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	}
 
 	// the inode path has a snapshot-uuid:/path format, strip prefix
-	fileinfo, err := filesystem.Stat(inode.path[36+1:])
+	fsinfo, err := filesystem.Stat(inode.path[36+1:])
 	if err != nil {
 		return fuseops.InodeAttributes{}, fuse.ENOENT
 	}
+
+	var fileinfo os.FileInfo
+	switch fsinfo := fsinfo.(type) {
+	case *vfs.DirEntry:
+		fileinfo = fsinfo.FileInfo()
+	case *vfs.FileEntry:
+		fileinfo = fsinfo.FileInfo()
+	}
+
 	return fuseops.InodeAttributes{
 		Nlink: 1,
 		Mode:  fileinfo.Mode(),
@@ -196,7 +211,17 @@ func (fs *plakarFS) LookUpInode(
 			return fuse.ENOENT
 		}
 
-		hdr, err := fs.getHeader(uuid.MustParse(op.Name))
+		inodeName, err := hex.DecodeString(op.Name)
+		if err != nil {
+			return fuse.EIO
+		}
+		if len(inodeName) != 32 {
+			return fuse.EIO
+		}
+		inodeName32 := [32]byte{}
+		copy(inodeName32[:], inodeName)
+
+		hdr, err := fs.getHeader(inodeName32)
 		if err != nil {
 			return fuse.EIO
 		}
@@ -236,13 +261,25 @@ func (fs *plakarFS) LookUpInode(
 		return fuse.ENOENT
 	}
 
-	var snapshotID uuid.UUID
+	var snapshotID [32]byte
 	var lookupPath string
 	if inodeParent.parentID == fuseops.RootInodeID {
 		lookupPath = inode.path[len(inodeParent.name)+1:]
-		snapshotID = uuid.MustParse(inodeParent.name)
+
+		inodeName, err := hex.DecodeString(inodeParent.name)
+		if err != nil {
+			return fuse.EIO
+		}
+		if len(inodeName) != 32 {
+			return fuse.EIO
+		}
+		inodeName32 := [32]byte{}
+		copy(inodeName32[:], inodeName)
+
+		snapshotID = inodeName32
+
 	} else {
-		lookupPath = inode.path[36+1:]
+		lookupPath = inode.path[64+1:]
 		snapshotID = inodeParent.snapshotID
 
 	}
@@ -252,19 +289,27 @@ func (fs *plakarFS) LookUpInode(
 		return fuse.EIO
 	}
 
-	stat, err := filesystem.Stat(lookupPath)
+	fsinfo, err := filesystem.Stat(lookupPath)
 	if err != nil {
 		return fuse.ENOENT
 	}
 
+	var fileinfo os.FileInfo
+	switch fsinfo := fsinfo.(type) {
+	case *vfs.DirEntry:
+		fileinfo = fsinfo.FileInfo()
+	case *vfs.FileEntry:
+		fileinfo = fsinfo.FileInfo()
+	}
+
 	op.Entry.Child = inodeID
 	op.Entry.Attributes = fuseops.InodeAttributes{
-		Size:  uint64(stat.Size()),
+		Size:  uint64(fileinfo.Size()),
 		Nlink: 1,
-		Mode:  stat.Mode(),
-		Ctime: stat.ModTime(),
-		Atime: stat.ModTime(),
-		Mtime: stat.ModTime(),
+		Mode:  fileinfo.Mode(),
+		Ctime: fileinfo.ModTime(),
+		Atime: fileinfo.ModTime(),
+		Mtime: fileinfo.ModTime(),
 	}
 
 	return nil
@@ -304,7 +349,12 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	info, err := snap.Filesystem.Stat(inode.path[37:])
+	snapfs, err := snap.Filesystem()
+	if err != nil {
+		return fuse.EIO
+	}
+
+	info, err := snapfs.Stat(inode.path[37:])
 	if err != nil {
 		return fuse.ENOENT
 	}
@@ -314,7 +364,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	if op.Offset > info.Size() {
+	if op.Offset > info.(*vfs.FileEntry).Size {
 		return nil
 	}
 
@@ -337,12 +387,12 @@ func (fs *plakarFS) OpenDir(
 	op *fuseops.OpenDirOp) error {
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository)
+		snapshotIDs, err := fs.repository.GetSnapshots()
 		if err != nil {
 			return fuse.EIO
 		}
 		for _, snapshotID := range snapshotIDs {
-			pathname := fmt.Sprintf("%s/%s", fs.mountpoint, snapshotID.String())
+			pathname := fmt.Sprintf("%s/%s", fs.mountpoint, hex.EncodeToString(snapshotID[:]))
 
 			_, exists := fs.getInode(pathname)
 			if !exists {
@@ -350,7 +400,7 @@ func (fs *plakarFS) OpenDir(
 				fs.setInodeEntry(&inodeEntry{
 					parentID:   fuseops.RootInodeID,
 					inodeID:    inodeID,
-					name:       snapshotID.String(),
+					name:       hex.EncodeToString(snapshotID[:]),
 					path:       pathname,
 					snapshotID: snapshotID,
 				})
@@ -364,10 +414,22 @@ func (fs *plakarFS) OpenDir(
 		return fuse.ENOENT
 	}
 
-	var snapshotID uuid.UUID
+	var snapshotID [32]byte
 	var lookupPath string
 	if inode.parentID == fuseops.RootInodeID {
-		snapshotID = uuid.MustParse(inode.name)
+
+		inodeName, err := hex.DecodeString(inode.name)
+		if err != nil {
+			return fuse.EIO
+		}
+		if len(inodeName) != 32 {
+			return fuse.EIO
+		}
+		inodeName32 := [32]byte{}
+		copy(inodeName32[:], inodeName)
+
+		snapshotID = inodeName32
+
 		lookupPath = "/"
 	} else {
 		snapshotID = inode.snapshotID
@@ -415,7 +477,7 @@ func (fs *plakarFS) ReadDir(
 	dirents := make([]*fuseutil.Dirent, 0)
 
 	if op.Inode == fuseops.RootInodeID {
-		snapshotIDs, err := snapshot.List(fs.repository)
+		snapshotIDs, err := fs.repository.GetSnapshots()
 		if err != nil {
 			return fuse.EIO
 		}
@@ -428,7 +490,7 @@ func (fs *plakarFS) ReadDir(
 			dirents = append(dirents, &fuseutil.Dirent{
 				Offset: fuseops.DirOffset(i + 1),
 				Inode:  inodeID,
-				Name:   snapshotID.String(),
+				Name:   hex.EncodeToString(snapshotID[:]),
 				Type:   fuseutil.DT_Directory,
 			})
 		}
@@ -438,10 +500,20 @@ func (fs *plakarFS) ReadDir(
 			return fuse.ENOENT
 		}
 
-		var snapshotID uuid.UUID
+		var snapshotID [32]byte
 		var lookupPath string
 		if inode.parentID == fuseops.RootInodeID {
-			snapshotID = uuid.MustParse(inode.name)
+			inodeName, err := hex.DecodeString(inode.name)
+			if err != nil {
+				return fuse.EIO
+			}
+			if len(inodeName) != 32 {
+				return fuse.EIO
+			}
+			inodeName32 := [32]byte{}
+			copy(inodeName32[:], inodeName)
+
+			snapshotID = inodeName32
 			lookupPath = "/"
 		} else {
 			snapshotID = inode.snapshotID
@@ -473,7 +545,7 @@ func (fs *plakarFS) ReadDir(
 			}
 
 			dtype := fuseutil.DT_Directory
-			if stat.Mode().IsRegular() {
+			if stat.(os.FileInfo).Mode().IsRegular() {
 				dtype = fuseutil.DT_Char
 			}
 

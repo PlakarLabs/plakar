@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -26,16 +25,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/dustin/go-humanize"
 )
 
 func init() {
 	registerCommand("rm", cmd_rm)
 }
 
-func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_rm(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_older string
 	var opt_tag string
 	flags := flag.NewFlagSet("rm", flag.ExitOnError)
@@ -110,20 +111,20 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 	var snapshots []*snapshot.Snapshot
 	if opt_older != "" || opt_tag != "" {
 		if flags.NArg() != 0 {
-			tmp, err := getSnapshots(repository, flags.Args())
+			tmp, err := getSnapshots(repo, flags.Args())
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		} else {
-			tmp, err := getSnapshots(repository, nil)
+			tmp, err := getSnapshots(repo, nil)
 			if err != nil {
 				log.Fatal(err)
 			}
 			snapshots = tmp
 		}
 	} else {
-		tmp, err := getSnapshots(repository, flags.Args())
+		tmp, err := getSnapshots(repo, flags.Args())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -149,15 +150,19 @@ func cmd_rm(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 		}
 
-		fmt.Println("deleting snapshot", snap.Header.GetIndexID())
 		wg.Add(1)
 		go func(snap *snapshot.Snapshot) {
-			err := repository.DeleteSnapshot(snap.Header.GetIndexID())
+			t0 := time.Now()
+			err := repo.DeleteSnapshot(snap.Header.GetIndexID())
 			if err != nil {
 				logger.Error("%s", err)
 				errors++
 			}
 			wg.Done()
+			logger.Info("removed snapshot %x of size %s in %s",
+				snap.Header.GetIndexShortID(),
+				humanize.Bytes(snap.Header.ScanProcessedSize),
+				time.Since(t0))
 		}(snap)
 	}
 	wg.Wait()

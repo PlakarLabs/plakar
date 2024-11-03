@@ -23,16 +23,16 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("exec", cmd_exec)
 }
 
-func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_exec(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -41,28 +41,23 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, []string{flags.Args()[0]})
+	snapshots, err := getSnapshots(repo, []string{flags.Args()[0]})
 	if err != nil {
 		log.Fatal(err)
 	}
 	if len(snapshots) != 1 {
 		return 0
 	}
-	snapshot := snapshots[0]
+	snap := snapshots[0]
 
 	_, pathname := parseSnapshotID(flags.Args()[0])
-	hasher := encryption.GetHasher(repository.Configuration().Hashing)
-	hasher.Write([]byte(pathname))
-	pathnameChecksum := hasher.Sum(nil)
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-	object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+
+	rd, err := snap.NewReader(pathname)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
+		return 1
 	}
-	if object == nil {
-		return 0
-	}
+	defer rd.Close()
 
 	file, err := os.CreateTemp(os.TempDir(), "plakar")
 	if err != nil {
@@ -71,21 +66,11 @@ func cmd_exec(ctx Plakar, repository *storage.Repository, args []string) int {
 	defer os.Remove(file.Name())
 	file.Chmod(0500)
 
-	errors := 0
-	for _, chunkChecksum := range object.Chunks {
-		data, err := snapshot.GetChunk(chunkChecksum)
-		if err != nil {
-			logger.Error("%s: could not obtain chunk '%s'", flags.Name(), chunkChecksum)
-			errors++
-			break
-		}
-		file.Write(data)
+	_, err = io.Copy(file, rd)
+	if err != nil {
+		log.Fatal(err)
 	}
 	file.Close()
-
-	if errors != 0 {
-		return 1
-	}
 
 	cmd := exec.Command(file.Name(), flags.Args()[1:]...)
 	stdin, err := cmd.StdinPipe()

@@ -20,13 +20,14 @@
 package main
 
 import (
-	"context"
+	goctx "context"
 	"flag"
 	"log"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/plakarfs"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/jacobsa/fuse"
 )
 
@@ -34,7 +35,7 @@ func init() {
 	registerCommand("mount", cmd_mount)
 }
 
-func cmd_mount(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("mount", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -46,7 +47,7 @@ func cmd_mount(ctx Plakar, repository *storage.Repository, args []string) int {
 	mountpoint := flags.Arg(0)
 
 	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(repository, mountpoint)
+	server, err := plakarfs.NewPlakarFS(repo, mountpoint)
 	if err != nil {
 		log.Fatalf("makeFS: %v", err)
 	}
@@ -61,7 +62,7 @@ func cmd_mount(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	// Wait for it to be unmounted.
-	if err = mfs.Join(context.Background()); err != nil {
+	if err = mfs.Join(goctx.Background()); err != nil {
 		log.Fatalf("Join: %v", err)
 	}
 

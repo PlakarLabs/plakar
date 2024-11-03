@@ -17,217 +17,248 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
-	"sync"
+	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
 func init() {
 	registerCommand("sync", cmd_sync)
 }
 
-func cmd_sync(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 
-	snapshotID := ""
+	syncSnapshotID := ""
 	direction := ""
-	syncRepository := ""
+	peerRepositoryPath := ""
 	switch flags.NArg() {
 	case 2:
 		direction = flags.Arg(0)
-		syncRepository = flags.Arg(1)
+		peerRepositoryPath = flags.Arg(1)
 
 	case 3:
-		snapshotID = flags.Arg(0)
+		syncSnapshotID = flags.Arg(0)
 		direction = flags.Arg(1)
-		syncRepository = flags.Arg(2)
+		peerRepositoryPath = flags.Arg(2)
 
 	default:
 		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
 
-	var srcRepository *storage.Repository
-	var dstRepository *storage.Repository
-	var err error
-	if direction == "to" {
-		srcRepository = repository
-		dstRepository, err = storage.Open(syncRepository)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-		repositoryIndex, err := loadRepositoryIndex(dstRepository)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", dstRepository.Location, err)
-			return 1
-
-		}
-		dstRepository.SetRepositoryIndex(repositoryIndex)
-
-	} else if direction == "from" {
-		dstRepository = repository
-		srcRepository, err = storage.Open(syncRepository)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", ctx.Repository, err)
-			return 1
-		}
-		repositoryIndex, err := loadRepositoryIndex(srcRepository)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: could not fetch repository index: %s\n", srcRepository.Location, err)
-			return 1
-		}
-		srcRepository.SetRepositoryIndex(repositoryIndex)
-	} else {
-		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
-		return 1
-	}
-
-	var muChunkChecksum sync.Mutex
-	chunkChecksum := make(map[[32]byte]bool)
-
-	var muObjectChecksum sync.Mutex
-	objectChecksum := make(map[[32]byte]bool)
-
-	sourceIndexes, err := srcRepository.GetSnapshots()
+	peerStore, err := storage.Open(ctx, peerRepositoryPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", peerRepositoryPath, err)
 		return 1
 	}
 
-	if dstRepository.Configuration().Encryption != "" {
+	var peerSecret []byte
+	if peerStore.Configuration().Encryption != "" {
 		for {
-			passphrase, err := helpers.GetPassphrase("destination repository")
+			passphrase, err := getPassphrase("destination repository")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 
-			secret, err := encryption.DeriveSecret(passphrase, dstRepository.Configuration().EncryptionKey)
+			secret, err := encryption.DeriveSecret(passphrase, peerStore.Configuration().EncryptionKey)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
-			dstRepository.SetSecret(secret)
+			peerSecret = secret
 			break
 		}
 	}
-
-	destIndexes, err := dstRepository.GetSnapshots()
+	peerRepository, err := repository.New(peerStore, peerSecret)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get indexes list from repository: %s\n", ctx.Repository, err)
+		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", peerStore.Location(), err)
 		return 1
 	}
 
-	syncIndexes := make([]uuid.UUID, 0)
+	var srcRepository *repository.Repository
+	var dstRepository *repository.Repository
 
-	for _, index := range findSnapshotByPrefix(sourceIndexes, snapshotID) {
-		if !indexArrayContains(destIndexes, index) {
-			syncIndexes = append(syncIndexes, index)
+	if direction == "to" {
+		srcRepository = repo
+		dstRepository = peerRepository
+	} else if direction == "from" {
+		srcRepository = peerRepository
+		dstRepository = repo
+	} else if direction == "with" {
+		srcRepository = repo
+		dstRepository = peerRepository
+	} else {
+		fmt.Fprintf(os.Stderr, "%s: invalid direction, must be to, from or with\n", peerStore.Location())
+		return 1
+	}
+
+	srcSnapshots, err := srcRepository.GetSnapshots()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get snapshots from repository: %s\n", srcRepository.Location(), err)
+		return 1
+	}
+
+	dstSnapshots, err := dstRepository.GetSnapshots()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", dstRepository.Location(), err)
+		return 1
+	}
+
+	_ = syncSnapshotID
+
+	srcSnapshotsMap := make(map[[32]byte]struct{})
+	dstSnapshotsMap := make(map[[32]byte]struct{})
+
+	for _, snapshotID := range srcSnapshots {
+		srcSnapshotsMap[snapshotID] = struct{}{}
+	}
+
+	for _, snapshotID := range dstSnapshots {
+		dstSnapshotsMap[snapshotID] = struct{}{}
+	}
+
+	srcSyncList := make([][32]byte, 0)
+	for snapshotID := range srcSnapshotsMap {
+		if syncSnapshotID != "" {
+			hexSnapshotID := hex.EncodeToString(snapshotID[:])
+			if !strings.HasPrefix(hexSnapshotID, syncSnapshotID) {
+				continue
+			}
+		}
+		if _, exists := dstSnapshotsMap[snapshotID]; !exists {
+			srcSyncList = append(srcSyncList, snapshotID)
 		}
 	}
 
-	wg := sync.WaitGroup{}
-	for _, _indexID := range syncIndexes {
-		wg.Add(1)
-		go func(indexID uuid.UUID) {
-			defer wg.Done()
-			sourceSnapshot, err := snapshot.Load(srcRepository, indexID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not load snapshot from repository: %s\n", ctx.Repository, err)
-				return
-			}
+	fmt.Printf("Synchronizing %d snapshots\n", len(srcSyncList))
 
-			copySnapshot, err := snapshot.New(dstRepository, indexID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not create snapshot in repository: %s\n", syncRepository, err)
-				return
-			}
-
-			// rebuild a new snapshot w/ identical fs, but destination specific index and rebuilt metadata
-			// should share same UUID but take into account configuration differnces
-			copySnapshot.Header = sourceSnapshot.Header
-			copySnapshot.Filesystem = sourceSnapshot.Filesystem
-			copySnapshot.Index = sourceSnapshot.Index
-			copySnapshot.Metadata = sourceSnapshot.Metadata
-
-			wg2 := sync.WaitGroup{}
-			for _chunkID := range sourceSnapshot.Index.ListChunks() {
-				wg2.Add(1)
-				go func(chunkID [32]byte) {
-					defer wg2.Done()
-					muChunkChecksum.Lock()
-					_, exists := chunkChecksum[chunkID]
-					muChunkChecksum.Unlock()
-					if !exists {
-						exists := copySnapshot.CheckChunk(chunkID)
-						if !exists {
-							data, err := sourceSnapshot.GetChunk(chunkID)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get chunk from repository: %s\n", ctx.Repository, err)
-								return
-							}
-							err = copySnapshot.PutChunk(chunkID, data)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not put chunk to repository: %s\n", syncRepository, err)
-								return
-							}
-						}
-						muChunkChecksum.Lock()
-						chunkChecksum[chunkID] = true
-						muChunkChecksum.Unlock()
-					}
-				}(_chunkID)
-			}
-			wg2.Wait()
-
-			wg3 := sync.WaitGroup{}
-			for _objectID := range sourceSnapshot.Index.ListObjects() {
-				wg3.Add(1)
-				go func(objectID [32]byte) {
-					defer wg3.Done()
-					muObjectChecksum.Lock()
-					_, exists := objectChecksum[objectID]
-					muObjectChecksum.Unlock()
-
-					if !exists {
-						exists := copySnapshot.CheckObject(objectID)
-						if !exists {
-							object, err := sourceSnapshot.Index.LookupObject(objectID)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not get object from repository: %s\n", ctx.Repository, err)
-								return
-							}
-							err = copySnapshot.PutObject(object)
-							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s: could not put object to repository: %s\n", syncRepository, err)
-								return
-							}
-						}
-						muObjectChecksum.Lock()
-						objectChecksum[objectID] = true
-						muObjectChecksum.Unlock()
-					}
-				}(_objectID)
-			}
-			wg3.Wait()
-
-			err = copySnapshot.Commit()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not commit object to repository: %s\n", syncRepository, err)
-				return
-			}
-		}(_indexID)
+	for _, snapshotID := range srcSyncList {
+		err := synchronize(srcRepository, dstRepository, snapshotID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not synchronize snapshot %x from repository: %s\n", srcRepository.Location(), snapshotID, err)
+		}
 	}
-	wg.Wait()
+
+	if direction == "with" {
+		dstSyncList := make([][32]byte, 0)
+		for snapshotID := range dstSnapshotsMap {
+			if syncSnapshotID != "" {
+				hexSnapshotID := hex.EncodeToString(snapshotID[:])
+				if !strings.HasPrefix(hexSnapshotID, syncSnapshotID) {
+					continue
+				}
+			}
+			if _, exists := srcSnapshotsMap[snapshotID]; !exists {
+				dstSyncList = append(dstSyncList, snapshotID)
+			}
+		}
+
+		for _, snapshotID := range dstSyncList {
+			err := synchronize(dstRepository, srcRepository, snapshotID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not synchronize snapshot %x from repository: %s\n", dstRepository.Location(), snapshotID, err)
+			}
+		}
+	}
+
 	return 0
+}
+
+func synchronize(srcRepository *repository.Repository, dstRepository *repository.Repository, snapshotID [32]byte) error {
+	srcSnapshot, err := snapshot.Load(srcRepository, snapshotID)
+	if err != nil {
+		return err
+	}
+
+	dstSnapshot, err := snapshot.New(dstRepository, snapshotID)
+	if err != nil {
+		return err
+	}
+
+	dstSnapshot.Header = srcSnapshot.Header
+	dstSnapshot.Metadata = srcSnapshot.Metadata
+
+	c, err := srcSnapshot.ListChunks()
+	if err != nil {
+		return err
+	}
+	for chunkID := range c {
+		if !dstRepository.State().ChunkExists(chunkID) {
+			chunkData, err := srcSnapshot.GetChunk(chunkID)
+			if err != nil {
+				return err
+			}
+			dstSnapshot.PutChunk(chunkID, chunkData)
+		}
+	}
+
+	c, err = srcSnapshot.ListObjects()
+	if err != nil {
+		return err
+	}
+	for objectID := range c {
+		if !dstRepository.State().ObjectExists(objectID) {
+			objectData, err := srcSnapshot.GetObject(objectID)
+			if err != nil {
+				return err
+			}
+			dstSnapshot.PutObject(objectID, objectData)
+		}
+	}
+
+	c, err = srcSnapshot.ListFiles()
+	if err != nil {
+		return err
+	}
+	for fileID := range c {
+		if !dstRepository.State().FileExists(fileID) {
+			fileData, err := srcSnapshot.GetFile(fileID)
+			if err != nil {
+				return err
+			}
+			dstSnapshot.PutFile(fileID, fileData)
+		}
+	}
+
+	c, err = srcSnapshot.ListDirectories()
+	if err != nil {
+		return err
+	}
+	for directoryID := range c {
+		if !dstRepository.State().DirectoryExists(directoryID) {
+			directoryData, err := srcSnapshot.GetDirectory(directoryID)
+			if err != nil {
+				return err
+			}
+			dstSnapshot.PutDirectory(directoryID, directoryData)
+		}
+	}
+
+	c, err = srcSnapshot.ListDatas()
+	if err != nil {
+		return err
+	}
+	for dataID := range c {
+		if !dstRepository.State().DataExists(dataID) {
+			dataData, err := srcSnapshot.GetData(dataID)
+			if err != nil {
+				return err
+			}
+			dstSnapshot.PutData(dataID, dataData)
+		}
+	}
+
+	return dstSnapshot.Commit()
 }

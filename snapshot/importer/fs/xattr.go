@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
+ * Copyright (c) 2023 Gilles Chehade <gilles@poolp.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,43 +14,37 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package main
+package fs
 
 import (
-	"flag"
-	"log"
+	"fmt"
+	"os"
 
-	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/pkg/xattr"
 )
 
-func init() {
-	registerCommand("fork", cmd_fork)
-}
+func getExtendedAttributes(path string) (map[string][]byte, error) {
+	attrs := make(map[string][]byte)
 
-func cmd_fork(ctx Plakar, repository *storage.Repository, args []string) int {
-
-	flags := flag.NewFlagSet("fork", flag.ExitOnError)
-	flags.Parse(args)
-
-	if len(args) != 1 {
-		log.Fatal("need a snapshot ID to fork")
-		return info_plakar(repository)
-	}
-
-	snapshots, err := getSnapshots(repository, flags.Args())
+	// Get the list of attribute names
+	attributes, err := xattr.List(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to list extended attributes for %s: %w", path, err)
 	}
 
-	for _, snap := range snapshots {
-		nsnap, err := snapshot.Fork(repository, snap.Header.IndexID)
+	// Iterate over each attribute and retrieve its value
+	for _, attr := range attributes {
+		value, err := xattr.Get(path, attr)
 		if err != nil {
-			log.Fatal(err)
+			// Log the error and continue instead of failing
+			if os.IsPermission(err) {
+				fmt.Printf("permission denied for attribute %s on %s\n", attr, path)
+				continue
+			}
+			return nil, fmt.Errorf("failed to get value for attribute %s: %w", attr, err)
 		}
-		if err := nsnap.Commit(); err != nil {
-			log.Fatal(err)
-		}
+		attrs[attr] = value
 	}
-	return 0
+
+	return attrs, nil
 }

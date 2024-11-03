@@ -19,14 +19,11 @@ package main
 import (
 	"flag"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/server/plakard"
 )
 
-func init() {
-	// registerCommand("stdio", cmd_stdio)
-}
-
-func cmd_stdio(ctx Plakar, args []string) int {
+func cmd_stdio(ctx *context.Context, args []string) int {
 	_ = ctx
 
 	var noDelete bool
@@ -38,7 +35,7 @@ func cmd_stdio(ctx Plakar, args []string) int {
 	options := &plakard.ServerOptions{
 		NoDelete: noDelete,
 	}
-	if err := plakard.Stdio(options); err != nil {
+	if err := plakard.Stdio(ctx, options); err != nil {
 		return 1
 	}
 	return 0

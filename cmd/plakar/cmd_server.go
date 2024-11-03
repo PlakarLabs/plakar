@@ -19,22 +19,24 @@ package main
 import (
 	"flag"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/server/httpd"
 	"github.com/PlakarLabs/plakar/server/plakard"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("server", cmd_server)
 }
 
-func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_server(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_protocol string
-	var opt_nodelete bool
+	var opt_allowdelete bool
+
 	flags := flag.NewFlagSet("server", flag.ExitOnError)
 	flags.StringVar(&opt_protocol, "protocol", "plakar", "protocol to use (http or plakar)")
-	flags.BoolVar(&opt_nodelete, "no-delete", false, "disable delete operations")
+	flags.BoolVar(&opt_allowdelete, "allow-delete", false, "disable delete operations")
 	flags.Parse(args)
 
 	addr := ":9876"
@@ -42,16 +44,21 @@ func cmd_server(ctx Plakar, repository *storage.Repository, args []string) int {
 		addr = flags.Arg(0)
 	}
 
+	noDelete := true
+	if opt_allowdelete {
+		noDelete = false
+	}
+
 	switch opt_protocol {
 	case "http":
-		httpd.Server(repository, addr, opt_nodelete)
+		httpd.Server(repo, addr, noDelete)
 	case "plakar":
 		options := &plakard.ServerOptions{
 			NoOpen:   true,
 			NoCreate: true,
-			NoDelete: opt_nodelete,
+			NoDelete: noDelete,
 		}
-		plakard.Server(repository, addr, options)
+		plakard.Server(ctx, repo, addr, options)
 	default:
 		logger.Error("unsupported protocol: %s", opt_protocol)
 	}

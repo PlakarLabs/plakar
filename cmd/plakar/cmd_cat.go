@@ -17,20 +17,31 @@
 package main
 
 import (
+	"bufio"
+	"compress/gzip"
 	"flag"
 	"io"
 	"os"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 )
 
 func init() {
 	registerCommand("cat", cmd_cat)
 }
 
-func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) int {
+	var opt_nodecompress bool
+	var opt_highlight bool
+
 	flags := flag.NewFlagSet("cat", flag.ExitOnError)
+	flags.BoolVar(&opt_nodecompress, "no-decompress", false, "do not try to decompress output")
+	flags.BoolVar(&opt_highlight, "highlight", false, "highlight output")
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
@@ -38,7 +49,7 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
@@ -56,14 +67,72 @@ func cmd_cat(ctx Plakar, repository *storage.Repository, args []string) int {
 
 		rd, err := snap.NewReader(pathname)
 		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			logger.Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
 
 		var outRd io.ReadCloser = rd
 
-		_, err = io.Copy(os.Stdout, outRd)
+		if !opt_nodecompress {
+			if rd.GetContentType() == "application/gzip" && !opt_nodecompress {
+				gzRd, err := gzip.NewReader(outRd)
+				if err != nil {
+					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					errors++
+					continue
+				}
+				outRd = gzRd
+			}
+		}
+
+		if opt_highlight {
+			lexer := lexers.Match(pathname)
+			if lexer == nil {
+				lexer = lexers.Get(rd.GetContentType())
+			}
+			if lexer == nil {
+				lexer = lexers.Fallback // Fallback if no lexer is found
+			}
+			formatter := formatters.Get("terminal")
+			style := styles.Get("dracula")
+
+			reader := bufio.NewReader(rd)
+			buffer := make([]byte, 4096) // Fixed-size buffer for chunked reading
+			for {
+				n, err := reader.Read(buffer) // Read up to the size of the buffer
+				if n > 0 {
+					chunk := string(buffer[:n])
+
+					// Tokenize the chunk and apply syntax highlighting
+					iterator, errTokenize := lexer.Tokenise(nil, chunk)
+					if errTokenize != nil {
+						logger.Error("%s: %s: %s", flags.Name(), pathname, errTokenize)
+						errors++
+						break
+					}
+
+					errFormat := formatter.Format(os.Stdout, style, iterator)
+					if errFormat != nil {
+						logger.Error("%s: %s: %s", flags.Name(), pathname, errFormat)
+						errors++
+						break
+					}
+				}
+
+				// Check for end of file (EOF)
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					errors++
+					break
+				}
+			}
+
+		} else {
+			_, err = io.Copy(os.Stdout, outRd)
+		}
 		if err != nil {
 			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

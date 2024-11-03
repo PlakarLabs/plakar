@@ -1,64 +1,52 @@
-/*
- * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 package compression
 
 import (
-	"crypto/rand"
+	"bytes"
+	"io"
 	"testing"
 )
 
-func TestCompressionGzip(t *testing.T) {
-	token := make([]byte, 65*1024)
-	rand.Read(token)
-	deflated, _ := Deflate("gzip", token)
-	inflated, err := Inflate("gzip", deflated)
+// Helper function to compress and then decompress data and verify correctness
+func testCompressionDecompression(t *testing.T, algorithm string, data []byte) {
+	// Compress data
+	compressedReader, err := DeflateStream(algorithm, bytes.NewReader(data))
 	if err != nil {
-		t.Errorf("Inflate(Deflate(%q)) != %q", inflated, token)
+		t.Fatalf("DeflateStream failed for %s: %v", algorithm, err)
 	}
-}
 
-func TestCompressionLZ4(t *testing.T) {
-	token := make([]byte, 65*1024)
-	rand.Read(token)
-	deflated, _ := Deflate("lz4", token)
-	inflated, err := Inflate("lz4", deflated)
+	// Decompress data
+	decompressedReader, err := InflateStream(algorithm, compressedReader)
 	if err != nil {
-		t.Errorf("Inflate(Deflate(%q)) != %q", inflated, token)
+		t.Fatalf("InflateStream failed for %s: %v", algorithm, err)
+	}
+
+	// Read decompressed data
+	var decompressedData bytes.Buffer
+	_, err = io.Copy(&decompressedData, decompressedReader)
+	if err != nil {
+		t.Fatalf("Reading decompressed data failed for %s: %v", algorithm, err)
+	}
+
+	// Compare original and decompressed data
+	if !bytes.Equal(data, decompressedData.Bytes()) {
+		t.Errorf("Decompressed data does not match original for %s. Got: %v, Want: %v", algorithm, decompressedData.Bytes(), data)
 	}
 }
 
-func BenchmarkDeflateInflateGzip(b *testing.B) {
-	token := make([]byte, 65*1024)
-	_, _ = rand.Read(token)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		deflated, _ := Deflate("gzip", token)
-		_, _ = Inflate("gzip", deflated)
+func TestCompression(t *testing.T) {
+	tests := []struct {
+		algorithm string
+		data      []byte
+	}{
+		{"gzip", []byte("Hello, world!")},
+		{"gzip", []byte{}}, // Test empty buffer for gzip
+		{"lz4", []byte("Hello, world!")},
+		{"lz4", []byte{}}, // Test empty buffer for lz4
 	}
-}
 
-func BenchmarkDeflateInflateLZ4(b *testing.B) {
-	token := make([]byte, 65*1024)
-	_, _ = rand.Read(token)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		deflated, _ := Deflate("lz4", token)
-		_, _ = Inflate("lz4", deflated)
+	for _, tt := range tests {
+		t.Run(tt.algorithm, func(t *testing.T) {
+			testCompressionDecompression(t, tt.algorithm, tt.data)
+		})
 	}
 }

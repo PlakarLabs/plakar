@@ -24,7 +24,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/repository"
 	v1 "github.com/PlakarLabs/plakar/ui/v1"
 )
 
@@ -32,7 +33,7 @@ func init() {
 	registerCommand("ui", cmd_ui)
 }
 
-func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_ui(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_nospawn bool
 	var opt_addr string
 
@@ -41,7 +42,7 @@ func cmd_ui(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
 	flags.Parse(args)
 
-	err := v1.Ui(repository, opt_addr, !opt_nospawn)
+	err := v1.Ui(repo, opt_addr, !opt_nospawn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

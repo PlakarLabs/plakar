@@ -1,19 +1,3 @@
-/*
- * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 package compression
 
 import (
@@ -25,77 +9,108 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-func Deflate(name string, buf []byte) ([]byte, error) {
-	m := map[string]func([]byte) ([]byte, error){
-		"gzip": DeflateGzip,
-		"lz4":  DeflateLZ4,
+func DefaultAlgorithm() string {
+	return "lz4"
+}
+
+func DeflateStream(name string, r io.Reader) (io.Reader, error) {
+	// Check if input is empty
+	buf := make([]byte, 1)
+	n, err := r.Read(buf)
+	if err == io.EOF {
+		return bytes.NewReader([]byte{}), nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Rewind to re-read initial byte if not empty
+	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
+
+	m := map[string]func(io.Reader) (io.Reader, error){
+		"gzip": DeflateGzipStream,
+		"lz4":  DeflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
-		return fn(buf)
-	} else {
-		return nil, fmt.Errorf("unsupported compression method %q", name)
+		return fn(r)
 	}
+	return nil, fmt.Errorf("unsupported compression method %q", name)
 }
 
-func DeflateGzip(buf []byte) ([]byte, error) {
-	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
-	w := gzip.NewWriter(b)
-	defer func() {
-		_ = w.Close()
+func DeflateGzipStream(r io.Reader) (io.Reader, error) {
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		gw := gzip.NewWriter(pw)
+		defer gw.Close()
+		_, err := io.Copy(gw, r)
+		if err != nil {
+			pw.CloseWithError(err)
+		}
 	}()
-
-	if _, err := w.Write(buf); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
+	return pr, nil
 }
 
-func DeflateLZ4(buf []byte) ([]byte, error) {
-	b := bytes.NewBuffer(make([]byte, 0, len(buf)))
-	w := lz4.NewWriter(b)
-	defer func() {
-		_ = w.Close()
+func DeflateLZ4Stream(r io.Reader) (io.Reader, error) {
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		lw := lz4.NewWriter(pw)
+		defer lw.Close()
+		_, err := io.Copy(lw, r)
+		if err != nil {
+			pw.CloseWithError(err)
+		}
 	}()
-
-	if _, err := w.Write(buf); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
+	return pr, nil
 }
 
-func Inflate(name string, buf []byte) ([]byte, error) {
-	m := map[string]func([]byte) ([]byte, error){
-		"gzip": InflateGzip,
-		"lz4":  InflateLZ4,
+func InflateStream(name string, r io.Reader) (io.Reader, error) {
+	// Check if input is empty
+	buf := make([]byte, 1)
+	n, err := r.Read(buf)
+	if err == io.EOF {
+		return bytes.NewReader([]byte{}), nil
+	} else if err != nil {
+		return nil, err
+	}
+	// Rewind to re-read initial byte if not empty
+	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
+
+	m := map[string]func(io.Reader) (io.Reader, error){
+		"gzip": InflateGzipStream,
+		"lz4":  InflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
-		return fn(buf)
-	} else {
-		return nil, fmt.Errorf("unsupported compression method %q", name)
+		return fn(r)
 	}
+	return nil, fmt.Errorf("unsupported compression method %q", name)
 }
 
-func InflateGzip(buf []byte) ([]byte, error) {
-	w, err := gzip.NewReader(bytes.NewBuffer(buf))
+func InflateGzipStream(r io.Reader) (io.Reader, error) {
+	gz, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		_ = w.Close()
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		defer gz.Close()
+		_, err := io.Copy(pw, gz)
+		if err != nil {
+			pw.CloseWithError(err)
+		}
 	}()
-	return io.ReadAll(w)
+	return pr, nil
 }
 
-func InflateLZ4(buf []byte) ([]byte, error) {
-	return io.ReadAll(lz4.NewReader(bytes.NewBuffer(buf)))
+func InflateLZ4Stream(r io.Reader) (io.Reader, error) {
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		lz := lz4.NewReader(r)
+		_, err := io.Copy(pw, lz)
+		if err != nil {
+			pw.CloseWithError(err)
+		}
+	}()
+	return pr, nil
 }

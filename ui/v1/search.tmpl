@@ -31,7 +31,7 @@
         <tbody>
             {{range $directory := $Directories}}
             <tr>
-                <td><a href="/snapshot/{{$directory.Snapshot}}:/">{{slice $directory.Snapshot 0 8}}</a></td>
+                <td><a href="/snapshot/{{$directory.Snapshot}}:/">{{slice $directory.Snapshot 0 4 | ShortIDtoHex}}</a></td>
                 <td>{{$directory.Date}}</td>
                 <td>{{$directory}}</td>
                 <td><a href="/snapshot/{{$directory.Snapshot}}:{{$directory.Path}}/">{{$directory.Path}}/</a></td>

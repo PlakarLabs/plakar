@@ -17,6 +17,8 @@
 package fs
 
 import (
+	"bytes"
+	"io"
 	"time"
 
 	"github.com/PlakarLabs/plakar/storage"
@@ -25,12 +27,12 @@ import (
 )
 
 type Repository struct {
-	config     storage.RepositoryConfig
+	config     storage.Configuration
 	Repository string
 }
 
 type Transaction struct {
-	Uuid       uuid.UUID
+	Uuid       [32]byte
 	repository Repository
 }
 
@@ -38,18 +40,18 @@ func init() {
 	storage.Register("null", NewRepository)
 }
 
-func NewRepository() storage.RepositoryBackend {
+func NewRepository() storage.Backend {
 	return &Repository{}
 }
 
-func (repository *Repository) Create(location string, config storage.RepositoryConfig) error {
+func (repository *Repository) Create(location string, config storage.Configuration) error {
 	return nil
 }
 
 func (repository *Repository) Open(location string) error {
-	repositoryConfig := storage.RepositoryConfig{}
+	repositoryConfig := storage.Configuration{}
 	repositoryConfig.Version = storage.VERSION
-	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
+	repositoryConfig.StoreID = uuid.Must(uuid.NewRandom())
 	repositoryConfig.CreationTime = time.Now()
 	repositoryConfig.Hashing = "sha256"
 	repositoryConfig.Chunking = "fastcdc"
@@ -62,79 +64,41 @@ func (repository *Repository) Open(location string) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.RepositoryConfig {
+func (repository *Repository) Configuration() storage.Configuration {
 	return repository.config
 }
 
 // snapshots
-func (repository *Repository) GetSnapshots() ([]uuid.UUID, error) {
-	return []uuid.UUID{}, nil
-}
-
-func (repository *Repository) PutSnapshot(indexID uuid.UUID, data []byte) error {
-	return nil
-}
-
-func (repository *Repository) GetSnapshot(indexID uuid.UUID) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func (repository *Repository) DeleteSnapshot(indexID uuid.UUID) error {
-	return nil
-}
-
-// locks
-func (repository *Repository) GetLocks() ([]uuid.UUID, error) {
-	return []uuid.UUID{}, nil
-}
-
-func (repository *Repository) PutLock(indexID uuid.UUID, data []byte) error {
-	return nil
-}
-
-func (repository *Repository) GetLock(indexID uuid.UUID) ([]byte, error) {
-	return []byte{}, nil
-}
-
-func (repository *Repository) DeleteLock(indexID uuid.UUID) error {
-	return nil
-}
-
-// blobs
-func (repository *Repository) GetBlobs() ([][32]byte, error) {
+func (repository *Repository) GetSnapshots() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutBlob(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutSnapshot(snapshotID [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) CheckBlob(checksum [32]byte) (bool, error) {
-	return false, nil
-}
-
-func (repository *Repository) GetBlob(checksum [32]byte) ([]byte, error) {
+func (repository *Repository) GetSnapshot(snapshotID [32]byte) ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (repository *Repository) DeleteBlob(checksum [32]byte) error {
+func (repository *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	return nil
 }
 
-// indexes
-func (repository *Repository) GetIndexes() ([][32]byte, error) {
+// states
+func (repository *Repository) GetStates() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutIndex(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	return nil
 }
 
-func (repository *Repository) GetIndex(checksum [32]byte) ([]byte, error) {
-	return []byte{}, nil
+func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
+	return bytes.NewBuffer([]byte{}), 0, nil
 }
 
-func (repository *Repository) DeleteIndex(checksum [32]byte) error {
+func (repository *Repository) DeleteState(checksum [32]byte) error {
 	return nil
 }
 
@@ -143,16 +107,16 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return [][32]byte{}, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, data []byte) error {
+func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) ([]byte, error) {
-	return []byte{}, nil
+func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+	return bytes.NewBuffer([]byte{}), 0, nil
 }
 
-func (repository *Repository) GetPackfileSubpart(checksum [32]byte, offset uint32, length uint32) ([]byte, error) {
-	return []byte{}, nil
+func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
+	return bytes.NewBuffer([]byte{}), 0, nil
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
@@ -163,6 +127,6 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Commit(indexID uuid.UUID, data []byte) error {
+func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	return nil
 }

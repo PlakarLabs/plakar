@@ -22,7 +22,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
@@ -31,7 +33,7 @@ func init() {
 	registerCommand("clone", cmd_clone)
 }
 
-func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -40,18 +42,20 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	sourceRepository := repository
-	repositoryConfig := sourceRepository.Configuration()
+	sourceStore := repo.Store()
 
-	cloneRepository, err := storage.Create(flags.Arg(1), repositoryConfig)
+	configuration := sourceStore.Configuration()
+	configuration.StoreID = uuid.Must(uuid.NewRandom())
+
+	cloneStore, err := storage.Create(ctx, flags.Arg(1), configuration)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", flags.Arg(1), err)
 		return 1
 	}
 
-	packfileChecksums, err := sourceRepository.GetPackfiles()
+	packfileChecksums, err := sourceStore.GetPackfiles()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get packfiles list from repository: %s\n", sourceStore.Location(), err)
 		return 1
 	}
 
@@ -61,24 +65,24 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		go func(packfileChecksum [32]byte) {
 			defer wg.Done()
 
-			data, err := sourceRepository.GetPackfile(packfileChecksum)
+			rd, size, err := sourceStore.GetPackfile(packfileChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not get packfile from repository: %s\n", sourceStore.Location(), err)
 				return
 			}
 
-			err = cloneRepository.PutPackfile(packfileChecksum, data)
+			err = cloneStore.PutPackfile(packfileChecksum, rd, size)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneStore.Location(), err)
 				return
 			}
 		}(_packfileChecksum)
 	}
 	wg.Wait()
 
-	indexesChecksums, err := sourceRepository.GetIndexes()
+	indexesChecksums, err := sourceStore.GetStates()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceRepository.Location, err)
+		fmt.Fprintf(os.Stderr, "%s: could not get paclfiles list from repository: %s\n", sourceStore.Location(), err)
 		return 1
 	}
 
@@ -88,70 +92,18 @@ func cmd_clone(ctx Plakar, repository *storage.Repository, args []string) int {
 		go func(indexChecksum [32]byte) {
 			defer wg.Done()
 
-			data, err := sourceRepository.GetIndex(indexChecksum)
+			data, size, err := sourceStore.GetState(indexChecksum)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not get index from repository: %s\n", sourceStore.Location(), err)
 				return
 			}
 
-			err = cloneRepository.PutIndex(indexChecksum, data)
+			err = cloneStore.PutState(indexChecksum, data, size)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneRepository.Location, err)
+				fmt.Fprintf(os.Stderr, "%s: could not put packfile to repository: %s\n", cloneStore.Location(), err)
 				return
 			}
 		}(_indexChecksum)
-	}
-	wg.Wait()
-
-	wg = sync.WaitGroup{}
-	blobsChecksums, err := sourceRepository.GetBlobs()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get blobs list from repository: %s\n", sourceRepository.Location, err)
-		return 1
-	}
-	for _, _blobChecksum := range blobsChecksums {
-		wg.Add(1)
-		go func(blobChecksum [32]byte) {
-			defer wg.Done()
-
-			data, err := sourceRepository.GetBlob(blobChecksum)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get blob from repository: %s\n", sourceRepository.Location, err)
-				return
-			}
-
-			err = cloneRepository.PutBlob(blobChecksum, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put blob to repository: %s\n", cloneRepository.Location, err)
-				return
-			}
-		}(_blobChecksum)
-	}
-	wg.Wait()
-
-	wg = sync.WaitGroup{}
-	snapshots, err := sourceRepository.GetSnapshots()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: could not get snapshots list from repository: %s\n", sourceRepository.Location, err)
-		return 1
-	}
-	for _, _snapshotID := range snapshots {
-		wg.Add(1)
-		go func(snapshotID uuid.UUID) {
-			defer wg.Done()
-
-			data, err := sourceRepository.GetSnapshot(snapshotID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not get snapshot from repository: %s\n", sourceRepository.Location, err)
-				return
-			}
-
-			err = cloneRepository.PutSnapshot(snapshotID, data)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not put snapshot to repository: %s\n", cloneRepository.Location, err)
-				return
-			}
-		}(_snapshotID)
 	}
 	wg.Wait()
 

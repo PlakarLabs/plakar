@@ -18,55 +18,18 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
-	"time"
 
-	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
-	"github.com/PlakarLabs/plakar/storage/locking"
+	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/repository"
 )
 
 func init() {
 	registerCommand("cleanup", cmd_cleanup)
 }
 
-func cmd_cleanup(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_cleanup(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("cleanup", flag.ExitOnError)
 	flags.Parse(args)
-
-	lock := locking.New(ctx.Hostname,
-		ctx.Username,
-		ctx.MachineID,
-		os.Getpid(),
-		true)
-	currentLockID, err := snapshot.PutLock(*repository, lock)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-	defer repository.DeleteLock(currentLockID)
-
-	locksID, err := repository.GetLocks()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-
-	for _, lockID := range locksID {
-		if lockID == currentLockID {
-			continue
-		}
-		if lock, err := snapshot.GetLock(repository, lockID); err != nil && !os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			return 1
-		} else if err == nil {
-			if !lock.Expired(time.Minute * 15) {
-				fmt.Fprintf(os.Stderr, "can't put exclusive lock: %s has ongoing operations\n", repository.Location)
-				return 1
-			}
-		}
-	}
 
 	// the cleanup algorithm is a bit tricky and needs to be done in the correct sequence,
 	// here's what it has to do:

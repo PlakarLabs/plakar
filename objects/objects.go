@@ -7,12 +7,98 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Directory struct {
+	Checksum [32]byte
+	FileInfo FileInfo
+}
+
+func NewDirectory(checksum [32]byte, fileInfo FileInfo) *Directory {
+	return &Directory{
+		Checksum: checksum,
+		FileInfo: fileInfo,
+	}
+}
+
+func NewDirectoryFromBytes(serialized []byte) (*Directory, error) {
+	var d Directory
+	if err := msgpack.Unmarshal(serialized, &d); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func (d *Directory) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
+
+type File struct {
+	Checksum [32]byte
+	FileInfo FileInfo
+}
+
+func NewFile(checksum [32]byte, fileInfo FileInfo) *File {
+	return &File{
+		Checksum: checksum,
+		FileInfo: fileInfo,
+	}
+}
+
+func NewFileFromBytes(serialized []byte) (*File, error) {
+	var f File
+	if err := msgpack.Unmarshal(serialized, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (f *File) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(f)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
+}
+
+type CustomMetadata struct {
+	Key   string
+	Value []byte
+}
+
 type Object struct {
-	Checksum    [32]byte
-	Chunks      [][32]byte
-	ContentType string
+	Checksum       [32]byte
+	Chunks         []Chunk
+	ContentType    string
+	CustomMetadata []CustomMetadata
+	Tags           []string
+}
+
+func NewObject() *Object {
+	return &Object{
+		CustomMetadata: make([]CustomMetadata, 0),
+	}
+}
+
+func NewObjectFromBytes(serialized []byte) (*Object, error) {
+	var o Object
+	if err := msgpack.Unmarshal(serialized, &o); err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+func (o *Object) Serialize() ([]byte, error) {
+	serialized, err := msgpack.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	return serialized, nil
 }
 
 type Chunk struct {
@@ -106,4 +192,16 @@ func NewFileInfo(name string, size int64, mode os.FileMode, modTime time.Time, d
 
 func (fileinfo *FileInfo) HumanSize() string {
 	return humanize.Bytes(uint64(fileinfo.Size()))
+}
+
+func (fileinfo *FileInfo) Equal(fi *FileInfo) bool {
+	return fileinfo.Lname == fi.Lname &&
+		fileinfo.Lsize == fi.Lsize &&
+		fileinfo.Lmode == fi.Lmode &&
+		fileinfo.LmodTime == fi.LmodTime &&
+		fileinfo.Ldev == fi.Ldev &&
+		fileinfo.Lino == fi.Lino &&
+		fileinfo.Luid == fi.Luid &&
+		fileinfo.Lgid == fi.Lgid &&
+		fileinfo.Lnlink == fi.Lnlink
 }

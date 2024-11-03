@@ -1,19 +1,3 @@
-/*
- * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
 package encryption
 
 import (
@@ -21,85 +5,210 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
 
-	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/crypto/scrypt"
 )
 
-func BuildSecretFromPassphrase(passphrase []byte) string {
-	salt := make([]byte, 16)
-	rand.Read(salt)
-	dk := pbkdf2.Key(passphrase, salt, 4096, 32, sha256.New)
-	secret := sha256.Sum256(dk)
-	return base64.StdEncoding.EncodeToString(append(salt, secret[:]...))
+const (
+	saltSize  = 16
+	chunkSize = 1024 // Size of each chunk for encryption/decryption
+)
+
+func DefaultAlgorithm() string {
+	return "AES256-GCM"
 }
 
+// BuildSecretFromPassphrase generates a secret from a passphrase using scrypt
+func BuildSecretFromPassphrase(passphrase []byte) (string, error) {
+	// Generate a random salt
+	salt := make([]byte, saltSize)
+	if _, err := rand.Read(salt); err != nil {
+		return "", fmt.Errorf("failed to generate salt: %w", err)
+	}
+
+	// Derive the key using scrypt with high CPU and memory costs
+	dk, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, 32)
+	if err != nil {
+		return "", fmt.Errorf("key derivation failed: %w", err)
+	}
+
+	// Return the base64-encoded secret including the salt
+	return base64.StdEncoding.EncodeToString(append(salt, dk...)), nil
+}
+
+// DeriveSecret derives a secret key from a passphrase and a stored secret using scrypt
 func DeriveSecret(passphrase []byte, secret string) ([]byte, error) {
-	decoded_secret, err := base64.StdEncoding.DecodeString(secret)
+	decodedSecret, err := base64.StdEncoding.DecodeString(secret)
 	if err != nil {
 		return nil, err
 	}
 
-	salt, sum := decoded_secret[0:16], decoded_secret[16:]
-	dk := pbkdf2.Key(passphrase, salt, 4096, 32, sha256.New)
-	dksum := sha256.Sum256(dk)
-	if !bytes.Equal(dksum[:], sum) {
+	salt := decodedSecret[:saltSize]
+	expectedKey := decodedSecret[saltSize:]
+
+	// Derive the key using scrypt with the same parameters
+	dk, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(dk, expectedKey) {
 		return nil, fmt.Errorf("passphrase does not match")
 	}
 	return dk, nil
 }
 
-func Encrypt(key []byte, buf []byte) ([]byte, error) {
+// EncryptStream encrypts a stream using AES-GCM with a random session-specific subkey
+func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
+	// Generate a random subkey for data encryption
 	subkey := make([]byte, 32)
-	rand.Read(subkey)
+	if _, err := rand.Read(subkey); err != nil {
+		return nil, err
+	}
 
-	ecb, err := aes.NewCipher(key)
+	// Encrypt the subkey with the main key using AES-GCM
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	encsubkey := make([]byte, ecb.BlockSize()*2)
-	ecb.Encrypt(encsubkey[:ecb.BlockSize()], subkey[:ecb.BlockSize()])
-	ecb.Encrypt(encsubkey[ecb.BlockSize():], subkey[ecb.BlockSize():])
-
-	block, err := aes.NewCipher(subkey)
+	gcm, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
 	}
-	aesGCM, err := cipher.NewGCM(block)
+
+	// Generate a nonce for subkey encryption
+	subkeyNonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(subkeyNonce); err != nil {
+		return nil, err
+	}
+
+	// Encrypt the subkey
+	encSubkey := gcm.Seal(nil, subkeyNonce, subkey, nil)
+
+	// Set up AES-GCM for data encryption using the subkey
+	dataBlock, err := aes.NewCipher(subkey)
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, aesGCM.NonceSize())
-	rand.Read(nonce)
+	dataGCM, err := cipher.NewGCM(dataBlock)
+	if err != nil {
+		return nil, err
+	}
 
-	return append(encsubkey[:], aesGCM.Seal(nonce, nonce, buf, nil)[:]...), nil
+	// Generate a nonce for data encryption
+	dataNonce := make([]byte, dataGCM.NonceSize())
+	if _, err := rand.Read(dataNonce); err != nil {
+		return nil, err
+	}
+
+	// Set up the pipe for streaming encryption
+	pr, pw := io.Pipe()
+
+	// Start encryption in a goroutine
+	go func() {
+		defer pw.Close()
+		// Write the encrypted subkey and both nonces to the output stream
+		pw.Write(subkeyNonce)
+		pw.Write(encSubkey)
+		pw.Write(dataNonce)
+
+		// Encrypt and write the actual data in chunks
+		buf := make([]byte, chunkSize)
+		for {
+			n, err := r.Read(buf)
+			if err != nil {
+				if err != io.EOF {
+					pw.CloseWithError(err)
+				}
+				break
+			}
+			// Encrypt each chunk and write it to the pipe
+			encryptedChunk := dataGCM.Seal(nil, dataNonce, buf[:n], nil)
+			if _, err := pw.Write(encryptedChunk); err != nil {
+				pw.CloseWithError(err)
+				break
+			}
+		}
+	}()
+
+	return pr, nil
 }
 
-func Decrypt(key []byte, buf []byte) ([]byte, error) {
-	ecb, err := aes.NewCipher(key)
+// DecryptStream decrypts a stream using AES-GCM with a random session-specific subkey
+func DecryptStream(key []byte, r io.Reader) (io.Reader, error) {
+	// Set up to decrypt the subkey from the input
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	subkey := make([]byte, ecb.BlockSize()*2)
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 
-	encsubkey, ciphertext := buf[:ecb.BlockSize()*2], buf[ecb.BlockSize()*2:]
-	ecb.Decrypt(subkey[ecb.BlockSize():], encsubkey[ecb.BlockSize():])
-	ecb.Decrypt(subkey[:ecb.BlockSize()], encsubkey[:ecb.BlockSize()])
+	// Read and decrypt the subkey
+	subkeyNonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(r, subkeyNonce); err != nil {
+		return nil, err
+	}
 
-	block, err := aes.NewCipher(subkey)
+	encSubkey := make([]byte, gcm.Overhead()+32) // GCM overhead for the 32-byte subkey
+	if _, err := io.ReadFull(r, encSubkey); err != nil {
+		return nil, err
+	}
+
+	subkey, err := gcm.Open(nil, subkeyNonce, encSubkey, nil)
 	if err != nil {
 		return nil, err
 	}
-	aesGCM, err := cipher.NewGCM(block)
+
+	// Set up AES-GCM for actual data decryption using the subkey
+	dataBlock, err := aes.NewCipher(subkey)
 	if err != nil {
 		return nil, err
 	}
-	nonce, ciphertext := ciphertext[:aesGCM.NonceSize()], ciphertext[aesGCM.NonceSize():]
-	cleartext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	dataGCM, err := cipher.NewGCM(dataBlock)
 	if err != nil {
 		return nil, err
 	}
-	return cleartext, nil
+
+	// Read the data nonce from the input
+	dataNonce := make([]byte, dataGCM.NonceSize())
+	if _, err := io.ReadFull(r, dataNonce); err != nil {
+		return nil, err
+	}
+
+	pr, pw := io.Pipe()
+
+	// Start decryption in a goroutine
+	go func() {
+		defer pw.Close()
+
+		// Decrypt the data in chunks and write it to the pipe
+		buf := make([]byte, chunkSize+dataGCM.Overhead())
+		for {
+			n, err := r.Read(buf)
+			if err != nil {
+				if err != io.EOF {
+					pw.CloseWithError(err)
+				}
+				break
+			}
+			// Decrypt each chunk and write it to the pipe
+			decryptedChunk, err := dataGCM.Open(nil, dataNonce, buf[:n], nil)
+			if err != nil {
+				pw.CloseWithError(err)
+				break
+			}
+			if _, err := pw.Write(decryptedChunk); err != nil {
+				pw.CloseWithError(err)
+				break
+			}
+		}
+	}()
+
+	return pr, nil
 }

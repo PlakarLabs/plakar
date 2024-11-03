@@ -1,16 +1,18 @@
 package httpd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/gorilla/mux"
 )
 
-var lrepository *storage.Repository
+var lrepository *repository.Repository
 var lNoDelete bool
 
 func openRepository(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +25,7 @@ func openRepository(w http.ResponseWriter, r *http.Request) {
 	config := lrepository.Configuration()
 
 	var resOpen network.ResOpen
-	resOpen.RepositoryConfig = &config
+	resOpen.Configuration = &config
 	resOpen.Err = ""
 	if err := json.NewEncoder(w).Encode(resOpen); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -38,7 +40,7 @@ func closeRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if reqClose.Uuid != lrepository.Configuration().RepositoryID.String() {
+	if reqClose.Uuid != lrepository.Configuration().StoreID.String() {
 		http.Error(w, "UUID mismatch", http.StatusBadRequest)
 		return
 	}
@@ -51,316 +53,38 @@ func closeRepository(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// snapshots
-func getSnapshots(w http.ResponseWriter, r *http.Request) {
-	var reqGetSnapshots network.ReqGetSnapshots
-	if err := json.NewDecoder(r.Body).Decode(&reqGetSnapshots); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetSnapshots network.ResGetSnapshots
-	snapshots, err := lrepository.GetSnapshots()
-	if err != nil {
-		resGetSnapshots.Err = err.Error()
-	} else {
-		resGetSnapshots.Snapshots = snapshots
-	}
-	if err := json.NewEncoder(w).Encode(resGetSnapshots); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func putSnapshot(w http.ResponseWriter, r *http.Request) {
-	var reqPutSnapshot network.ReqPutSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqPutSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resPutSnapshot network.ResPutSnapshot
-	err := lrepository.PutSnapshot(reqPutSnapshot.IndexID, reqPutSnapshot.Data)
-	if err != nil {
-		resPutSnapshot.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resPutSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func getSnapshot(w http.ResponseWriter, r *http.Request) {
-	var reqGetSnapshot network.ReqGetSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqGetSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetSnapshot network.ResGetSnapshot
-	data, err := lrepository.GetSnapshot(reqGetSnapshot.IndexID)
-	if err != nil {
-		resGetSnapshot.Err = err.Error()
-	} else {
-		resGetSnapshot.Data = data
-	}
-	if err := json.NewEncoder(w).Encode(resGetSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func deleteSnapshot(w http.ResponseWriter, r *http.Request) {
-	if lNoDelete {
-		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
-		return
-	}
-
-	var reqDeleteSnapshot network.ReqDeleteSnapshot
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resDeleteSnapshot network.ResDeleteSnapshot
-	err := lrepository.DeleteSnapshot(reqDeleteSnapshot.IndexID)
-	if err != nil {
-		resDeleteSnapshot.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resDeleteSnapshot); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func commitSnapshot(w http.ResponseWriter, r *http.Request) {
-	var ReqCommit network.ReqCommit
-	if err := json.NewDecoder(r.Body).Decode(&ReqCommit); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var ResCommit network.ResCommit
-	err := lrepository.Commit(ReqCommit.IndexID, ReqCommit.Data)
-	if err != nil {
-		ResCommit.Err = err.Error()
-	}
-
-	if err := json.NewEncoder(w).Encode(ResCommit); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// locks
-func getLocks(w http.ResponseWriter, r *http.Request) {
-	var reqGetLocks network.ReqGetLocks
-	if err := json.NewDecoder(r.Body).Decode(&reqGetLocks); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetLocks network.ResGetLocks
-	locks, err := lrepository.GetLocks()
-	if err != nil {
-		resGetLocks.Err = err.Error()
-	} else {
-		resGetLocks.Locks = locks
-	}
-	if err := json.NewEncoder(w).Encode(resGetLocks); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func putLock(w http.ResponseWriter, r *http.Request) {
-	var reqPutLock network.ReqPutLock
-	if err := json.NewDecoder(r.Body).Decode(&reqPutLock); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resPutLock network.ResPutLock
-	err := lrepository.PutLock(reqPutLock.IndexID, reqPutLock.Data)
-	if err != nil {
-		resPutLock.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resPutLock); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func getLock(w http.ResponseWriter, r *http.Request) {
-	var reqGetLock network.ReqGetLock
-	if err := json.NewDecoder(r.Body).Decode(&reqGetLock); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetLock network.ResGetLock
-	data, err := lrepository.GetLock(reqGetLock.IndexID)
-	if err != nil {
-		resGetLock.Err = err.Error()
-	} else {
-		resGetLock.Data = data
-	}
-	if err := json.NewEncoder(w).Encode(resGetLock); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func deleteLock(w http.ResponseWriter, r *http.Request) {
-	var reqDeleteLock network.ReqDeleteLock
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteLock); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resDeleteLock network.ResDeleteLock
-	err := lrepository.DeleteLock(reqDeleteLock.IndexID)
-	if err != nil {
-		resDeleteLock.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resDeleteLock); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// blobs
-func getBlobs(w http.ResponseWriter, r *http.Request) {
-	var reqGetBlobs network.ReqGetBlobs
-	if err := json.NewDecoder(r.Body).Decode(&reqGetBlobs); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetBlobs network.ResGetBlobs
-	checksums, err := lrepository.GetBlobs()
-	if err != nil {
-		resGetBlobs.Err = err.Error()
-	} else {
-		resGetBlobs.Checksums = checksums
-	}
-	if err := json.NewEncoder(w).Encode(resGetBlobs); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func putBlob(w http.ResponseWriter, r *http.Request) {
-	var reqPutBlob network.ReqPutBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqPutBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resPutBlob network.ResPutBlob
-	err := lrepository.PutBlob(reqPutBlob.Checksum, reqPutBlob.Data)
-	if err != nil {
-		resPutBlob.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resPutBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func checkBlob(w http.ResponseWriter, r *http.Request) {
-	var reqCheckBlob network.ReqCheckBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqCheckBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resCheckBlob network.ResCheckBlob
-	exists, err := lrepository.CheckBlob(reqCheckBlob.Checksum)
-	if err != nil {
-		resCheckBlob.Err = err.Error()
-	} else {
-		resCheckBlob.Exists = exists
-	}
-	if err := json.NewEncoder(w).Encode(resCheckBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func getBlob(w http.ResponseWriter, r *http.Request) {
-	var reqGetBlob network.ReqGetBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqGetBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resGetBlob network.ResGetBlob
-	data, err := lrepository.GetBlob(reqGetBlob.Checksum)
-	if err != nil {
-		resGetBlob.Err = err.Error()
-	} else {
-		resGetBlob.Data = data
-	}
-	if err := json.NewEncoder(w).Encode(resGetBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func deleteBlob(w http.ResponseWriter, r *http.Request) {
-	if lNoDelete {
-		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
-		return
-	}
-
-	var reqDeleteBlob network.ReqDeleteBlob
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var resDeleteBlob network.ResDeleteBlob
-	err := lrepository.DeleteBlob(reqDeleteBlob.Checksum)
-	if err != nil {
-		resDeleteBlob.Err = err.Error()
-	}
-	if err := json.NewEncoder(w).Encode(resDeleteBlob); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-// indexes
-func getIndexes(w http.ResponseWriter, r *http.Request) {
-	var reqGetIndexes network.ReqGetIndexes
+// states
+func getStates(w http.ResponseWriter, r *http.Request) {
+	var reqGetIndexes network.ReqGetStates
 	if err := json.NewDecoder(r.Body).Decode(&reqGetIndexes); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resGetIndexes network.ResGetIndexes
-	indexes, err := lrepository.GetIndexes()
+	var resGetStates network.ResGetStates
+	indexes, err := lrepository.Store().GetStates()
 	if err != nil {
-		resGetIndexes.Err = err.Error()
+		resGetStates.Err = err.Error()
 	} else {
-		resGetIndexes.Checksums = indexes
+		resGetStates.Checksums = indexes
 	}
-	if err := json.NewEncoder(w).Encode(resGetIndexes); err != nil {
+	if err := json.NewEncoder(w).Encode(resGetStates); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func putIndex(w http.ResponseWriter, r *http.Request) {
-	var reqPutIndex network.ReqPutIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqPutIndex); err != nil {
+func putState(w http.ResponseWriter, r *http.Request) {
+	var reqPutState network.ReqPutState
+	if err := json.NewDecoder(r.Body).Decode(&reqPutState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resPutIndex network.ResPutIndex
-	err := lrepository.PutIndex(reqPutIndex.Checksum, reqPutIndex.Data)
+	var resPutIndex network.ResPutState
+	data := reqPutState.Data
+	datalen := uint64(len(data))
+	err := lrepository.Store().PutState(reqPutState.Checksum, bytes.NewBuffer(data), datalen)
 	if err != nil {
 		resPutIndex.Err = err.Error()
 	}
@@ -370,44 +94,49 @@ func putIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getIndex(w http.ResponseWriter, r *http.Request) {
-	var reqGetIndex network.ReqGetIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqGetIndex); err != nil {
+func getState(w http.ResponseWriter, r *http.Request) {
+	var reqGetState network.ReqGetState
+	if err := json.NewDecoder(r.Body).Decode(&reqGetState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resGetIndex network.ResGetIndex
-	data, err := lrepository.GetIndex(reqGetIndex.Checksum)
+	var resGetState network.ResGetState
+	rd, _, err := lrepository.Store().GetState(reqGetState.Checksum)
 	if err != nil {
-		resGetIndex.Err = err.Error()
+		resGetState.Err = err.Error()
 	} else {
-		resGetIndex.Data = data
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		resGetState.Data = data
 	}
-	if err := json.NewEncoder(w).Encode(resGetIndex); err != nil {
+	if err := json.NewEncoder(w).Encode(resGetState); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func deleteIndex(w http.ResponseWriter, r *http.Request) {
+func deleteState(w http.ResponseWriter, r *http.Request) {
 	if lNoDelete {
 		http.Error(w, fmt.Errorf("not allowed to delete").Error(), http.StatusForbidden)
 		return
 	}
 
-	var reqDeleteIndex network.ReqDeleteIndex
-	if err := json.NewDecoder(r.Body).Decode(&reqDeleteIndex); err != nil {
+	var reqDeleteState network.ReqDeleteState
+	if err := json.NewDecoder(r.Body).Decode(&reqDeleteState); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resDeleteIndex network.ResDeleteIndex
-	err := lrepository.DeleteIndex(reqDeleteIndex.Checksum)
+	var resDeleteState network.ResDeleteState
+	err := lrepository.Store().DeleteState(reqDeleteState.Checksum)
 	if err != nil {
-		resDeleteIndex.Err = err.Error()
+		resDeleteState.Err = err.Error()
 	}
-	if err := json.NewEncoder(w).Encode(resDeleteIndex); err != nil {
+	if err := json.NewEncoder(w).Encode(resDeleteState); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -422,7 +151,7 @@ func getPackfiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetPackfiles network.ResGetPackfiles
-	packfiles, err := lrepository.GetPackfiles()
+	packfiles, err := lrepository.Store().GetPackfiles()
 	if err != nil {
 		resGetPackfiles.Err = err.Error()
 	} else {
@@ -442,7 +171,7 @@ func putPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resPutPackfile network.ResPutPackfile
-	err := lrepository.PutPackfile(reqPutPackfile.Checksum, reqPutPackfile.Data)
+	err := lrepository.Store().PutPackfile(reqPutPackfile.Checksum, bytes.NewBuffer(reqPutPackfile.Data), uint64(len(reqPutPackfile.Data)))
 	if err != nil {
 		resPutPackfile.Err = err.Error()
 	}
@@ -460,11 +189,16 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resGetPackfile network.ResGetPackfile
-	data, err := lrepository.GetPackfile(reqGetPackfile.Checksum)
+	rd, _, err := lrepository.Store().GetPackfile(reqGetPackfile.Checksum)
 	if err != nil {
 		resGetPackfile.Err = err.Error()
 	} else {
-		resGetPackfile.Data = data
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			resGetPackfile.Err = err.Error()
+		} else {
+			resGetPackfile.Data = data
+		}
 	}
 	if err := json.NewEncoder(w).Encode(resGetPackfile); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -472,21 +206,26 @@ func getPackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getPackfileSubpart(w http.ResponseWriter, r *http.Request) {
-	var reqGetPackfileSubpart network.ReqGetPackfileSubpart
-	if err := json.NewDecoder(r.Body).Decode(&reqGetPackfileSubpart); err != nil {
+func GetPackfileBlob(w http.ResponseWriter, r *http.Request) {
+	var reqGetPackfileBlob network.ReqGetPackfileBlob
+	if err := json.NewDecoder(r.Body).Decode(&reqGetPackfileBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var resGetPackfileSubpart network.ResGetPackfileSubpart
-	data, err := lrepository.GetPackfileSubpart(reqGetPackfileSubpart.Checksum, reqGetPackfileSubpart.Offset, reqGetPackfileSubpart.Length)
+	var resGetPackfileBlob network.ResGetPackfileBlob
+	rd, _, err := lrepository.Store().GetPackfileBlob(reqGetPackfileBlob.Checksum, reqGetPackfileBlob.Offset, reqGetPackfileBlob.Length)
 	if err != nil {
-		resGetPackfileSubpart.Err = err.Error()
+		resGetPackfileBlob.Err = err.Error()
 	} else {
-		resGetPackfileSubpart.Data = data
+		data, err := io.ReadAll(rd)
+		if err != nil {
+			resGetPackfileBlob.Err = err.Error()
+		} else {
+			resGetPackfileBlob.Data = data
+		}
 	}
-	if err := json.NewEncoder(w).Encode(resGetPackfileSubpart); err != nil {
+	if err := json.NewEncoder(w).Encode(resGetPackfileBlob); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -505,7 +244,7 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resDeletePackfile network.ResDeletePackfile
-	err := lrepository.DeletePackfile(reqDeletePackfile.Checksum)
+	err := lrepository.Store().DeletePackfile(reqDeletePackfile.Checksum)
 	if err != nil {
 		resDeletePackfile.Err = err.Error()
 	}
@@ -515,43 +254,26 @@ func deletePackfile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Server(repository *storage.Repository, addr string, noDelete bool) error {
+func Server(repo *repository.Repository, addr string, noDelete bool) error {
 
 	lNoDelete = noDelete
 
-	lrepository = repository
+	lrepository = repo
 	network.ProtocolRegister()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", openRepository).Methods("GET")
 	r.HandleFunc("/", closeRepository).Methods("POST")
 
-	r.HandleFunc("/snapshots", getSnapshots).Methods("GET")
-	r.HandleFunc("/snapshot", putSnapshot).Methods("PUT")
-	r.HandleFunc("/snapshot", getSnapshot).Methods("GET")
-	r.HandleFunc("/snapshot", deleteSnapshot).Methods("DELETE")
-	r.HandleFunc("/snapshot", commitSnapshot).Methods("POST")
-
-	r.HandleFunc("/locks", getLocks).Methods("GET")
-	r.HandleFunc("/lock", putLock).Methods("PUT")
-	r.HandleFunc("/lock", getLock).Methods("GET")
-	r.HandleFunc("/lock", deleteLock).Methods("DELETE")
-
-	r.HandleFunc("/blobs", getBlobs).Methods("GET")
-	r.HandleFunc("/blob", putBlob).Methods("PUT")
-	r.HandleFunc("/blob", getBlob).Methods("GET")
-	r.HandleFunc("/blob/check", checkBlob).Methods("GET")
-	r.HandleFunc("/blob", deleteBlob).Methods("DELETE")
-
-	r.HandleFunc("/indexes", getIndexes).Methods("GET")
-	r.HandleFunc("/index", putIndex).Methods("PUT")
-	r.HandleFunc("/index", getIndex).Methods("GET")
-	r.HandleFunc("/index", deleteIndex).Methods("DELETE")
+	r.HandleFunc("/states", getStates).Methods("GET")
+	r.HandleFunc("/state", putState).Methods("PUT")
+	r.HandleFunc("/state", getState).Methods("GET")
+	r.HandleFunc("/state", deleteState).Methods("DELETE")
 
 	r.HandleFunc("/packfiles", getPackfiles).Methods("GET")
 	r.HandleFunc("/packfile", putPackfile).Methods("PUT")
 	r.HandleFunc("/packfile", getPackfile).Methods("GET")
-	r.HandleFunc("/packfile/subpart", getPackfileSubpart).Methods("GET")
+	r.HandleFunc("/packfile/blob", GetPackfileBlob).Methods("GET")
 	r.HandleFunc("/packfile", deletePackfile).Methods("DELETE")
 
 	return http.ListenAndServe(addr, r)

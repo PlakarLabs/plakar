@@ -23,16 +23,18 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/exporter"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
-	registerCommand("pull", cmd_pull)
+	registerCommand("pull", cmd_restore)
+	registerCommand("restore", cmd_restore)
 }
 
-func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_restore(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter
@@ -42,7 +44,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 		log.Fatal(err)
 	}
 
-	flags := flag.NewFlagSet("pull", flag.ExitOnError)
+	flags := flag.NewFlagSet("restore", flag.ExitOnError)
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.Parse(args)
@@ -61,7 +63,7 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 	defer exporterInstance.Close()
 
 	if flags.NArg() == 0 {
-		metadatas, err := getHeaders(repository, nil)
+		metadatas, err := getHeaders(repo, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -70,11 +72,11 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 			metadata := metadatas[i-1]
 			for _, scannedDir := range metadata.ScannedDirectories {
 				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(repository, metadata.GetIndexID())
+					snap, err := snapshot.Load(repo, metadata.GetIndexID())
 					if err != nil {
 						return 1
 					}
-					snap.Pull(exporterInstance, true, dir)
+					snap.Restore(exporterInstance, true, dir)
 					return 0
 				}
 			}
@@ -83,14 +85,14 @@ func cmd_pull(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for offset, snap := range snapshots {
 		_, pattern := parseSnapshotID(flags.Args()[offset])
-		snap.Pull(exporterInstance, pullRebase, pattern)
+		snap.Restore(exporterInstance, pullRebase, pattern)
 	}
 
 	return 0

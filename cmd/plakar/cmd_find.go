@@ -25,15 +25,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/storage"
 )
 
 func init() {
 	registerCommand("find", cmd_find)
 }
 
-func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
 
@@ -42,12 +43,18 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 
 	result := make(map[*snapshot.Snapshot]map[string]bool)
-	snapshotsList, err := getSnapshotsList(repository)
+	snapshotsList, err := getSnapshotsList(repo)
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, snapshotUuid := range snapshotsList {
-		snap, err := snapshot.Load(repository, snapshotUuid)
+		snap, err := snapshot.Load(repo, snapshotUuid)
+		if err != nil {
+			log.Fatal(err)
+			return 1
+		}
+
+		fs, err := snap.Filesystem()
 		if err != nil {
 			log.Fatal(err)
 			return 1
@@ -58,7 +65,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		for _, arg := range flags.Args() {
 			// try finding a pathname to a directory of file
 			if strings.Contains(arg, "/") {
-				for pathname := range snap.Filesystem.Pathnames() {
+				for pathname := range fs.Pathnames() {
 					if pathname == arg {
 						if exists := result[snap][pathname]; !exists {
 							result[snap][pathname] = true
@@ -68,7 +75,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 			}
 
 			// try finding a directory or file
-			for name := range snap.Filesystem.Pathnames() {
+			for name := range fs.Pathnames() {
 				if filepath.Base(name) == arg {
 					if exists := result[snap][arg]; !exists {
 						result[snap][name] = true
@@ -98,7 +105,7 @@ func cmd_find(ctx Plakar, repository *storage.Repository, args []string) int {
 		})
 
 		for _, pathname := range files {
-			fmt.Printf("%s  %s %s\n", snap.Header.CreationTime.UTC().Format(time.RFC3339), snap.Header.GetIndexShortID(), pathname)
+			fmt.Printf("%s  %x %s\n", snap.Header.CreationTime.UTC().Format(time.RFC3339), snap.Header.GetIndexShortID(), pathname)
 		}
 	}
 

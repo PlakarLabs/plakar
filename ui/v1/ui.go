@@ -18,6 +18,7 @@ package v1
 
 import (
 	_ "embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"math"
@@ -31,13 +32,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/encryption"
 	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/alecthomas/chroma/formatters"
@@ -45,7 +46,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 )
 
-var lrepository *storage.Repository
+var lrepository *repository.Repository
 var lcache *snapshot.Snapshot
 
 //go:embed base.tmpl
@@ -70,60 +71,18 @@ type SnapshotSummary struct {
 	Roots       uint64
 	Directories uint64
 	Files       uint64
-	NonRegular  uint64
 	Pathnames   uint64
 	Objects     uint64
 	Chunks      uint64
-
-	Size uint64
+	Size        uint64
 }
 
 type TemplateFunctions struct {
 	HumanizeBytes func(uint64) string
 }
 
-func templateFunctions() TemplateFunctions {
-	return TemplateFunctions{
-		HumanizeBytes: func(nbytes uint64) string {
-			return humanize.Bytes(nbytes)
-		},
-	}
-}
-
-func getSnapshots(repository *storage.Repository) ([]*snapshot.Snapshot, error) {
-	snapshotsList, err := snapshot.List(repository)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*snapshot.Snapshot, 0)
-
-	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
-	for _, snapshotUuid := range snapshotsList {
-		wg.Add(1)
-		go func(snapshotUuid uuid.UUID) {
-			defer wg.Done()
-			snapshotInstance, err := snapshot.Load(repository, snapshotUuid)
-			if err != nil {
-				return
-			}
-			mu.Lock()
-			result = append(result, snapshotInstance)
-			mu.Unlock()
-		}(snapshotUuid)
-	}
-	wg.Wait()
-
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Header.CreationTime.Before(result[j].Header.CreationTime)
-	})
-
-	return result, nil
-}
-
-func getHeaders(repository *storage.Repository) ([]*header.Header, error) {
-	snapshotsList, err := snapshot.List(repository)
+func getSnapshots(repo *repository.Repository) ([]*header.Header, error) {
+	snapshotsList, err := repo.GetSnapshots()
 	if err != nil {
 		return nil, err
 	}
@@ -134,9 +93,9 @@ func getHeaders(repository *storage.Repository) ([]*header.Header, error) {
 	mu := sync.Mutex{}
 	for _, snapshotUuid := range snapshotsList {
 		wg.Add(1)
-		go func(snapshotUuid uuid.UUID) {
+		go func(snapshotUuid [32]byte) {
 			defer wg.Done()
-			hdr, _, err := snapshot.GetSnapshot(repository, snapshotUuid)
+			hdr, _, err := snapshot.GetSnapshot(repo, snapshotUuid)
 			if err != nil {
 				return
 			}
@@ -157,38 +116,9 @@ func (summary *SnapshotSummary) HumanSize() string {
 	return humanize.Bytes(summary.Size)
 }
 
-func SnapshotToSummary(snapshot *snapshot.Snapshot) *SnapshotSummary {
-	nDirectories := 0
-	nFiles := 0
-	nNonRegular := 0
-	nPathnames := 0
-	for pathname := range snapshot.Filesystem.Pathnames() {
-		info, _ := snapshot.Filesystem.Stat(pathname)
-		if info.Mode().IsDir() {
-			nDirectories++
-		} else if info.Mode().IsRegular() {
-			nFiles++
-		} else {
-			nNonRegular++
-		}
-		nPathnames++
-	}
-
-	ss := &SnapshotSummary{}
-	ss.Header = snapshot.Header
-	ss.Roots = uint64(len(snapshot.Header.ScannedDirectories))
-	ss.Directories = uint64(nDirectories)
-	ss.Files = uint64(nFiles)
-	ss.NonRegular = uint64(nNonRegular)
-	ss.Pathnames = uint64(nPathnames)
-	ss.Objects = uint64(len(snapshot.Index.ListObjects()))
-	ss.Chunks = uint64(len(snapshot.Index.ListChunks()))
-	return ss
-}
-
 func viewRepository(w http.ResponseWriter, r *http.Request) {
 
-	hdrs, _ := getHeaders(lrepository)
+	hdrs, _ := getSnapshots(lrepository)
 
 	totalFiles := uint64(0)
 
@@ -240,7 +170,7 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := &struct {
-		Repository    storage.RepositoryConfig
+		Repository    storage.Configuration
 		Headers       []*header.Header
 		MajorTypes    map[string]uint64
 		MimeTypes     map[string]uint64
@@ -268,8 +198,20 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -284,7 +226,13 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 
-	_, err := snap.Filesystem.Stat(path)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = fs.Stat(path)
 	if err != nil {
 		http.Error(w, "", http.StatusNotFound)
 		return
@@ -296,23 +244,34 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	symlinksResolve := make(map[string]string)
 	others := make([]*objects.FileInfo, 0)
 
-	children, _ := snap.Filesystem.Children(path)
+	children, err := fs.Children(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	for childname := range children {
-		fileinfo, _ := snap.Filesystem.Stat(filepath.Clean(fmt.Sprintf("%s/%s", path, childname)))
+		info, _ := fs.Stat(filepath.Clean(fmt.Sprintf("%s/%s", path, childname)))
+
+		var fileinfo *objects.FileInfo
+		switch info := info.(type) {
+		case *vfs.DirEntry:
+			fileinfo = info.FileInfo()
+		case *vfs.FileEntry:
+			fileinfo = info.FileInfo()
+		}
+
 		if fileinfo.Mode().IsDir() {
 			directories = append(directories, fileinfo)
 		} else if fileinfo.Mode().IsRegular() {
 			files = append(files, fileinfo)
+		} else if info.(*vfs.FileEntry).SymlinkTarget != "" {
+			symlinks = append(symlinks, fileinfo)
+			symlinksResolve[fileinfo.Name()] = info.(*vfs.FileEntry).SymlinkTarget
 		} else {
-			//pathname := fmt.Sprintf("%s/%s", path, fileinfo.Name())
-			if pathname, err := snap.Filesystem.Readlink(filepath.Clean(fmt.Sprintf("%s/%s", path, fileinfo.Name()))); err != nil {
-				symlinks = append(symlinks, fileinfo)
-				symlinksResolve[fileinfo.Name()] = pathname
-			} else {
-				others = append(others, fileinfo)
-			}
-
+			others = append(others, fileinfo)
 		}
+
 	}
 
 	sort.Slice(directories, func(i, j int) bool {
@@ -358,8 +317,20 @@ func object(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -370,12 +341,31 @@ func object(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
-	hasher.Write([]byte(path))
-	pathnameChecksum := hasher.Sum(nil)
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		http.Error(w, "is directory", http.StatusInternalServerError)
+		return
+	}
+
+	info := fsinfo.(*vfs.FileEntry).FileInfo()
+	if !info.Mode().IsRegular() {
+		http.Error(w, "not regular", http.StatusInternalServerError)
+		return
+	}
+
+	checksum := fsinfo.(*vfs.FileEntry).Checksum
+	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -384,26 +374,18 @@ func object(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
-
-	info, _ := snap.Filesystem.Stat(path)
 
 	chunks := make([]*objects.Chunk, 0)
-	for _, chunkChecksum := range object.Chunks {
-		chunk, err := snap.Index.LookupChunk(chunkChecksum)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		chunks = append(chunks, chunk)
+	for _, chunk := range object.Chunks {
+		chunks = append(chunks, &chunk)
 	}
 
 	root := ""
 	for _, atom := range strings.Split(path, "/") {
 		root = root + atom + "/"
-		if st, err := snap.Filesystem.Stat(root); err != nil {
+		if st, err := fs.Stat(root); err != nil {
 			break
-		} else if !st.Mode().IsDir() {
+		} else if _, isDir := st.(*vfs.DirEntry); isDir {
 			break
 		}
 	}
@@ -451,8 +433,20 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	highlight := r.URL.Query().Get("highlight")
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || lcache.Header.IndexID.String() != id {
-		tmp, err := snapshot.Load(lrepository, uuid.Must(uuid.Parse(id)))
+	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+		decodedID, err := hex.DecodeString(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(decodedID) != 32 {
+			http.Error(w, "invalid snapshot id", http.StatusInternalServerError)
+			return
+		}
+		newIndexID := [32]byte{}
+		copy(newIndexID[:], decodedID)
+
+		tmp, err := snapshot.Load(lrepository, newIndexID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -463,12 +457,31 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		snap = lcache
 	}
 
-	hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
-	hasher.Write([]byte(path))
-	pathnameChecksum := hasher.Sum(nil)
-	key := [32]byte{}
-	copy(key[:], pathnameChecksum)
-	object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		http.Error(w, "is directory", http.StatusInternalServerError)
+		return
+	}
+
+	info := fsinfo.(*vfs.FileEntry).FileInfo()
+	if !info.Mode().IsRegular() {
+		http.Error(w, "not regular", http.StatusInternalServerError)
+		return
+	}
+
+	checksum := fsinfo.(*vfs.FileEntry).Checksum
+	object, err := snap.LookupObject(checksum)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -477,7 +490,6 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}
-	object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
 
 	contentType := mime.TypeByExtension(filepath.Ext(path))
 	if contentType == "" {
@@ -493,8 +505,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 		if download != "" {
 			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(path)))
 		}
-		for _, chunkChecksum := range object.Chunks {
-			data, err := snap.GetChunk(chunkChecksum)
+		for _, chunk := range object.Chunks {
+			data, err := snap.GetChunk(chunk.Checksum)
 			if err != nil {
 			}
 			w.Write(data)
@@ -503,8 +515,8 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content := []byte("")
-	for _, chunkChecksum := range object.Chunks {
-		data, err := snap.GetChunk(chunkChecksum)
+	for _, chunk := range object.Chunks {
+		data, err := snap.GetChunk(chunk.Checksum)
 		if err != nil {
 		}
 		content = append(content, data...)
@@ -564,7 +576,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		ext = ""
 	}
 
-	snapshots, err := snapshot.List(lrepository)
+	snapshots, err := lrepository.GetSnapshots()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -594,47 +606,52 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 		Path     string
 	}, 0)
 	for _, snap := range snapshotsList {
+		fs, err := snap.Filesystem()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		if kind == "" && mime == "" && ext == "" {
-			for directory := range snap.Filesystem.Directories() {
+			for directory := range fs.Directories() {
 				if strings.Contains(directory, q) {
 					directories = append(directories, struct {
 						Snapshot string
 						Date     string
 						Path     string
-					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), directory})
+					}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), directory})
 				}
 			}
 		}
-		for file := range snap.Filesystem.Pathnames() {
+		for file := range fs.Pathnames() {
 			if strings.Contains(file, q) {
-				hasher := encryption.GetHasher(lrepository.Configuration().Hashing)
-				hasher.Write([]byte(file))
-				pathnameChecksum := hasher.Sum(nil)
-				key := [32]byte{}
-				copy(key[:], pathnameChecksum)
-				object, err := snap.Index.LookupObjectForPathnameChecksum(key)
+				fsinfo, err := fs.Stat(file)
 				if err != nil {
 					continue
 				}
-				if object != nil {
-					object.ContentType, _ = snap.Metadata.LookupKeyForValue(object.Checksum)
-					if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
-						continue
-					}
-					if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
-						continue
-					}
-					if ext != "" && filepath.Ext(file) != ext {
-						continue
-					}
-
-					files = append(files, struct {
-						Snapshot string
-						Date     string
-						Mime     string
-						Path     string
-					}{snap.Header.IndexID.String(), snap.Header.CreationTime.String(), object.ContentType, file})
+				if _, isDir := fsinfo.(*vfs.DirEntry); isDir {
+					continue
 				}
+				object, err := snap.LookupObject(fsinfo.(*vfs.FileEntry).Checksum)
+				if err != nil {
+					continue
+				}
+				if kind != "" && !strings.HasPrefix(object.ContentType, kind+"/") {
+					continue
+				}
+				if mime != "" && !strings.HasPrefix(object.ContentType, mime) {
+					continue
+				}
+				if ext != "" && filepath.Ext(file) != ext {
+					continue
+				}
+
+				files = append(files, struct {
+					Snapshot string
+					Date     string
+					Mime     string
+					Path     string
+				}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), object.ContentType, file})
 			}
 		}
 	}
@@ -662,33 +679,47 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 	templates["search"].Execute(w, ctx)
 }
 
-func Ui(repository *storage.Repository, addr string, spawn bool) error {
-	lrepository = repository
+func Ui(repo *repository.Repository, addr string, spawn bool) error {
+	lrepository = repo
 	lcache = nil
 
 	templates = make(map[string]*template.Template)
 
 	t, err := template.New("repository").Funcs(template.FuncMap{
 		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
 	}).Parse(baseTemplate + repositoryTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("browse").Parse(baseTemplate + browseTemplate)
+	t, err = template.New("browse").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + browseTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("object").Parse(baseTemplate + objectTemplate)
+	t, err = template.New("object").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + objectTemplate)
 	if err != nil {
 		panic(err)
 	}
 	templates[t.Name()] = t
 
-	t, err = template.New("search").Parse(baseTemplate + searchTemplate)
+	t, err = template.New("search").Funcs(template.FuncMap{
+		"humanizeBytes": humanize.Bytes,
+		"IDtoHex":       func(b [32]byte) string { return hex.EncodeToString(b[:]) },
+		"ShortIDtoHex":  func(b []byte) string { return hex.EncodeToString(b) },
+	}).Parse(baseTemplate + searchTemplate)
 	if err != nil {
 		panic(err)
 	}

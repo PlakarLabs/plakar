@@ -20,15 +20,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
+	"path/filepath"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 )
 
-func cmd_create(ctx Plakar, args []string) int {
+func cmd_create(ctx *context.Context, args []string) int {
 	var opt_noencryption bool
 	var opt_nocompression bool
 	var opt_hashing string
@@ -41,43 +40,24 @@ func cmd_create(ctx Plakar, args []string) int {
 	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
 	flags.Parse(args)
 
-	repositoryConfig := storage.RepositoryConfig{}
-	repositoryConfig.Version = storage.VERSION
-	repositoryConfig.RepositoryID = uuid.Must(uuid.NewRandom())
-	repositoryConfig.CreationTime = time.Now()
+	storageConfiguration := storage.NewConfiguration()
 	if opt_nocompression {
-		repositoryConfig.Compression = ""
+		storageConfiguration.Compression = ""
 	} else {
-		repositoryConfig.Compression = opt_compression
+		storageConfiguration.Compression = opt_compression
 	}
-
-	repositoryConfig.Hashing = opt_hashing
-
-	/*
-		repositoryConfig.Chunking = "ultracdc"
-		repositoryConfig.ChunkingMin = 2 << 10
-		repositoryConfig.ChunkingNormal = repositoryConfig.ChunkingMin + (8 << 10)
-		repositoryConfig.ChunkingMax = 64 << 10
-	*/
-
-	repositoryConfig.Chunking = "fastcdc"
-	repositoryConfig.ChunkingMin = 64 << 10
-	repositoryConfig.ChunkingNormal = (1 << 10) << 10
-	repositoryConfig.ChunkingMax = (8 << 10) << 10
-
-	//repositoryConfig.PackfileSize = 4096 << 10
-	repositoryConfig.PackfileSize = (20 << 10) << 10
+	storageConfiguration.Hashing = opt_hashing
 
 	if !opt_noencryption {
 		var passphrase []byte
 
 		envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
-		if ctx.KeyFromFile == "" {
+		if ctx.GetKeyFromFile() == "" {
 			if envPassphrase != "" {
 				passphrase = []byte(envPassphrase)
 			} else {
 				for {
-					tmp, err := helpers.GetPassphraseConfirm("repository")
+					tmp, err := getPassphraseConfirm("repository")
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
 						continue
@@ -87,29 +67,36 @@ func cmd_create(ctx Plakar, args []string) int {
 				}
 			}
 		} else {
-			passphrase = []byte(ctx.KeyFromFile)
+			passphrase = []byte(ctx.GetKeyFromFile())
 		}
-		repositoryConfig.Encryption = "AES256-GCM"
-		repositoryConfig.EncryptionKey = encryption.BuildSecretFromPassphrase(passphrase)
+
+		encryptionKey, err := encryption.BuildSecretFromPassphrase(passphrase)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+			return 1
+		}
+
+		storageConfiguration.Encryption = encryption.DefaultAlgorithm()
+		storageConfiguration.EncryptionKey = encryptionKey
 	}
 
 	switch flags.NArg() {
 	case 0:
-		repository, err := storage.Create(ctx.Repository, repositoryConfig)
+		repository, err := storage.Create(ctx, filepath.Join(ctx.GetHomeDir(), ".plakar"), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repository.Close()
 	case 1:
-		repository, err := storage.Create(flags.Arg(0), repositoryConfig)
+		repository, err := storage.Create(ctx, flags.Arg(0), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repository.Close()
 	default:
-		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", ctx.Repository)
+		fmt.Fprintf(os.Stderr, "%s: too many parameters\n", flag.CommandLine.Name())
 		return 1
 	}
 

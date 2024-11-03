@@ -7,16 +7,18 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/helpers"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/dustin/go-humanize"
@@ -37,42 +39,18 @@ import (
 	_ "github.com/PlakarLabs/plakar/snapshot/exporter/s3"
 )
 
-type Plakar struct {
-	NumCPU      int
-	Hostname    string
-	Username    string
-	Repository  string
-	CommandLine string
-	MachineID   string
+var commands map[string]func(*context.Context, *repository.Repository, []string) int = make(map[string]func(*context.Context, *repository.Repository, []string) int)
 
-	HomeDir string
-
-	Cache *cache.Cache
-
-	KeyFromFile string
-
-	//	maxConcurrency chan struct{}
-}
-
-var commands map[string]func(Plakar, *storage.Repository, []string) int = make(map[string]func(Plakar, *storage.Repository, []string) int)
-
-func registerCommand(command string, fn func(Plakar, *storage.Repository, []string) int) {
+func registerCommand(command string, fn func(*context.Context, *repository.Repository, []string) int) {
 	commands[command] = fn
 }
 
-func executeCommand(ctx Plakar, repository *storage.Repository, command string, args []string) (int, error) {
+func executeCommand(ctx *context.Context, repo *repository.Repository, command string, args []string) (int, error) {
 	fn, exists := commands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
-
-	repositoryIndex, err := loadRepositoryIndex(repository)
-	if err != nil {
-		return 0, err
-	}
-	repository.SetRepositoryIndex(repositoryIndex)
-
-	return fn(ctx, repository, args), nil
+	return fn(ctx, repo, args), nil
 }
 
 func main() {
@@ -104,7 +82,6 @@ func entryPoint() int {
 	opt_machineIdDefault = strings.ToLower(opt_machineIdDefault)
 
 	opt_usernameDefault := opt_userDefault.Username
-	opt_repositoryDefault := path.Join(opt_userDefault.HomeDir, ".plakar")
 	opt_configDefault := path.Join(opt_userDefault.HomeDir, ".plakarconfig")
 
 	// command line overrides
@@ -116,7 +93,7 @@ func entryPoint() int {
 	var opt_memProfile string
 	var opt_time bool
 	var opt_trace string
-	var opt_verbose bool
+	var opt_quiet bool
 	var opt_profiling bool
 	var opt_keyfile string
 	var opt_stats int
@@ -129,11 +106,20 @@ func entryPoint() int {
 	flag.StringVar(&opt_memProfile, "profile-mem", "", "profile MEM usage")
 	flag.BoolVar(&opt_time, "time", false, "display command execution time")
 	flag.StringVar(&opt_trace, "trace", "", "display trace logs")
-	flag.BoolVar(&opt_verbose, "verbose", false, "display verbose logs")
+	flag.BoolVar(&opt_quiet, "quiet", false, "no output except errors")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
+
+	ctx := context.NewContext()
+
+	cacheDir, err := GetCacheDir("plakar")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: could not get cache directory: %s\n", flag.CommandLine.Name(), err)
+		return 1
+	}
+	ctx.SetCacheDir(cacheDir)
 
 	// best effort check if security or reliability fix have been issued
 	if rus, err := checkUpdate(); err == nil {
@@ -157,7 +143,6 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: can't use more cores than available: %d\n", flag.CommandLine.Name(), runtime.NumCPU())
 		return 1
 	}
-
 	runtime.GOMAXPROCS(opt_cpuCount)
 
 	if opt_cpuProfile != "" {
@@ -184,23 +169,33 @@ func entryPoint() int {
 		secretFromKeyfile = strings.TrimSuffix(string(data), "\n")
 	}
 
-	ctx := Plakar{}
-	ctx.NumCPU = opt_cpuCount
-	ctx.Username = opt_username
-	ctx.Hostname = opt_hostname
-	ctx.Repository = opt_repositoryDefault
-	ctx.CommandLine = strings.Join(os.Args, " ")
-	ctx.MachineID = opt_machineIdDefault
-	ctx.KeyFromFile = secretFromKeyfile
-	ctx.HomeDir = opt_userDefault.HomeDir
+	ctx.SetOperatingSystem(runtime.GOOS)
+	ctx.SetArchitecture(runtime.GOARCH)
+	ctx.SetNumCPU(opt_cpuCount)
+	ctx.SetUsername(opt_username)
+	ctx.SetHostname(opt_hostname)
+	ctx.SetCommandLine(strings.Join(os.Args, " "))
+	ctx.SetMachineID(opt_machineIdDefault)
+	ctx.SetKeyFromFile(secretFromKeyfile)
+	ctx.SetHomeDir(opt_userDefault.HomeDir)
+	ctx.SetProcessID(os.Getpid())
 
 	if flag.NArg() == 0 {
-		fmt.Fprintf(os.Stderr, "%s: a command must be provided\n", flag.CommandLine.Name())
+		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))
+		subcommands := make([]string, 0, len(commands))
+		for k := range commands {
+			subcommands = append(subcommands, k)
+		}
+		sort.Strings(subcommands)
+		for _, k := range subcommands {
+			fmt.Fprintf(os.Stderr, "  %s\n", k)
+		}
+
 		return 1
 	}
 
 	// start logging
-	if opt_verbose {
+	if !opt_quiet {
 		logger.EnableInfo()
 	}
 	if opt_trace != "" {
@@ -217,6 +212,7 @@ func entryPoint() int {
 	//		return cmd_agent(ctx, args)
 	//	}
 
+	var repositoryPath string
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
 			log.Fatalf("%s: missing plakar repository", flag.CommandLine.Name())
@@ -224,26 +220,22 @@ func entryPoint() int {
 		if len(flag.Args()) < 3 {
 			log.Fatalf("%s: missing command", flag.CommandLine.Name())
 		}
-		ctx.Repository = flag.Arg(1)
+		repositoryPath = flag.Arg(1)
 		command, args = flag.Arg(2), flag.Args()[3:]
 	} else {
-		repositoryPath := os.Getenv("PLAKAR_REPOSITORY")
-		if repositoryPath != "" {
-			ctx.Repository = repositoryPath
+		repositoryPath = os.Getenv("PLAKAR_REPOSITORY")
+		if repositoryPath == "" {
+			repositoryPath = filepath.Join(ctx.GetHomeDir(), ".plakar")
 		}
+	}
+
+	if command == "version" {
+		return cmd_version(args)
 	}
 
 	// cmd_create must be ran after workdir.New() but before other commands
 	if command == "create" {
 		return cmd_create(ctx, args)
-	}
-
-	//	if command == "config" {
-	//		return cmd_config(ctx, args)
-	//	}
-
-	if command == "version" {
-		return cmd_version(ctx, args)
 	}
 
 	if command == "stdio" {
@@ -256,28 +248,28 @@ func entryPoint() int {
 		skipPassphrase = true
 	}
 
-	repository, err := storage.Open(ctx.Repository)
+	store, err := storage.Open(ctx, repositoryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
 	}
 
-	if repository.Configuration().Version != storage.VERSION {
+	if store.Configuration().Version != storage.VERSION {
 		fmt.Fprintf(os.Stderr, "%s: incompatible repository version: %s != %s\n",
-			flag.CommandLine.Name(), repository.Configuration().Version, storage.VERSION)
+			flag.CommandLine.Name(), store.Configuration().Version, storage.VERSION)
 		return 1
 	}
 
 	var secret []byte
 	if !skipPassphrase {
-		if repository.Configuration().Encryption != "" {
+		if store.Configuration().Encryption != "" {
 			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
-			if ctx.KeyFromFile == "" {
+			if ctx.GetKeyFromFile() == "" {
 				attempts := 0
 				for {
 					var passphrase []byte
 					if envPassphrase == "" {
-						passphrase, err = helpers.GetPassphrase("repository")
+						passphrase, err = getPassphrase("repository")
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "%s\n", err)
 							continue
@@ -286,7 +278,7 @@ func entryPoint() int {
 						passphrase = []byte(envPassphrase)
 					}
 
-					secret, err = encryption.DeriveSecret(passphrase, repository.Configuration().EncryptionKey)
+					secret, err = encryption.DeriveSecret(passphrase, store.Configuration().EncryptionKey)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
 						attempts++
@@ -299,7 +291,7 @@ func entryPoint() int {
 					break
 				}
 			} else {
-				secret, err = encryption.DeriveSecret([]byte(ctx.KeyFromFile), repository.Configuration().EncryptionKey)
+				secret, err = encryption.DeriveSecret([]byte(ctx.GetKeyFromFile()), store.Configuration().EncryptionKey)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					os.Exit(1)
@@ -307,14 +299,6 @@ func entryPoint() int {
 			}
 		}
 	}
-
-	//
-	repository.SetSecret(secret)
-	repository.SetCache(ctx.Cache)
-	repository.SetUsername(ctx.Username)
-	repository.SetHostname(ctx.Hostname)
-	repository.SetCommandLine(ctx.CommandLine)
-	repository.SetMachineID(ctx.MachineID)
 
 	done := make(chan bool, 1)
 	if opt_stats > 0 {
@@ -339,8 +323,8 @@ func entryPoint() int {
 
 					elapsedSeconds := time.Since(t0).Seconds()
 
-					rbytes := repository.GetRBytes()
-					wbytes := repository.GetWBytes()
+					rbytes := store.GetRBytes()
+					wbytes := store.GetWBytes()
 
 					rbytesAvg := rbytes / uint64(elapsedSeconds)
 					wbytesAvg := wbytes / uint64(elapsedSeconds)
@@ -393,9 +377,15 @@ func entryPoint() int {
 		}()
 	}
 
+	repo, err := repository.New(store, secret)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
+		return 1
+	}
+
 	// commands below all operate on an open repository
 	t0 := time.Now()
-	status, err := executeCommand(ctx, repository, command, args)
+	status, err := executeCommand(ctx, repo, command, args)
 	t1 := time.Since(t0)
 	done <- true
 
@@ -403,7 +393,12 @@ func entryPoint() int {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 	}
 
-	err = repository.Close()
+	err = repo.Close()
+	if err != nil {
+		logger.Warn("could not close repository: %s", err)
+	}
+
+	err = store.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
 	}

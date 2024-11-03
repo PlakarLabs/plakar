@@ -18,25 +18,26 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/cache"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot"
 	"github.com/PlakarLabs/plakar/snapshot/importer"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/dustin/go-humanize"
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
 )
 
 func init() {
-	registerCommand("push", cmd_push)
+	registerCommand("backup", cmd_backup)
 }
 
 type excludeFlags []string
@@ -50,24 +51,18 @@ func (e *excludeFlags) Set(value string) error {
 	return nil
 }
 
-func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags
 	var opt_concurrency uint64
-	var opt_cachedir string
-	var opt_nocache bool
-
-	opt_cacheDefault := path.Join(ctx.HomeDir, ".plakar-cache")
 
 	excludes := []glob.Glob{}
-	flags := flag.NewFlagSet("push", flag.ExitOnError)
-	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.NumCPU)*8+1, "maximum number of parallel tasks")
+	flags := flag.NewFlagSet("backup", flag.ExitOnError)
+	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
-	flag.StringVar(&opt_cachedir, "cache", opt_cacheDefault, "default cache directory")
-	flag.BoolVar(&opt_nocache, "no-cache", false, "disable caching")
 	flags.Parse(args)
 
 	for _, item := range opt_exclude {
@@ -104,18 +99,27 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 	}
 	_ = excludes
 
-	snap, err := snapshot.New(repository, uuid.Must(uuid.NewRandom()))
+	snapshotUUID := uuid.Must(uuid.NewRandom())
+	snapshotID, err := snapshotUUID.MarshalBinary()
 	if err != nil {
 		logger.Error("%s", err)
 		return 1
 	}
 
-	snap.Header.Hostname = ctx.Hostname
-	snap.Header.Username = ctx.Username
-	snap.Header.OperatingSystem = runtime.GOOS
-	snap.Header.MachineID = ctx.MachineID
-	snap.Header.CommandLine = ctx.CommandLine
-	snap.Header.ProcessID = os.Getpid()
+	snap, err := snapshot.New(repo, repo.Checksum(snapshotID))
+	if err != nil {
+		logger.Error("%s", err)
+		return 1
+	}
+
+	snap.Header.Hostname = ctx.GetHostname()
+	snap.Header.Username = ctx.GetUsername()
+	snap.Header.OperatingSystem = ctx.GetOperatingSystem()
+	snap.Header.MachineID = ctx.GetMachineID()
+	snap.Header.CommandLine = ctx.GetCommandLine()
+	snap.Header.ProcessID = ctx.GetProcessID()
+	snap.Header.Architecture = ctx.GetArchitecture()
+	snap.Header.NumCPU = ctx.GetNumCPU()
 
 	var tags []string
 	if opt_tags == "" {
@@ -130,14 +134,8 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		Excludes:       excludes,
 	}
 
-	if !opt_nocache {
-		cache.Create(opt_cachedir)
-		ctx.Cache = cache.New(opt_cachedir)
-		defer ctx.Cache.Commit()
-	}
-
 	if flags.NArg() == 0 {
-		err = snap.Push(dir, opts)
+		err = snap.Backup(dir, opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -151,7 +149,7 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Push(cleanPath, opts)
+		err = snap.Backup(cleanPath, opts)
 	} else {
 		log.Fatal("only one directory pushable")
 	}
@@ -161,6 +159,10 @@ func cmd_push(ctx Plakar, repository *storage.Repository, args []string) int {
 		return 1
 	}
 
-	logger.Info("created snapshot %s", snap.Header.GetIndexShortID())
+	logger.Info("created snapshot %x with root %s of size %s in %s",
+		snap.Header.GetIndexShortID(),
+		base64.RawStdEncoding.EncodeToString(snap.Header.Root[:]),
+		humanize.Bytes(snap.Header.ScanProcessedSize),
+		snap.Header.CreationDuration)
 	return 0
 }

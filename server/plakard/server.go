@@ -1,6 +1,7 @@
 package plakard
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -10,8 +11,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/network"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/storage"
 	"github.com/google/uuid"
 )
@@ -22,7 +25,7 @@ type ServerOptions struct {
 	NoDelete bool
 }
 
-func Server(repository *storage.Repository, addr string, options *ServerOptions) {
+func Server(ctx *context.Context, repo *repository.Repository, addr string, options *ServerOptions) {
 
 	network.ProtocolRegister()
 
@@ -37,19 +40,19 @@ func Server(repository *storage.Repository, addr string, options *ServerOptions)
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConnection(repository, c, c, options)
+		go handleConnection(ctx, repo, c, c, options)
 	}
 }
 
-func Stdio(options *ServerOptions) error {
+func Stdio(ctx *context.Context, options *ServerOptions) error {
 	network.ProtocolRegister()
 
-	handleConnection(nil, os.Stdin, os.Stdout, options)
+	handleConnection(ctx, nil, os.Stdin, os.Stdout, options)
 	return nil
 }
 
-func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
-	var lrepository *storage.Repository
+func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
+	var lrepository *repository.Repository
 
 	lrepository = repo
 
@@ -80,9 +83,13 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
-				repo, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).RepositoryConfig)
+				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
+				st, err := storage.Create(ctx, dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
+				if err != nil {
+					retErr = err.Error()
+				}
+				lrepository, err = repository.New(st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}
@@ -91,7 +98,6 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 					Type:    "ResCreate",
 					Payload: network.ResCreate{Err: retErr},
 				}
-				lrepository = repo
 				err = encoder.Encode(&result)
 				if err != nil {
 					logger.Warn("%s", err)
@@ -106,49 +112,27 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				logger.Trace("server", "%s: Open()", clientUuid)
 
 				location := request.Payload.(network.ReqOpen).Repository
-				repo, err := storage.Open(location)
+				st, err := storage.Open(ctx, location)
 				retErr := ""
+				if err != nil {
+					retErr = err.Error()
+				}
+				lrepository, err = repository.New(st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}
 				var payload network.ResOpen
 				if err != nil {
-					payload = network.ResOpen{RepositoryConfig: nil, Err: retErr}
+					payload = network.ResOpen{Configuration: nil, Err: retErr}
 				} else {
 					config := repo.Configuration()
-					payload = network.ResOpen{RepositoryConfig: &config, Err: retErr}
+					payload = network.ResOpen{Configuration: &config, Err: retErr}
 				}
-				lrepository = repo
+
 				result := network.Request{
 					Uuid:    request.Uuid,
 					Type:    "ResOpen",
 					Payload: payload,
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqCommit":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("server", "%s: Commit()", clientUuid)
-				txUuid := request.Payload.(network.ReqCommit).IndexID
-				data := request.Payload.(network.ReqCommit).Data
-				err := lrepository.Commit(txUuid, data)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResCommit",
-					Payload: network.ResCommit{
-						Err: retErr,
-					},
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
@@ -185,218 +169,21 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-			// snapshots
-		case "ReqGetSnapshots":
+			// states
+		case "ReqGetStates":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetSnapshots", clientUuid)
-				snapshots, err := lrepository.GetSnapshots()
+				logger.Trace("server", "%s: GetStates()", clientUuid)
+				checksums, err := lrepository.Store().GetStates()
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetSnapshots",
-					Payload: network.ResGetSnapshots{
-						Snapshots: snapshots,
-						Err:       retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqPutSnapshot":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: PutSnapshot()", clientUuid, request.Payload.(network.ReqPutSnapshot).IndexID)
-				err := lrepository.PutSnapshot(request.Payload.(network.ReqPutSnapshot).IndexID, request.Payload.(network.ReqPutSnapshot).Data)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResPutSnapshot",
-					Payload: network.ResPutSnapshot{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetSnapshot":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetSnapshot).IndexID)
-				data, err := lrepository.GetSnapshot(request.Payload.(network.ReqGetSnapshot).IndexID)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetSnapshot",
-					Payload: network.ResGetSnapshot{
-						Data: data,
-						Err:  retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqDeleteSnapshot":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("server", "%s: DeleteSnapshot(%s)", clientUuid, request.Payload.(network.ReqDeleteSnapshot).IndexID)
-				var err error
-				if options.NoDelete {
-					err = fmt.Errorf("not allowed to delete")
-				} else {
-					err = lrepository.DeleteSnapshot(request.Payload.(network.ReqDeleteSnapshot).IndexID)
-				}
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResDeleteSnapshot",
-					Payload: network.ResDeleteSnapshot{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-			// locks
-		case "ReqGetLocks":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetLocks", clientUuid)
-				locks, err := lrepository.GetLocks()
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetLocks",
-					Payload: network.ResGetLocks{
-						Locks: locks,
-						Err:   retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqPutLock":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: PutLock()", clientUuid, request.Payload.(network.ReqPutLock).IndexID)
-				err := lrepository.PutLock(request.Payload.(network.ReqPutLock).IndexID, request.Payload.(network.ReqPutLock).Data)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResPutLock",
-					Payload: network.ResPutLock{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetLock":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetMetadata(%s)", clientUuid, request.Payload.(network.ReqGetLock).IndexID)
-				data, err := lrepository.GetLock(request.Payload.(network.ReqGetLock).IndexID)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetLock",
-					Payload: network.ResGetLock{
-						Data: data,
-						Err:  retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqDeleteLock":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("server", "%s: DeleteLock(%s)", clientUuid, request.Payload.(network.ReqDeleteLock).IndexID)
-				err := lrepository.DeleteLock(request.Payload.(network.ReqDeleteLock).IndexID)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResDeleteLock",
-					Payload: network.ResDeleteLock{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-			// blobs
-		case "ReqGetBlobs":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetBlobs()", clientUuid)
-				checksums, err := lrepository.GetBlobs()
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetBlobs",
-					Payload: network.ResGetBlobs{
+					Type: "ResGetStates",
+					Payload: network.ResGetStates{
 						Checksums: checksums,
 						Err:       retErr,
 					},
@@ -407,20 +194,22 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqPutBlob":
+		case "ReqPutState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutBlob(%016x)", clientUuid, request.Payload.(network.ReqPutBlob).Checksum)
-				err := lrepository.PutBlob(request.Payload.(network.ReqPutBlob).Checksum, request.Payload.(network.ReqPutBlob).Data)
+				logger.Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
+				data := request.Payload.(network.ReqPutState).Data
+				datalen := uint64(len(data))
+				err := lrepository.Store().PutState(request.Payload.(network.ReqPutState).Checksum, bytes.NewBuffer(data), datalen)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResPutBlob",
-					Payload: network.ResPutBlob{
+					Type: "ResPutState",
+					Payload: network.ResPutState{
 						Err: retErr,
 					},
 				}
@@ -430,44 +219,27 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqCheckBlob":
+		case "ReqGetState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: CheckBlob(%016x)", clientUuid, request.Payload.(network.ReqCheckBlob).Checksum)
-				exists, err := lrepository.CheckBlob(request.Payload.(network.ReqCheckBlob).Checksum)
+				logger.Trace("server", "%s: GetState(%016x)", clientUuid, request.Payload.(network.ReqGetState).Checksum)
+				rd, _, err := lrepository.Store().GetState(request.Payload.(network.ReqGetState).Checksum)
 				retErr := ""
+				var data []byte
 				if err != nil {
 					retErr = err.Error()
+				} else {
+					data, err = io.ReadAll(rd)
+					if err != nil {
+						retErr = err.Error()
+					}
 				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResCheckBlob",
-					Payload: network.ResCheckBlob{
-						Exists: exists,
-						Err:    retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
 
-		case "ReqGetBlob":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetBlob(%016x)", clientUuid, request.Payload.(network.ReqGetBlob).Checksum)
-				data, err := lrepository.GetBlob(request.Payload.(network.ReqGetBlob).Checksum)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetBlob",
-					Payload: network.ResGetBlob{
+					Type: "ResGetState",
+					Payload: network.ResGetState{
 						Data: data,
 						Err:  retErr,
 					},
@@ -478,18 +250,18 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqDeleteBlob":
+		case "ReqDeleteState":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteBlob(%s)", clientUuid, request.Payload.(network.ReqDeleteBlob).Checksum)
+				logger.Trace("server", "%s: DeleteState(%s)", clientUuid, request.Payload.(network.ReqDeleteState).Checksum)
 
 				var err error
 				if options.NoDelete {
 					err = fmt.Errorf("not allowed to delete")
 				} else {
-					err = lrepository.DeleteBlob(request.Payload.(network.ReqDeleteBlob).Checksum)
+					err = lrepository.Store().DeleteState(request.Payload.(network.ReqDeleteState).Checksum)
 				}
 				retErr := ""
 				if err != nil {
@@ -497,110 +269,8 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResDeleteBlob",
-					Payload: network.ResDeleteBlob{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-			// indexes
-		case "ReqGetIndexes":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetIndexes()", clientUuid)
-				checksums, err := lrepository.GetIndexes()
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetIndexes",
-					Payload: network.ResGetIndexes{
-						Checksums: checksums,
-						Err:       retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqPutIndex":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: PutIndex(%016x)", clientUuid, request.Payload.(network.ReqPutIndex).Checksum)
-				err := lrepository.PutIndex(request.Payload.(network.ReqPutIndex).Checksum, request.Payload.(network.ReqPutIndex).Data)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResPutIndex",
-					Payload: network.ResPutIndex{
-						Err: retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqGetIndex":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				logger.Trace("server", "%s: GetIndex(%016x)", clientUuid, request.Payload.(network.ReqGetIndex).Checksum)
-				data, err := lrepository.GetIndex(request.Payload.(network.ReqGetIndex).Checksum)
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResGetIndex",
-					Payload: network.ResGetIndex{
-						Data: data,
-						Err:  retErr,
-					},
-				}
-				err = encoder.Encode(&result)
-				if err != nil {
-					logger.Warn("%s", err)
-				}
-			}()
-
-		case "ReqDeleteIndex":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				logger.Trace("server", "%s: DeleteIndex(%s)", clientUuid, request.Payload.(network.ReqDeleteIndex).Checksum)
-
-				var err error
-				if options.NoDelete {
-					err = fmt.Errorf("not allowed to delete")
-				} else {
-					err = lrepository.DeleteIndex(request.Payload.(network.ReqDeleteIndex).Checksum)
-				}
-				retErr := ""
-				if err != nil {
-					retErr = err.Error()
-				}
-				result := network.Request{
-					Uuid: request.Uuid,
-					Type: "ResDeleteIndex",
-					Payload: network.ResDeleteIndex{
+					Type: "ResDeleteState",
+					Payload: network.ResDeleteState{
 						Err: retErr,
 					},
 				}
@@ -616,7 +286,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetPackfiles()", clientUuid)
-				checksums, err := lrepository.GetPackfiles()
+				checksums, err := lrepository.Store().GetPackfiles()
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -640,7 +310,8 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
-				err := lrepository.PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum, request.Payload.(network.ReqPutPackfile).Data)
+				err := lrepository.Store().PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum,
+					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data), uint64(len(request.Payload.(network.ReqPutPackfile).Data)))
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -663,11 +334,17 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 			go func() {
 				defer wg.Done()
 				logger.Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(network.ReqGetPackfile).Checksum)
-				data, err := lrepository.GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
+				rd, _, err := lrepository.Store().GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
+
+				data, err := io.ReadAll(rd)
+				if err != nil {
+					retErr = err.Error()
+				}
+
 				result := network.Request{
 					Uuid: request.Uuid,
 					Type: "ResGetPackfile",
@@ -682,25 +359,32 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				}
 			}()
 
-		case "ReqGetPackfileSubpart":
+		case "ReqGetPackfileBlob":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfileSubpart(%016x, %d, %d)", clientUuid,
-					request.Payload.(network.ReqGetPackfileSubpart).Checksum,
-					request.Payload.(network.ReqGetPackfileSubpart).Offset,
-					request.Payload.(network.ReqGetPackfileSubpart).Length)
-				data, err := lrepository.GetPackfileSubpart(request.Payload.(network.ReqGetPackfileSubpart).Checksum,
-					request.Payload.(network.ReqGetPackfileSubpart).Offset,
-					request.Payload.(network.ReqGetPackfileSubpart).Length)
+				logger.Trace("server", "%s: GetPackfileBlob(%016x, %d, %d)", clientUuid,
+					request.Payload.(network.ReqGetPackfileBlob).Checksum,
+					request.Payload.(network.ReqGetPackfileBlob).Offset,
+					request.Payload.(network.ReqGetPackfileBlob).Length)
+				rd, _, err := lrepository.Store().GetPackfileBlob(request.Payload.(network.ReqGetPackfileBlob).Checksum,
+					request.Payload.(network.ReqGetPackfileBlob).Offset,
+					request.Payload.(network.ReqGetPackfileBlob).Length)
 				retErr := ""
+				var data []byte
 				if err != nil {
 					retErr = err.Error()
+				} else {
+					data, err = io.ReadAll(rd)
+					if err != nil {
+						retErr = err.Error()
+					}
 				}
+
 				result := network.Request{
 					Uuid: request.Uuid,
-					Type: "ResGetPackfileSubpart",
-					Payload: network.ResGetPackfileSubpart{
+					Type: "ResGetPackfileBlob",
+					Payload: network.ResGetPackfileBlob{
 						Data: data,
 						Err:  retErr,
 					},
@@ -722,7 +406,7 @@ func handleConnection(repo *storage.Repository, rd io.Reader, wr io.Writer, opti
 				if options.NoDelete {
 					err = fmt.Errorf("not allowed to delete")
 				} else {
-					err = lrepository.DeletePackfile(request.Payload.(network.ReqDeletePackfile).Checksum)
+					err = lrepository.Store().DeletePackfile(request.Payload.(network.ReqDeletePackfile).Checksum)
 				}
 				retErr := ""
 				if err != nil {

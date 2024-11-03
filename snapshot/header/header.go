@@ -6,7 +6,6 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/storage"
-	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -18,7 +17,7 @@ type Blob struct {
 }
 
 type Header struct {
-	IndexID          uuid.UUID
+	IndexID          [32]byte
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
@@ -28,33 +27,24 @@ type Header struct {
 	Hostname        string
 	Username        string
 	OperatingSystem string
+	Architecture    string
+	NumCPU          int
 	MachineID       string
 	ProcessID       int
+	Client          string
 	CommandLine     string
 
 	ScanSize          uint64
 	ScanProcessedSize uint64
 
+	Root       [32]byte
+	Metadata   [32]byte
+	Statistics [32]byte
+
 	ScannedDirectories []string
-
-	Index    Blob
-	VFS      Blob
-	Metadata Blob
-
-	ChunksCount  uint64
-	ChunksSize   uint64
-	ObjectsCount uint64
 
 	FilesCount       uint64
 	DirectoriesCount uint64
-	NonRegularCount  uint64
-	PathnamesCount   uint64
-
-	ObjectsTransferCount uint64
-	ObjectsTransferSize  uint64
-
-	ChunksTransferCount uint64
-	ChunksTransferSize  uint64
 
 	FileKind      map[string]uint64
 	FileType      map[string]uint64
@@ -65,7 +55,7 @@ type Header struct {
 	FilePercentExtension map[string]float64
 }
 
-func NewHeader(indexID uuid.UUID) *Header {
+func NewHeader(indexID [32]byte) *Header {
 	return &Header{
 		IndexID:      indexID,
 		CreationTime: time.Now(),
@@ -75,6 +65,8 @@ func NewHeader(indexID uuid.UUID) *Header {
 		CommandLine:  "",
 		MachineID:    "",
 		PublicKey:    "",
+
+		Root: [32]byte{},
 
 		FileKind:      make(map[string]uint64),
 		FileType:      make(map[string]uint64),
@@ -115,10 +107,14 @@ func (h *Header) Serialize() ([]byte, error) {
 	}
 }
 
-func (h *Header) GetIndexID() uuid.UUID {
+func (h *Header) GetIndexID() [32]byte {
 	return h.IndexID
 }
 
-func (h *Header) GetIndexShortID() string {
-	return h.IndexID.String()[:8]
+func (h *Header) GetIndexShortID() []byte {
+	return h.IndexID[:4]
+}
+
+func (h *Header) GetRoot() [32]byte {
+	return h.Root
 }

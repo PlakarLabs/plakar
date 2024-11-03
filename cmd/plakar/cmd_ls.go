@@ -17,21 +17,18 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/user"
-	"path"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/helpers"
-	"github.com/PlakarLabs/plakar/objects"
+	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/repository"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage"
 	"github.com/dustin/go-humanize"
 )
 
@@ -39,7 +36,7 @@ func init() {
 	registerCommand("ls", cmd_ls)
 }
 
-func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_ls(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_recursive bool
 	var opt_tag string
 	var opt_uuid bool
@@ -51,20 +48,16 @@ func cmd_ls(ctx Plakar, repository *storage.Repository, args []string) int {
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		list_snapshots(repository, opt_uuid, opt_tag)
+		list_snapshots(repo, opt_uuid, opt_tag)
 		return 0
 	}
 
-	if opt_recursive {
-		list_snapshot_recursive(repository, flags.Args())
-	} else {
-		list_snapshot(repository, flags.Args())
-	}
+	list_snapshot(repo, flags.Arg(0), opt_recursive)
 	return 0
 }
 
-func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
-	metadatas, err := getHeaders(repository, nil)
+func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
+	metadatas, err := getHeaders(repo, nil)
 	if err != nil {
 		log.Fatalf("%s: could not fetch snapshots list", flag.CommandLine.Name())
 	}
@@ -85,14 +78,15 @@ func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
 		if !useUuid {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
-				metadata.GetIndexShortID(),
+				hex.EncodeToString(metadata.GetIndexShortID()),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))
 		} else {
+			indexID := metadata.GetIndexID()
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
-				metadata.GetIndexID(),
+				hex.EncodeToString(indexID[:]),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
 				strings.Join(metadata.ScannedDirectories, ", "))
@@ -100,55 +94,16 @@ func list_snapshots(repository *storage.Repository, useUuid bool, tag string) {
 	}
 }
 
-func list_snapshot(repository *storage.Repository, args []string) {
-	vfss, err := getFilesystems(repository, args)
+func _list_snapshot(pvfs *vfs.Filesystem, pathname string, recursive bool) error {
+	entry, err := pvfs.Stat(pathname)
 	if err != nil {
 		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
 	}
 
-	for offset, pvfs := range vfss {
-		_, prefix := parseSnapshotID(args[offset])
-
-		prefix = path.Clean(prefix)
-		info, _ := pvfs.Stat(prefix)
-
-		content := make([]string, 0)
-		children := make(map[string]*objects.FileInfo)
-
-		if info.IsDir() {
-			entries := make([]string, 0)
-			iter, err := pvfs.Children(prefix)
-			if err != nil {
-				continue
-			}
-			for pathname := range iter {
-				entries = append(entries, pathname)
-			}
-			if len(entries) == 0 {
-				info, err := pvfs.Stat(prefix)
-				if err == nil {
-					continue
-				}
-				children[prefix] = info
-				content = append(content, prefix)
-			} else {
-				for _, name := range entries {
-					children[name], _ = pvfs.Stat(path.Clean(fmt.Sprintf("%s/%s", prefix, name)))
-					content = append(content, name)
-				}
-				sort.Slice(content, func(i, j int) bool {
-					return strings.Compare(content[i], content[j]) < 0
-				})
-			}
-		} else {
-			children[prefix] = info
-			content = append(content, prefix)
-		}
-
-		for _, item := range content {
-
-			fi := children[item]
-
+	switch entry := entry.(type) {
+	case *vfs.DirEntry:
+		for _, child := range entry.Children {
+			fi := child.FileInfo
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
 			username := fmt.Sprintf("%d", fi.Uid())
 			if err == nil {
@@ -167,150 +122,49 @@ func list_snapshot(repository *storage.Repository, args []string) {
 				groupname,
 				humanize.Bytes(uint64(fi.Size())),
 				fi.Name())
+			if recursive {
+				err := _list_snapshot(pvfs, pathname+"/"+fi.Name(), recursive)
+				if err != nil {
+					log.Println(err)
+				}
+			}
 		}
+
+	case *vfs.FileEntry:
+		fi := entry.FileInfo()
+		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
+		username := fmt.Sprintf("%d", fi.Uid())
+		if err == nil {
+			username = pwUserLookup.Username
+		}
+
+		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
+		groupname := fmt.Sprintf("%d", fi.Gid())
+		if err == nil {
+			groupname = grGroupLookup.Name
+		}
+		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+			fi.ModTime().UTC().Format(time.RFC3339),
+			fi.Mode(),
+			username,
+			groupname,
+			humanize.Bytes(uint64(fi.Size())),
+			fi.Name())
 	}
+	return nil
 }
 
-func list_snapshot_recursive(repository *storage.Repository, args []string) {
-	vfss, err := getFilesystems(repository, args)
+func list_snapshot(repo *repository.Repository, snapshotPath string, recursive bool) error {
+	prefix, pathname := parseSnapshotID(snapshotPath)
+
+	snap, err := openSnapshotByPrefix(repo, prefix)
 	if err != nil {
-		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
+		log.Fatalf("%s: could not fetch snapshot: %s", flag.CommandLine.Name(), err)
 	}
 
-	for offset, pvfs := range vfss {
-		_, prefix := parseSnapshotID(args[offset])
-
-		prefix = filepath.Clean(prefix)
-
-		if prefix == "." || prefix == ".." {
-			prefix = "/"
-		}
-		if !strings.HasPrefix(prefix, "/") {
-			prefix = "/" + prefix
-		}
-
-		directories := make([]string, 0)
-		for name := range pvfs.Directories() {
-			directories = append(directories, name)
-		}
-		sort.Slice(directories, func(i, j int) bool {
-			return strings.Compare(directories[i], directories[j]) < 0
-		})
-
-		for _, name := range directories {
-			if !helpers.PathIsWithin(name, prefix) {
-				continue
-			}
-			list_snapshot_recursive_directory(pvfs, name)
-		}
-
-		filenames := make([]string, 0)
-		for filename := range pvfs.Files() {
-			filenames = append(filenames, filename)
-		}
-		sort.Slice(filenames, func(i, j int) bool {
-			return strings.Compare(filenames[i], filenames[j]) < 0
-		})
-
-		for _, name := range filenames {
-			fi, _ := pvfs.Stat(name)
-			if !helpers.PathIsWithin(name, prefix) && name != prefix {
-				continue
-			}
-
-			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
-			username := fmt.Sprintf("%d", fi.Uid())
-			if err == nil {
-				username = pwUserLookup.Username
-			}
-
-			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
-			groupname := fmt.Sprintf("%d", fi.Gid())
-			if err == nil {
-				groupname = grGroupLookup.Name
-			}
-			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				fi.ModTime().UTC().Format(time.RFC3339),
-				fi.Mode(),
-				username,
-				groupname,
-				humanize.Bytes(uint64(fi.Size())),
-				name)
-		}
+	pvfs, err := snap.Filesystem()
+	if err != nil {
+		log.Fatal(err)
 	}
-}
-
-func list_snapshot_recursive_directory(pvfs *vfs.Filesystem, directory string) {
-	directories := make([]string, 0)
-	for name := range pvfs.Directories() {
-		directories = append(directories, name)
-	}
-
-	sort.Slice(directories, func(i, j int) bool {
-		return strings.Compare(directories[i], directories[j]) < 0
-	})
-
-	for _, name := range directories {
-		fi, _ := pvfs.Stat(name)
-		if !helpers.PathIsWithin(name, directory) {
-			continue
-		}
-		if name == "/" || name == directory {
-			continue
-		}
-
-		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
-		username := fmt.Sprintf("%d", fi.Uid())
-		if err == nil {
-			username = pwUserLookup.Username
-		}
-
-		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
-		groupname := fmt.Sprintf("%d", fi.Gid())
-		if err == nil {
-			groupname = grGroupLookup.Name
-		}
-		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			fi.ModTime().UTC().Format(time.RFC3339),
-			fi.Mode(),
-			username,
-			groupname,
-			humanize.Bytes(uint64(fi.Size())),
-			name)
-		list_snapshot_recursive_directory(pvfs, name)
-	}
-
-	filenames := make([]string, 0)
-	for filename := range pvfs.Files() {
-		filenames = append(filenames, filename)
-	}
-	sort.Slice(filenames, func(i, j int) bool {
-		return strings.Compare(filenames[i], filenames[j]) < 0
-	})
-
-	for _, name := range filenames {
-		fi, _ := pvfs.Stat(name)
-		if !helpers.PathIsWithin(name, directory) && name != directory {
-			continue
-		}
-
-		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
-		username := fmt.Sprintf("%d", fi.Uid())
-		if err == nil {
-			username = pwUserLookup.Username
-		}
-
-		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
-		groupname := fmt.Sprintf("%d", fi.Gid())
-		if err == nil {
-			groupname = grGroupLookup.Name
-		}
-		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			fi.ModTime().UTC().Format(time.RFC3339),
-			fi.Mode(),
-			username,
-			groupname,
-			humanize.Bytes(uint64(fi.Size())),
-			name)
-	}
+	return _list_snapshot(pvfs, pathname, recursive)
 }

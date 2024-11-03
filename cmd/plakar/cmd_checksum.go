@@ -20,17 +20,20 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 
-	"github.com/PlakarLabs/plakar/encryption"
+	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
 func init() {
 	registerCommand("checksum", cmd_checksum)
 }
 
-func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int {
+func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var enableFastChecksum bool
 
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)
@@ -43,58 +46,72 @@ func cmd_checksum(ctx Plakar, repository *storage.Repository, args []string) int
 		return 1
 	}
 
-	snapshots, err := getSnapshots(repository, flags.Args())
+	snapshots, err := getSnapshots(repo, flags.Args())
 	if err != nil {
 		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
 	errors := 0
-	for offset, snapshot := range snapshots {
-		_, pathname := parseSnapshotID(flags.Args()[offset])
-
-		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snapshot.Header.GetIndexShortID())
-			errors++
-			continue
-		}
-
-		hasher := encryption.GetHasher(repository.Configuration().Hashing)
-		hasher.Write([]byte(pathname))
-		pathnameChecksum := hasher.Sum(nil)
-		key := [32]byte{}
-		copy(key[:], pathnameChecksum)
-		object, err := snapshot.Index.LookupObjectForPathnameChecksum(key)
+	for offset, snap := range snapshots {
+		fs, err := snap.Filesystem()
 		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-			errors++
 			continue
 		}
-		if object == nil {
-			logger.Error("%s: could not open file '%s'", flags.Name(), pathname)
+
+		_, pathname := parseSnapshotID(flags.Args()[offset])
+		if pathname == "" {
+			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snap.Header.GetIndexShortID())
 			errors++
 			continue
 		}
 
-		if enableFastChecksum {
-			fmt.Printf("%064x %s\n", object.Checksum, pathname)
-		} else {
-			rd, err := snapshot.NewReader(pathname)
-			if err != nil {
-				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-				errors++
-				continue
-			}
+		displayChecksums(fs, repo, snap, pathname, enableFastChecksum)
 
-			hasher := encryption.GetHasher(repository.Configuration().Hashing)
-			if _, err := io.Copy(hasher, rd); err != nil {
-				logger.Error("%s: %s: %s", flags.Name(), pathname, err)
-				errors++
-				continue
-			}
-			fmt.Printf("%064x %s\n", hasher.Sum(nil), pathname)
-		}
 	}
 
 	return 0
+}
+
+func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *snapshot.Snapshot, pathname string, fastcheck bool) error {
+	fsinfo, err := fs.Stat(pathname)
+	if err != nil {
+		return err
+	}
+
+	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		for _, entry := range dirEntry.Children {
+			if err := displayChecksums(fs, repo, snap, filepath.Join(pathname, entry.FileInfo.Name()), fastcheck); err != nil {
+				return err
+			}
+		}
+	}
+
+	if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
+		return err
+	} else if !fsinfo.FileInfo().Mode().IsRegular() {
+		return err
+	}
+
+	info := fsinfo.(*vfs.FileEntry)
+	object, err := snap.LookupObject(info.Checksum)
+	if err != nil {
+		return err
+	}
+
+	checksum := object.Checksum
+	if !fastcheck {
+		rd, err := snap.NewReader(pathname)
+		if err != nil {
+			return err
+		}
+		defer rd.Close()
+
+		hasher := repo.Hasher()
+		if _, err := io.Copy(hasher, rd); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("SHA256 (%s) = %x\n", pathname, checksum)
+	return nil
 }

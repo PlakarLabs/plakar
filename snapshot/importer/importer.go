@@ -37,12 +37,12 @@ type ScanResult interface {
 type RecordType int8
 
 const (
-	RecordTypeFile    RecordType = 0
-	RecordTypeDir     RecordType = 1
-	RecordTypeSymlink RecordType = 2
-	RecordTypeDevice  RecordType = 3
-	RecordTypePipe    RecordType = 4
-	RecordTypeSocket  RecordType = 5
+	RecordTypeFile      RecordType = 0
+	RecordTypeDirectory RecordType = 1
+	RecordTypeSymlink   RecordType = 2
+	RecordTypeDevice    RecordType = 3
+	RecordTypePipe      RecordType = 4
+	RecordTypeSocket    RecordType = 5
 )
 
 type FileAttributes struct {
@@ -53,13 +53,21 @@ type FileAttributes struct {
 	IsTemporary bool // Temporary file (Windows)
 }
 
+type ChildEntry struct {
+	Name string
+	Stat objects.FileInfo
+}
+
 type ScanRecord struct {
 	Type               RecordType
 	Pathname           string
 	Target             string
 	Stat               objects.FileInfo
-	ExtendedAttributes map[string]string
+	Children           []objects.FileInfo
+	ExtendedAttributes map[string][]byte
 	FileAttributes     []string
+	User               string
+	Group              string
 }
 
 func (r ScanRecord) scanResult() {}

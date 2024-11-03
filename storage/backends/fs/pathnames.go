@@ -19,66 +19,32 @@ package fs
 import (
 	"fmt"
 	"path/filepath"
-
-	"github.com/google/uuid"
 )
 
 func (repository *Repository) PathTmp() string {
 	return filepath.Join(repository.root, "tmp")
 }
 
-func (repository *Repository) PathBlobs() string {
-	return filepath.Join(repository.root, "blobs")
-}
-
-func (repository *Repository) PathIndexes() string {
-	return filepath.Join(repository.root, "indexes")
+func (repository *Repository) PathStates() string {
+	return filepath.Join(repository.root, "states")
 }
 
 func (repository *Repository) PathPackfiles() string {
 	return filepath.Join(repository.root, "packfiles")
 }
 
-func (repository *Repository) PathLocks() string {
-	return filepath.Join(repository.root, "locks")
-}
-
-func (repository *Repository) PathSnapshots() string {
-	return filepath.Join(repository.root, "snapshots")
-}
-
-func (repository *Repository) PathBlobBucket(checksum [32]byte) string {
-	return filepath.Join(repository.root, "blobs", fmt.Sprintf("%02x", checksum[0]))
-}
-
-func (repository *Repository) PathIndexBucket(checksum [32]byte) string {
-	return filepath.Join(repository.root, "indexes", fmt.Sprintf("%02x", checksum[0]))
+func (repository *Repository) PathStateBucket(checksum [32]byte) string {
+	return filepath.Join(repository.root, "states", fmt.Sprintf("%02x", checksum[0]))
 }
 
 func (repository *Repository) PathPackfileBucket(checksum [32]byte) string {
 	return filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", checksum[0]))
 }
 
-func (repository *Repository) PathSnapshotBucket(indexID uuid.UUID) string {
-	return filepath.Join(repository.root, "snapshots", indexID.String()[:2])
-}
-
-func (repository *Repository) PathBlob(checksum [32]byte) string {
-	return filepath.Join(repository.PathBlobBucket(checksum), fmt.Sprintf("%064x", checksum))
-}
-
-func (repository *Repository) PathIndex(checksum [32]byte) string {
-	return filepath.Join(repository.PathIndexBucket(checksum), fmt.Sprintf("%064x", checksum))
+func (repository *Repository) PathState(checksum [32]byte) string {
+	return filepath.Join(repository.PathStateBucket(checksum), fmt.Sprintf("%064x", checksum))
 }
 
 func (repository *Repository) PathPackfile(checksum [32]byte) string {
 	return filepath.Join(repository.PathPackfileBucket(checksum), fmt.Sprintf("%064x", checksum))
-}
-
-func (repository *Repository) PathLock(indexID uuid.UUID) string {
-	return filepath.Join(repository.PathLocks(), indexID.String())
-}
-
-func (repository *Repository) PathSnapshot(indexID uuid.UUID) string {
-	return filepath.Join(repository.PathSnapshotBucket(indexID), indexID.String())
 }

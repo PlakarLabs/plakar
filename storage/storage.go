@@ -160,7 +160,7 @@ func Backends() []string {
 func New(ctx *context.Context, location string) (*Store, error) {
 	backendName := "fs"
 	if !strings.HasPrefix(location, "/") {
-		if strings.HasPrefix(location, "plakar://") || strings.HasPrefix(location, "ssh://") || strings.HasPrefix(location, "stdio://") {
+		if strings.HasPrefix(location, "tcp://") || strings.HasPrefix(location, "ssh://") || strings.HasPrefix(location, "stdio://") {
 			backendName = "plakard"
 		} else if strings.HasPrefix(location, "http://") || strings.HasPrefix(location, "https://") {
 			backendName = "http"

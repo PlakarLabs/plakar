@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/PlakarLabs/plakar/network"
 	"github.com/PlakarLabs/plakar/storage"
@@ -60,12 +61,14 @@ func NewRepository() storage.Backend {
 func (repository *Repository) connect(location *url.URL) error {
 	scheme := location.Scheme
 	switch scheme {
-	case "plakar":
+	case "tcp":
+		fmt.Println("#####")
 		err := repository.connectTCP(location)
 		if err != nil {
 			return err
 		}
 	case "ssh":
+		fmt.Println("@@@@@ ")
 		err := repository.connectSSH(location)
 		if err != nil {
 			return err
@@ -76,7 +79,7 @@ func (repository *Repository) connect(location *url.URL) error {
 			return err
 		}
 	default:
-		return fmt.Errorf("unsupported protocol")
+		return fmt.Errorf("unsupported protocol: %s", scheme)
 	}
 
 	return nil
@@ -271,9 +274,19 @@ func (repository *Repository) sendRequest(Type string, Payload interface{}) (*ne
 }
 
 func (repository *Repository) Create(location string, config storage.Configuration) error {
+	isTcp := false
+	if strings.HasPrefix(location, "tcp://") {
+		isTcp = true
+		location = "ssh://" + location[6:]
+	}
+
 	parsed, err := giturls.Parse(location)
 	if err != nil {
 		return err
+	}
+
+	if isTcp {
+		parsed.Scheme = "tcp"
 	}
 
 	err = repository.connect(parsed)
@@ -298,9 +311,20 @@ func (repository *Repository) Create(location string, config storage.Configurati
 }
 
 func (repository *Repository) Open(location string) error {
+
+	isTcp := false
+	if strings.HasPrefix(location, "tcp://") {
+		isTcp = true
+		location = "ssh://" + location[6:]
+	}
+
 	parsed, err := giturls.Parse(location)
 	if err != nil {
 		return err
+	}
+
+	if isTcp {
+		parsed.Scheme = "tcp"
 	}
 
 	err = repository.connect(parsed)

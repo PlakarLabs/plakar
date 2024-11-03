@@ -23,10 +23,6 @@ import (
 	"github.com/PlakarLabs/plakar/server/plakard"
 )
 
-func init() {
-	// registerCommand("stdio", cmd_stdio)
-}
-
 func cmd_stdio(ctx *context.Context, args []string) int {
 	_ = ctx
 

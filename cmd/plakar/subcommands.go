@@ -14,6 +14,7 @@ import (
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/find"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/info"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/ls"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/man"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/mount"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/restore"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/rm"

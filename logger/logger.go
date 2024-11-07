@@ -5,12 +5,15 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/charmbracelet/log"
 )
 
 var stdoutChannel chan string
 var stderrChannel chan string
 var debugChannel chan string
 var traceChannel chan string
+var profileChannel chan string
 
 var enableInfo = false
 var enableTracing = false
@@ -18,6 +21,28 @@ var enableProfiling = false
 
 var mutraceSubsystems sync.Mutex
 var traceSubsystems map[string]bool
+
+var stdoutLogger *log.Logger
+var stderrLogger *log.Logger
+var debugLogger *log.Logger
+var traceLogger *log.Logger
+var profileLogger *log.Logger
+
+func init() {
+	stdoutLogger = log.New(os.Stdout)
+	stderrLogger = log.NewWithOptions(os.Stdout, log.Options{
+		Prefix: "warn",
+	})
+	debugLogger = log.NewWithOptions(os.Stdout, log.Options{
+		Prefix: "debug",
+	})
+	traceLogger = log.NewWithOptions(os.Stdout, log.Options{
+		Prefix: "trace",
+	})
+	profileLogger = log.NewWithOptions(os.Stdout, log.Options{
+		Prefix: "profile",
+	})
+}
 
 func Printf(format string, args ...interface{}) {
 	stdoutChannel <- fmt.Sprintf(format, args...)
@@ -30,7 +55,7 @@ func Info(format string, args ...interface{}) {
 }
 
 func Warn(format string, args ...interface{}) {
-	stderrChannel <- fmt.Sprintf("[warning] "+format, args...)
+	stderrChannel <- fmt.Sprintf(format, args...)
 }
 
 func Error(format string, args ...interface{}) {
@@ -50,14 +75,14 @@ func Trace(subsystem string, format string, args ...interface{}) {
 		}
 		mutraceSubsystems.Unlock()
 		if exists {
-			traceChannel <- fmt.Sprintf("[trace]: "+subsystem+": "+format, args...)
+			traceChannel <- fmt.Sprintf(subsystem+": "+format, args...)
 		}
 	}
 }
 
 func Profile(format string, args ...interface{}) {
 	if enableProfiling {
-		traceChannel <- fmt.Sprintf("[profiling]: "+format, args...)
+		profileChannel <- fmt.Sprintf(format, args...)
 	}
 }
 
@@ -81,13 +106,14 @@ func Start() func() {
 	stderrChannel = make(chan string)
 	debugChannel = make(chan string)
 	traceChannel = make(chan string)
+	profileChannel = make(chan string)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		for msg := range stdoutChannel {
-			fmt.Println(msg)
+			stdoutLogger.Print(msg)
 		}
 		wg.Done()
 	}()
@@ -95,7 +121,7 @@ func Start() func() {
 	wg.Add(1)
 	go func() {
 		for msg := range stderrChannel {
-			fmt.Fprintln(os.Stderr, msg)
+			stderrLogger.Print(msg)
 		}
 		wg.Done()
 	}()
@@ -103,7 +129,7 @@ func Start() func() {
 	wg.Add(1)
 	go func() {
 		for msg := range debugChannel {
-			fmt.Println(msg)
+			debugLogger.Print(msg)
 		}
 		wg.Done()
 	}()
@@ -111,7 +137,15 @@ func Start() func() {
 	wg.Add(1)
 	go func() {
 		for msg := range traceChannel {
-			fmt.Fprintln(os.Stderr, msg)
+			traceLogger.Print(msg)
+		}
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		for msg := range profileChannel {
+			profileLogger.Print(msg)
 		}
 		wg.Done()
 	}()
@@ -121,6 +155,7 @@ func Start() func() {
 		close(stderrChannel)
 		close(debugChannel)
 		close(traceChannel)
+		close(profileChannel)
 		wg.Wait()
 	}
 }

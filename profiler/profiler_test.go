@@ -15,7 +15,7 @@ import (
 // Helper function to capture stderr output
 func captureStderr(t *testing.T, f func()) string {
 	// Backup original os.Stderr
-	origStderr := os.Stderr
+	origStdout := os.Stdout
 
 	// Create a pipe to capture stderr
 	r, w, err := os.Pipe()
@@ -24,11 +24,11 @@ func captureStderr(t *testing.T, f func()) string {
 	}
 
 	// Replace os.Stderr with the write end of the pipe
-	os.Stderr = w
+	os.Stdout = w
 
 	// Ensure that os.Stderr is restored after the test
 	defer func() {
-		os.Stderr = origStderr
+		os.Stdout = origStdout
 	}()
 
 	// Buffer to store the captured output

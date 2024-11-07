@@ -18,7 +18,6 @@ import (
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/profiler"
 	"github.com/PlakarLabs/plakar/repository/cache"
-	"github.com/PlakarLabs/plakar/repository/events"
 	"github.com/PlakarLabs/plakar/repository/state"
 	"github.com/PlakarLabs/plakar/storage"
 )
@@ -27,7 +26,6 @@ type Repository struct {
 	store         *storage.Store
 	cache         *cache.Cache
 	state         *state.State
-	events        *events.EventsReceiver
 	configuration storage.Configuration
 
 	secret []byte
@@ -49,7 +47,6 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 	r := &Repository{
 		store:         store,
 		cache:         cacheInstance,
-		events:        events.New(),
 		configuration: store.Configuration(),
 		secret:        secret,
 	}
@@ -149,18 +146,12 @@ func (r *Repository) Store() *storage.Store {
 	return r.store
 }
 
-func (r *Repository) Events() *events.EventsReceiver {
-	return r.events
-}
-
 func (r *Repository) Close() error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.Close", time.Since(t0))
 		logger.Trace("repository", "Close(): %s", time.Since(t0))
 	}()
-
-	r.events.Close()
 
 	if r.state.Dirty() {
 	}

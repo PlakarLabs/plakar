@@ -51,10 +51,12 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 	failures := false
 	for _, arg := range snapshots {
 		snapshotPrefix, pathname := utils.ParseSnapshotID(arg)
+		fmt.Println("XXXXX", snapshotPrefix, pathname)
 		snap, err := utils.OpenSnapshotByPrefix(repo, snapshotPrefix)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		if ok, err := snap.Check(pathname, enableFastCheck); err != nil {
 			logger.Warn("%s", err)
 		} else if !ok {

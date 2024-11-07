@@ -2,6 +2,7 @@ package compression
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 )
@@ -48,5 +49,96 @@ func TestCompression(t *testing.T) {
 		t.Run(tt.algorithm, func(t *testing.T) {
 			testCompressionDecompression(t, tt.algorithm, tt.data)
 		})
+	}
+}
+
+func TestDefaultAlgorithm(t *testing.T) {
+	expected := "lz4"
+	result := DefaultAlgorithm()
+
+	if result != expected {
+		t.Errorf("DefaultAlgorithm failed: expected %v, got %v", expected, result)
+	}
+}
+func TestUnsupportedAlgorithm(t *testing.T) {
+	_, err := DeflateStream("unsupported", bytes.NewReader([]byte("test data")))
+	if err == nil {
+		t.Error("Expected error for unsupported compression method, got nil")
+	}
+
+	_, err = InflateStream("unsupported", bytes.NewReader([]byte("test data")))
+	if err == nil {
+		t.Error("Expected error for unsupported compression method, got nil")
+	}
+}
+
+type errorReader struct{}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("forced read error")
+}
+
+func TestDeflateStreamErrorHandling(t *testing.T) {
+	_, err := DeflateStream("unsupported", bytes.NewReader([]byte("test data")))
+	if err == nil {
+		t.Error("Expected error for unsupported compression method, got nil")
+	}
+
+	_, err = DeflateStream("gzip", &errorReader{})
+	if err == nil {
+		t.Error("Expected error for reader failure, got nil")
+	}
+}
+
+func TestInflateStreamErrorHandling(t *testing.T) {
+	_, err := InflateStream("unsupported", bytes.NewReader([]byte("test data")))
+	if err == nil {
+		t.Error("Expected error for unsupported compression method, got nil")
+	}
+
+	_, err = InflateStream("gzip", &errorReader{})
+	if err == nil {
+		t.Error("Expected error for reader failure, got nil")
+	}
+}
+
+func TestDeflateStreamRewindLogic(t *testing.T) {
+	data := []byte("test rewind logic")
+	compressedReader, err := DeflateStream("gzip", bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("DeflateStream failed: %v", err)
+	}
+
+	buf := make([]byte, 1)
+	n, err := compressedReader.Read(buf)
+	if err != nil || n != 1 {
+		t.Fatalf("Rewind logic test failed: expected 1 byte read, got %d, error: %v", n, err)
+	}
+}
+
+func TestLargeDataCompression(t *testing.T) {
+	largeData := make([]byte, 10*1024*1024) // 10MB of data
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	compressedReader, err := DeflateStream("lz4", bytes.NewReader(largeData))
+	if err != nil {
+		t.Fatalf("DeflateStream failed for large data: %v", err)
+	}
+
+	decompressedReader, err := InflateStream("lz4", compressedReader)
+	if err != nil {
+		t.Fatalf("InflateStream failed for large data: %v", err)
+	}
+
+	var decompressedData bytes.Buffer
+	_, err = io.Copy(&decompressedData, decompressedReader)
+	if err != nil {
+		t.Fatalf("Reading decompressed data failed for large data: %v", err)
+	}
+
+	if !bytes.Equal(largeData, decompressedData.Bytes()) {
+		t.Errorf("Decompressed large data does not match original. Lengths differ")
 	}
 }

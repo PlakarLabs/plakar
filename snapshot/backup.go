@@ -529,7 +529,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		for _, child := range record.Children {
 			value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
 			if err != nil {
-				return err
+				continue
+				//				return err
 			}
 			dirEntry.AddChild(value, child)
 		}

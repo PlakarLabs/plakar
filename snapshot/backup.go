@@ -523,14 +523,12 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	}
 	for record := range directories {
-
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
 		for _, child := range record.Children {
 			value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
 			if err != nil {
 				continue
-				//				return err
 			}
 			dirEntry.AddChild(value, child)
 		}

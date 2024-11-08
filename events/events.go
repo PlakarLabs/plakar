@@ -34,44 +34,44 @@ func (e Done) Timestamp() time.Time {
 
 /**/
 type Warning struct {
-	ts      time.Time
-	message string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Message    string
 }
 
-func WarningEvent(message string) Warning {
-	return Warning{ts: time.Now(), message: message}
+func WarningEvent(snapshotID [32]byte, message string) Warning {
+	return Warning{ts: time.Now(), SnapshotID: snapshotID, Message: message}
 }
 func (e Warning) Timestamp() time.Time {
 	return e.ts
 }
-func (e Warning) Message() string {
-	return e.message
-}
 
 /**/
 type Error struct {
-	ts      time.Time
-	message string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Message    string
 }
 
-func ErrorEvent(message string) Error {
-	return Error{ts: time.Now(), message: message}
+func ErrorEvent(snapshotID [32]byte, message string) Error {
+	return Error{ts: time.Now(), SnapshotID: snapshotID, Message: message}
 }
 func (e Error) Timestamp() time.Time {
 	return e.ts
 }
-func (e Error) Message() string {
-	return e.message
-}
 
 /**/
 type Path struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func PathEvent(pathname string) Path {
-	return Path{ts: time.Now(), Pathname: pathname}
+func PathEvent(snapshotID [32]byte, pathname string) Path {
+	return Path{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e Path) Timestamp() time.Time {
 	return e.ts
@@ -79,12 +79,14 @@ func (e Path) Timestamp() time.Time {
 
 /**/
 type Directory struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func DirectoryEvent(pathname string) Directory {
-	return Directory{ts: time.Now(), Pathname: pathname}
+func DirectoryEvent(snapshotID [32]byte, pathname string) Directory {
+	return Directory{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e Directory) Timestamp() time.Time {
 	return e.ts
@@ -92,12 +94,14 @@ func (e Directory) Timestamp() time.Time {
 
 /**/
 type File struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func FileEvent(pathname string) File {
-	return File{ts: time.Now(), Pathname: pathname}
+func FileEvent(snapshotID [32]byte, pathname string) File {
+	return File{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e File) Timestamp() time.Time {
 	return e.ts
@@ -105,12 +109,14 @@ func (e File) Timestamp() time.Time {
 
 /**/
 type Object struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ObjectEvent(checksum [32]byte) Object {
-	return Object{ts: time.Now(), Checksum: checksum}
+func ObjectEvent(snapshotID [32]byte, checksum [32]byte) Object {
+	return Object{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e Object) Timestamp() time.Time {
 	return e.ts
@@ -118,12 +124,14 @@ func (e Object) Timestamp() time.Time {
 
 /**/
 type Chunk struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ChunkEvent(checksum [32]byte) Chunk {
-	return Chunk{ts: time.Now(), Checksum: checksum}
+func ChunkEvent(snapshotID [32]byte, checksum [32]byte) Chunk {
+	return Chunk{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e Chunk) Timestamp() time.Time {
 	return e.ts
@@ -131,12 +139,14 @@ func (e Chunk) Timestamp() time.Time {
 
 /**/
 type DirectoryOK struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func DirectoryOKEvent(pathname string) DirectoryOK {
-	return DirectoryOK{ts: time.Now(), Pathname: pathname}
+func DirectoryOKEvent(snapshotID [32]byte, pathname string) DirectoryOK {
+	return DirectoryOK{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e DirectoryOK) Timestamp() time.Time {
 	return e.ts
@@ -144,12 +154,14 @@ func (e DirectoryOK) Timestamp() time.Time {
 
 /**/
 type DirectoryMissing struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func DirectoryMissingEvent(pathname string) DirectoryMissing {
-	return DirectoryMissing{ts: time.Now(), Pathname: pathname}
+func DirectoryMissingEvent(snapshotID [32]byte, pathname string) DirectoryMissing {
+	return DirectoryMissing{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e DirectoryMissing) Timestamp() time.Time {
 	return e.ts
@@ -157,12 +169,14 @@ func (e DirectoryMissing) Timestamp() time.Time {
 
 /**/
 type DirectoryCorrupted struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func DirectoryCorruptedEvent(pathname string) DirectoryCorrupted {
-	return DirectoryCorrupted{ts: time.Now(), Pathname: pathname}
+func DirectoryCorruptedEvent(snapshotID [32]byte, pathname string) DirectoryCorrupted {
+	return DirectoryCorrupted{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e DirectoryCorrupted) Timestamp() time.Time {
 	return e.ts
@@ -170,12 +184,14 @@ func (e DirectoryCorrupted) Timestamp() time.Time {
 
 /**/
 type FileOK struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func FileOKEvent(pathname string) FileOK {
-	return FileOK{ts: time.Now(), Pathname: pathname}
+func FileOKEvent(snapshotID [32]byte, pathname string) FileOK {
+	return FileOK{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e FileOK) Timestamp() time.Time {
 	return e.ts
@@ -183,12 +199,14 @@ func (e FileOK) Timestamp() time.Time {
 
 /**/
 type FileMissing struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func FileMissingdEvent(pathname string) FileMissing {
-	return FileMissing{ts: time.Now(), Pathname: pathname}
+func FileMissingdEvent(snapshotID [32]byte, pathname string) FileMissing {
+	return FileMissing{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e FileMissing) Timestamp() time.Time {
 	return e.ts
@@ -196,12 +214,14 @@ func (e FileMissing) Timestamp() time.Time {
 
 /**/
 type FileCorrupted struct {
-	ts       time.Time
-	Pathname string
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
 }
 
-func FileCorruptedEvent(pathname string) FileCorrupted {
-	return FileCorrupted{ts: time.Now(), Pathname: pathname}
+func FileCorruptedEvent(snapshotID [32]byte, pathname string) FileCorrupted {
+	return FileCorrupted{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e FileCorrupted) Timestamp() time.Time {
 	return e.ts
@@ -209,12 +229,14 @@ func (e FileCorrupted) Timestamp() time.Time {
 
 /**/
 type ObjectOK struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ObjectOKEvent(checksum [32]byte) ObjectOK {
-	return ObjectOK{ts: time.Now(), Checksum: checksum}
+func ObjectOKEvent(snapshotID [32]byte, checksum [32]byte) ObjectOK {
+	return ObjectOK{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ObjectOK) Timestamp() time.Time {
 	return e.ts
@@ -222,12 +244,14 @@ func (e ObjectOK) Timestamp() time.Time {
 
 /**/
 type ObjectMissing struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ObjectMissingEvent(checksum [32]byte) ObjectMissing {
-	return ObjectMissing{ts: time.Now(), Checksum: checksum}
+func ObjectMissingEvent(snapshotID [32]byte, checksum [32]byte) ObjectMissing {
+	return ObjectMissing{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ObjectMissing) Timestamp() time.Time {
 	return e.ts
@@ -235,12 +259,14 @@ func (e ObjectMissing) Timestamp() time.Time {
 
 /**/
 type ObjectCorrupted struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ObjectCorruptedEvent(checksum [32]byte) ObjectCorrupted {
-	return ObjectCorrupted{ts: time.Now(), Checksum: checksum}
+func ObjectCorruptedEvent(snapshotID [32]byte, checksum [32]byte) ObjectCorrupted {
+	return ObjectCorrupted{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ObjectCorrupted) Timestamp() time.Time {
 	return e.ts
@@ -248,12 +274,14 @@ func (e ObjectCorrupted) Timestamp() time.Time {
 
 /**/
 type ChunkOK struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ChunkOKEvent(checksum [32]byte) ObjectOK {
-	return ObjectOK{ts: time.Now(), Checksum: checksum}
+func ChunkOKEvent(snapshotID [32]byte, checksum [32]byte) ChunkOK {
+	return ChunkOK{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ChunkOK) Timestamp() time.Time {
 	return e.ts
@@ -261,12 +289,14 @@ func (e ChunkOK) Timestamp() time.Time {
 
 /**/
 type ChunkMissing struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ChunkMissingEvent(checksum [32]byte) ChunkMissing {
-	return ChunkMissing{ts: time.Now(), Checksum: checksum}
+func ChunkMissingEvent(snapshotID [32]byte, checksum [32]byte) ChunkMissing {
+	return ChunkMissing{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ChunkMissing) Timestamp() time.Time {
 	return e.ts
@@ -274,12 +304,14 @@ func (e ChunkMissing) Timestamp() time.Time {
 
 /**/
 type ChunkCorrupted struct {
-	ts       time.Time
-	Checksum [32]byte
+	ts time.Time
+
+	SnapshotID [32]byte
+	Checksum   [32]byte
 }
 
-func ChunkCorruptedEvent(checksum [32]byte) ChunkCorrupted {
-	return ChunkCorrupted{ts: time.Now(), Checksum: checksum}
+func ChunkCorruptedEvent(snapshotID [32]byte, checksum [32]byte) ChunkCorrupted {
+	return ChunkCorrupted{ts: time.Now(), SnapshotID: snapshotID, Checksum: checksum}
 }
 func (e ChunkCorrupted) Timestamp() time.Time {
 	return e.ts

@@ -16,15 +16,15 @@ type CheckOptions struct {
 }
 
 func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts *CheckOptions, concurency chan bool, wg *sync.WaitGroup) (bool, error) {
-	snap.Event(events.PathEvent(pathname))
+	snap.Event(events.PathEvent(snap.Header.IndexID, pathname))
 	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
-		snap.Event(events.DirectoryMissingEvent(pathname))
+		snap.Event(events.DirectoryMissingEvent(snap.Header.IndexID, pathname))
 
 		return false, err
 	}
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
-		snap.Event(events.DirectoryEvent(pathname))
+		snap.Event(events.DirectoryEvent(snap.Header.IndexID, pathname))
 		complete := true
 		for _, child := range dirEntry.Children {
 			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.FileInfo.Name()), opts, concurency, wg)
@@ -32,9 +32,14 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 				complete = false
 			}
 		}
+		if !complete {
+			snap.Event(events.DirectoryCorruptedEvent(snap.Header.IndexID, pathname))
+		} else {
+			snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, pathname))
+		}
 		return complete, err
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
-		snap.Event(events.FileEvent(pathname))
+		snap.Event(events.FileEvent(snap.Header.IndexID, pathname))
 
 		concurency <- true
 		wg.Add(1)
@@ -44,50 +49,60 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 
 			object, err := snap.LookupObject(_fileEntry.Checksum)
 			if err != nil {
-				snap.Event(events.ObjectMissingEvent(_fileEntry.Checksum))
+				snap.Event(events.ObjectMissingEvent(snap.Header.IndexID, _fileEntry.Checksum))
 				return
 			}
 
 			hasher := snap.repository.Hasher()
-			snap.Event(events.ObjectEvent(object.Checksum))
+			snap.Event(events.ObjectEvent(snap.Header.IndexID, object.Checksum))
+			complete := true
 			for _, chunk := range object.Chunks {
-				snap.Event(events.ChunkEvent(chunk.Checksum))
+				snap.Event(events.ChunkEvent(snap.Header.IndexID, chunk.Checksum))
 				if opts.FastCheck {
 					exists := snap.CheckChunk(chunk.Checksum)
 					if !exists {
-						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
-						return
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
 					}
-					snap.Event(events.ChunkOKEvent(chunk.Checksum))
+					snap.Event(events.ChunkOKEvent(snap.Header.IndexID, chunk.Checksum))
 				} else {
 					exists := snap.CheckChunk(chunk.Checksum)
 					if !exists {
-						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
-						return
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
 					}
 					data, err := snap.GetChunk(chunk.Checksum)
 					if err != nil {
-						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
-						return
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
 					}
-					snap.Event(events.ChunkOKEvent(chunk.Checksum))
+					snap.Event(events.ChunkOKEvent(snap.Header.IndexID, chunk.Checksum))
 
 					hasher.Write(data)
 
 					checksum := snap.repository.Checksum(data)
 					if !bytes.Equal(checksum[:], chunk.Checksum[:]) {
-						snap.Event(events.ChunkCorruptedEvent(chunk.Checksum))
-						return
+						snap.Event(events.ChunkCorruptedEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
 					}
-					snap.Event(events.ObjectOKEvent(object.Checksum))
 				}
 			}
+			if !complete {
+				snap.Event(events.ObjectCorruptedEvent(snap.Header.IndexID, object.Checksum))
+			} else {
+				snap.Event(events.ObjectOKEvent(snap.Header.IndexID, object.Checksum))
+			}
+
 			if !bytes.Equal(hasher.Sum(nil), object.Checksum[:]) {
-				snap.Event(events.ObjectCorruptedEvent(object.Checksum))
-				snap.Event(events.FileCorruptedEvent(pathname))
+				snap.Event(events.ObjectCorruptedEvent(snap.Header.IndexID, object.Checksum))
+				snap.Event(events.FileCorruptedEvent(snap.Header.IndexID, pathname))
 				return
 			}
-			snap.Event(events.FileOKEvent(pathname))
+			snap.Event(events.FileOKEvent(snap.Header.IndexID, pathname))
 		}(fileEntry)
 		return true, nil
 	} else {

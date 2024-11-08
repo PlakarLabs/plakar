@@ -41,15 +41,32 @@ func eventsProcessor(ctx *context.Context) chan struct{} {
 			switch event := event.(type) {
 			case events.Start:
 			case events.Done:
+
 			case events.Path:
+				logger.Info("checking pathname: %s", event.Pathname)
 			case events.Directory:
+				logger.Info("checking directory: %s", event.Pathname)
 			case events.File:
+				logger.Info("checking file: %s", event.Pathname)
 			case events.Object:
+				logger.Info("checking object: %x", event.Checksum)
 			case events.Chunk:
+				logger.Info("checking chunk: %x", event.Checksum)
+			case events.DirectoryMissing:
+				logger.Warn("missing directory: %s", event.Pathname)
+			case events.FileMissing:
+				logger.Warn("missing file: %s", event.Pathname)
 			case events.ObjectMissing:
+				logger.Warn("missing object: %x", event.Checksum)
 			case events.ChunkMissing:
+				logger.Warn("missing chunk: %x", event.Checksum)
+			case events.FileCorrupted:
+				logger.Warn("corrupted file: %x", event.Pathname)
 			case events.ObjectCorrupted:
+				logger.Warn("corrupted object: %x", event.Checksum)
 			case events.ChunkCorrupted:
+				logger.Warn("corrupted chunk: %x", event.Checksum)
+
 			case events.ChunkOK:
 			case events.ObjectOK:
 			case events.FileOK:

@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var stdoutChannel chan string
+var infoChannel chan string
 var stderrChannel chan string
 var debugChannel chan string
 var traceChannel chan string
@@ -22,14 +22,16 @@ var enableProfiling = false
 var mutraceSubsystems sync.Mutex
 var traceSubsystems map[string]bool
 
-var stdoutLogger *log.Logger
+var infoLogger *log.Logger
 var stderrLogger *log.Logger
 var debugLogger *log.Logger
 var traceLogger *log.Logger
 var profileLogger *log.Logger
 
 func init() {
-	stdoutLogger = log.New(os.Stdout)
+	infoLogger = log.NewWithOptions(os.Stdout, log.Options{
+		Prefix: "info",
+	})
 	stderrLogger = log.NewWithOptions(os.Stdout, log.Options{
 		Prefix: "warn",
 	})
@@ -45,12 +47,12 @@ func init() {
 }
 
 func Printf(format string, args ...interface{}) {
-	stdoutChannel <- fmt.Sprintf(format, args...)
+	infoChannel <- fmt.Sprintf(format, args...)
 }
 
 func Info(format string, args ...interface{}) {
 	if enableInfo {
-		stdoutChannel <- fmt.Sprintf(format, args...)
+		infoChannel <- fmt.Sprintf(format, args...)
 	}
 }
 
@@ -102,7 +104,7 @@ func EnableProfiling() {
 }
 
 func Start() func() {
-	stdoutChannel = make(chan string)
+	infoChannel = make(chan string)
 	stderrChannel = make(chan string)
 	debugChannel = make(chan string)
 	traceChannel = make(chan string)
@@ -112,8 +114,8 @@ func Start() func() {
 
 	wg.Add(1)
 	go func() {
-		for msg := range stdoutChannel {
-			stdoutLogger.Print(msg)
+		for msg := range infoChannel {
+			infoLogger.Print(msg)
 		}
 		wg.Done()
 	}()
@@ -151,7 +153,7 @@ func Start() func() {
 	}()
 
 	return func() {
-		close(stdoutChannel)
+		close(infoChannel)
 		close(stderrChannel)
 		close(debugChannel)
 		close(traceChannel)

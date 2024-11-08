@@ -24,19 +24,52 @@ import (
 	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarLabs/plakar/cmd/plakar/utils"
 	"github.com/PlakarLabs/plakar/context"
+	"github.com/PlakarLabs/plakar/events"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot"
 )
 
 func init() {
 	subcommands.Register("check", cmd_check)
 }
 
+func eventsProcessor(ctx *context.Context) chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		for event := range ctx.Events().Listen() {
+			switch event := event.(type) {
+			case events.Start:
+			case events.Done:
+			case events.Path:
+			case events.Directory:
+			case events.File:
+			case events.Object:
+			case events.Chunk:
+			case events.ObjectMissing:
+			case events.ChunkMissing:
+			case events.ObjectCorrupted:
+			case events.ChunkCorrupted:
+			case events.ChunkOK:
+			case events.ObjectOK:
+			case events.FileOK:
+
+			default:
+				fmt.Printf("event: %T\n", event)
+			}
+		}
+		done <- struct{}{}
+	}()
+	return done
+}
+
 func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var enableFastCheck bool
+	var opt_concurrency uint64
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
 	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
+	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.Parse(args)
 
 	var snapshots []string
@@ -48,16 +81,21 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 		snapshots = flags.Args()
 	}
 
+	opts := &snapshot.CheckOptions{
+		MaxConcurrency: opt_concurrency,
+		FastCheck:      enableFastCheck,
+	}
+
+	go eventsProcessor(ctx)
+
 	failures := false
 	for _, arg := range snapshots {
 		snapshotPrefix, pathname := utils.ParseSnapshotID(arg)
-		fmt.Println("XXXXX", snapshotPrefix, pathname)
 		snap, err := utils.OpenSnapshotByPrefix(repo, snapshotPrefix)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		if ok, err := snap.Check(pathname, enableFastCheck); err != nil {
+		if ok, err := snap.Check(pathname, opts); err != nil {
 			logger.Warn("%s", err)
 		} else if !ok {
 			failures = true

@@ -110,16 +110,6 @@ func entryPoint() int {
 	}
 	ctx.SetCacheDir(cacheDir)
 
-	//XXX
-	eventsDone := make(chan bool)
-	go func() {
-		for event := range ctx.Events().Listen() {
-			fmt.Printf("event: %T\n", event)
-		}
-		eventsDone <- true
-	}()
-	//XXX
-
 	// best effort check if security or reliability fix have been issued
 	if rus, err := utils.CheckUpdate(); err == nil {
 		if rus.SecurityFix || rus.ReliabilityFix {
@@ -392,8 +382,6 @@ func entryPoint() int {
 	}
 
 	ctx.Close()
-
-	<-eventsDone
 
 	if opt_profiling {
 		profiler.Display()

@@ -9,77 +9,278 @@ type Event interface {
 }
 
 /**/
-type SnapshotCheckStart struct {
+type Start struct {
 	ts time.Time
 }
 
-func SnapshotCheckStartEvent() Event {
-	return SnapshotCheckStart{ts: time.Now()}
+func StartEvent() Start {
+	return Start{ts: time.Now()}
 }
-func (e SnapshotCheckStart) Timestamp() time.Time {
+func (e Start) Timestamp() time.Time {
 	return e.ts
 }
 
 /**/
-type SnapshotCheckError struct {
+type Done struct {
+	ts time.Time
+}
+
+func DoneEvent() Done {
+	return Done{ts: time.Now()}
+}
+func (e Done) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type Warning struct {
 	ts      time.Time
 	message string
 }
 
-func SnapshotCheckErrorEvent(message string) Event {
-	return SnapshotCheckError{ts: time.Now(), message: message}
+func WarningEvent(message string) Warning {
+	return Warning{ts: time.Now(), message: message}
 }
-func (e SnapshotCheckError) Timestamp() time.Time {
+func (e Warning) Timestamp() time.Time {
 	return e.ts
 }
-func (e SnapshotCheckError) Message() string {
+func (e Warning) Message() string {
 	return e.message
 }
 
 /**/
-type SnapshotCheckPathname struct {
-	ts time.Time
+type Error struct {
+	ts      time.Time
+	message string
 }
 
-func SnapshotCheckPathnameEvent() Event {
-	return SnapshotCheckPathname{ts: time.Now()}
+func ErrorEvent(message string) Error {
+	return Error{ts: time.Now(), message: message}
 }
-func (e SnapshotCheckPathname) Timestamp() time.Time {
+func (e Error) Timestamp() time.Time {
+	return e.ts
+}
+func (e Error) Message() string {
+	return e.message
+}
+
+/**/
+type Path struct {
+	ts       time.Time
+	Pathname string
+}
+
+func PathEvent(pathname string) Path {
+	return Path{ts: time.Now(), Pathname: pathname}
+}
+func (e Path) Timestamp() time.Time {
 	return e.ts
 }
 
 /**/
-type SnapshotCheckDirectory struct {
-	ts time.Time
+type Directory struct {
+	ts       time.Time
+	Pathname string
 }
 
-func SnapshotCheckDirectoryEvent() Event {
-	return SnapshotCheckDirectory{ts: time.Now()}
+func DirectoryEvent(pathname string) Directory {
+	return Directory{ts: time.Now(), Pathname: pathname}
 }
-func (e SnapshotCheckDirectory) Timestamp() time.Time {
+func (e Directory) Timestamp() time.Time {
 	return e.ts
 }
 
 /**/
-type SnapshotCheckFile struct {
-	ts time.Time
+type File struct {
+	ts       time.Time
+	Pathname string
 }
 
-func SnapshotCheckFileEvent() Event {
-	return SnapshotCheckFile{ts: time.Now()}
+func FileEvent(pathname string) File {
+	return File{ts: time.Now(), Pathname: pathname}
 }
-func (e SnapshotCheckFile) Timestamp() time.Time {
+func (e File) Timestamp() time.Time {
 	return e.ts
 }
 
 /**/
-type SnapshotCheckDone struct {
-	ts time.Time
+type Object struct {
+	ts       time.Time
+	Checksum [32]byte
 }
 
-func SnapshotCheckDoneEvent() Event {
-	return SnapshotCheckDone{ts: time.Now()}
+func ObjectEvent(checksum [32]byte) Object {
+	return Object{ts: time.Now(), Checksum: checksum}
 }
-func (e SnapshotCheckDone) Timestamp() time.Time {
+func (e Object) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type Chunk struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ChunkEvent(checksum [32]byte) Chunk {
+	return Chunk{ts: time.Now(), Checksum: checksum}
+}
+func (e Chunk) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type DirectoryOK struct {
+	ts       time.Time
+	Pathname string
+}
+
+func DirectoryOKEvent(pathname string) DirectoryOK {
+	return DirectoryOK{ts: time.Now(), Pathname: pathname}
+}
+func (e DirectoryOK) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type DirectoryMissing struct {
+	ts       time.Time
+	Pathname string
+}
+
+func DirectoryMissingEvent(pathname string) DirectoryMissing {
+	return DirectoryMissing{ts: time.Now(), Pathname: pathname}
+}
+func (e DirectoryMissing) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type DirectoryCorrupted struct {
+	ts       time.Time
+	Pathname string
+}
+
+func DirectoryCorruptedEvent(pathname string) DirectoryCorrupted {
+	return DirectoryCorrupted{ts: time.Now(), Pathname: pathname}
+}
+func (e DirectoryCorrupted) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type FileOK struct {
+	ts       time.Time
+	Pathname string
+}
+
+func FileOKEvent(pathname string) FileOK {
+	return FileOK{ts: time.Now(), Pathname: pathname}
+}
+func (e FileOK) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type FileMissing struct {
+	ts       time.Time
+	Pathname string
+}
+
+func FileMissingdEvent(pathname string) FileMissing {
+	return FileMissing{ts: time.Now(), Pathname: pathname}
+}
+func (e FileMissing) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type FileCorrupted struct {
+	ts       time.Time
+	Pathname string
+}
+
+func FileCorruptedEvent(pathname string) FileCorrupted {
+	return FileCorrupted{ts: time.Now(), Pathname: pathname}
+}
+func (e FileCorrupted) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ObjectOK struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ObjectOKEvent(checksum [32]byte) ObjectOK {
+	return ObjectOK{ts: time.Now(), Checksum: checksum}
+}
+func (e ObjectOK) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ObjectMissing struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ObjectMissingEvent(checksum [32]byte) ObjectMissing {
+	return ObjectMissing{ts: time.Now(), Checksum: checksum}
+}
+func (e ObjectMissing) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ObjectCorrupted struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ObjectCorruptedEvent(checksum [32]byte) ObjectCorrupted {
+	return ObjectCorrupted{ts: time.Now(), Checksum: checksum}
+}
+func (e ObjectCorrupted) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ChunkOK struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ChunkOKEvent(checksum [32]byte) ObjectOK {
+	return ObjectOK{ts: time.Now(), Checksum: checksum}
+}
+func (e ChunkOK) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ChunkMissing struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ChunkMissingEvent(checksum [32]byte) ChunkMissing {
+	return ChunkMissing{ts: time.Now(), Checksum: checksum}
+}
+func (e ChunkMissing) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type ChunkCorrupted struct {
+	ts       time.Time
+	Checksum [32]byte
+}
+
+func ChunkCorruptedEvent(checksum [32]byte) ChunkCorrupted {
+	return ChunkCorrupted{ts: time.Now(), Checksum: checksum}
+}
+func (e ChunkCorrupted) Timestamp() time.Time {
 	return e.ts
 }

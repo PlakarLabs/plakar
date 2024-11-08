@@ -6,10 +6,11 @@
 .Nd Create a new snapshot of a directory in a Plakar repository
 .Sh SYNOPSIS
 .Nm
-.Op Fl max-concurrency Ar number
+.Op Fl concurrency Ar number
 .Op Fl tag Ar tag
 .Op Fl excludes Ar file
 .Op Fl exclude Ar pattern
+.Op Fl quiet
 .Op Ar directory
 .Sh DESCRIPTION
 The
@@ -17,7 +18,7 @@ The
 command creates a new snapshot of a directory in a Plakar repository, storing it with an optional tag and exclusion patterns. Snapshots can be filtered to exclude specific files or directories based on patterns provided through options.
 
 .Bl -tag -width Ds
-.It Fl max-concurrency Ar number
+.It Fl concurrency Ar number
 Set the maximum number of parallel tasks for faster processing. Defaults to
 .Dv 8 * CPU count + 1 .
 
@@ -29,6 +30,10 @@ Specify a file containing exclusion patterns, one per line, to ignore files or d
 
 .It Fl exclude Ar pattern
 Specify individual exclusion patterns to ignore files or directories in the backup. This option can be repeated.
+.El
+
+.It Fl quiet
+Suppress output to standard input, only logging errors and warnings.
 .El
 
 .Sh ARGUMENTS

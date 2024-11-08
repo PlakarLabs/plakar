@@ -12,7 +12,7 @@ var (
 	crossMark = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).SetString("✘")
 )
 
-func eventsProcessorStdio(ctx *context.Context) chan struct{} {
+func eventsProcessorStdio(ctx *context.Context, quiet bool) chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		for event := range ctx.Events().Listen() {
@@ -36,10 +36,13 @@ func eventsProcessorStdio(ctx *context.Context) chan struct{} {
 				logger.Warn("%x: %s %x: corrupted chunk", event.SnapshotID[:4], crossMark, event.Checksum)
 
 			case events.DirectoryOK:
-				logger.Info("%x: %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
+				if !quiet {
+					logger.Info("%x: %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
+				}
 			case events.FileOK:
-				logger.Info("%x: %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
-
+				if !quiet {
+					logger.Info("%x: %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
+				}
 			default:
 			}
 		}

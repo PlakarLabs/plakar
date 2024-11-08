@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarLabs/plakar/events"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/snapshot/cache"
@@ -328,9 +329,10 @@ func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOp
 
 				switch record := record.(type) {
 				case importer.ScanError:
-					logger.Warn("%s: %s", record.Pathname, record.Err)
+					snap.Event(events.PathErrorEvent(snap.Header.IndexID, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
+					snap.Event(events.PathEvent(snap.Header.IndexID, record.Pathname))
 					if record.Stat.Mode().IsDir() {
 						if err := sc.RecordPathname(record); err != nil {
 							//return err
@@ -361,6 +363,8 @@ func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOp
 }
 
 func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
+	snap.Event(events.StartEvent())
+	defer snap.Event(events.DoneEvent())
 
 	cacheDir := filepath.Join(snap.repository.Context().GetCacheDir(), "fscache")
 	cacheInstance, err := cache.New(cacheDir)
@@ -414,6 +418,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				<-maxConcurrency
 				scannerWg.Done()
 			}()
+
+			snap.Event(events.FileEvent(snap.Header.IndexID, _record.Pathname))
 
 			var fileEntry *vfs.FileEntry
 			var object *objects.Object
@@ -512,8 +518,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				// return err
 				return
 			}
-
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
+			snap.Event(events.FileOKEvent(snap.Header.IndexID, record.Pathname))
 		}(_record)
 	}
 	scannerWg.Wait()
@@ -552,6 +558,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		}
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
+		snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, record.Pathname))
 	}
 
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)

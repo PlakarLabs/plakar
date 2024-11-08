@@ -44,9 +44,7 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")
 	flags.Parse(args)
 
-	if !opt_quiet {
-		go eventsProcessorStdio(ctx)
-	}
+	go eventsProcessorStdio(ctx, opt_quiet)
 
 	var snapshots []string
 	if flags.NArg() == 0 {

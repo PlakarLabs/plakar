@@ -58,14 +58,18 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	var opt_excludes string
 	var opt_exclude excludeFlags
 	var opt_concurrency uint64
+	var opt_quiet bool
 
 	excludes := []glob.Glob{}
 	flags := flag.NewFlagSet("backup", flag.ExitOnError)
-	flags.Uint64Var(&opt_concurrency, "max-concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
+	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&opt_tags, "tag", "", "tag to assign to this snapshot")
 	flags.StringVar(&opt_excludes, "excludes", "", "file containing a list of exclusions")
 	flags.Var(&opt_exclude, "exclude", "file containing a list of exclusions")
+	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")
 	flags.Parse(args)
+
+	go eventsProcessorStdio(ctx, opt_quiet)
 
 	for _, item := range opt_exclude {
 		excludes = append(excludes, glob.MustCompile(item))

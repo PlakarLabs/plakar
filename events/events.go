@@ -78,6 +78,22 @@ func (e Path) Timestamp() time.Time {
 }
 
 /**/
+type PathError struct {
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
+	Message    string
+}
+
+func PathErrorEvent(snapshotID [32]byte, pathname string, message string) PathError {
+	return PathError{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname, Message: message}
+}
+func (e PathError) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
 type Directory struct {
 	ts time.Time
 
@@ -153,6 +169,22 @@ func (e DirectoryOK) Timestamp() time.Time {
 }
 
 /**/
+type DirectoryError struct {
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
+	Message    string
+}
+
+func DirectoryErrorEvent(snapshotID [32]byte, pathname string, message string) DirectoryError {
+	return DirectoryError{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname, Message: message}
+}
+func (e DirectoryError) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
 type DirectoryMissing struct {
 	ts time.Time
 
@@ -194,6 +226,22 @@ func FileOKEvent(snapshotID [32]byte, pathname string) FileOK {
 	return FileOK{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname}
 }
 func (e FileOK) Timestamp() time.Time {
+	return e.ts
+}
+
+/**/
+type FileError struct {
+	ts time.Time
+
+	SnapshotID [32]byte
+	Pathname   string
+	Message    string
+}
+
+func FileErrorEvent(snapshotID [32]byte, pathname string, message string) FileError {
+	return FileError{ts: time.Now(), SnapshotID: snapshotID, Pathname: pathname, Message: message}
+}
+func (e FileError) Timestamp() time.Time {
 	return e.ts
 }
 

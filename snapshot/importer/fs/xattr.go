@@ -17,7 +17,6 @@
 package fs
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/pkg/xattr"
@@ -29,7 +28,7 @@ func getExtendedAttributes(path string) (map[string][]byte, error) {
 	// Get the list of attribute names
 	attributes, err := xattr.List(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list extended attributes for %s: %w", path, err)
+		return nil, err
 	}
 
 	// Iterate over each attribute and retrieve its value
@@ -38,10 +37,9 @@ func getExtendedAttributes(path string) (map[string][]byte, error) {
 		if err != nil {
 			// Log the error and continue instead of failing
 			if os.IsPermission(err) {
-				fmt.Printf("permission denied for attribute %s on %s\n", attr, path)
 				continue
 			}
-			return nil, fmt.Errorf("failed to get value for attribute %s: %w", attr, err)
+			return nil, err
 		}
 		attrs[attr] = value
 	}

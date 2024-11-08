@@ -16,15 +16,15 @@ type CheckOptions struct {
 }
 
 func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts *CheckOptions, concurency chan bool, wg *sync.WaitGroup) (bool, error) {
-	snap.Repository().Context().Events().Send(events.PathEvent(pathname))
+	snap.Event(events.PathEvent(pathname))
 	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
-		snap.Repository().Context().Events().Send(events.DirectoryMissingEvent(pathname))
+		snap.Event(events.DirectoryMissingEvent(pathname))
 
 		return false, err
 	}
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
-		snap.Repository().Context().Events().Send(events.DirectoryEvent(pathname))
+		snap.Event(events.DirectoryEvent(pathname))
 		complete := true
 		for _, child := range dirEntry.Children {
 			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.FileInfo.Name()), opts, concurency, wg)
@@ -34,7 +34,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 		}
 		return complete, err
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
-		snap.Repository().Context().Events().Send(events.FileEvent(pathname))
+		snap.Event(events.FileEvent(pathname))
 
 		concurency <- true
 		wg.Add(1)
@@ -44,50 +44,50 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 
 			object, err := snap.LookupObject(_fileEntry.Checksum)
 			if err != nil {
-				snap.Repository().Context().Events().Send(events.ObjectMissingEvent(_fileEntry.Checksum))
+				snap.Event(events.ObjectMissingEvent(_fileEntry.Checksum))
 				return
 			}
 
 			hasher := snap.repository.Hasher()
-			snap.Repository().Context().Events().Send(events.ObjectEvent(object.Checksum))
+			snap.Event(events.ObjectEvent(object.Checksum))
 			for _, chunk := range object.Chunks {
-				snap.Repository().Context().Events().Send(events.ChunkEvent(chunk.Checksum))
+				snap.Event(events.ChunkEvent(chunk.Checksum))
 				if opts.FastCheck {
 					exists := snap.CheckChunk(chunk.Checksum)
 					if !exists {
-						snap.Repository().Context().Events().Send(events.ChunkMissingEvent(chunk.Checksum))
+						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
 						return
 					}
-					snap.Repository().Context().Events().Send(events.ChunkOKEvent(chunk.Checksum))
+					snap.Event(events.ChunkOKEvent(chunk.Checksum))
 				} else {
 					exists := snap.CheckChunk(chunk.Checksum)
 					if !exists {
-						snap.Repository().Context().Events().Send(events.ChunkMissingEvent(chunk.Checksum))
+						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
 						return
 					}
 					data, err := snap.GetChunk(chunk.Checksum)
 					if err != nil {
-						snap.Repository().Context().Events().Send(events.ChunkMissingEvent(chunk.Checksum))
+						snap.Event(events.ChunkMissingEvent(chunk.Checksum))
 						return
 					}
-					snap.Repository().Context().Events().Send(events.ChunkOKEvent(chunk.Checksum))
+					snap.Event(events.ChunkOKEvent(chunk.Checksum))
 
 					hasher.Write(data)
 
 					checksum := snap.repository.Checksum(data)
 					if !bytes.Equal(checksum[:], chunk.Checksum[:]) {
-						snap.Repository().Context().Events().Send(events.ChunkCorruptedEvent(chunk.Checksum))
+						snap.Event(events.ChunkCorruptedEvent(chunk.Checksum))
 						return
 					}
-					snap.Repository().Context().Events().Send(events.ObjectOKEvent(object.Checksum))
+					snap.Event(events.ObjectOKEvent(object.Checksum))
 				}
 			}
 			if !bytes.Equal(hasher.Sum(nil), object.Checksum[:]) {
-				snap.Repository().Context().Events().Send(events.ObjectCorruptedEvent(object.Checksum))
-				snap.Repository().Context().Events().Send(events.FileCorruptedEvent(pathname))
+				snap.Event(events.ObjectCorruptedEvent(object.Checksum))
+				snap.Event(events.FileCorruptedEvent(pathname))
 				return
 			}
-			snap.Repository().Context().Events().Send(events.FileOKEvent(pathname))
+			snap.Event(events.FileOKEvent(pathname))
 		}(fileEntry)
 		return true, nil
 	} else {
@@ -96,8 +96,8 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 }
 
 func (snap *Snapshot) Check(pathname string, opts *CheckOptions) (bool, error) {
-	snap.Repository().Context().Events().Send(events.StartEvent())
-	defer snap.Repository().Context().Events().Send(events.DoneEvent())
+	snap.Event(events.StartEvent())
+	defer snap.Event(events.DoneEvent())
 
 	fs, err := snap.Filesystem()
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarLabs/plakar/events"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/objects"
 	"github.com/PlakarLabs/plakar/packfile"
@@ -353,6 +354,10 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 
 	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.IndexID, snap.Header.GetIndexShortID())
 	return snap, nil
+}
+
+func (snap *Snapshot) Event(evt events.Event) {
+	snap.Repository().Context().Events().Send(evt)
 }
 
 func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Header, bool, error) {

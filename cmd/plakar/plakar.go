@@ -101,6 +101,7 @@ func entryPoint() int {
 	flag.Parse()
 
 	ctx := context.NewContext()
+	defer ctx.Close()
 
 	cacheDir, err := utils.GetCacheDir("plakar")
 	if err != nil {
@@ -193,10 +194,6 @@ func entryPoint() int {
 
 	command, args := flag.Args()[0], flag.Args()[1:]
 
-	//	if command == "agent" {
-	//		return cmd_agent(ctx, args)
-	//	}
-
 	var repositoryPath string
 	if flag.Arg(0) == "on" {
 		if len(flag.Args()) < 2 {
@@ -213,13 +210,6 @@ func entryPoint() int {
 			repositoryPath = filepath.Join(ctx.GetHomeDir(), ".plakar")
 		}
 	}
-
-	/*
-
-		if command == "version" {
-				return subcommands.Version(ctx, args)
-			}
-	*/
 
 	// these commands need to be ran before the repository is opened
 	if command == "create" || command == "version" || command == "stdio" || command == "help" {
@@ -390,6 +380,8 @@ func entryPoint() int {
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
 	}
+
+	ctx.Close()
 
 	if opt_profiling {
 		profiler.Display()

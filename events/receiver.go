@@ -1,28 +1,28 @@
 package events
 
-type EventsReceiver struct {
+type Receiver struct {
 	listeners []chan interface{}
 }
 
-func New() *EventsReceiver {
-	return &EventsReceiver{
+func New() *Receiver {
+	return &Receiver{
 		listeners: make([]chan interface{}, 0),
 	}
 }
 
-func (er *EventsReceiver) Listen() <-chan interface{} {
+func (er *Receiver) Listen() <-chan interface{} {
 	ch := make(chan interface{})
 	er.listeners = append(er.listeners, ch)
 	return ch
 }
 
-func (er *EventsReceiver) Send(event interface{}) {
+func (er *Receiver) Send(event interface{}) {
 	for _, ch := range er.listeners {
 		ch <- event
 	}
 }
 
-func (er *EventsReceiver) Close() {
+func (er *Receiver) Close() {
 	for _, ch := range er.listeners {
 		close(ch)
 	}

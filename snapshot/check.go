@@ -4,75 +4,125 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"sync"
 
-	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/events"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
-func snapshotCheckPath(snapshot *Snapshot, pathname string, fast bool) (bool, error) {
-	fs, err := snapshot.Filesystem()
-	if err != nil {
-		return false, err
-	}
+type CheckOptions struct {
+	MaxConcurrency uint64
+	FastCheck      bool
+}
+
+func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts *CheckOptions, concurency chan bool, wg *sync.WaitGroup) (bool, error) {
+	snap.Event(events.PathEvent(snap.Header.IndexID, pathname))
 	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
+		snap.Event(events.DirectoryMissingEvent(snap.Header.IndexID, pathname))
+
 		return false, err
 	}
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
+		snap.Event(events.DirectoryEvent(snap.Header.IndexID, pathname))
 		complete := true
 		for _, child := range dirEntry.Children {
-			ok, err := snapshotCheckPath(snapshot, filepath.Join(pathname, child.FileInfo.Name()), fast)
+			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.FileInfo.Name()), opts, concurency, wg)
 			if err != nil || !ok {
 				complete = false
 			}
 		}
+		if !complete {
+			snap.Event(events.DirectoryCorruptedEvent(snap.Header.IndexID, pathname))
+		} else {
+			snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, pathname))
+		}
 		return complete, err
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
-		object, err := snapshot.LookupObject(fileEntry.Checksum)
-		if err != nil {
-			return false, fmt.Errorf("missing object for file %s", pathname)
-		}
+		snap.Event(events.FileEvent(snap.Header.IndexID, pathname))
 
-		complete := true
-		hasher := snapshot.repository.Hasher()
-		for _, chunk := range object.Chunks {
-			if fast {
-				exists := snapshot.CheckChunk(chunk.Checksum)
-				if !exists {
-					logger.Warn("%x: missing chunk %x for file %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname)
-					complete = false
-				}
-			} else {
-				exists := snapshot.CheckChunk(chunk.Checksum)
-				if !exists {
-					logger.Warn("%x: missing chunk %x for file %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname)
-					complete = false
-				}
-				data, err := snapshot.GetChunk(chunk.Checksum)
-				if err != nil {
-					logger.Warn("%x: missing chunk %x for file %s: %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname, err)
-					complete = false
-				}
+		concurency <- true
+		wg.Add(1)
+		go func(_fileEntry *vfs.FileEntry) {
+			defer wg.Done()
+			defer func() { <-concurency }()
 
-				hasher.Write(data)
+			object, err := snap.LookupObject(_fileEntry.Checksum)
+			if err != nil {
+				snap.Event(events.ObjectMissingEvent(snap.Header.IndexID, _fileEntry.Checksum))
+				return
+			}
 
-				checksum := snapshot.repository.Checksum(data)
-				if !bytes.Equal(checksum[:], chunk.Checksum[:]) {
-					logger.Warn("%x: corrupted chunk %x for file %s", snapshot.Header.GetIndexShortID(), chunk.Checksum, pathname)
-					complete = false
+			hasher := snap.repository.Hasher()
+			snap.Event(events.ObjectEvent(snap.Header.IndexID, object.Checksum))
+			complete := true
+			for _, chunk := range object.Chunks {
+				snap.Event(events.ChunkEvent(snap.Header.IndexID, chunk.Checksum))
+				if opts.FastCheck {
+					exists := snap.CheckChunk(chunk.Checksum)
+					if !exists {
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
+					}
+					snap.Event(events.ChunkOKEvent(snap.Header.IndexID, chunk.Checksum))
+				} else {
+					exists := snap.CheckChunk(chunk.Checksum)
+					if !exists {
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
+					}
+					data, err := snap.GetChunk(chunk.Checksum)
+					if err != nil {
+						snap.Event(events.ChunkMissingEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
+					}
+					snap.Event(events.ChunkOKEvent(snap.Header.IndexID, chunk.Checksum))
+
+					hasher.Write(data)
+
+					checksum := snap.repository.Checksum(data)
+					if !bytes.Equal(checksum[:], chunk.Checksum[:]) {
+						snap.Event(events.ChunkCorruptedEvent(snap.Header.IndexID, chunk.Checksum))
+						complete = false
+						break
+					}
 				}
 			}
-		}
-		if !bytes.Equal(hasher.Sum(nil), object.Checksum[:]) {
-			logger.Warn("%x: corrupted file %s", snapshot.Header.GetIndexShortID(), pathname)
-			complete = false
-		}
-		return complete, nil
+			if !complete {
+				snap.Event(events.ObjectCorruptedEvent(snap.Header.IndexID, object.Checksum))
+			} else {
+				snap.Event(events.ObjectOKEvent(snap.Header.IndexID, object.Checksum))
+			}
+
+			if !bytes.Equal(hasher.Sum(nil), object.Checksum[:]) {
+				snap.Event(events.ObjectCorruptedEvent(snap.Header.IndexID, object.Checksum))
+				snap.Event(events.FileCorruptedEvent(snap.Header.IndexID, pathname))
+				return
+			}
+			snap.Event(events.FileOKEvent(snap.Header.IndexID, pathname))
+		}(fileEntry)
+		return true, nil
 	} else {
 		return false, fmt.Errorf("unexpected vfs entry type")
 	}
 }
 
-func (snap *Snapshot) Check(pathname string, fast bool) (bool, error) {
-	return snapshotCheckPath(snap, pathname, fast)
+func (snap *Snapshot) Check(pathname string, opts *CheckOptions) (bool, error) {
+	snap.Event(events.StartEvent())
+	defer snap.Event(events.DoneEvent())
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return false, err
+	}
+
+	maxConcurrency := make(chan bool, opts.MaxConcurrency)
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+	defer close(maxConcurrency)
+
+	return snapshotCheckPath(snap, fs, pathname, opts, maxConcurrency, &wg)
 }

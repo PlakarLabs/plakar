@@ -7,10 +7,11 @@ PLAKAR(BACKUP) - BACKUP (1)
 # SYNOPSIS
 
 **plakar backup**
-\[**-max-concurrency**&nbsp;*number*]
+\[**-concurrency**&nbsp;*number*]
 \[**-tag**&nbsp;*tag*]
 \[**-excludes**&nbsp;*file*]
 \[**-exclude**&nbsp;*pattern*]
+\[**-quiet**]
 \[*directory*]
 
 # DESCRIPTION
@@ -19,7 +20,7 @@ The
 **plakar backup**
 command creates a new snapshot of a directory in a Plakar repository, storing it with an optional tag and exclusion patterns. Snapshots can be filtered to exclude specific files or directories based on patterns provided through options.
 
-**-max-concurrency** *number*
+**-concurrency** *number*
 
 > Set the maximum number of parallel tasks for faster processing. Defaults to
 > `8 * CPU count + 1`.
@@ -35,6 +36,8 @@ command creates a new snapshot of a directory in a Plakar repository, storing it
 **-exclude** *pattern*
 
 > Specify individual exclusion patterns to ignore files or directories in the backup. This option can be repeated.
+
+Suppress output to standard input, only logging errors and warnings.
 
 # ARGUMENTS
 

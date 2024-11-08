@@ -1,7 +1,10 @@
 package context
 
+import "github.com/PlakarLabs/plakar/events"
+
 type Context struct {
-	// The name of the context
+	events *events.Receiver
+
 	numCPU      int
 	username    string
 	homeDir     string
@@ -17,7 +20,17 @@ type Context struct {
 }
 
 func NewContext() *Context {
-	return &Context{}
+	return &Context{
+		events: events.New(),
+	}
+}
+
+func (c *Context) Close() {
+	c.events.Close()
+}
+
+func (c *Context) Events() *events.Receiver {
+	return c.events
 }
 
 func (c *Context) SetNumCPU(numCPU int) {

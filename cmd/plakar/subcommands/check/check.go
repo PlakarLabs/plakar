@@ -26,6 +26,7 @@ import (
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarLabs/plakar/snapshot"
 )
 
 func init() {
@@ -33,11 +34,17 @@ func init() {
 }
 
 func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
-	var enableFastCheck bool
+	var opt_concurrency uint64
+	var opt_fastCheck bool
+	var opt_quiet bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
-	flags.BoolVar(&enableFastCheck, "fast", false, "enable fast checking (no checksum verification)")
+	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
+	flags.BoolVar(&opt_fastCheck, "fast", false, "enable fast checking (no checksum verification)")
+	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")
 	flags.Parse(args)
+
+	go eventsProcessorStdio(ctx, opt_quiet)
 
 	var snapshots []string
 	if flags.NArg() == 0 {
@@ -48,6 +55,11 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 		snapshots = flags.Args()
 	}
 
+	opts := &snapshot.CheckOptions{
+		MaxConcurrency: opt_concurrency,
+		FastCheck:      opt_fastCheck,
+	}
+
 	failures := false
 	for _, arg := range snapshots {
 		snapshotPrefix, pathname := utils.ParseSnapshotID(arg)
@@ -55,7 +67,7 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if ok, err := snap.Check(pathname, enableFastCheck); err != nil {
+		if ok, err := snap.Check(pathname, opts); err != nil {
 			logger.Warn("%s", err)
 		} else if !ok {
 			failures = true

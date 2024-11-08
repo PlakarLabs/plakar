@@ -6,7 +6,9 @@
 .Nd Verify data integrity in a Plakar repository or snapshot
 .Sh SYNOPSIS
 .Nm
+.Op Fl concurrency Ar number
 .Op Fl fast
+.Op Fl quiet
 .Op Ar snapshotID ...
 .Sh DESCRIPTION
 The
@@ -16,9 +18,19 @@ command verifies the integrity of data in a Plakar repository. It checks snapsho
 option to bypass checksum calculations for a faster, less thorough integrity check.
 
 .Bl -tag -width Ds
+.It Fl concurrency Ar number
+Set the maximum number of parallel tasks for faster processing. Defaults to
+.Dv 8 * CPU count + 1 .
+
 .It Fl fast
 Enable a faster check that skips checksum verification. This option performs only structural validation without confirming data integrity.
 .El
+
+.It Fl quiet
+Suppress output to standard input, only logging errors and warnings.
+.El
+
+
 
 .Sh ARGUMENTS
 .Bl -tag -width Ds

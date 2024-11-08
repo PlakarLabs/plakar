@@ -7,7 +7,9 @@ PLAKAR(CHECK) - CHECK (1)
 # SYNOPSIS
 
 **plakar check**
+\[**-concurrency**&nbsp;*number*]
 \[**-fast**]
+\[**-quiet**]
 \[*snapshotID&nbsp;...*]
 
 # DESCRIPTION
@@ -18,9 +20,16 @@ command verifies the integrity of data in a Plakar repository. It checks snapsho
 **-fast**
 option to bypass checksum calculations for a faster, less thorough integrity check.
 
+**-concurrency** *number*
+
+> Set the maximum number of parallel tasks for faster processing. Defaults to
+> `8 * CPU count + 1`.
+
 **-fast**
 
 > Enable a faster check that skips checksum verification. This option performs only structural validation without confirming data integrity.
+
+Suppress output to standard input, only logging errors and warnings.
 
 # ARGUMENTS
 

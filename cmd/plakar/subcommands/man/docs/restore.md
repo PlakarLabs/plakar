@@ -7,8 +7,10 @@ PLAKAR(RESTORE) - RESTORE (1)
 # SYNOPSIS
 
 **plakar restore**
+\[**-concurrency**&nbsp;*number*]
 \[**-to**&nbsp;*directory*]
 \[**-rebase**]
+\[**-quiet**]
 *snapshotID&nbsp;...*
 
 # DESCRIPTION
@@ -19,6 +21,11 @@ command is used to restore files and directories from a specified Plakar snapsho
 **-rebase**
 option to remove path prefixes from restored files.
 
+**-concurrency** *number*
+
+> Set the maximum number of parallel tasks for faster processing. Defaults to
+> `8 * CPU count + 1`.
+
 **-to** *directory*
 
 > Specify the base directory to which the files will be restored. If omitted, files are restored to the current working directory.
@@ -28,6 +35,10 @@ option to remove path prefixes from restored files.
 > Strip the original path from each restored file, placing files directly in the specified directory (or the current working directory if
 > **-to**
 > is omitted).
+
+**-quiet**
+
+> Suppress output to standard input, only logging errors and warnings.
 
 # ARGUMENTS
 

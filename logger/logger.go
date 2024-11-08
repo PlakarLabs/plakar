@@ -23,6 +23,7 @@ var mutraceSubsystems sync.Mutex
 var traceSubsystems map[string]bool
 
 var infoLogger *log.Logger
+var warnLogger *log.Logger
 var stderrLogger *log.Logger
 var debugLogger *log.Logger
 var traceLogger *log.Logger
@@ -32,9 +33,10 @@ func init() {
 	infoLogger = log.NewWithOptions(os.Stdout, log.Options{
 		Prefix: "info",
 	})
-	stderrLogger = log.NewWithOptions(os.Stdout, log.Options{
+	warnLogger = log.NewWithOptions(os.Stderr, log.Options{
 		Prefix: "warn",
 	})
+	stderrLogger = log.NewWithOptions(os.Stderr, log.Options{})
 	debugLogger = log.NewWithOptions(os.Stdout, log.Options{
 		Prefix: "debug",
 	})
@@ -47,25 +49,26 @@ func init() {
 }
 
 func Printf(format string, args ...interface{}) {
-	infoChannel <- fmt.Sprintf(format, args...)
+	infoLogger.Print(fmt.Sprintf(format, args...))
+	// infoChannel <- fmt.Sprintf(format, args...)
 }
 
 func Info(format string, args ...interface{}) {
 	if enableInfo {
-		infoChannel <- fmt.Sprintf(format, args...)
+		infoLogger.Print(fmt.Sprintf(format, args...))
 	}
 }
 
 func Warn(format string, args ...interface{}) {
-	stderrChannel <- fmt.Sprintf(format, args...)
+	warnLogger.Print(fmt.Sprintf(format, args...))
 }
 
 func Error(format string, args ...interface{}) {
-	stderrChannel <- fmt.Sprintf(format, args...)
+	stderrLogger.Print(fmt.Sprintf(format, args...))
 }
 
 func Debug(format string, args ...interface{}) {
-	debugChannel <- fmt.Sprintf(format, args...)
+	debugLogger.Print(fmt.Sprintf(format, args...))
 }
 
 func Trace(subsystem string, format string, args ...interface{}) {
@@ -77,14 +80,14 @@ func Trace(subsystem string, format string, args ...interface{}) {
 		}
 		mutraceSubsystems.Unlock()
 		if exists {
-			traceChannel <- fmt.Sprintf(subsystem+": "+format, args...)
+			traceLogger.Print(fmt.Sprintf(subsystem+": "+format, args...))
 		}
 	}
 }
 
 func Profile(format string, args ...interface{}) {
 	if enableProfiling {
-		profileChannel <- fmt.Sprintf(format, args...)
+		profileLogger.Print(fmt.Sprintf(format, args...))
 	}
 }
 
@@ -101,63 +104,4 @@ func EnableTrace(traces string) {
 
 func EnableProfiling() {
 	enableProfiling = true
-}
-
-func Start() func() {
-	infoChannel = make(chan string)
-	stderrChannel = make(chan string)
-	debugChannel = make(chan string)
-	traceChannel = make(chan string)
-	profileChannel = make(chan string)
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		for msg := range infoChannel {
-			infoLogger.Print(msg)
-		}
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		for msg := range stderrChannel {
-			stderrLogger.Print(msg)
-		}
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		for msg := range debugChannel {
-			debugLogger.Print(msg)
-		}
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		for msg := range traceChannel {
-			traceLogger.Print(msg)
-		}
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		for msg := range profileChannel {
-			profileLogger.Print(msg)
-		}
-		wg.Done()
-	}()
-
-	return func() {
-		close(infoChannel)
-		close(stderrChannel)
-		close(debugChannel)
-		close(traceChannel)
-		close(profileChannel)
-		wg.Wait()
-	}
 }

@@ -190,7 +190,7 @@ func entryPoint() int {
 	if opt_profiling {
 		logger.EnableProfiling()
 	}
-	loggerWait := logger.Start()
+	//	loggerWait := logger.Start()
 
 	command, args := flag.Args()[0], flag.Args()[1:]
 
@@ -381,13 +381,11 @@ func entryPoint() int {
 		logger.Warn("could not close repository: %s", err)
 	}
 
-	ctx.Close()
-
 	if opt_profiling {
 		profiler.Display()
 	}
 
-	loggerWait()
+	ctx.Close()
 
 	if opt_time {
 		fmt.Println("time:", t1)

@@ -6,8 +6,10 @@
 .Nd Restore files from a Plakar snapshot
 .Sh SYNOPSIS
 .Nm
+.Op Fl concurrency Ar number
 .Op Fl to Ar directory
 .Op Fl rebase
+.Op Fl quiet
 .Ar snapshotID ...
 .Sh DESCRIPTION
 The
@@ -17,6 +19,10 @@ command is used to restore files and directories from a specified Plakar snapsho
 option to remove path prefixes from restored files.
 
 .Bl -tag -width Ds
+.It Fl concurrency Ar number
+Set the maximum number of parallel tasks for faster processing. Defaults to
+.Dv 8 * CPU count + 1 .
+
 .It Fl to Ar directory
 Specify the base directory to which the files will be restored. If omitted, files are restored to the current working directory.
 
@@ -24,6 +30,9 @@ Specify the base directory to which the files will be restored. If omitted, file
 Strip the original path from each restored file, placing files directly in the specified directory (or the current working directory if
 .Fl to
 is omitted).
+
+.It Fl quiet
+Suppress output to standard input, only logging errors and warnings.
 
 .El
 

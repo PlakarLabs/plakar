@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarLabs/plakar/cmd/plakar/utils"
 	"github.com/PlakarLabs/plakar/context"
 	"github.com/PlakarLabs/plakar/logger"
 	"github.com/PlakarLabs/plakar/repository"
@@ -71,6 +72,12 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 
 	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+
+	dir, err = utils.NormalizePath(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		return 1

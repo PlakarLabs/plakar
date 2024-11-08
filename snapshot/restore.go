@@ -5,23 +5,27 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarLabs/plakar/events"
 	"github.com/PlakarLabs/plakar/snapshot/exporter"
 	"github.com/PlakarLabs/plakar/snapshot/vfs"
 )
 
-func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) error {
+type RestoreOptions struct {
+	MaxConcurrency uint64
+	Rebase         bool
+}
+
+func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *RestoreOptions) error {
+	rebase := opts.Rebase
 
 	hardlinks := make(map[string]string)
 	hardlinksMutex := sync.Mutex{}
 
 	var wg sync.WaitGroup
-	maxDirectoriesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
-	maxFilesConcurrency := make(chan bool, runtime.NumCPU()*8+1)
+	maxConcurrency := make(chan bool, opts.MaxConcurrency)
 
 	dpattern := path.Clean(pattern)
 	fpattern := path.Clean(pattern)
@@ -35,7 +39,7 @@ func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) 
 	/* if pattern is a file, we rebase dpattern to parent */
 	//patternIsFile := false
 
-	fs, err := vfs.NewFilesystem(s.repository, s.Header.Root)
+	fs, err := vfs.NewFilesystem(snap.repository, snap.Header.Root)
 	if err != nil {
 		return err
 	}
@@ -56,11 +60,13 @@ func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) 
 				continue
 			}
 		}
-		maxDirectoriesConcurrency <- true
+		maxConcurrency <- true
 		wg.Add(1)
 		go func(directory string) {
 			defer wg.Done()
-			defer func() { <-maxDirectoriesConcurrency }()
+			defer func() { <-maxConcurrency }()
+
+			snap.Event(events.DirectoryEvent(snap.Header.IndexID, directory))
 
 			var dest string
 
@@ -71,12 +77,13 @@ func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) 
 			} else {
 				dest = filepath.Join(exp.Root(), directory)
 			}
-
-			logger.Trace("snapshot", "snapshot %s: mkdir %s, mode=%s, uid=%d, gid=%d", s.Header.GetIndexShortID(), rel, fi.(*vfs.DirEntry).Permissions.String(), fi.(*vfs.DirEntry).UserID, fi.(*vfs.DirEntry).GroupID)
+			_ = rel
 
 			dest = filepath.FromSlash(dest)
 			if err := exp.CreateDirectory(dest, fi.(*vfs.DirEntry).FileInfo()); err != nil {
-				logger.Warn("failed to create restored directory %s: %s", dest, err)
+				snap.Event(events.DirectoryErrorEvent(snap.Header.IndexID, directory, err.Error()))
+			} else {
+				snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, directory))
 			}
 			directoriesCount++
 		}(directory)
@@ -93,11 +100,13 @@ func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) 
 			}
 		}
 
-		maxFilesConcurrency <- true
+		maxConcurrency <- true
 		wg.Add(1)
 		go func(file string) {
 			defer wg.Done()
-			defer func() { <-maxFilesConcurrency }()
+			defer func() { <-maxConcurrency }()
+
+			snap.Event(events.FileEvent(snap.Header.IndexID, file))
 
 			var dest string
 
@@ -128,16 +137,19 @@ func (s *Snapshot) Restore(exp *exporter.Exporter, rebase bool, pattern string) 
 				}
 			}
 
-			rd, err := s.NewReader(file)
+			rd, err := snap.NewReader(file)
 			if err != nil {
-				logger.Warn("failed to create reader for %s: %s", file, err)
+				snap.Event(events.FileErrorEvent(snap.Header.IndexID, file, err.Error()))
 				return
 			}
 			defer rd.Close()
 
 			if err := exp.StoreFile(dest, fi.(*vfs.FileEntry).FileInfo(), rd); err != nil {
-				logger.Warn("failed to store file %s: %s", dest, err)
+				snap.Event(events.FileErrorEvent(snap.Header.IndexID, file, err.Error()))
+			} else {
+				snap.Event(events.FileOKEvent(snap.Header.IndexID, file))
 			}
+
 			filesSize += uint64(fi.(*vfs.FileEntry).Size)
 			filesCount++
 		}(filename)

@@ -39,6 +39,8 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 	var pullPath string
 	var pullRebase bool
 	var exporterInstance *exporter.Exporter
+	var opt_concurrency uint64
+	var opt_quiet bool
 
 	dir, err := os.Getwd()
 	if err != nil {
@@ -46,9 +48,13 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 	}
 
 	flags := flag.NewFlagSet("restore", flag.ExitOnError)
+	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
+	flags.BoolVar(&opt_quiet, "quiet", false, "do not print progress")
 	flags.Parse(args)
+
+	go eventsProcessorStdio(ctx, opt_quiet)
 
 	if pullPath == "" {
 		exporterInstance, err = exporter.NewExporter(dir)
@@ -62,6 +68,11 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 		}
 	}
 	defer exporterInstance.Close()
+
+	opts := &snapshot.RestoreOptions{
+		MaxConcurrency: opt_concurrency,
+		Rebase:         pullRebase,
+	}
 
 	if flags.NArg() == 0 {
 		metadatas, err := utils.GetHeaders(repo, nil)
@@ -77,7 +88,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 					if err != nil {
 						return 1
 					}
-					snap.Restore(exporterInstance, true, dir)
+					snap.Restore(exporterInstance, dir, opts)
 					return 0
 				}
 			}
@@ -93,7 +104,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 	for offset, snap := range snapshots {
 		_, pattern := utils.ParseSnapshotID(flags.Args()[offset])
-		snap.Restore(exporterInstance, pullRebase, pattern)
+		snap.Restore(exporterInstance, pattern, opts)
 	}
 
 	return 0

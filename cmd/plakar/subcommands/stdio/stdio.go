@@ -19,8 +19,8 @@ package stdio
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/server/plakard"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/server/plakard"
 )
 
 func cmd_stdio(ctx *context.Context, args []string) int {

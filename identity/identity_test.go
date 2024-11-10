@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/PlakarLabs/plakar/encryption/keypair"
+	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/google/uuid"
 )
 

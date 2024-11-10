@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarKorp/plakar/logger"
 )
 
 type profiler struct {

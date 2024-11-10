@@ -21,7 +21,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/storage"
 
 	"github.com/google/uuid"
 )

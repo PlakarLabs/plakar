@@ -33,9 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/snapshot/header"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/snapshot/header"
 	"golang.org/x/mod/semver"
 	"golang.org/x/term"
 	"golang.org/x/tools/blog/atom"

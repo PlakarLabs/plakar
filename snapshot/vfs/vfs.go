@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/repository"
 )
 
 type Filesystem struct {

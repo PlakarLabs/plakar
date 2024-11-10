@@ -19,9 +19,9 @@ package cleanup
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
 )
 
 func init() {

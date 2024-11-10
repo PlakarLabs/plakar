@@ -8,8 +8,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/profiler"
 )
 
 const VERSION = 100

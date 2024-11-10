@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/storage"
 
 	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"

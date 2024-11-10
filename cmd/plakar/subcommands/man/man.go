@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
 	"github.com/charmbracelet/glamour"
 	"github.com/muesli/termenv"
 )

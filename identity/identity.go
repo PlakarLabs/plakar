@@ -3,7 +3,7 @@ package identity
 import (
 	"net/mail"
 
-	"github.com/PlakarLabs/plakar/encryption/keypair"
+	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )

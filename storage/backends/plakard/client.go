@@ -28,8 +28,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/network"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
 	giturls "github.com/whilp/git-urls"
 

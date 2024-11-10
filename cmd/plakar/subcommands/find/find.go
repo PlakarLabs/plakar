@@ -25,11 +25,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/cmd/plakar/utils"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot"
 )
 
 func init() {

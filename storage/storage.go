@@ -30,14 +30,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/PlakarLabs/plakar/chunking"
-	"github.com/PlakarLabs/plakar/compression"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/hashing"
-	"github.com/PlakarLabs/plakar/locking"
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/packfile"
-	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarKorp/plakar/chunking"
+	"github.com/PlakarKorp/plakar/compression"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/hashing"
+	"github.com/PlakarKorp/plakar/locking"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/packfile"
+	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/google/uuid"
 )
 

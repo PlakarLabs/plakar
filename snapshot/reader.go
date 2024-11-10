@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/snapshot/vfs"
+	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
 type Reader struct {

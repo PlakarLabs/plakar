@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/PlakarKorp/plakar/snapshot/importer"
 )
 
 type FSImporter struct {

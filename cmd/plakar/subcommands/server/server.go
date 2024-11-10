@@ -19,12 +19,12 @@ package server
 import (
 	"flag"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/server/httpd"
-	"github.com/PlakarLabs/plakar/server/plakard"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/server/httpd"
+	"github.com/PlakarKorp/plakar/server/plakard"
 )
 
 func init() {

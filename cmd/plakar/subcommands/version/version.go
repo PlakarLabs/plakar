@@ -20,9 +20,9 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
 	"golang.org/x/mod/semver"
 )
 

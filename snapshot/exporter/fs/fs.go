@@ -21,9 +21,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/snapshot/exporter"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/snapshot/exporter"
 )
 
 type FSExporter struct {

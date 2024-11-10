@@ -32,12 +32,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/snapshot"
-	"github.com/PlakarLabs/plakar/snapshot/header"
-	"github.com/PlakarLabs/plakar/snapshot/vfs"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/snapshot/header"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
 

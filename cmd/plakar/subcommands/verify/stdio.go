@@ -1,9 +1,9 @@
 package verify
 
 import (
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/events"
-	"github.com/PlakarLabs/plakar/logger"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/events"
+	"github.com/PlakarKorp/plakar/logger"
 	"github.com/charmbracelet/lipgloss"
 )
 

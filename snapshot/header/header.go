@@ -3,9 +3,9 @@ package header
 import (
 	"time"
 
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/profiler"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/profiler"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

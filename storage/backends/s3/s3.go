@@ -26,9 +26,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/PlakarLabs/plakar/compression"
-	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/compression"
+	"github.com/PlakarKorp/plakar/network"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/minio/minio-go/v7"

@@ -24,11 +24,11 @@ import (
 	"flag"
 	"log"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/plakarfs"
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/plakarfs"
+	"github.com/PlakarKorp/plakar/repository"
 	"github.com/jacobsa/fuse"
 )
 

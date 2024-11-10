@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarLabs/plakar/compression"
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/compression"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

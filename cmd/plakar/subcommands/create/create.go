@@ -22,12 +22,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/cmd/plakar/utils"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/encryption"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/encryption"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/storage"
 )
 
 func init() {

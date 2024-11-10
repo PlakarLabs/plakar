@@ -3,8 +3,8 @@ package subcommands
 import (
 	"fmt"
 
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
 )
 
 var subcommands map[string]func(*context.Context, *repository.Repository, []string) int = make(map[string]func(*context.Context, *repository.Repository, []string) int)

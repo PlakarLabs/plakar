@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/repository"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/network"
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
 )
 

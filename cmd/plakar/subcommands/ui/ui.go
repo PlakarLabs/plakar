@@ -24,10 +24,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/PlakarLabs/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarLabs/plakar/context"
-	"github.com/PlakarLabs/plakar/repository"
-	v1 "github.com/PlakarLabs/plakar/ui/v1"
+	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/repository"
+	v1 "github.com/PlakarKorp/plakar/ui/v1"
 )
 
 func init() {

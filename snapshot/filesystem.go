@@ -1,7 +1,7 @@
 package snapshot
 
 import (
-	"github.com/PlakarLabs/plakar/snapshot/vfs"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
 func (s *Snapshot) Filesystem() (*vfs.Filesystem, error) {

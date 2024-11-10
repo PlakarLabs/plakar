@@ -25,8 +25,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/snapshot/importer"
+	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/iafan/cwalk"
 )
 

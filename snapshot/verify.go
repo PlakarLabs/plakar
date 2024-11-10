@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/PlakarLabs/plakar/events"
-	"github.com/PlakarLabs/plakar/snapshot/vfs"
+	"github.com/PlakarKorp/plakar/events"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
 type CheckOptions struct {

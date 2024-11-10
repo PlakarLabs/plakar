@@ -1,6 +1,6 @@
 package context
 
-import "github.com/PlakarLabs/plakar/events"
+import "github.com/PlakarKorp/plakar/events"
 
 type Context struct {
 	events *events.Receiver

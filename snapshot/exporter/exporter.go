@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarLabs/plakar/logger"
-	"github.com/PlakarLabs/plakar/objects"
-	"github.com/PlakarLabs/plakar/profiler"
+	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/profiler"
 )
 
 type ExporterBackend interface {

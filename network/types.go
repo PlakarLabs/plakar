@@ -3,7 +3,7 @@ package network
 import (
 	"encoding/gob"
 
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
 )
 

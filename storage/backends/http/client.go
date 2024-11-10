@@ -23,8 +23,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/PlakarLabs/plakar/network"
-	"github.com/PlakarLabs/plakar/storage"
+	"github.com/PlakarKorp/plakar/network"
+	"github.com/PlakarKorp/plakar/storage"
 )
 
 type Repository struct {

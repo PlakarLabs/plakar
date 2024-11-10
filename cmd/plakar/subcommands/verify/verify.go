@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package check
+package verify
 
 import (
 	"flag"
@@ -30,15 +30,15 @@ import (
 )
 
 func init() {
-	subcommands.Register("check", cmd_check)
+	subcommands.Register("verify", cmd_verify)
 }
 
-func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
+func cmd_verify(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_concurrency uint64
 	var opt_fastCheck bool
 	var opt_quiet bool
 
-	flags := flag.NewFlagSet("check", flag.ExitOnError)
+	flags := flag.NewFlagSet("verify", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.BoolVar(&opt_fastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")
@@ -67,7 +67,7 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if ok, err := snap.Check(pathname, opts); err != nil {
+		if ok, err := snap.Verify(pathname, opts); err != nil {
 			logger.Warn("%s", err)
 		} else if !ok {
 			failures = true

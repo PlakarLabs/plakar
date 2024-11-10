@@ -329,10 +329,10 @@ func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOp
 
 				switch record := record.(type) {
 				case importer.ScanError:
-					snap.Event(events.PathErrorEvent(snap.Header.IndexID, record.Pathname, record.Err.Error()))
+					snap.Event(events.PathErrorEvent(snap.Header.SnapshotID, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
-					snap.Event(events.PathEvent(snap.Header.IndexID, record.Pathname))
+					snap.Event(events.PathEvent(snap.Header.SnapshotID, record.Pathname))
 					if record.Stat.Mode().IsDir() {
 						if err := sc.RecordPathname(record); err != nil {
 							//return err
@@ -419,7 +419,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				scannerWg.Done()
 			}()
 
-			snap.Event(events.FileEvent(snap.Header.IndexID, _record.Pathname))
+			snap.Event(events.FileEvent(snap.Header.SnapshotID, _record.Pathname))
 
 			var fileEntry *vfs.FileEntry
 			var object *objects.Object
@@ -519,7 +519,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				return
 			}
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
-			snap.Event(events.FileOKEvent(snap.Header.IndexID, record.Pathname))
+			snap.Event(events.FileOKEvent(snap.Header.SnapshotID, record.Pathname))
 		}(_record)
 	}
 	scannerWg.Wait()
@@ -558,7 +558,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		}
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
-		snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, record.Pathname))
+		snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, record.Pathname))
 	}
 
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)

@@ -198,7 +198,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+	if lcache == nil || hex.EncodeToString(lcache.Header.SnapshotID[:]) != id {
 		decodedID, err := hex.DecodeString(id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -317,7 +317,7 @@ func object(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+	if lcache == nil || hex.EncodeToString(lcache.Header.SnapshotID[:]) != id {
 		decodedID, err := hex.DecodeString(id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -433,7 +433,7 @@ func raw(w http.ResponseWriter, r *http.Request) {
 	highlight := r.URL.Query().Get("highlight")
 
 	var snap *snapshot.Snapshot
-	if lcache == nil || hex.EncodeToString(lcache.Header.IndexID[:]) != id {
+	if lcache == nil || hex.EncodeToString(lcache.Header.SnapshotID[:]) != id {
 		decodedID, err := hex.DecodeString(id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -619,7 +619,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 						Snapshot string
 						Date     string
 						Path     string
-					}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), directory})
+					}{hex.EncodeToString(snap.Header.SnapshotID[:]), snap.Header.CreationTime.String(), directory})
 				}
 			}
 		}
@@ -651,7 +651,7 @@ func search_snapshots(w http.ResponseWriter, r *http.Request) {
 					Date     string
 					Mime     string
 					Path     string
-				}{hex.EncodeToString(snap.Header.IndexID[:]), snap.Header.CreationTime.String(), object.ContentType, file})
+				}{hex.EncodeToString(snap.Header.SnapshotID[:]), snap.Header.CreationTime.String(), object.ContentType, file})
 			}
 		}
 	}

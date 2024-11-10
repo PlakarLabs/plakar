@@ -17,7 +17,7 @@ type Blob struct {
 }
 
 type Header struct {
-	IndexID          [32]byte
+	SnapshotID       [32]byte
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
@@ -57,7 +57,7 @@ type Header struct {
 
 func NewHeader(indexID [32]byte) *Header {
 	return &Header{
-		IndexID:      indexID,
+		SnapshotID:   indexID,
 		CreationTime: time.Now(),
 		Version:      storage.VERSION,
 		Hostname:     "",
@@ -108,11 +108,11 @@ func (h *Header) Serialize() ([]byte, error) {
 }
 
 func (h *Header) GetIndexID() [32]byte {
-	return h.IndexID
+	return h.SnapshotID
 }
 
 func (h *Header) GetIndexShortID() []byte {
-	return h.IndexID[:4]
+	return h.SnapshotID[:4]
 }
 
 func (h *Header) GetRoot() [32]byte {

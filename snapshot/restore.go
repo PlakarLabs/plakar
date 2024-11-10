@@ -66,7 +66,7 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 			defer wg.Done()
 			defer func() { <-maxConcurrency }()
 
-			snap.Event(events.DirectoryEvent(snap.Header.IndexID, directory))
+			snap.Event(events.DirectoryEvent(snap.Header.SnapshotID, directory))
 
 			var dest string
 
@@ -81,9 +81,9 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 
 			dest = filepath.FromSlash(dest)
 			if err := exp.CreateDirectory(dest, fi.(*vfs.DirEntry).FileInfo()); err != nil {
-				snap.Event(events.DirectoryErrorEvent(snap.Header.IndexID, directory, err.Error()))
+				snap.Event(events.DirectoryErrorEvent(snap.Header.SnapshotID, directory, err.Error()))
 			} else {
-				snap.Event(events.DirectoryOKEvent(snap.Header.IndexID, directory))
+				snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, directory))
 			}
 			directoriesCount++
 		}(directory)
@@ -106,7 +106,7 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 			defer wg.Done()
 			defer func() { <-maxConcurrency }()
 
-			snap.Event(events.FileEvent(snap.Header.IndexID, file))
+			snap.Event(events.FileEvent(snap.Header.SnapshotID, file))
 
 			var dest string
 
@@ -139,15 +139,15 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 
 			rd, err := snap.NewReader(file)
 			if err != nil {
-				snap.Event(events.FileErrorEvent(snap.Header.IndexID, file, err.Error()))
+				snap.Event(events.FileErrorEvent(snap.Header.SnapshotID, file, err.Error()))
 				return
 			}
 			defer rd.Close()
 
 			if err := exp.StoreFile(dest, fi.(*vfs.FileEntry).FileInfo(), rd); err != nil {
-				snap.Event(events.FileErrorEvent(snap.Header.IndexID, file, err.Error()))
+				snap.Event(events.FileErrorEvent(snap.Header.SnapshotID, file, err.Error()))
 			} else {
-				snap.Event(events.FileOKEvent(snap.Header.IndexID, file))
+				snap.Event(events.FileOKEvent(snap.Header.SnapshotID, file))
 			}
 
 			filesSize += uint64(fi.(*vfs.FileEntry).Size)

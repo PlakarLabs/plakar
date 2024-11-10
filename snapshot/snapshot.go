@@ -229,7 +229,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	snap.stateDelta = state.New()
 	snap.statistics = statistics.New()
 
-	snap.Header.IndexID = repo.Checksum(uuidBytes[:])
+	snap.Header.SnapshotID = repo.Checksum(uuidBytes[:])
 	snap.packerChan = make(chan interface{}, runtime.NumCPU()*2+1)
 	snap.packerChanDone = make(chan bool)
 
@@ -352,7 +352,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 		close(snap.packerChanDone)
 	}()
 
-	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.IndexID, snap.Header.GetIndexShortID())
+	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.SnapshotID, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -818,7 +818,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	if err := snapshot.PutHeader(snapshot.Header.IndexID, serializedHdr); err != nil {
+	if err := snapshot.PutHeader(snapshot.Header.SnapshotID, serializedHdr); err != nil {
 		return err
 	}
 

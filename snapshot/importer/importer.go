@@ -80,6 +80,8 @@ type ScanError struct {
 func (r ScanError) scanResult() {}
 
 type ImporterBackend interface {
+	Origin() string
+	Type() string
 	Root() string
 	Scan() (<-chan ScanResult, error)
 	NewReader(pathname string) (io.ReadCloser, error)
@@ -149,6 +151,26 @@ func NewImporter(location string) (*Importer, error) {
 		}
 		return &Importer{backend: backendInstance}, nil
 	}
+}
+
+func (importer *Importer) Origin() string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.importer.Origin", time.Since(t0))
+		logger.Trace("importer", "importer.Origin(): %s", time.Since(t0))
+	}()
+
+	return importer.backend.Origin()
+}
+
+func (importer *Importer) Type() string {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.importer.Type", time.Since(t0))
+		logger.Trace("importer", "importer.Type(): %s", time.Since(t0))
+	}()
+
+	return importer.backend.Type()
 }
 
 func (importer *Importer) Root() string {

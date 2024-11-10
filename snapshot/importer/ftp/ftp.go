@@ -191,3 +191,11 @@ func (p *FTPImporter) Close() error {
 func (p *FTPImporter) Root() string {
 	return p.rootDir
 }
+
+func (p *FTPImporter) Origin() string {
+	return p.host
+}
+
+func (p *FTPImporter) Type() string {
+	return "ftp"
+}

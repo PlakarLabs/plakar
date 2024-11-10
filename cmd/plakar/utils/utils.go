@@ -422,7 +422,7 @@ func GetCacheDir(appName string) (string, error) {
 	return cacheDir, nil
 }
 
-const VERSION = "v0.4.23-alpha"
+const VERSION = "v0.4.24-alpha"
 
 func GetVersion() string {
 	return VERSION

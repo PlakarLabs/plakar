@@ -163,7 +163,7 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	header := snap.Header
 
 	indexID := header.GetIndexID()
-	fmt.Printf("IndexID: %s\n", hex.EncodeToString(indexID[:]))
+	fmt.Printf("SnapshotID: %s\n", hex.EncodeToString(indexID[:]))
 	fmt.Printf("CreationTime: %s\n", header.CreationTime)
 	fmt.Printf("CreationDuration: %s\n", header.CreationDuration)
 
@@ -178,6 +178,9 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf("OperatingSystem: %s\n", header.OperatingSystem)
 	fmt.Printf("Architecture: %s\n", header.Architecture)
 	fmt.Printf("NumCPU: %d\n", header.NumCPU)
+
+	fmt.Printf("ImporterType: %s\n", header.ImporterType)
+	fmt.Printf("ImporterOrigin: %s\n", header.ImporterOrigin)
 
 	fmt.Printf("MachineID: %s\n", header.MachineID)
 	fmt.Printf("PublicKey: %s\n", header.PublicKey)

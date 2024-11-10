@@ -385,6 +385,9 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	defer imp.Close()
 
+	snap.Header.ImporterOrigin = imp.Origin()
+	snap.Header.ImporterType = imp.Type()
+
 	//t0 := time.Now()
 
 	if !strings.Contains(scanDir, "://") {

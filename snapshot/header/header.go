@@ -34,6 +34,9 @@ type Header struct {
 	Client          string
 	CommandLine     string
 
+	ImporterType   string
+	ImporterOrigin string
+
 	ScanSize          uint64
 	ScanProcessedSize uint64
 

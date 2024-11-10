@@ -37,6 +37,7 @@ type S3Importer struct {
 
 	minioClient *minio.Client
 	rootDir     string
+	host        string
 }
 
 func init() {
@@ -70,6 +71,7 @@ func NewS3Importer(location string) (importer.ImporterBackend, error) {
 	return &S3Importer{
 		rootDir:     parsed.RequestURI()[1:],
 		minioClient: conn,
+		host:        parsed.Host,
 	}, nil
 }
 
@@ -174,4 +176,12 @@ func (p *S3Importer) Close() error {
 
 func (p *S3Importer) Root() string {
 	return p.rootDir
+}
+
+func (p *S3Importer) Origin() string {
+	return p.host
+}
+
+func (p *S3Importer) Type() string {
+	return "s3"
 }

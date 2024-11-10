@@ -42,6 +42,18 @@ func NewFSImporter(location string) (importer.ImporterBackend, error) {
 	}, nil
 }
 
+func (p *FSImporter) Origin() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "localhost"
+	}
+	return hostname
+}
+
+func (p *FSImporter) Type() string {
+	return "fs"
+}
+
 func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 	return walkDir_walker(p.rootDir, 256)
 	//return cwalk_walker(p.rootDir, 256)

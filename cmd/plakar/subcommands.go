@@ -4,7 +4,6 @@ import (
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/archive"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/backup"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/cat"
-	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/check"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/checksum"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/cleanup"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/clone"
@@ -22,5 +21,6 @@ import (
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/stdio"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/sync"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/ui"
+	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/verify"
 	_ "github.com/PlakarLabs/plakar/cmd/plakar/subcommands/version"
 )

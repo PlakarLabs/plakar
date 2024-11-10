@@ -1,4 +1,4 @@
-package check
+package verify
 
 import (
 	"github.com/PlakarLabs/plakar/context"

@@ -110,7 +110,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 	}
 }
 
-func (snap *Snapshot) Check(pathname string, opts *CheckOptions) (bool, error) {
+func (snap *Snapshot) Verify(pathname string, opts *CheckOptions) (bool, error) {
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 

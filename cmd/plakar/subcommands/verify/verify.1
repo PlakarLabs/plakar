@@ -1,8 +1,8 @@
 .Dd November 3, 2024
-.Dt PLAKAR CHECK 1
+.Dt PLAKAR VERIFY 1
 .Os
 .Sh NAME
-.Nm plakar check
+.Nm plakar verify
 .Nd Verify data integrity in a Plakar repository or snapshot
 .Sh SYNOPSIS
 .Nm
@@ -44,12 +44,12 @@ To illustrate usage:
 .Bl -tag -width Ds
 .It Perform a full integrity check on all snapshots:
 .Bd -literal -offset indent
-plakar check
+plakar verify
 .Ed
 
 .It Perform a fast check on a specific snapshot:
 .Bd -literal -offset indent
-plakar check -fast abc123
+plakar verify -fast abc123
 .Ed
 .El
 

@@ -20,11 +20,13 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
+	"io/fs"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/PlakarKorp/plakar/api"
 	"github.com/PlakarKorp/plakar/repository"
@@ -35,51 +37,38 @@ import (
 var content embed.FS
 
 func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
-
 	r := api.NewRouter(repo)
 
-	r.PathPrefix("/static/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Strip the "/static/" prefix from the request path
-		httpPath := r.URL.Path
-
-		// Read the file from the embedded content
-		data, err := content.ReadFile("frontend" + httpPath)
-		if err != nil {
-			http.Error(w, "File not found", http.StatusNotFound)
-			return
-		}
-
-		// Determine the content type based on the file extension
-		contentType := ""
-		switch {
-		case strings.HasSuffix(httpPath, ".css"):
-			contentType = "text/css"
-		case strings.HasSuffix(httpPath, ".js"):
-			contentType = "application/javascript"
-		case strings.HasSuffix(httpPath, ".png"):
-			contentType = "image/png"
-		case strings.HasSuffix(httpPath, ".jpg"), strings.HasSuffix(httpPath, ".jpeg"):
-			contentType = "image/jpeg"
-			// Add more content types as needed
-		}
-
-		// Set the content type header
-		if contentType != "" {
-			w.Header().Set("Content-Type", contentType)
-		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
-	})
-
+	// Serve files from the ./frontend directory
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		data, err := content.ReadFile("frontend/index.html")
-		if err != nil {
-			http.Error(w, "App not found", http.StatusNotFound)
+		// Join internally call path.Clean to prevent directory traversal
+		path := filepath.Join("frontend", r.URL.Path)
+
+		_, err := content.Open(path)
+		if os.IsNotExist(err) {
+			// File does not exist, serve index.html
+			index, err := content.ReadFile(filepath.Join("frontend", "index.html"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write(index)
+			return
+		} else if err != nil {
+			// If we got an error (that wasn't that the file doesn't exist) stating the
+			// file, return a 500 internal server error and stop
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		w.Write(data)
+
+		statics, err := fs.Sub(content, "frontend")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.FileServer(http.FS(statics)).ServeHTTP(w, r)
 	})
 
 	var url string

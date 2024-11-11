@@ -19,6 +19,10 @@ func eventsProcessorStdio(ctx *context.Context, quiet bool) chan struct{} {
 			switch event := event.(type) {
 			case events.PathError:
 				logger.Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
+
+			case events.FileError:
+				logger.Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
+
 			case events.DirectoryOK:
 				if !quiet {
 					logger.Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)

@@ -60,6 +60,7 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 				continue
 			}
 		}
+
 		maxConcurrency <- true
 		wg.Add(1)
 		go func(directory string) {
@@ -155,5 +156,6 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, pattern string, opts *Rest
 		}(filename)
 	}
 	wg.Wait()
+
 	return nil
 }

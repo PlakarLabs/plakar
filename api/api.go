@@ -1,0 +1,35 @@
+package api
+
+import (
+	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/storage"
+	"github.com/gorilla/mux"
+)
+
+var lstore *storage.Store
+var lrepository *repository.Repository
+
+/* Repository  API */
+/*
+ */
+
+func NewRouter(repo *repository.Repository) *mux.Router {
+	lstore = repo.Store()
+	lrepository = repo
+
+	r := mux.NewRouter()
+
+	r.HandleFunc("/api/storage/configuration", storageConfiguration).Methods("GET")
+	r.HandleFunc("/api/storage/states", storageStates).Methods("GET")
+	r.HandleFunc("/api/storage/state/{state}", storageState).Methods("GET")
+	r.HandleFunc("/api/storage/packfiles", storagePackfiles).Methods("GET")
+	r.HandleFunc("/api/storage/packfile/{packfile}", storagePackfile).Methods("GET")
+
+	r.HandleFunc("/api/repository/configuration", repositoryConfiguration).Methods("GET")
+	r.HandleFunc("/api/repository/states", repositoryStates).Methods("GET")
+	r.HandleFunc("/api/repository/state/{state}", repositoryState).Methods("GET")
+	r.HandleFunc("/api/repository/packfiles", repositoryPackfiles).Methods("GET")
+	r.HandleFunc("/api/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
+
+	return r
+}

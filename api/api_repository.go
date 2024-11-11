@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,6 +26,18 @@ func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(configuration)
 }
 
+func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	_ = vars
+
+	snapshots, err := lrepository.GetSnapshots()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(snapshots)
+}
+
 func repositoryStates(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	_ = vars
@@ -36,12 +47,7 @@ func repositoryStates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var checksums []string
-	for _, state := range states {
-		checksums = append(checksums, fmt.Sprintf("%x", state))
-	}
-	json.NewEncoder(w).Encode(checksums)
+	json.NewEncoder(w).Encode(states)
 }
 
 func repositoryState(w http.ResponseWriter, r *http.Request) {
@@ -79,12 +85,7 @@ func repositoryPackfiles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var checksums []string
-	for _, state := range packfiles {
-		checksums = append(checksums, fmt.Sprintf("%x", state))
-	}
-	json.NewEncoder(w).Encode(checksums)
+	json.NewEncoder(w).Encode(packfiles)
 }
 
 func repositoryPackfile(w http.ResponseWriter, r *http.Request) {

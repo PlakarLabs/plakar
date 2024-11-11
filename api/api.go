@@ -26,10 +26,12 @@ func NewRouter(repo *repository.Repository) *mux.Router {
 	r.HandleFunc("/api/storage/packfile/{packfile}", storagePackfile).Methods("GET")
 
 	r.HandleFunc("/api/repository/configuration", repositoryConfiguration).Methods("GET")
+	r.HandleFunc("/api/repository/snapshots", repositorySnapshots).Methods("GET")
 	r.HandleFunc("/api/repository/states", repositoryStates).Methods("GET")
 	r.HandleFunc("/api/repository/state/{state}", repositoryState).Methods("GET")
 	r.HandleFunc("/api/repository/packfiles", repositoryPackfiles).Methods("GET")
 	r.HandleFunc("/api/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
 
+	r.HandleFunc("/api/snapshot/{snapshot}", snapshotHeader).Methods("GET")
 	return r
 }

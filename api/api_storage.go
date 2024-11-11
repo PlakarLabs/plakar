@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -35,12 +34,7 @@ func storageStates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var checksums []string
-	for _, state := range states {
-		checksums = append(checksums, fmt.Sprintf("%x", state))
-	}
-	json.NewEncoder(w).Encode(checksums)
+	json.NewEncoder(w).Encode(states)
 }
 
 func storageState(w http.ResponseWriter, r *http.Request) {
@@ -78,12 +72,7 @@ func storagePackfiles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var checksums []string
-	for _, state := range packfiles {
-		checksums = append(checksums, fmt.Sprintf("%x", state))
-	}
-	json.NewEncoder(w).Encode(checksums)
+	json.NewEncoder(w).Encode(packfiles)
 }
 
 func storagePackfile(w http.ResponseWriter, r *http.Request) {

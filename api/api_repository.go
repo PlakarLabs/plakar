@@ -5,21 +5,13 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 
+	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/snapshot/header"
 	"github.com/gorilla/mux"
 )
-
-/* repository API */
-/*
-	GetStates() ([][32]byte, error)
-//	GetState(checksum [32]byte) (io.Reader, uint64, error)
-	GetState(checksum [32]byte) ([]byte, uint64, error)
-
-	GetPackfiles() ([][32]byte, error)
-	GetPackfile(checksum [32]byte) (io.Reader, uint64, error)
-	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error)
-*/
 
 func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
 	configuration := lrepository.Configuration()
@@ -30,12 +22,31 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	_ = vars
 
-	snapshots, err := lrepository.GetSnapshots()
+	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(snapshots)
+
+	headers := make([]header.Header, 0, len(snapshotIDs))
+	for _, snapshotID := range snapshotIDs {
+		snap, err := snapshot.Load(lrepository, snapshotID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		headers = append(headers, *snap.Header)
+	}
+
+	sort.Slice(headers, func(i, j int) bool {
+		return headers[i].CreationTime.Before(headers[j].CreationTime)
+	})
+
+	err = json.NewEncoder(w).Encode(headers)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func repositoryStates(w http.ResponseWriter, r *http.Request) {

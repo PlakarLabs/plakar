@@ -26,13 +26,14 @@ import (
 
 	"github.com/PlakarKorp/plakar/api"
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/gorilla/handlers"
 )
 
 func raw(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello world !\n")
 }
 
-func Ui(repo *repository.Repository, addr string, spawn bool) error {
+func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 
 	r := api.NewRouter(repo)
 	r.HandleFunc("/", raw)
@@ -67,5 +68,8 @@ func Ui(repo *repository.Repository, addr string, spawn bool) error {
 		}
 	}
 
+	if cors {
+		return http.ListenAndServe(addr, handlers.CORS()(r))
+	}
 	return http.ListenAndServe(addr, r)
 }

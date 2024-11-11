@@ -34,10 +34,6 @@ import (
 //go:embed frontend/*
 var content embed.FS
 
-func root(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello world !\n")
-}
-
 func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 
 	r := api.NewRouter(repo)
@@ -85,8 +81,6 @@ func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 		w.WriteHeader(http.StatusOK)
 		w.Write(data)
 	})
-
-	r.HandleFunc("/", root)
 
 	var url string
 	if addr != "" {

@@ -9,10 +9,6 @@ import (
 var lstore *storage.Store
 var lrepository *repository.Repository
 
-/* Repository  API */
-/*
- */
-
 func NewRouter(repo *repository.Repository) *mux.Router {
 	lstore = repo.Store()
 	lrepository = repo
@@ -33,5 +29,6 @@ func NewRouter(repo *repository.Repository) *mux.Router {
 	r.HandleFunc("/api/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
 
 	r.HandleFunc("/api/snapshot/{snapshot}", snapshotHeader).Methods("GET")
+
 	return r
 }

@@ -296,15 +296,15 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, func(), error) {
-	imp, err := importer.NewImporter(scanDir)
-	if err != nil {
-		return nil, nil, err
-	}
+func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir string, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
+	//imp, err := importer.NewImporter(scanDir)
+	//if err != nil {
+	//		return nil, nil, err
+	//	}
 
 	scanner, err := imp.Scan()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	mu := sync.Mutex{}
@@ -359,7 +359,7 @@ func (snap *Snapshot) importerJob(sc *scanCache, scanDir string, options *PushOp
 		snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
 	}()
 
-	return filesChannel, func() { imp.Close() }, nil
+	return filesChannel, nil
 }
 
 func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
@@ -404,11 +404,10 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 
 	/* importer */
-	filesChannel, closeImporter, err := snap.importerJob(sc, scanDir, options, maxConcurrency)
+	filesChannel, err := snap.importerJob(imp, sc, scanDir, options, maxConcurrency)
 	if err != nil {
 		return err
 	}
-	defer closeImporter()
 
 	/* scanner */
 	scannerWg := sync.WaitGroup{}

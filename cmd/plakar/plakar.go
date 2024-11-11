@@ -218,6 +218,7 @@ func entryPoint() int {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 			return retval
 		}
+		return retval
 	}
 
 	// special case, server skips passphrase as it only serves storage layer

@@ -74,6 +74,11 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	if rd.GetContentType() != "" {
+		w.Header().Set("Content-Type", rd.GetContentType())
+	}
+
 	_, err = io.Copy(w, rd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -118,6 +123,5 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	json.NewEncoder(w).Encode(fsinfo)
 }

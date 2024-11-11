@@ -22,9 +22,9 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -49,17 +49,10 @@ func connectToFTP(host, username, password string) (*goftp.Client, error) {
 		Password: password,
 		Timeout:  10 * time.Second,
 	}
-	client, err := goftp.DialConfig(config, host)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
+	return goftp.DialConfig(config, host)
 }
 
 func NewFTPImporter(location string) (importer.ImporterBackend, error) {
-
-	//username := ""
-	//password := ""
 
 	parsed, err := url.Parse(location)
 	if err != nil {
@@ -80,6 +73,124 @@ func NewFTPImporter(location string) (importer.ImporterBackend, error) {
 	}, nil
 }
 
+func (p *FTPImporter) ftpWalker_worker(jobs <-chan string, results chan<- importer.ScanResult, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for path := range jobs {
+		info, err := p.client.Stat(path)
+		if err != nil {
+			results <- importer.ScanError{Pathname: path, Err: err}
+			continue
+		}
+
+		// Use fs.DirEntry.Type() to avoid another stat call when possible
+		var recordType importer.RecordType
+		switch mode := info.Mode(); {
+		case mode.IsRegular():
+			recordType = importer.RecordTypeFile
+		case mode.IsDir():
+			recordType = importer.RecordTypeDirectory
+		case mode&os.ModeSymlink != 0:
+			recordType = importer.RecordTypeSymlink
+		case mode&os.ModeDevice != 0:
+			recordType = importer.RecordTypeDevice
+		case mode&os.ModeNamedPipe != 0:
+			recordType = importer.RecordTypePipe
+		case mode&os.ModeSocket != 0:
+			recordType = importer.RecordTypeSocket
+		default:
+			recordType = importer.RecordTypeFile // Default to file if type is unknown
+		}
+		fileinfo := objects.FileInfoFromStat(info)
+
+		if fileinfo.Mode().IsDir() {
+			entries, err := p.client.ReadDir(path)
+			if err != nil {
+				results <- importer.ScanError{Pathname: path, Err: err}
+				continue
+			}
+
+			var children []objects.FileInfo
+			prefix := p.rootDir
+			for _, child := range entries {
+				fullpath := filepath.Join(path, child.Name())
+				if !child.IsDir() {
+					if !strings.HasPrefix(fullpath, prefix) {
+						continue
+					}
+				} else {
+					if len(fullpath) < len(prefix) {
+						if !strings.HasPrefix(prefix, fullpath) {
+							continue
+						}
+					} else {
+						if !strings.HasPrefix(fullpath, prefix) {
+							continue
+						}
+					}
+				}
+				children = append(children, objects.FileInfoFromStat(child))
+			}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, Children: children}
+		} else {
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo}
+		}
+
+		// Handle symlinks separately
+		if fileinfo.Mode()&os.ModeSymlink != 0 {
+			originFile, err := os.Readlink(path)
+			if err != nil {
+				results <- importer.ScanError{Pathname: path, Err: err}
+				continue
+			}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: fileinfo}
+		}
+	}
+}
+
+func (p *FTPImporter) ftpWalker_addPrefixDirectories(jobs chan<- string, results chan<- importer.ScanResult) {
+	directory := filepath.Clean(p.rootDir)
+	atoms := strings.Split(directory, string(os.PathSeparator))
+
+	for i := 0; i < len(atoms); i++ {
+		path := filepath.Join(atoms[0 : i+1]...)
+
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+
+		if _, err := p.client.Stat(path); err != nil {
+			results <- importer.ScanError{Pathname: path, Err: err}
+			continue
+		}
+
+		jobs <- path
+	}
+}
+
+func (p *FTPImporter) walkDir(root string, results chan<- string, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	entries, err := p.client.ReadDir(root)
+	if err != nil {
+		log.Printf("Error reading directory %s: %v", root, err)
+		return
+	}
+
+	for _, entry := range entries {
+		entryPath := filepath.Join(root, entry.Name())
+
+		// Send the current entry to the results channel
+		results <- entryPath
+
+		// If the entry is a directory, traverse it recursively
+		if entry.IsDir() {
+			wg.Add(1)
+			go p.walkDir(entryPath, results, wg)
+		}
+	}
+}
+
 func (p *FTPImporter) Scan() (<-chan importer.ScanResult, error) {
 	client, err := connectToFTP(p.host, "", "")
 	if err != nil {
@@ -87,83 +198,30 @@ func (p *FTPImporter) Scan() (<-chan importer.ScanResult, error) {
 		return nil, err
 	}
 	p.client = client
-	c := make(chan importer.ScanResult)
+
+	results := make(chan importer.ScanResult, 1000) // Larger buffer for results
+	jobs := make(chan string, 1000)                 // Buffered channel to feed paths to workers
+	var wg sync.WaitGroup
+	numWorkers := 256
+
+	for w := 1; w <= numWorkers; w++ {
+		wg.Add(1)
+		go p.ftpWalker_worker(jobs, results, &wg)
+	}
 
 	go func() {
-		defer close(c)
-
-		dirInfo := objects.NewFileInfo(
-			"/", 0, 0700|os.ModeDir, time.Now(), 0, 0, 0, 0, 1,
-		)
-		c <- importer.ScanRecord{Pathname: "/", Stat: dirInfo}
-
-		err := p.createParentNodes(p.rootDir, c)
-		if err != nil {
-			log.Printf("Error creating parent nodes: %v", err)
-		}
-
-		err = p.scanDirectory(p.rootDir, c)
-		if err != nil {
-			log.Printf("Error scanning FTP server: %v", err)
-		}
+		defer close(jobs)
+		p.ftpWalker_addPrefixDirectories(jobs, results)
+		wg.Add(1)
+		p.walkDir(p.rootDir, jobs, &wg)
 	}()
 
-	return c, nil
-}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 
-func (p *FTPImporter) createParentNodes(dirPath string, c chan importer.ScanResult) error {
-	// Split the root directory into individual parts and create each directory node
-	parts := strings.Split(dirPath, "/")
-
-	// Reconstruct the path step-by-step, skipping empty parts
-	currentPath := "/"
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		currentPath = path.Join(currentPath, part)
-
-		// Create a directory node for the current path
-		dirInfo := objects.NewFileInfo(
-			part,
-			0,
-			0700|os.ModeDir,
-			time.Now(),
-			0,
-			0,
-			0,
-			0,
-			1,
-		)
-		c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: currentPath, Stat: dirInfo}
-	}
-
-	return nil
-}
-
-func (p *FTPImporter) scanDirectory(dirPath string, c chan importer.ScanResult) error {
-	entries, err := p.client.ReadDir(dirPath)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		entryPath := filepath.Join(dirPath, entry.Name())
-		fileInfo := objects.NewFileInfo(entry.Name(), entry.Size(), entry.Mode(), entry.ModTime(), 0, 0, 0, 0, 1)
-
-		if entry.IsDir() {
-			// Directory: Scan it recursively
-			c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: entryPath, Stat: fileInfo}
-			err := p.scanDirectory(entryPath, c)
-			if err != nil {
-				return err
-			}
-		} else {
-			// File: Send file information
-			c <- importer.ScanRecord{Type: importer.RecordTypeFile, Pathname: entryPath, Stat: fileInfo}
-		}
-	}
-	return nil
+	return results, nil
 }
 
 func (p *FTPImporter) NewReader(pathname string) (io.ReadCloser, error) {

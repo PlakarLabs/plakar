@@ -17,26 +17,76 @@
 package v2
 
 import (
+	"embed"
 	_ "embed"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/PlakarKorp/plakar/api"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/gorilla/handlers"
 )
 
-func raw(w http.ResponseWriter, r *http.Request) {
+//go:embed frontend/*
+var content embed.FS
+
+func root(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello world !\n")
 }
 
 func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 
 	r := api.NewRouter(repo)
-	r.HandleFunc("/", raw)
+
+	r.PathPrefix("/static/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Strip the "/static/" prefix from the request path
+		httpPath := r.URL.Path
+
+		// Read the file from the embedded content
+		data, err := content.ReadFile("frontend" + httpPath)
+		if err != nil {
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+
+		// Determine the content type based on the file extension
+		contentType := ""
+		switch {
+		case strings.HasSuffix(httpPath, ".css"):
+			contentType = "text/css"
+		case strings.HasSuffix(httpPath, ".js"):
+			contentType = "application/javascript"
+		case strings.HasSuffix(httpPath, ".png"):
+			contentType = "image/png"
+		case strings.HasSuffix(httpPath, ".jpg"), strings.HasSuffix(httpPath, ".jpeg"):
+			contentType = "image/jpeg"
+			// Add more content types as needed
+		}
+
+		// Set the content type header
+		if contentType != "" {
+			w.Header().Set("Content-Type", contentType)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	})
+
+	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, err := content.ReadFile("frontend/index.html")
+		if err != nil {
+			http.Error(w, "App not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	})
+
+	r.HandleFunc("/", root)
 
 	var url string
 	if addr != "" {

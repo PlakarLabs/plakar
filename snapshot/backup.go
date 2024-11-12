@@ -117,16 +117,17 @@ func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error
 	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
 }
 
-func (cache *scanCache) RecordCardinality(pathname string, files uint64, dirs uint64) error {
+func (cache *scanCache) RecordAggregates(pathname string, files uint64, dirs uint64, size uint64) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
-	buffer := bytes.NewBuffer(make([]byte, 0, 16))
+	buffer := bytes.NewBuffer(make([]byte, 0, 24))
 	binary.Write(buffer, binary.LittleEndian, files)
 	binary.Write(buffer, binary.LittleEndian, dirs)
-	return cache.db.Put([]byte(fmt.Sprintf("__cardinality__:%s", pathname)), buffer.Bytes(), nil)
+	binary.Write(buffer, binary.LittleEndian, size)
+	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer.Bytes(), nil)
 }
 
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
@@ -144,22 +145,24 @@ func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	return ret, nil
 }
 
-func (cache *scanCache) GetCardinality(pathname string) (uint64, uint64, error) {
-	data, err := cache.db.Get([]byte(fmt.Sprintf("__cardinality__:%s", pathname)), nil)
+func (cache *scanCache) GetAggregate(pathname string) (uint64, uint64, uint64, error) {
+	data, err := cache.db.Get([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), nil)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 
-	if len(data) != 16 {
-		return 0, 0, fmt.Errorf("invalid cardinality length: %d", len(data))
+	if len(data) != 24 {
+		return 0, 0, 0, fmt.Errorf("invalid aggregate length: %d", len(data))
 	}
 
 	buffer := bytes.NewReader(data)
 	var files uint64
 	var dirs uint64
+	var size uint64
 	binary.Read(buffer, binary.LittleEndian, &files)
 	binary.Read(buffer, binary.LittleEndian, &dirs)
-	return files, dirs, nil
+	binary.Read(buffer, binary.LittleEndian, &size)
+	return files, dirs, size, nil
 }
 
 func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
@@ -573,16 +576,18 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			}
 
 			if child.IsDir() {
-				dirEntry.DirCardinality++
+				dirEntry.AggregateDirs++
 
-				files, dirs, err := sc.GetCardinality(childpath)
+				files, dirs, size, err := sc.GetAggregate(childpath)
 				if err != nil {
 					continue
 				}
-				dirEntry.FileCardinality += files
-				dirEntry.DirCardinality += dirs
+				dirEntry.AggregateFiles += files
+				dirEntry.AggregateDirs += dirs
+				dirEntry.AggregateSize += size
 			} else {
-				dirEntry.FileCardinality++
+				dirEntry.AggregateFiles++
+				dirEntry.AggregateSize += uint64(child.Size())
 			}
 			dirEntry.AddChild(value, child)
 		}
@@ -604,7 +609,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if err != nil {
 			return err
 		}
-		err = sc.RecordCardinality(record.Pathname, dirEntry.FileCardinality, dirEntry.DirCardinality)
+		err = sc.RecordAggregates(record.Pathname, dirEntry.AggregateFiles, dirEntry.AggregateDirs, dirEntry.AggregateSize)
 		if err != nil {
 			return err
 		}

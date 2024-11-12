@@ -195,8 +195,9 @@ type DirEntry struct {
 	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
-	FileCardinality    uint64              `msgpack:"fileCardinality,omitempty"`    // Number of files in the directory
-	DirCardinality     uint64              `msgpack:"dirCardinality,omitempty"`     // Number of subdirectories in the directory
+	AggregateFiles     uint64              `msgpack:"aggregateFiles,omitempty"`     // Total number of files in the directory
+	AggregateDirs      uint64              `msgpack:"aggregateDirs,omitempty"`      // Total number of subdirectories in the directory
+	AggregateSize      uint64              `msgpack:"aggregateSize,omitempty"`      // Total size of all files in the directory
 }
 
 func (*DirEntry) fsEntry() {}

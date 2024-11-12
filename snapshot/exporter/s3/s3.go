@@ -80,16 +80,20 @@ func (p *S3Exporter) Root() string {
 	return p.rootDir
 }
 
-func (p *S3Exporter) CreateDirectory(pathname string, fileinfo *objects.FileInfo) error {
+func (p *S3Exporter) CreateDirectory(pathname string) error {
 	return nil
 }
 
-func (p *S3Exporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error {
+func (p *S3Exporter) StoreFile(pathname string, fp io.Reader) error {
 	_, err := p.minioClient.PutObject(context.Background(),
 		strings.TrimPrefix(p.rootDir, "/"),
 		strings.TrimPrefix(pathname, p.rootDir+"/"),
 		fp, -1, minio.PutObjectOptions{})
 	return err
+}
+
+func (p *S3Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
+	return nil
 }
 
 func (p *S3Exporter) Close() error {

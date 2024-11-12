@@ -1,4 +1,4 @@
-PLAKAR(VERSION) - VERSION (1)
+PLAKAR-VERSION(1) - General Commands Manual
 
 # NAME
 
@@ -12,7 +12,9 @@ PLAKAR(VERSION) - VERSION (1)
 
 The
 **plakar version**
-command is used to display the current version of the Plakar software. This command retrieves and outputs the version string, formatted according to semantic versioning.
+command is used to display the current version of the Plakar software.
+This command retrieves and outputs the version string, formatted
+according to semantic versioning.
 
 # OPTIONS
 
@@ -24,11 +26,9 @@ None.
 
 # EXAMPLES
 
-To illustrate usage:
-
 Basic example:
 
-> > plakar version
+	plakar version
 
 # DIAGNOSTICS
 
@@ -46,4 +46,4 @@ The **plakar version** utility exits&#160;0 on success, and&#160;&gt;0 if an err
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

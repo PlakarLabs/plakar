@@ -741,7 +741,7 @@ func Ui(repo *repository.Repository, addr string, spawn bool) error {
 		addr = fmt.Sprintf("localhost:%d", port)
 		url = fmt.Sprintf("http://%s", addr)
 	}
-	fmt.Println("lauching browser UI pointing at", url)
+	fmt.Println("launching browser UI pointing at", url)
 	if spawn {
 		switch runtime.GOOS {
 		case "windows":

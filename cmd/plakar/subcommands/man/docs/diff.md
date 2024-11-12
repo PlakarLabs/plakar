@@ -1,4 +1,4 @@
-PLAKAR(DIFF) - DIFF (1)
+PLAKAR-DIFF(1) - General Commands Manual
 
 # NAME
 
@@ -8,14 +8,21 @@ PLAKAR(DIFF) - DIFF (1)
 
 **plakar diff**
 \[**-highlight**]
-*snapshotID1*&nbsp;*snapshotID2*
-\[*filepath1*&nbsp;*filepath2*]
+*snapshotID1*\[:*path1*]
+*snapshotID2*\[:*path2*]
 
 # DESCRIPTION
 
 The
 **plakar diff**
-command compares two Plakar snapshots or specific files within snapshots. If only snapshot IDs are provided, it compares the root directories of each snapshot. If file paths are specified, the command compares the individual files. The diff output is shown in unified diff format, with an option to highlight differences.
+command compares two Plakar snapshots or specific files within
+snapshots.
+If only snapshot IDs are provided, it compares the root directories of
+each snapshot.
+If file paths are specified, the command compares the individual
+files.
+The diff output is shown in unified diff format, with an option to
+highlight differences.
 
 **-highlight**
 
@@ -23,25 +30,21 @@ command compares two Plakar snapshots or specific files within snapshots. If onl
 
 # ARGUMENTS
 
-*snapshotID1 snapshotID2*
+*snapshotID1*\[:*path1*] *snapshotID2*\[:*path2*]
 
-> The IDs of the two snapshots to compare.
-
-*filepath1 filepath2*
-
-> (Optional) Paths to specific files or directories within the snapshots to compare. If omitted, the root directories are compared.
+> The IDs of the two snapshots to compare, optionally specifying the
+> files or directories within the snapshots to compare.
+> If omitted, the root directories are compared.
 
 # EXAMPLES
 
-To illustrate usage:
-
 Compare root directories of two snapshots:
 
-> > plakar diff abc123 def456
+	plakar diff abc123 def456
 
 Compare two specific files across snapshots with highlighting:
 
-> > plakar diff -highlight abc123:path/to/file.txt def456:path/to/file.txt
+	plakar diff -highlight abc123:path/to/file.txt def456:path/to/file.txt
 
 # DIAGNOSTICS
 
@@ -53,10 +56,11 @@ The **plakar diff** utility exits&#160;0 on success, and&#160;&gt;0 if an error 
 
 &gt;0
 
-> An error occurred, such as invalid snapshot IDs, missing files, or an unsupported file type.
+> An error occurred, such as invalid snapshot IDs, missing files, or an
+> unsupported file type.
 
 # SEE ALSO
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

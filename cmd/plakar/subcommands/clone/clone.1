@@ -1,40 +1,35 @@
-.Dd November 3, 2024
-.Dt PLAKAR CLONE 1
+.Dd November 12, 2024
+.Dt PLAKAR-CLONE 1
 .Os
 .Sh NAME
 .Nm plakar clone
 .Nd Clone a Plakar repository to a new location
 .Sh SYNOPSIS
 .Nm
-.Ar to Ar repository_path
+.Cm to
+.Ar target-path
 .Sh DESCRIPTION
 The
 .Nm
-command creates a full clone of an existing Plakar repository, including all snapshots, packfiles, and repository states, and saves it to a specified target path. The cloned repository is assigned a new unique ID to distinguish it from the source repository.
-
-.Bl -tag -width Ds
-.It Ar to Ar repository_path
-Specifies the target path where the cloned repository should be created.
-.El
-
+command creates a full clone of an existing Plakar repository,
+including all snapshots, packfiles, and repository states, and saves
+it at the specified
+.Ar target-path .
+The cloned repository is assigned a new unique ID to distinguish it
+from the source repository.
 .Sh EXAMPLES
-To illustrate usage:
-
-.Bl -tag -width Ds
-.It Clone a repository to a new location:
+Clone a repository to a new location:
 .Bd -literal -offset indent
 plakar clone to /path/to/new/repository
 .Ed
-.El
-
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -tag -width Ds
 .It 0
 Command completed successfully.
 .It >0
-An error occurred, such as failure to access the source repository or to create the target repository.
+An error occurred, such as failure to access the source repository or
+to create the target repository.
 .El
-
 .Sh SEE ALSO
 .Xr plakar 1

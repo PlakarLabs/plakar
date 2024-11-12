@@ -1,5 +1,5 @@
-.Dd November 3, 2024
-.Dt PLAKAR VERIFY 1
+.Dd November 12, 2024
+.Dt PLAKAR-VERIFY 1
 .Os
 .Sh NAME
 .Nm plakar verify
@@ -13,54 +13,50 @@
 .Sh DESCRIPTION
 The
 .Nm
-command verifies the integrity of data in a Plakar repository. It checks snapshots for consistency and validates file checksums to ensure no corruption has occurred. By default, the command performs a full checksum verification. Use the
+command verifies the integrity of data in a Plakar repository.
+It checks snapshots for consistency and validates file checksums to
+ensure no corruption has occurred.
+By default, the command performs a full checksum verification.
+Use the
 .Fl fast
-option to bypass checksum calculations for a faster, less thorough integrity check.
-
+option to bypass checksum calculations for a faster, less thorough
+integrity check.
 .Bl -tag -width Ds
 .It Fl concurrency Ar number
-Set the maximum number of parallel tasks for faster processing. Defaults to
+Set the maximum number of parallel tasks for faster processing.
+Defaults to
 .Dv 8 * CPU count + 1 .
-
 .It Fl fast
-Enable a faster check that skips checksum verification. This option performs only structural validation without confirming data integrity.
-.El
-
+Enable a faster check that skips checksum verification.
+This option performs only structural validation without confirming
+data integrity.
 .It Fl quiet
-Suppress output to standard input, only logging errors and warnings.
+Suppress output to standard output, only logging errors and warnings.
 .El
-
-
-
 .Sh ARGUMENTS
 .Bl -tag -width Ds
 .It Ar snapshotID
-(Optional) One or more snapshot IDs to verify. If omitted, the command checks all snapshots in the repository.
+(Optional) One or more snapshot IDs to verify.
+If omitted, the command checks all snapshots in the repository.
 .El
-
 .Sh EXAMPLES
-To illustrate usage:
-
-.Bl -tag -width Ds
-.It Perform a full integrity check on all snapshots:
+Perform a full integrity check on all snapshots:
 .Bd -literal -offset indent
 plakar verify
 .Ed
-
-.It Perform a fast check on a specific snapshot:
+.Pp
+Perform a fast check on a specific snapshot:
 .Bd -literal -offset indent
 plakar verify -fast abc123
 .Ed
-.El
-
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -tag -width Ds
 .It 0
 Command completed successfully with no integrity issues found.
 .It >0
-An error occurred, such as corruption detected in a snapshot or failure to verify data.
+An error occurred, such as corruption detected in a snapshot or
+failure to verify data.
 .El
-
 .Sh SEE ALSO
 .Xr plakar 1

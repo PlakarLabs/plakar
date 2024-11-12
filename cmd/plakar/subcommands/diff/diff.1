@@ -1,5 +1,5 @@
-.Dd November 3, 2024
-.Dt PLAKAR DIFF 1
+.Dd November 12, 2024
+.Dt PLAKAR-DIFF 1
 .Os
 .Sh NAME
 .Nm plakar diff
@@ -7,50 +7,48 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl highlight
-.Ar snapshotID1 Ar snapshotID2
-.Op Ar filepath1 Ar filepath2
+.Ar snapshotID1 Ns Op : Ns Ar path1
+.Ar snapshotID2 Ns Op : Ns Ar path2
 .Sh DESCRIPTION
 The
 .Nm
-command compares two Plakar snapshots or specific files within snapshots. If only snapshot IDs are provided, it compares the root directories of each snapshot. If file paths are specified, the command compares the individual files. The diff output is shown in unified diff format, with an option to highlight differences.
-
+command compares two Plakar snapshots or specific files within
+snapshots.
+If only snapshot IDs are provided, it compares the root directories of
+each snapshot.
+If file paths are specified, the command compares the individual
+files.
+The diff output is shown in unified diff format, with an option to
+highlight differences.
 .Bl -tag -width Ds
 .It Fl highlight
 Apply syntax highlighting to the diff output for readability.
 .El
-
 .Sh ARGUMENTS
 .Bl -tag -width Ds
-.It Ar snapshotID1 snapshotID2
-The IDs of the two snapshots to compare.
-
-.It Ar filepath1 filepath2
-(Optional) Paths to specific files or directories within the snapshots to compare. If omitted, the root directories are compared.
+.It Ar snapshotID1 Ns Oo : Ns Ar path1 Oc Ar snapshotID2 Ns Oo : Ns Ar path2 Oc
+The IDs of the two snapshots to compare, optionally specifying the
+files or directories within the snapshots to compare.
+If omitted, the root directories are compared.
 .El
-
 .Sh EXAMPLES
-To illustrate usage:
-
-.Bl -tag -width Ds
-.It Compare root directories of two snapshots:
+Compare root directories of two snapshots:
 .Bd -literal -offset indent
 plakar diff abc123 def456
 .Ed
-
-.It Compare two specific files across snapshots with highlighting:
+.Pp
+Compare two specific files across snapshots with highlighting:
 .Bd -literal -offset indent
 plakar diff -highlight abc123:path/to/file.txt def456:path/to/file.txt
 .Ed
-.El
-
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -tag -width Ds
 .It 0
 Command completed successfully.
 .It >0
-An error occurred, such as invalid snapshot IDs, missing files, or an unsupported file type.
+An error occurred, such as invalid snapshot IDs, missing files, or an
+unsupported file type.
 .El
-
 .Sh SEE ALSO
 .Xr plakar 1

@@ -1,85 +1,80 @@
-.Dd November 3, 2024
-.Dt PLAKAR INFO 1
+.Dd November 12, 2024
+.Dt PLAKAR-INFO 1
 .Os
 .Sh NAME
 .Nm plakar info
 .Nd Display detailed information about a Plakar repository, snapshot, or other objects
 .Sh SYNOPSIS
 .Nm
-.Op Ar repository | snapshot | state | packfile | object | vfs
+.Op Cm repository | snapshot | state | packfile | object | vfs
 .Sh DESCRIPTION
 The
 .Nm
-command provides detailed information about a Plakar repository, snapshots, objects, and various internal data structures. The type of information displayed depends on the specified argument.
-
+command provides detailed information about a Plakar repository,
+snapshots, objects, and various internal data structures.
+The type of information displayed depends on the specified argument.
 .Bl -tag -width Ds
-.It Ar repository
-Display high-level details of the Plakar repository, including configuration settings, encryption, compression, hashing, and snapshot statistics.
-
-.It Ar snapshot Ar snapshotID
-Show detailed information about a specific snapshot, including its metadata, directory and file count, and size.
-
-.It Ar state
+.It Cm repository
+Display high-level details of the Plakar repository, including
+configuration settings, encryption, compression, hashing, and snapshot
+statistics.
+.It Cm snapshot Ar snapshotID
+Show detailed information about a specific snapshot, including its
+metadata, directory and file count, and size.
+.It Cm state
 List or describe the states in the repository.
-
-.It Ar packfile Ar packfileID
-Show details of packfiles, including entries and checksums, which store object data within the repository.
-
-.It Ar object Ar objectID
-Display information about a specific object, including its checksum, type, tags, and associated data chunks.
-
-.It Ar vfs Ar snapshotPathname
-Show filesystem (VFS) details for a specific path within a snapshot, listing directory or file attributes, including permissions, ownership, and custom metadata.
+.It Cm packfile Ar packfileID
+Show details of packfiles, including entries and checksums, which
+store object data within the repository.
+.It Cm object Ar objectID
+Display information about a specific object, including its checksum,
+type, tags, and associated data chunks.
+.It Cm vfs Ar snapshotPathname
+Show filesystem (VFS) details for a specific path within a snapshot,
+listing directory or file attributes, including permissions,
+ownership, and custom metadata.
 .El
-
 .Sh ARGUMENTS
 .Bl -tag -width Ds
 .It Ar snapshotID
 (Optional) The ID of the snapshot to retrieve specific information from.
-
 .It Ar objectID
 (Optional) The ID of the object within a snapshot to inspect.
 .El
-
 .Sh EXAMPLES
-To illustrate usage:
-
-.Bl -tag -width Ds
-.It Show repository information:
+Show repository information:
 .Bd -literal -offset indent
 plakar info repository
 .Ed
-
-.It Show detailed information for a snapshot:
+.Pp
+Show detailed information for a snapshot:
 .Bd -literal -offset indent
 plakar info snapshot abc123
 .Ed
-
-.It List all states in the repository:
+.Pp
+List all states in the repository:
 .Bd -literal -offset indent
 plakar info state
 .Ed
-
-.It Display a specific object within a snapshot:
+.Pp
+Display a specific object within a snapshot:
 .Bd -literal -offset indent
 plakar info object 1234567890abcdef
 .Ed
-
-.It Display filesystem details for a path within a snapshot:
+.Pp
+Display filesystem details for a path within a snapshot:
 .Bd -literal -offset indent
 plakar info vfs abc123/path/to/file
 .Ed
-.El
-
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -tag -width Ds
 .It 0
 Command completed successfully.
 .It >0
-An error occurred, such as an invalid snapshot or object ID, or a failure to retrieve the requested data.
+An error occurred, such as an invalid snapshot or object ID, or a
+failure to retrieve the requested data.
 .El
-
 .Sh SEE ALSO
-.Xr plakar 1
-.Xr plakar snapshot 1
+.Xr plakar 1 ,
+.Xr plakar-snapshot 1

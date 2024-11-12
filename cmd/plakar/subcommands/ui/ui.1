@@ -1,5 +1,5 @@
-.Dd November 3, 2024
-.Dt PLAKAR UI 1
+.Dd November 12, 2024
+.Dt PLAKAR-UI 1
 .Os
 .Sh NAME
 .Nm plakar ui
@@ -11,42 +11,39 @@
 .Sh DESCRIPTION
 The
 .Nm
-command is used to launch the Plakar user interface, allowing users to interact with repositories through a web-based UI. By default, this command spawns the user’s web browser to open the interface.
-
+command is used to launch the Plakar user interface, allowing users to
+interact with repositories through a web-based UI.
+By default, this command spawns the user’s web browser to open the
+interface.
 .Bl -tag -width Ds
 .It Fl no-spawn
-Do not automatically spawn a web browser. The UI will launch, but the user must manually open it by navigating to the specified address.
-
+Do not automatically spawn a web browser.
+The UI will launch, but the user must manually open it by navigating
+to the specified address.
 .It Fl addr Ar address
-Specify the address and port for the UI to listen on (e.g., "localhost:8080"). If omitted, a default address may be used.
+Specify the address and port for the UI to listen on (e.g., "localhost:8080").
+If omitted, a default address may be used.
 .El
-
 .Sh ARGUMENTS
 None.
-
 .Sh EXAMPLES
-To illustrate usage:
-
-.Bl -tag -width Ds
-.It Basic example:
+Basic example:
 .Bd -literal -offset indent
 plakar ui
 .Ed
-
-.It Example specifying address and disabling browser spawn:
+.Pp
+Example specifying address and disabling browser spawn:
 .Bd -literal -offset indent
 plakar ui -addr "localhost:9090" -no-spawn
 .Ed
-.El
-
 .Sh DIAGNOSTICS
 .Ex -std
 .Bl -tag -width Ds
 .It 0
 Command completed successfully.
 .It >0
-A general error occurred, such as an inability to launch the UI or bind to the specified address.
+A general error occurred, such as an inability to launch the UI or
+bind to the specified address.
 .El
-
 .Sh SEE ALSO
 .Xr plakar 1

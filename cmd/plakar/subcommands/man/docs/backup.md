@@ -1,4 +1,4 @@
-PLAKAR(BACKUP) - BACKUP (1)
+PLAKAR-BACKUP(1) - General Commands Manual
 
 # NAME
 
@@ -18,11 +18,15 @@ PLAKAR(BACKUP) - BACKUP (1)
 
 The
 **plakar backup**
-command creates a new snapshot of a directory in a Plakar repository, storing it with an optional tag and exclusion patterns. Snapshots can be filtered to exclude specific files or directories based on patterns provided through options.
+command creates a new snapshot of a directory in a Plakar repository,
+storing it with an optional tag and exclusion patterns.
+Snapshots can be filtered to exclude specific files or directories
+based on patterns provided through options.
 
 **-concurrency** *number*
 
-> Set the maximum number of parallel tasks for faster processing. Defaults to
+> Set the maximum number of parallel tasks for faster processing.
+> Defaults to
 > `8 * CPU count + 1`.
 
 **-tag** *tag*
@@ -31,35 +35,39 @@ command creates a new snapshot of a directory in a Plakar repository, storing it
 
 **-excludes** *file*
 
-> Specify a file containing exclusion patterns, one per line, to ignore files or directories in the backup.
+> Specify a file containing exclusion patterns, one per line, to ignore
+> files or directories in the backup.
 
 **-exclude** *pattern*
 
-> Specify individual exclusion patterns to ignore files or directories in the backup. This option can be repeated.
+> Specify individual exclusion patterns to ignore files or directories
+> in the backup.
+> This option can be repeated.
 
-Suppress output to standard input, only logging errors and warnings.
+**-quiet**
+
+> Suppress output to standard input, only logging errors and warnings.
 
 # ARGUMENTS
 
 *directory*
 
-> (Optional) The directory to back up. If omitted, the current working directory is used.
+> (Optional) The directory to back up.
+> If omitted, the current working directory is used.
 
 # EXAMPLES
 
-To illustrate usage:
-
 Create a snapshot of the current directory with a tag:
 
-> > plakar backup -tag "daily\_backup"
+	plakar backup -tag "daily_backup"
 
 Backup a specific directory with exclusion patterns from a file:
 
-> > plakar backup -excludes /path/to/exclude\_file /path/to/directory
+	plakar backup -excludes /path/to/exclude_file /path/to/directory
 
 Backup a directory with specific file exclusions:
 
-> > plakar backup -exclude "\*.tmp" -exclude "\*.log" /path/to/directory
+	plakar backup -exclude "*.tmp" -exclude "*.log" /path/to/directory
 
 # DIAGNOSTICS
 
@@ -71,10 +79,11 @@ The **plakar backup** utility exits&#160;0 on success, and&#160;&gt;0 if an erro
 
 &gt;0
 
-> An error occurred, such as failure to access the repository or issues with exclusion patterns.
+> An error occurred, such as failure to access the repository or issues
+> with exclusion patterns.
 
 # SEE ALSO
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

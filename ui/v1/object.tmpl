@@ -1,0 +1,167 @@
+{{template "base" .}}
+
+{{define "title"}}{{slice .Snapshot.Header.SnapshotID 0 4 | ShortIDtoHex}}{{end}}
+
+{{define "main"}}
+    {{$Snapshot:=.Snapshot}}
+    {{$ObjectChecksum:=.ObjectChecksum}}
+    {{$Object:=.Object}}
+    {{$Chunks:=.Chunks}}
+    {{$Info:=.Info}}
+    {{$Path:=.Path}}
+    {{$Navigation:=.Navigation}}
+    {{$NavigationLinks:=.NavigationLinks}}
+
+    <h1><a href="/snapshot/{{$Snapshot.Header.SnapshotID | IDtoHex}}:/">{{slice .Snapshot.Header.SnapshotID 0 4 | ShortIDtoHex}}</a></h1>
+    <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        {{range $atom := $Navigation }}
+            <li class="breadcrumb-item" aria-current="page"><a href="/snapshot/{{$Snapshot.Header.SnapshotID | IDtoHex}}:{{index $NavigationLinks $atom}}/">{{$atom}}</a></li>
+        {{end}}
+    </ol>
+    </nav>
+
+
+
+    <div class="accordion" id="accordionMetadata">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                Information
+            </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionMetadata">
+                <div class="accordion-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Metadata</th>
+                                <th scope="col">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Checksum</td>
+                                <td>{{$ObjectChecksum}}</td>
+                            </tr>
+                            <tr>
+                                <td>Content-Type</td>
+                                <td>{{$Object.ContentType}}</td>
+                            </tr>
+                            <tr>
+                                <td>Name</td>
+                                <td>{{$Info.Name}}</td>
+                            </tr>
+                            <tr>
+                                <td>Size</td>
+                                <td>{{$Info.HumanSize}} ({{$Info.Size}})</td>
+                            </tr>
+                            <tr>
+                                <td>Mode</td>
+                                <td>{{$Info.Mode}}</td>
+                            </tr>
+                            <tr>
+                                <td>Uid</td>
+                                <td>{{$Info.Uid}}</td>
+                            </tr>
+                            <tr>
+                                <td>Gid</td>
+                                <td>{{$Info.Gid}}</td>
+                            </tr>
+                            <tr>
+                                <td>Device</td>
+                                <td>{{$Info.Dev}}</td>
+                            </tr>
+                            <tr>
+                                <td>Inode</td>
+                                <td>{{$Info.Ino}}</td>
+                            </tr>
+                            <tr>
+                                <td>Modification Time</td>
+                                <td>{{$Info.ModTime}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion" id="accordionStructure">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseOne">
+                Structure
+            </button>
+            </h2>
+            <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionStructure">
+                <div class="accordion-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Chunk</th>
+                                <th scope="col">Length</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range $chunk := $Chunks}} 
+                            <tr>
+                                <td>{{$chunk.Checksum |IDtoHex}}</td>
+                                <td>{{$chunk.Length}}</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <hr />
+    <div>
+    
+    <a href="/raw/{{$Snapshot.Header.SnapshotID | IDtoHex}}:{{$Path}}?download=true">
+        <button type="button" class="btn btn-primary btn-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                            </svg>
+                        Download
+                        </button>
+                    </a>
+
+    {{if .EnableViewer}}
+        <p>
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Raw</button>
+                </li>
+                {{$sub := slice $Object.ContentType 0 5}}
+                {{if eq $sub "text/" }}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">highlight</button>
+                </li>
+                {{end}}
+            </ul>
+            <div class="tab-content" id="myTabContent">
+                <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+                    <div style="height: auto;" width="100%">
+                        <div class="ratio ratio-16x9">
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.SnapshotID | IDtoHex}}:{{$Path}}"></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                    <div style="height: auto;" width="100%">
+                        <div class="ratio ratio-16x9">
+                            <iframe style="background-color: #ffffff;" src="/raw/{{$Snapshot.Header.SnapshotID | IDtoHex}}:{{$Path}}?highlight=true"></iframe>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </p>
+    {{end}}
+    </div>
+{{end}}

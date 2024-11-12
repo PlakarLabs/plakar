@@ -23,7 +23,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"strings"
 	"time"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
@@ -83,7 +82,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 				hex.EncodeToString(metadata.GetIndexShortID()),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
-				strings.Join(metadata.ScannedDirectories, ", "))
+				metadata.ScannedDirectory)
 		} else {
 			indexID := metadata.GetIndexID()
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
@@ -91,7 +90,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 				hex.EncodeToString(indexID[:]),
 				humanize.Bytes(metadata.ScanProcessedSize),
 				metadata.CreationDuration.Round(time.Second),
-				strings.Join(metadata.ScannedDirectories, ", "))
+				metadata.ScannedDirectory)
 		}
 	}
 }

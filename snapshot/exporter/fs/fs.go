@@ -57,14 +57,11 @@ func (p *FSExporter) Root() string {
 	return p.rootDir
 }
 
-func (p *FSExporter) CreateDirectory(pathname string, fileinfo *objects.FileInfo) error {
-	os.MkdirAll(pathname, 0700)
-	//os.Chmod(pathname, fileinfo.Mode())
-	//os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid()))
-	return nil
+func (p *FSExporter) CreateDirectory(pathname string) error {
+	return os.MkdirAll(pathname, 0700)
 }
 
-func (p *FSExporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error {
+func (p *FSExporter) StoreFile(pathname string, fp io.Reader) error {
 	f, err := os.Create(pathname)
 	if err != nil {
 		return err
@@ -81,14 +78,18 @@ func (p *FSExporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp i
 	if err := f.Close(); err != nil {
 		logger.Warn("close failure: %s: %s", pathname, err)
 	}
-	//if err := os.Chmod(pathname, fileinfo.Mode()); err != nil {
-	//	logger.Warn("chmod failure: %s: %s", pathname, err)
-	//}
-	//if err := os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid())); err != nil {
-	//	if err == os.ErrPermission {
-	//		logger.Warn("chown failure: %s: %s", pathname, err)
-	//	}
-	//}
+	return nil
+}
+
+func (p *FSExporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
+	if err := os.Chmod(pathname, fileinfo.Mode()); err != nil {
+		return err
+	}
+	if os.Getuid() == 0 {
+		if err := os.Chown(pathname, int(fileinfo.Uid()), int(fileinfo.Gid())); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

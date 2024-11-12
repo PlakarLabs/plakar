@@ -16,8 +16,9 @@ import (
 
 type ExporterBackend interface {
 	Root() string
-	CreateDirectory(pathname string, fileinfo *objects.FileInfo) error
-	StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error
+	CreateDirectory(pathname string) error
+	StoreFile(pathname string, fp io.Reader) error
+	SetPermissions(pathname string, fileinfo *objects.FileInfo) error
 	Close() error
 }
 
@@ -94,24 +95,34 @@ func (exporter *Exporter) Root() string {
 	return exporter.backend.Root()
 }
 
-func (exporter *Exporter) CreateDirectory(pathname string, fileinfo *objects.FileInfo) error {
+func (exporter *Exporter) CreateDirectory(pathname string) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("vfs.exporter.CreateDirectory", time.Since(t0))
 		logger.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
 	}()
 
-	return exporter.backend.CreateDirectory(pathname, fileinfo)
+	return exporter.backend.CreateDirectory(pathname)
 }
 
-func (exporter *Exporter) StoreFile(pathname string, fileinfo *objects.FileInfo, fp io.Reader) error {
+func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.Store", time.Since(t0))
-		logger.Trace("vfs", "exporter.Store(%s): %s", pathname, time.Since(t0))
+		profiler.RecordEvent("vfs.exporter.StoreFile", time.Since(t0))
+		logger.Trace("vfs", "exporter.StoreFile(%s): %s", pathname, time.Since(t0))
 	}()
 
-	return exporter.backend.StoreFile(pathname, fileinfo, fp)
+	return exporter.backend.StoreFile(pathname, fp)
+}
+
+func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("vfs.exporter.SetPermissions", time.Since(t0))
+		logger.Trace("vfs", "exporter.SetPermissions(%s): %s", pathname, time.Since(t0))
+	}()
+
+	return exporter.backend.SetPermissions(pathname, fileinfo)
 }
 
 func (exporter *Exporter) Close() error {

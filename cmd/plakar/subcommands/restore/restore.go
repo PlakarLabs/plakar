@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
@@ -42,11 +41,6 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 	var opt_concurrency uint64
 	var opt_quiet bool
 
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	flags := flag.NewFlagSet("restore", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
@@ -56,8 +50,9 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 	go eventsProcessorStdio(ctx, opt_quiet)
 
+	var err error
 	if pullPath == "" {
-		exporterInstance, err = exporter.NewExporter(dir)
+		exporterInstance, err = exporter.NewExporter(ctx.GetCWD())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -82,12 +77,12 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 		for i := len(metadatas); i != 0; i-- {
 			metadata := metadatas[i-1]
-			if dir == metadata.ScannedDirectory || strings.HasPrefix(dir, fmt.Sprintf("%s/", metadata.ScannedDirectory)) {
+			if ctx.GetCWD() == metadata.ScannedDirectory || strings.HasPrefix(ctx.GetCWD(), fmt.Sprintf("%s/", metadata.ScannedDirectory)) {
 				snap, err := snapshot.Load(repo, metadata.GetIndexID())
 				if err != nil {
 					return 1
 				}
-				snap.Restore(exporterInstance, dir, dir, opts)
+				snap.Restore(exporterInstance, ctx.GetCWD(), ctx.GetCWD(), opts)
 				return 0
 			}
 		}
@@ -102,7 +97,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 	for offset, snap := range snapshots {
 		_, pattern := utils.ParseSnapshotID(flags.Args()[offset])
-		snap.Restore(exporterInstance, dir, pattern, opts)
+		snap.Restore(exporterInstance, ctx.GetCWD(), pattern, opts)
 	}
 
 	return 0

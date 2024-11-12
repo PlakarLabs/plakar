@@ -8,9 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarKorp/plakar/compression"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
@@ -20,6 +17,9 @@ import (
 	"github.com/PlakarKorp/plakar/repository/cache"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/storage"
+	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
+	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
 )
 
 type Repository struct {

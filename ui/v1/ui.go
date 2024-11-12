@@ -306,7 +306,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Header.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, []string{snap.Header.ScannedDirectory}, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }

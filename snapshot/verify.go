@@ -45,7 +45,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 		wg.Add(1)
 		go func(_fileEntry *vfs.FileEntry) {
 			defer wg.Done()
-			defer func() { <-concurency }()
+			defer func() { <-concurrency }()
 
 			object, err := snap.LookupObject(_fileEntry.Checksum)
 			if err != nil {

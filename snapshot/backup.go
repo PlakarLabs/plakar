@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
 	"mime"
 	"os"
 	"path/filepath"
@@ -342,7 +341,6 @@ func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir
 		return nil, err
 	}
 
-	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	filesChannel := make(chan importer.ScanRecord, 1000)
 
@@ -380,12 +378,12 @@ func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir
 					if extension == "" {
 						extension = "none"
 					}
-					mu.Lock()
-					if _, exists := snap.Header.FileExtension[extension]; !exists {
-						snap.Header.FileExtension[extension] = 0
-					}
-					snap.Header.FileExtension[extension]++
-					mu.Unlock()
+					//					mu.Lock()
+					//					if _, exists := snap.Header.FileExtension[extension]; !exists {
+					//						snap.Header.FileExtension[extension] = 0
+					//					}
+					//					snap.Header.FileExtension[extension]++
+					//					mu.Unlock()
 				}
 			}(_record)
 		}
@@ -434,7 +432,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	} else {
 		scanDir = imp.Root()
 	}
-	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
+	snap.Header.ScannedDirectory = filepath.ToSlash(scanDir)
 
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 
@@ -656,34 +654,35 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	snap.Header.ScanSize = snap.statistics.ImporterSize
 	snap.Header.ScanProcessedSize = snap.statistics.ScannerProcessedSize
 
-	//
-	for _, key := range snap.Metadata.ListKeys() {
-		objectType := strings.Split(key, ";")[0]
-		objectKind := strings.Split(key, "/")[0]
-		if objectType == "" {
-			objectType = "unknown"
-			objectKind = "unknown"
-		}
-		if _, exists := snap.Header.FileKind[objectKind]; !exists {
-			snap.Header.FileKind[objectKind] = 0
-		}
-		snap.Header.FileKind[objectKind] += uint64(len(snap.Metadata.ListValues(key)))
+	/*
+		for _, key := range snap.Metadata.ListKeys() {
+			objectType := strings.Split(key, ";")[0]
+			objectKind := strings.Split(key, "/")[0]
+			if objectType == "" {
+				objectType = "unknown"
+				objectKind = "unknown"
+			}
+			if _, exists := snap.Header.FileKind[objectKind]; !exists {
+				snap.Header.FileKind[objectKind] = 0
+			}
+			snap.Header.FileKind[objectKind] += uint64(len(snap.Metadata.ListValues(key)))
 
-		if _, exists := snap.Header.FileType[objectType]; !exists {
-			snap.Header.FileType[objectType] = 0
+			if _, exists := snap.Header.FileType[objectType]; !exists {
+				snap.Header.FileType[objectType] = 0
+			}
+			snap.Header.FileType[objectType] += uint64(len(snap.Metadata.ListValues(key)))
 		}
-		snap.Header.FileType[objectType] += uint64(len(snap.Metadata.ListValues(key)))
-	}
 
-	for key, value := range snap.Header.FileType {
-		snap.Header.FilePercentType[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
-	}
-	for key, value := range snap.Header.FileKind {
-		snap.Header.FilePercentKind[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
-	}
-	for key, value := range snap.Header.FileExtension {
-		snap.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
-	}
+		for key, value := range snap.Header.FileType {
+			snap.Header.FilePercentType[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+		}
+		for key, value := range snap.Header.FileKind {
+			snap.Header.FilePercentKind[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+		}
+		for key, value := range snap.Header.FileExtension {
+			snap.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
+		}
+	*/
 	return snap.Commit()
 }
 

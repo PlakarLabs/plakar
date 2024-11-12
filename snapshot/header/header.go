@@ -44,18 +44,18 @@ type Header struct {
 	Metadata   [32]byte
 	Statistics [32]byte
 
-	ScannedDirectories []string
+	ScannedDirectory string
 
 	FilesCount       uint64
 	DirectoriesCount uint64
 
-	FileKind      map[string]uint64
-	FileType      map[string]uint64
-	FileExtension map[string]uint64
+	//FileKind      map[string]uint64
+	//FileType      map[string]uint64
+	//FileExtension map[string]uint64
 
-	FilePercentKind      map[string]float64
-	FilePercentType      map[string]float64
-	FilePercentExtension map[string]float64
+	//FilePercentKind      map[string]float64
+	//FilePercentType      map[string]float64
+	//FilePercentExtension map[string]float64
 }
 
 func NewHeader(indexID [32]byte) *Header {
@@ -69,15 +69,17 @@ func NewHeader(indexID [32]byte) *Header {
 		MachineID:    "",
 		PublicKey:    "",
 
-		Root: [32]byte{},
+		Root:       [32]byte{},
+		Metadata:   [32]byte{},
+		Statistics: [32]byte{},
 
-		FileKind:      make(map[string]uint64),
-		FileType:      make(map[string]uint64),
-		FileExtension: make(map[string]uint64),
+		//FileKind:      make(map[string]uint64),
+		//FileType:      make(map[string]uint64),
+		//FileExtension: make(map[string]uint64),
 
-		FilePercentKind:      make(map[string]float64),
-		FilePercentType:      make(map[string]float64),
-		FilePercentExtension: make(map[string]float64),
+		//FilePercentKind:      make(map[string]float64),
+		//FilePercentType:      make(map[string]float64),
+		//FilePercentExtension: make(map[string]float64),
 	}
 }
 

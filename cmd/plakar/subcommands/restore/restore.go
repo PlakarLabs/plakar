@@ -82,15 +82,13 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 		for i := len(metadatas); i != 0; i-- {
 			metadata := metadatas[i-1]
-			for _, scannedDir := range metadata.ScannedDirectories {
-				if dir == scannedDir || strings.HasPrefix(dir, fmt.Sprintf("%s/", scannedDir)) {
-					snap, err := snapshot.Load(repo, metadata.GetIndexID())
-					if err != nil {
-						return 1
-					}
-					snap.Restore(exporterInstance, dir, opts)
-					return 0
+			if dir == metadata.ScannedDirectory || strings.HasPrefix(dir, fmt.Sprintf("%s/", metadata.ScannedDirectory)) {
+				snap, err := snapshot.Load(repo, metadata.GetIndexID())
+				if err != nil {
+					return 1
 				}
+				snap.Restore(exporterInstance, dir, opts)
+				return 0
 			}
 		}
 		log.Fatalf("%s: could not find a snapshot to restore this path from", flag.CommandLine.Name())

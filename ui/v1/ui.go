@@ -135,26 +135,28 @@ func viewRepository(w http.ResponseWriter, r *http.Request) {
 		res = append(res, hdr)
 		totalFiles += hdr.FilesCount
 
-		for key, value := range hdr.FileKind {
-			if _, exists := kinds[key]; !exists {
-				kinds[key] = 0
+		/*
+			for key, value := range hdr.FileKind {
+				if _, exists := kinds[key]; !exists {
+					kinds[key] = 0
+				}
+				kinds[key] += value
 			}
-			kinds[key] += value
-		}
 
-		for key, value := range hdr.FileType {
-			if _, exists := types[key]; !exists {
-				types[key] = 0
+			for key, value := range hdr.FileType {
+				if _, exists := types[key]; !exists {
+					types[key] = 0
+				}
+				types[key] += value
 			}
-			types[key] += value
-		}
 
-		for key, value := range hdr.FileExtension {
-			if _, exists := extensions[key]; !exists {
-				extensions[key] = 0
+			for key, value := range hdr.FileExtension {
+				if _, exists := extensions[key]; !exists {
+					extensions[key] = 0
+				}
+				extensions[key] += value
 			}
-			extensions[key] += value
-		}
+		*/
 	}
 
 	for key, value := range kinds {
@@ -306,7 +308,7 @@ func browse(w http.ResponseWriter, r *http.Request) {
 		Scanned         []string
 		Navigation      []string
 		NavigationLinks map[string]string
-	}{snap, directories, files, symlinks, symlinksResolve, others, path, snap.Header.ScannedDirectories, nav, navLinks}
+	}{snap, directories, files, symlinks, symlinksResolve, others, path, []string{snap.Header.ScannedDirectory}, nav, navLinks}
 	templates["browse"].Execute(w, ctx)
 
 }

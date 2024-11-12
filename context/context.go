@@ -17,6 +17,8 @@ type Context struct {
 	operatingSystem string
 	architecture    string
 	processID       int
+
+	cwd string
 }
 
 func NewContext() *Context {
@@ -31,6 +33,14 @@ func (c *Context) Close() {
 
 func (c *Context) Events() *events.Receiver {
 	return c.events
+}
+
+func (c *Context) SetCWD(cwd string) {
+	c.cwd = cwd
+}
+
+func (c *Context) GetCWD() string {
+	return c.cwd
 }
 
 func (c *Context) SetNumCPU(numCPU int) {

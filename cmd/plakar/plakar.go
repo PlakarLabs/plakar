@@ -47,6 +47,17 @@ func main() {
 
 func entryPoint() int {
 	// default values
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+	cwd, err = utils.NormalizePath(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
+	}
+
 	opt_cpuDefault := runtime.GOMAXPROCS(0)
 	if opt_cpuDefault != 1 {
 		opt_cpuDefault = opt_cpuDefault - 1
@@ -102,6 +113,8 @@ func entryPoint() int {
 
 	ctx := context.NewContext()
 	defer ctx.Close()
+
+	ctx.SetCWD(cwd)
 
 	cacheDir, err := utils.GetCacheDir("plakar")
 	if err != nil {

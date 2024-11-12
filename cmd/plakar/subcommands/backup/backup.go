@@ -20,14 +20,12 @@ import (
 	"bufio"
 	"encoding/base64"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
@@ -73,18 +71,6 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 
 	for _, item := range opt_exclude {
 		excludes = append(excludes, glob.MustCompile(item))
-	}
-
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
-	}
-
-	dir, err = utils.NormalizePath(dir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
 	}
 
 	if opt_excludes != "" {
@@ -147,14 +133,14 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 
 	if flags.NArg() == 0 {
-		err = snap.Backup(dir, opts)
+		err = snap.Backup(ctx.GetCWD(), opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
 		if !strings.HasPrefix(flags.Arg(0), "/") {
 			_, err := importer.NewImporter(flags.Arg(0))
 			if err != nil {
-				cleanPath = path.Clean(dir + "/" + flags.Arg(0))
+				cleanPath = path.Clean(ctx.GetCWD() + "/" + flags.Arg(0))
 			} else {
 				cleanPath = flags.Arg(0)
 			}

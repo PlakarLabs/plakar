@@ -1,6 +1,8 @@
 package snapshot
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"mime"
@@ -114,6 +116,19 @@ func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error
 	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
 }
 
+func (cache *scanCache) RecordAggregates(pathname string, files uint64, dirs uint64, size uint64) error {
+	pathname = strings.TrimSuffix(pathname, "/")
+	if pathname == "" {
+		pathname = "/"
+	}
+
+	buffer := bytes.NewBuffer(make([]byte, 0, 24))
+	binary.Write(buffer, binary.LittleEndian, files)
+	binary.Write(buffer, binary.LittleEndian, dirs)
+	binary.Write(buffer, binary.LittleEndian, size)
+	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer.Bytes(), nil)
+}
+
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
 	if err != nil {
@@ -127,6 +142,26 @@ func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	ret := [32]byte{}
 	copy(ret[:], data)
 	return ret, nil
+}
+
+func (cache *scanCache) GetAggregate(pathname string) (uint64, uint64, uint64, error) {
+	data, err := cache.db.Get([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), nil)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	if len(data) != 24 {
+		return 0, 0, 0, fmt.Errorf("invalid aggregate length: %d", len(data))
+	}
+
+	buffer := bytes.NewReader(data)
+	var files uint64
+	var dirs uint64
+	var size uint64
+	binary.Read(buffer, binary.LittleEndian, &files)
+	binary.Read(buffer, binary.LittleEndian, &dirs)
+	binary.Read(buffer, binary.LittleEndian, &size)
+	return files, dirs, size, nil
 }
 
 func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
@@ -532,9 +567,25 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
 		for _, child := range record.Children {
-			value, err := sc.GetChecksum(filepath.Join(record.Pathname, child.Name()))
+			childpath := filepath.Join(record.Pathname, child.Name())
+			value, err := sc.GetChecksum(childpath)
 			if err != nil {
 				continue
+			}
+
+			if child.IsDir() {
+				dirEntry.AggregateDirs++
+
+				files, dirs, size, err := sc.GetAggregate(childpath)
+				if err != nil {
+					continue
+				}
+				dirEntry.AggregateFiles += files
+				dirEntry.AggregateDirs += dirs
+				dirEntry.AggregateSize += size
+			} else {
+				dirEntry.AggregateFiles++
+				dirEntry.AggregateSize += uint64(child.Size())
 			}
 			dirEntry.AddChild(value, child)
 		}
@@ -556,6 +607,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if err != nil {
 			return err
 		}
+		err = sc.RecordAggregates(record.Pathname, dirEntry.AggregateFiles, dirEntry.AggregateDirs, dirEntry.AggregateSize)
+		if err != nil {
+			return err
+		}
+
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
 		snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, record.Pathname))

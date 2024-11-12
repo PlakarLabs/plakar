@@ -27,7 +27,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
-	v2 "github.com/PlakarKorp/plakar/ui/v2"
+	"github.com/PlakarKorp/plakar/ui"
 )
 
 func init() {
@@ -45,7 +45,7 @@ func cmd_ui(ctx *context.Context, repo *repository.Repository, args []string) in
 	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
 	flags.Parse(args)
 
-	err := v2.Ui(repo, opt_addr, !opt_nospawn, opt_cors)
+	err := ui.Ui(repo, opt_addr, !opt_nospawn, opt_cors)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

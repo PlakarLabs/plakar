@@ -44,7 +44,7 @@ type Header struct {
 	Metadata   [32]byte
 	Statistics [32]byte
 
-	ScannedDirectories []string
+	ScannedDirectory string
 
 	FilesCount       uint64
 	DirectoriesCount uint64

@@ -434,7 +434,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	} else {
 		scanDir = imp.Root()
 	}
-	snap.Header.ScannedDirectories = append(snap.Header.ScannedDirectories, filepath.ToSlash(scanDir))
+	snap.Header.ScannedDirectory = filepath.ToSlash(scanDir)
 
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 

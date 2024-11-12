@@ -1,4 +1,4 @@
-PLAKAR(STDIO) - STDIO (1)
+PLAKAR-STDIO(1) - General Commands Manual
 
 # NAME
 
@@ -13,11 +13,16 @@ PLAKAR(STDIO) - STDIO (1)
 
 The
 **plakar stdio**
-command starts the Plakar server in standard input/output (stdio) mode, allowing interaction with Plakar over stdio streams. This command can be used for environments where communication is expected to occur over pipes or other stdio-based mechanisms.
+command starts the Plakar server in standard input/output (stdio)
+mode, allowing interaction with Plakar over stdio streams.
+This command can be used for environments where communication is
+expected to occur over pipes or other stdio-based mechanisms.
 
 **-no-delete**
 
-> Disables delete operations. When specified, the server will reject any requests that attempt to delete data.
+> Disables delete operations.
+> When specified, the server will reject any requests that attempt to
+> delete data.
 
 # ARGUMENTS
 
@@ -25,15 +30,13 @@ None.
 
 # EXAMPLES
 
-To illustrate usage:
-
 Basic example to start the server in stdio mode:
 
-> > plakar stdio
+	plakar stdio
 
 Start stdio mode with delete operations disabled:
 
-> > plakar stdio -no-delete
+	plakar stdio -no-delete
 
 # DIAGNOSTICS
 
@@ -45,10 +48,11 @@ The **plakar stdio** utility exits&#160;0 on success, and&#160;&gt;0 if an error
 
 &gt;0
 
-> An error occurred while starting the stdio server or due to an invalid configuration.
+> An error occurred while starting the stdio server or due to an invalid
+> configuration.
 
 # SEE ALSO
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

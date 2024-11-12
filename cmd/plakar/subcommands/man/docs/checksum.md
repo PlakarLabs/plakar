@@ -1,4 +1,4 @@
-PLAKAR(CHECKSUM) - CHECKSUM (1)
+PLAKAR-CHECKSUM(1) - General Commands Manual
 
 # NAME
 
@@ -14,13 +14,19 @@ PLAKAR(CHECKSUM) - CHECKSUM (1)
 
 The
 **plakar checksum**
-command calculates and displays checksums for specified files in a Plakar snapshot. By default, the command computes the checksum by reading the file contents. The
+command calculates and displays checksums for specified files in a
+Plakar snapshot.
+By default, the command computes the checksum by reading the file
+contents.
+The
 **-fast**
-option enables the use of the pre-recorded checksum, which is faster but does not verify file integrity against current contents.
+option enables the use of the pre-recorded checksum, which is faster
+but does not verify file integrity against current contents.
 
 **-fast**
 
-> Return the pre-recorded checksum for the file without re-computing it from the file contents.
+> Return the pre-recorded checksum for the file without re-computing it
+> from the file contents.
 
 # ARGUMENTS
 
@@ -30,19 +36,18 @@ option enables the use of the pre-recorded checksum, which is faster but does no
 
 *filepath*
 
-> One or more paths within the snapshot for which to compute or retrieve checksums.
+> One or more paths within the snapshot for which to compute or retrieve
+> checksums.
 
 # EXAMPLES
 
-To illustrate usage:
-
 Calculate the checksum of a file within a snapshot:
 
-> > plakar checksum abc123 /path/to/file.txt
+	plakar checksum abc123 /path/to/file.txt
 
 Retrieve the pre-recorded checksum for faster output:
 
-> > plakar checksum -fast abc123 /path/to/file.txt
+	plakar checksum -fast abc123 /path/to/file.txt
 
 # DIAGNOSTICS
 
@@ -54,10 +59,11 @@ The **plakar checksum** utility exits&#160;0 on success, and&#160;&gt;0 if an er
 
 &gt;0
 
-> An error occurred, such as failure to retrieve a file's checksum or invalid snapshot ID.
+> An error occurred, such as failure to retrieve a file's checksum or
+> invalid snapshot ID.
 
 # SEE ALSO
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

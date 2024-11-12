@@ -1,4 +1,4 @@
-PLAKAR(LS) - LS (1)
+PLAKAR-LS(1) - General Commands Manual
 
 # NAME
 
@@ -16,15 +16,20 @@ PLAKAR(LS) - LS (1)
 
 The
 **plakar ls**
-command lists snapshots stored in a Plakar repository, and optionally displays the contents of a specified snapshot. It supports filtering by tag, showing UUIDs, and recursive listing within snapshot directories.
+command lists snapshots stored in a Plakar repository, and optionally
+displays the contents of a specified snapshot.
+It supports filtering by tag, showing UUIDs, and recursive listing
+within snapshot directories.
 
 **-uuid**
 
-> Display the full UUID for each snapshot instead of the shorter snapshot ID.
+> Display the full UUID for each snapshot instead of the shorter
+> snapshot ID.
 
 **-tag** *tag*
 
-> Filter snapshots by the specified tag, listing only those that contain the given tag.
+> Filter snapshots by the specified tag, listing only those that contain
+> the given tag.
 
 **-recursive**
 
@@ -34,31 +39,30 @@ command lists snapshots stored in a Plakar repository, and optionally displays t
 
 *snapshotID*
 
-> (Optional) The ID of the snapshot to view in detail. If omitted, all snapshots in the repository are listed.
+> (Optional) The ID of the snapshot to view in detail. If omitted, all
+> snapshots in the repository are listed.
 
 # EXAMPLES
 
-To illustrate usage:
-
 List all snapshots with their short IDs:
 
-> > plakar ls
+	plakar ls
 
 List all snapshots with UUIDs instead of short IDs:
 
-> > plakar ls -uuid
+	plakar ls -uuid
 
 List snapshots with a specific tag:
 
-> > plakar ls -tag "backup"
+	plakar ls -tag "backup"
 
 List contents of a specific snapshot:
 
-> > plakar ls abc123
+	plakar ls abc123
 
 Recursively list contents of a specific snapshot:
 
-> > plakar ls -recursive abc123
+	plakar ls -recursive abc123
 
 # DIAGNOSTICS
 
@@ -70,10 +74,11 @@ The **plakar ls** utility exits&#160;0 on success, and&#160;&gt;0 if an error oc
 
 &gt;0
 
-> An error occurred, such as failure to retrieve snapshot information or invalid snapshot ID.
+> An error occurred, such as failure to retrieve snapshot information or
+> invalid snapshot ID.
 
 # SEE ALSO
 
 plakar(1)
 
-macOS 15.0 - November 3, 2024
+OpenBSD 7.6 - November 12, 2024

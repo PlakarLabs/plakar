@@ -15,7 +15,7 @@ type CheckOptions struct {
 	FastCheck      bool
 }
 
-func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts *CheckOptions, concurency chan bool, wg *sync.WaitGroup) (bool, error) {
+func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts *CheckOptions, concurrency chan bool, wg *sync.WaitGroup) (bool, error) {
 	snap.Event(events.PathEvent(snap.Header.SnapshotID, pathname))
 	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
@@ -27,7 +27,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 		snap.Event(events.DirectoryEvent(snap.Header.SnapshotID, pathname))
 		complete := true
 		for _, child := range dirEntry.Children {
-			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.FileInfo.Name()), opts, concurency, wg)
+			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.FileInfo.Name()), opts, concurrency, wg)
 			if err != nil || !ok {
 				complete = false
 			}
@@ -41,7 +41,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
 		snap.Event(events.FileEvent(snap.Header.SnapshotID, pathname))
 
-		concurency <- true
+		concurrency <- true
 		wg.Add(1)
 		go func(_fileEntry *vfs.FileEntry) {
 			defer wg.Done()

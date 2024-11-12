@@ -23,7 +23,7 @@ go install github.com/PlakarLabs/plakar/cmd/plakar@latest
 
 ## Documentation
 
-For up-to-date informations,
+For up-to-date information,
 you can read the documentation available at https://docs.plakar.io
 
 

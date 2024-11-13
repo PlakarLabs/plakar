@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
+	"strconv"
 
 	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gorilla/mux"
 )
 
@@ -91,6 +94,36 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+	orderStr := r.URL.Query().Get("order")
+
+	var offset int64
+	var limit int64
+	var err error
+	if offsetStr != "" {
+		offset, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil || offset < 0 {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if limitStr != "" {
+		limit, err = strconv.ParseInt(limitStr, 10, 64)
+		if err != nil || limit < 0 {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if orderStr != "" {
+		if orderStr != "asc" && orderStr != "desc" {
+			http.Error(w, "Invalid order", http.StatusBadRequest)
+			return
+		}
+	} else {
+		orderStr = "asc"
+	}
+
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -123,5 +156,35 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(fsinfo)
+
+	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
+		if orderStr == "desc" {
+			sort.Slice(dirEntry.Children, func(i, j int) bool {
+				return dirEntry.Children[i].FileInfo.Name() > dirEntry.Children[j].FileInfo.Name()
+			})
+		}
+
+		if offset != 0 {
+			if offset >= int64(len(dirEntry.Children)) {
+				http.Error(w, "offset out of range", http.StatusBadRequest)
+				return
+			}
+			dirEntry.Children = dirEntry.Children[offset:]
+		}
+		if limit != 0 {
+			if limit >= int64(len(dirEntry.Children)) {
+				http.Error(w, "limit out of range", http.StatusBadRequest)
+				return
+			}
+			dirEntry.Children = dirEntry.Children[:limit]
+		}
+		json.NewEncoder(w).Encode(dirEntry)
+		return
+	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
+		json.NewEncoder(w).Encode(fileEntry)
+		return
+	} else {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 }

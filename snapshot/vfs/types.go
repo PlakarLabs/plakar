@@ -190,6 +190,7 @@ type DirEntry struct {
 	UserID             uint64              `msgpack:"userID,omitempty"`             // User ID of the owner (optional)
 	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
 	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the directory (optional)
+	NumChildren        uint64              `msgpack:"numChildren"`                  // Number of child entries (files and subdirectories)
 	Children           []ChildEntry        `msgpack:"children,omitempty"`           // List of child entries' serialized checksums (files and subdirectories)
 	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
 	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
@@ -226,6 +227,7 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 		InodeID:            record.Stat.Ino(),
 		UserID:             record.Stat.Uid(),
 		GroupID:            record.Stat.Gid(),
+		NumChildren:        0,
 		NumLinks:           record.Stat.Nlink(),
 		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
@@ -245,6 +247,7 @@ func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo) {
 		Checksum: checksum,
 		FileInfo: fileInfo,
 	})
+	d.NumChildren++
 }
 
 func (d *DirEntry) AddTags(tags []string) {

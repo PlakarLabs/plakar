@@ -1,0 +1,75 @@
+.Dd November 13, 2024
+.Dt PLAKAR TAGS 1
+.Os
+.Sh NAME
+.Nm plakar_tags
+.Nd Display tags or related information in a Plakar repository
+.Sh SYNOPSIS
+.Nm
+.Op Fl display
+.Op Ar tags|count|snapshots
+.Sh DESCRIPTION
+The
+.Nm
+command is used to display information about tags in a Plakar repository, including a list of tags, a count of their occurrences, or associated snapshots.
+
+.Bl -tag -width Ds
+.It Fl display
+Specifies the type of output for the tag display. Valid options are:
+.Bl -tag -width tags -compact
+.It tags
+Lists all tags (default).
+.It count
+Displays each tag with a count of associated snapshots.
+.It snapshots
+Shows each tag with a list of associated snapshot IDs.
+.El
+.El
+
+.Sh ARGUMENTS
+.Bl -tag -width Ds
+.It Ar tags|count|snapshots
+This argument, when used with the
+.Fl display
+flag, controls the output type:
+.Bl -tag -width tags -compact
+.It tags
+Outputs all tags in alphabetical order.
+.It count
+Displays tags with a count of associated snapshots.
+.It snapshots
+Lists each tag with associated snapshot IDs.
+.El
+.El
+
+.Sh EXAMPLES
+To illustrate usage:
+
+.Bl -tag -width Ds
+.It Basic example:
+.Bd -literal -offset indent
+plakar tags -display tags
+.Ed
+
+.It Example showing tag counts:
+.Bd -literal -offset indent
+plakar tags -display count
+.Ed
+
+.It Example with tag snapshots:
+.Bd -literal -offset indent
+plakar tags -display snapshots
+.Ed
+.El
+
+.Sh DIAGNOSTICS
+.Ex -std
+.Bl -tag -width Ds
+.It 0
+Command completed successfully.
+.It 1
+An unsupported display option was specified.
+.El
+
+.Sh SEE ALSO
+.Xr plakar 1

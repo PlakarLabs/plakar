@@ -20,6 +20,7 @@ import (
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/server"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/stdio"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/sync"
+	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/tags"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/ui"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/verify"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/version"

@@ -75,4 +75,4 @@ The **plakar verify** utility exits&#160;0 on success, and&#160;&gt;0 if an erro
 
 plakar(1)
 
-OpenBSD 7.6 - November 12, 2024
+macOS 15.0 - November 12, 2024

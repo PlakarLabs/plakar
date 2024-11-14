@@ -38,35 +38,35 @@ import (
 		}
 		return serialized, nil
 	}
+
+	type File struct {
+		Checksum [32]byte
+		FileInfo FileInfo
+	}
+
+	func NewFile(checksum [32]byte, fileInfo FileInfo) *File {
+		return &File{
+			Checksum: checksum,
+			FileInfo: fileInfo,
+		}
+	}
+
+	func NewFileFromBytes(serialized []byte) (*File, error) {
+		var f File
+		if err := msgpack.Unmarshal(serialized, &f); err != nil {
+			return nil, err
+		}
+		return &f, nil
+	}
+
+	func (f *File) Serialize() ([]byte, error) {
+		serialized, err := msgpack.Marshal(f)
+		if err != nil {
+			return nil, err
+		}
+		return serialized, nil
+	}
 */
-type File struct {
-	Checksum [32]byte
-	FileInfo FileInfo
-}
-
-func NewFile(checksum [32]byte, fileInfo FileInfo) *File {
-	return &File{
-		Checksum: checksum,
-		FileInfo: fileInfo,
-	}
-}
-
-func NewFileFromBytes(serialized []byte) (*File, error) {
-	var f File
-	if err := msgpack.Unmarshal(serialized, &f); err != nil {
-		return nil, err
-	}
-	return &f, nil
-}
-
-func (f *File) Serialize() ([]byte, error) {
-	serialized, err := msgpack.Marshal(f)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
-}
-
 type CustomMetadata struct {
 	Key   string
 	Value []byte

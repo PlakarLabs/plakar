@@ -16,11 +16,11 @@ type FileEntry struct {
 	Version    uint32              `msgpack:"version"`
 	ParentPath string              `msgpack:"parentPath"`
 	Type       importer.RecordType `msgpack:"type"`
-	FileInfo   objects.FileInfo    `msgpack:"info"`
+	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
 
 	/* File specific fields */
 	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty"`
-	Object        *objects.Object `msgpack:"object,omitempty"` // nil for !regular files
+	Object        *objects.Object `msgpack:"object,omitempty" json:"Object,omitempty"` // nil for !regular files
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
@@ -69,6 +69,21 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	var f FileEntry
 	if err := msgpack.Unmarshal(serialized, &f); err != nil {
 		return nil, err
+	}
+	if f.AlternateDataStreams == nil {
+		f.AlternateDataStreams = make([]AlternateDataStream, 0)
+	}
+	if f.SecurityDescriptor == nil {
+		f.SecurityDescriptor = make([]byte, 0)
+	}
+	if f.ExtendedAttributes == nil {
+		f.ExtendedAttributes = make([]ExtendedAttribute, 0)
+	}
+	if f.CustomMetadata == nil {
+		f.CustomMetadata = make([]CustomMetadata, 0)
+	}
+	if f.Tags == nil {
+		f.Tags = make([]string, 0)
 	}
 	return &f, nil
 }

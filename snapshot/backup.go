@@ -1,10 +1,9 @@
 package snapshot
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"os"
 	"path/filepath"
@@ -116,17 +115,17 @@ func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error
 	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
 }
 
-func (cache *scanCache) RecordAggregates(pathname string, dirs uint64, files uint64, size uint64) error {
+func (cache *scanCache) RecordAggregates(pathname string, aggregatedStats *vfs.AggregatedStats) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
-	buffer := bytes.NewBuffer(make([]byte, 0, 24))
-	binary.Write(buffer, binary.LittleEndian, dirs)
-	binary.Write(buffer, binary.LittleEndian, files)
-	binary.Write(buffer, binary.LittleEndian, size)
-	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer.Bytes(), nil)
+	buffer, err := msgpack.Marshal(aggregatedStats)
+	if err != nil {
+		return err
+	}
+	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer, nil)
 }
 
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
@@ -144,24 +143,18 @@ func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	return ret, nil
 }
 
-func (cache *scanCache) GetAggregate(pathname string) (uint64, uint64, uint64, error) {
+func (cache *scanCache) GetAggregate(pathname string) (*vfs.AggregatedStats, error) {
 	data, err := cache.db.Get([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), nil)
 	if err != nil {
-		return 0, 0, 0, err
+		return nil, err
 	}
 
-	if len(data) != 24 {
-		return 0, 0, 0, fmt.Errorf("invalid aggregate length: %d", len(data))
+	var stats vfs.AggregatedStats
+	err = msgpack.Unmarshal(data, &stats)
+	if err != nil {
+		return nil, err
 	}
-
-	buffer := bytes.NewReader(data)
-	var files uint64
-	var dirs uint64
-	var size uint64
-	binary.Read(buffer, binary.LittleEndian, &dirs)
-	binary.Read(buffer, binary.LittleEndian, &files)
-	binary.Read(buffer, binary.LittleEndian, &size)
-	return dirs, files, size, nil
+	return &stats, nil
 }
 
 func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
@@ -572,22 +565,22 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			var childAggregatedStates *vfs.AggregatedStats
 			if child.IsDir() {
 				childAggregatedStates = &vfs.AggregatedStats{}
-				dirEntry.AggregatedStats.NDirs++
+				dirEntry.AggregatedStats.Directories++
 
-				dirs, files, size, err := sc.GetAggregate(childpath)
+				aggregatedCache, err := sc.GetAggregate(childpath)
 				if err != nil {
 					continue
 				}
-				childAggregatedStates.NDirs = dirs
-				childAggregatedStates.NFiles = files
-				childAggregatedStates.Size = size
+				childAggregatedStates.Directories = aggregatedCache.Directories
+				childAggregatedStates.Files = aggregatedCache.Files
+				childAggregatedStates.TotalSize = aggregatedCache.TotalSize
 
-				dirEntry.AggregatedStats.NDirs += dirs
-				dirEntry.AggregatedStats.NFiles += files
-				dirEntry.AggregatedStats.Size += size
+				dirEntry.AggregatedStats.Directories += aggregatedCache.Directories
+				dirEntry.AggregatedStats.Files += aggregatedCache.Files
+				dirEntry.AggregatedStats.TotalSize += aggregatedCache.TotalSize
 			} else {
-				dirEntry.AggregatedStats.NFiles++
-				dirEntry.AggregatedStats.Size += uint64(child.Size())
+				dirEntry.AggregatedStats.Files++
+				dirEntry.AggregatedStats.TotalSize += uint64(child.Size())
 			}
 			dirEntry.AddChild(value, child, childAggregatedStates)
 		}
@@ -609,7 +602,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if err != nil {
 			return err
 		}
-		err = sc.RecordAggregates(record.Pathname, dirEntry.AggregatedStats.NFiles, dirEntry.AggregatedStats.NDirs, dirEntry.AggregatedStats.Size)
+		err = sc.RecordAggregates(record.Pathname, &dirEntry.AggregatedStats)
 		if err != nil {
 			return err
 		}
@@ -688,6 +681,29 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	return snap.Commit()
 }
 
+func entropy(data []byte) float64 {
+	if len(data) == 0 {
+		return 0.0
+	}
+
+	// Count the frequency of each byte value
+	var freq [256]float64
+	for _, b := range data {
+		freq[b]++
+	}
+
+	// Calculate the entropy
+	entropy := 0.0
+	dataSize := float64(len(data))
+	for _, f := range freq {
+		if f > 0 {
+			p := f / dataSize
+			entropy -= p * math.Log2(p)
+		}
+	}
+	return entropy
+}
+
 func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecord) (*objects.Object, error) {
 	atomic.AddUint64(&snap.statistics.ChunkerFiles, 1)
 
@@ -705,6 +721,9 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 	var firstChunk = true
 	var cdcOffset uint64
 	var object_t32 [32]byte
+
+	var totalEntropy float64
+	var totalDataSize uint64
 
 	// Helper function to process a chunk
 	processChunk := func(data []byte) error {
@@ -724,9 +743,12 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		chunkHasher.Write(data)
 		copy(chunk_t32[:], chunkHasher.Sum(nil))
 
-		chunk := objects.Chunk{Checksum: chunk_t32, Length: uint32(len(data))}
+		chunk := objects.Chunk{Checksum: chunk_t32, Length: uint32(len(data)), Entropy: entropy(data)}
 		object.Chunks = append(object.Chunks, chunk)
 		cdcOffset += uint64(len(data))
+
+		totalEntropy += chunk.Entropy * float64(len(data))
+		totalDataSize += uint64(len(data))
 
 		if !snap.CheckChunk(chunk.Checksum) {
 			atomic.AddUint64(&snap.statistics.ChunksCount, 1)
@@ -774,6 +796,12 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 	}
 	atomic.AddUint64(&snap.statistics.ChunkerObjects, 1)
 	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.FileInfo.Size()))
+
+	if totalDataSize > 0 {
+		object.Entropy = totalEntropy / float64(totalDataSize)
+	} else {
+		object.Entropy = 0.0
+	}
 
 	copy(object_t32[:], objectHasher.Sum(nil))
 	object.Checksum = object_t32

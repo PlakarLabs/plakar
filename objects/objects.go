@@ -21,6 +21,7 @@ type Object struct {
 	ContentType    string           `msgpack:"contentType,omitempty"`
 	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
 	Tags           []string         `msgpack:"tags,omitempty"`
+	Entropy        float64          `msgpack:"entropy,omitempty"`
 }
 
 func NewObject() *Object {
@@ -54,6 +55,7 @@ func (o *Object) Serialize() ([]byte, error) {
 type Chunk struct {
 	Checksum [32]byte `msgpack:"checksum"`
 	Length   uint32   `msgpack:"length"`
+	Entropy  float64  `msgpack:"entropy"`
 }
 
 type FileInfo struct {

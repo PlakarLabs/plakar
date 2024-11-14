@@ -119,6 +119,12 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	if f.Tags == nil {
 		f.Tags = []string{}
 	}
+	if f.CustomMetadata == nil {
+		f.CustomMetadata = []CustomMetadata{}
+	}
+	if f.ExtendedAttributes == nil {
+		f.ExtendedAttributes = []ExtendedAttribute{}
+	}
 	return &f, nil
 }
 
@@ -251,6 +257,12 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	}
 	if d.Tags == nil {
 		d.Tags = []string{}
+	}
+	if d.CustomMetadata == nil {
+		d.CustomMetadata = []CustomMetadata{}
+	}
+	if d.ExtendedAttributes == nil {
+		d.ExtendedAttributes = []ExtendedAttribute{}
 	}
 	return &d, nil
 }

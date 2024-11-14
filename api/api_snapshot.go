@@ -103,15 +103,21 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil || offset < 0 {
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if offset < 0 {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
 			return
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil || limit < 0 {
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
 			return
 		}
 	}
@@ -173,8 +179,7 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		}
 		if limit != 0 {
 			if limit >= int64(len(dirEntry.Children)) {
-				http.Error(w, "limit out of range", http.StatusBadRequest)
-				return
+				limit = int64(len(dirEntry.Children))
 			}
 			dirEntry.Children = dirEntry.Children[:limit]
 		}

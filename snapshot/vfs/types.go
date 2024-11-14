@@ -116,6 +116,9 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	if err := msgpack.Unmarshal(serialized, &f); err != nil {
 		return nil, err
 	}
+	if f.Tags == nil {
+		f.Tags = []string{}
+	}
 	return &f, nil
 }
 
@@ -245,6 +248,9 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	var d DirEntry
 	if err := msgpack.Unmarshal(serialized, &d); err != nil {
 		return nil, err
+	}
+	if d.Tags == nil {
+		d.Tags = []string{}
 	}
 	return &d, nil
 }

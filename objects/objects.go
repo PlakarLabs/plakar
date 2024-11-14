@@ -10,34 +10,35 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Directory struct {
-	Checksum [32]byte
-	FileInfo FileInfo
-}
-
-func NewDirectory(checksum [32]byte, fileInfo FileInfo) *Directory {
-	return &Directory{
-		Checksum: checksum,
-		FileInfo: fileInfo,
+/*
+	type Directory struct {
+		Checksum [32]byte
+		FileInfo FileInfo
 	}
-}
 
-func NewDirectoryFromBytes(serialized []byte) (*Directory, error) {
-	var d Directory
-	if err := msgpack.Unmarshal(serialized, &d); err != nil {
-		return nil, err
+	func NewDirectory(checksum [32]byte, fileInfo FileInfo) *Directory {
+		return &Directory{
+			Checksum: checksum,
+			FileInfo: fileInfo,
+		}
 	}
-	return &d, nil
-}
 
-func (d *Directory) Serialize() ([]byte, error) {
-	serialized, err := msgpack.Marshal(d)
-	if err != nil {
-		return nil, err
+	func NewDirectoryFromBytes(serialized []byte) (*Directory, error) {
+		var d Directory
+		if err := msgpack.Unmarshal(serialized, &d); err != nil {
+			return nil, err
+		}
+		return &d, nil
 	}
-	return serialized, nil
-}
 
+	func (d *Directory) Serialize() ([]byte, error) {
+		serialized, err := msgpack.Marshal(d)
+		if err != nil {
+			return nil, err
+		}
+		return serialized, nil
+	}
+*/
 type File struct {
 	Checksum [32]byte
 	FileInfo FileInfo

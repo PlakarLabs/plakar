@@ -9,6 +9,18 @@ import (
 	"github.com/PlakarKorp/plakar/repository"
 )
 
+const VERSION = 001
+
+type ExtendedAttribute struct {
+	Name  string `msgpack:"name"`
+	Value []byte `msgpack:"value"`
+}
+
+type CustomMetadata struct {
+	Key   string `msgpack:"key"`
+	Value []byte `msgpack:"value"`
+}
+
 type Filesystem struct {
 	repo      *repository.Repository
 	root      [32]byte

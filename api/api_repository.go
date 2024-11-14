@@ -18,10 +18,52 @@ func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
 }
 
 func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
-	sortKeys, err := header.ParseSortKeys(r.URL.Query().Get("sort"))
+	var err error
+	var sortKeys []string
+	var offset int64
+	var limit int64
+	var reversed bool
+
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+	orderStr := r.URL.Query().Get("order")
+
+	sortKeys, err = header.ParseSortKeys(r.URL.Query().Get("sort"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if offset < 0 {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+	if limitStr != "" {
+		limit, err = strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
+
+	reversed = false
+	if orderStr != "" {
+		if orderStr != "asc" && orderStr != "desc" {
+			http.Error(w, "Invalid order", http.StatusBadRequest)
+			return
+		}
+		if orderStr == "desc" {
+			reversed = true
+		}
 	}
 
 	snapshotIDs, err := lrepository.GetSnapshots()
@@ -40,7 +82,14 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		headers = append(headers, *snap.Header)
 	}
 
-	header.SortHeaders(headers, sortKeys)
+	header.SortHeaders(headers, sortKeys, reversed)
+	if offset > int64(len(headers)) {
+		headers = []header.Header{}
+	} else if offset+limit > int64(len(headers)) {
+		headers = headers[offset:]
+	} else {
+		headers = headers[offset : offset+limit]
+	}
 
 	err = json.NewEncoder(w).Encode(headers)
 	if err != nil {

@@ -14,15 +14,6 @@ import (
 )
 
 /* snapshot API */
-/*
-	GetStates() ([][32]byte, error)
-//	GetState(checksum [32]byte) (io.Reader, uint64, error)
-	GetState(checksum [32]byte) ([]byte, uint64, error)
-
-	GetPackfiles() ([][32]byte, error)
-	GetPackfile(checksum [32]byte) (io.Reader, uint64, error)
-	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error)
-*/
 
 func snapshotHeader(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

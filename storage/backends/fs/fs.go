@@ -177,7 +177,12 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 }
 
 func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
-	fp, err := os.Open(repository.PathPackfile(checksum))
+	pathname := repository.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+	}
+
+	fp, err := os.Open(pathname)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -191,7 +196,12 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64,
 }
 
 func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
-	fp, err := os.Open(repository.PathPackfile(checksum))
+	pathname := repository.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+	}
+
+	fp, err := os.Open(pathname)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -222,7 +232,12 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 }
 
 func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	err := os.Remove(repository.PathPackfile(checksum))
+	pathname := repository.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
+
+	err := os.Remove(pathname)
 	if err != nil {
 		return err
 	}
@@ -231,6 +246,14 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 
 func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
+	if !strings.HasPrefix(tmpfile, repository.PathTmp()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
+
+	pathname := repository.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
 
 	f, err := os.Create(tmpfile)
 	if err != nil {
@@ -243,7 +266,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	} else if uint64(n) != size {
 		return fmt.Errorf("short write")
 	}
-	return os.Rename(tmpfile, repository.PathPackfile(checksum))
+
+	return os.Rename(tmpfile, pathname)
 }
 
 func (repository *Repository) Close() error {
@@ -289,6 +313,15 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 
 func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
+	if !strings.HasPrefix(tmpfile, repository.PathTmp()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
+
+	pathname := repository.PathState(checksum)
+	if !strings.HasPrefix(pathname, repository.PathStates()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
+
 	f, err := os.Create(tmpfile)
 	if err != nil {
 		return err
@@ -301,11 +334,16 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uin
 	} else if uint64(w) != size {
 		return fmt.Errorf("short write")
 	}
-	return os.Rename(tmpfile, repository.PathState(checksum))
+	return os.Rename(tmpfile, pathname)
 }
 
 func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
-	fp, err := os.Open(repository.PathState(checksum))
+	pathname := repository.PathState(checksum)
+	if !strings.HasPrefix(pathname, repository.PathStates()) {
+		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+	}
+
+	fp, err := os.Open(pathname)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -319,7 +357,12 @@ func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, er
 }
 
 func (repository *Repository) DeleteState(checksum [32]byte) error {
-	err := os.Remove(repository.PathState(checksum))
+	pathname := repository.PathState(checksum)
+	if !strings.HasPrefix(pathname, repository.PathStates()) {
+		return fmt.Errorf("invalid path generated from checksum")
+	}
+
+	err := os.Remove(pathname)
 	if err != nil {
 		return err
 	}

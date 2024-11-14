@@ -172,9 +172,16 @@ func (f *FileEntry) FileInfo() *objects.FileInfo {
 	}
 }
 
+type AggregatedStats struct {
+	NFiles uint64 `msgpack:"NFiles,omitempty"` // Total number of files in the directory
+	NDirs  uint64 `msgpack:"NDirs,omitempty"`  // Total number of subdirectories in the directory
+	Size   uint64 `msgpack:"Size,omitempty"`   // Total size of all files in the directory
+}
+
 type ChildEntry struct {
-	Checksum [32]byte
-	FileInfo objects.FileInfo
+	Checksum        [32]byte         `msgpack:"checksum"`
+	FileInfo        objects.FileInfo `msgpack:"fileInfo"`
+	AggregatedStats *AggregatedStats `msgpack:"aggregatedStats,omitempty"`
 }
 
 // DirEntry represents the comprehensive structure for a directory entry
@@ -196,9 +203,7 @@ type DirEntry struct {
 	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the directory (optional)
 	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
-	AggregateFiles     uint64              `msgpack:"aggregateFiles,omitempty"`     // Total number of files in the directory
-	AggregateDirs      uint64              `msgpack:"aggregateDirs,omitempty"`      // Total number of subdirectories in the directory
-	AggregateSize      uint64              `msgpack:"aggregateSize,omitempty"`      // Total size of all files in the directory
+	AggregatedStats    AggregatedStats     `msgpack:"aggregatedStats,omitempty"`
 }
 
 func (*DirEntry) fsEntry() {}
@@ -242,10 +247,11 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	return &d, nil
 }
 
-func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo) {
+func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo, aggregatedStats *AggregatedStats) {
 	d.Children = append(d.Children, ChildEntry{
-		Checksum: checksum,
-		FileInfo: fileInfo,
+		Checksum:        checksum,
+		FileInfo:        fileInfo,
+		AggregatedStats: aggregatedStats,
 	})
 	d.NumChildren++
 }

@@ -116,15 +116,15 @@ func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error
 	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
 }
 
-func (cache *scanCache) RecordAggregates(pathname string, files uint64, dirs uint64, size uint64) error {
+func (cache *scanCache) RecordAggregates(pathname string, dirs uint64, files uint64, size uint64) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
 	buffer := bytes.NewBuffer(make([]byte, 0, 24))
-	binary.Write(buffer, binary.LittleEndian, files)
 	binary.Write(buffer, binary.LittleEndian, dirs)
+	binary.Write(buffer, binary.LittleEndian, files)
 	binary.Write(buffer, binary.LittleEndian, size)
 	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer.Bytes(), nil)
 }
@@ -158,10 +158,10 @@ func (cache *scanCache) GetAggregate(pathname string) (uint64, uint64, uint64, e
 	var files uint64
 	var dirs uint64
 	var size uint64
-	binary.Read(buffer, binary.LittleEndian, &files)
 	binary.Read(buffer, binary.LittleEndian, &dirs)
+	binary.Read(buffer, binary.LittleEndian, &files)
 	binary.Read(buffer, binary.LittleEndian, &size)
-	return files, dirs, size, nil
+	return dirs, files, size, nil
 }
 
 func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
@@ -573,21 +573,27 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				continue
 			}
 
+			var childAggregatedStates *vfs.AggregatedStats
 			if child.IsDir() {
-				dirEntry.AggregateDirs++
+				childAggregatedStates = &vfs.AggregatedStats{}
+				dirEntry.AggregatedStats.NDirs++
 
-				files, dirs, size, err := sc.GetAggregate(childpath)
+				dirs, files, size, err := sc.GetAggregate(childpath)
 				if err != nil {
 					continue
 				}
-				dirEntry.AggregateFiles += files
-				dirEntry.AggregateDirs += dirs
-				dirEntry.AggregateSize += size
+				childAggregatedStates.NDirs = dirs
+				childAggregatedStates.NFiles = files
+				childAggregatedStates.Size = size
+
+				dirEntry.AggregatedStats.NDirs += dirs
+				dirEntry.AggregatedStats.NFiles += files
+				dirEntry.AggregatedStats.Size += size
 			} else {
-				dirEntry.AggregateFiles++
-				dirEntry.AggregateSize += uint64(child.Size())
+				dirEntry.AggregatedStats.NFiles++
+				dirEntry.AggregatedStats.Size += uint64(child.Size())
 			}
-			dirEntry.AddChild(value, child)
+			dirEntry.AddChild(value, child, childAggregatedStates)
 		}
 
 		serialized, err := dirEntry.Serialize()
@@ -607,7 +613,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if err != nil {
 			return err
 		}
-		err = sc.RecordAggregates(record.Pathname, dirEntry.AggregateFiles, dirEntry.AggregateDirs, dirEntry.AggregateSize)
+		err = sc.RecordAggregates(record.Pathname, dirEntry.AggregatedStats.NFiles, dirEntry.AggregatedStats.NDirs, dirEntry.AggregatedStats.Size)
 		if err != nil {
 			return err
 		}

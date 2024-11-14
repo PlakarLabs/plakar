@@ -82,6 +82,10 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		headers = append(headers, *snap.Header)
 	}
 
+	if limit == 0 {
+		limit = int64(len(headers))
+	}
+
 	header.SortHeaders(headers, sortKeys, reversed)
 	if offset > int64(len(headers)) {
 		headers = []header.Header{}

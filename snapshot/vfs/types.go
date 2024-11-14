@@ -12,19 +12,6 @@ import (
 
 const VERSION = 001
 
-///
-
-type ObjectType string
-
-const (
-	ObjectTypeFile    ObjectType = "file"
-	ObjectTypeDir     ObjectType = "directory"
-	ObjectTypeSymlink ObjectType = "symlink"
-	ObjectTypeDevice  ObjectType = "device"
-	ObjectTypePipe    ObjectType = "pipe"
-	ObjectTypeSocket  ObjectType = "socket"
-)
-
 // FileAttributes represents platform-specific file attributes (e.g., hidden, system, etc.)
 type FileAttributes struct {
 	IsHidden    bool `msgpack:"isHidden,omitempty"`    // Hidden file attribute (Windows, Linux)

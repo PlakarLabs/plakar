@@ -96,7 +96,7 @@ func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *sna
 	}
 
 	info := fsinfo.(*vfs.FileEntry)
-	object, err := snap.LookupObject(info.Checksum)
+	object, err := snap.LookupObject(info.Object.Checksum)
 	if err != nil {
 		return err
 	}

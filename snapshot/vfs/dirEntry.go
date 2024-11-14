@@ -1,9 +1,7 @@
 package vfs
 
 import (
-	"os"
 	"sort"
-	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -23,23 +21,23 @@ type ChildEntry struct {
 }
 
 type DirEntry struct {
-	Version            uint32              `msgpack:"version"`                      // Version number of the file entry structure for compatibility
-	Name               string              `msgpack:"name"`                         // Name of the directory
-	Type               importer.RecordType `msgpack:"type"`                         // Type of entry (directory)
-	Size               int64               `msgpack:"size,omitempty"`               // Size of the file in bytes (optional for directories)
-	Permissions        os.FileMode         `msgpack:"permissions"`                  // Directory permissions (read/write/execute)
-	ModTime            time.Time           `msgpack:"modTime"`                      // Modification time of the directory
-	DeviceID           uint64              `msgpack:"deviceID,omitempty"`           // Device ID for special files (block/character devices)
-	InodeID            uint64              `msgpack:"inodeID,omitempty"`            // Inode ID for special files (block/character devices)
-	UserID             uint64              `msgpack:"userID,omitempty"`             // User ID of the owner (optional)
-	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
-	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the directory (optional)
-	Children           []ChildEntry        `msgpack:"children,omitempty"`           // List of child entries' serialized checksums (files and subdirectories)
+	Version uint32              `msgpack:"version"` // Version number of the file entry structure for compatibility
+	Type    importer.RecordType `msgpack:"type"`    // Type of entry (directory)
+	Info    objects.FileInfo    `msgpack:"info"`
+
+	Children        []ChildEntry    `msgpack:"children,omitempty"` // List of child entries' serialized checksums (files and subdirectories)
+	AggregatedStats AggregatedStats `msgpack:"aggregatedStats,omitempty"`
+
+	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
+	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"` // Security descriptor (optional)
+	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
+
 	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
 	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
-	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the directory (optional)
-	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
-	AggregatedStats    AggregatedStats     `msgpack:"aggregatedStats,omitempty"`
+
+	Tags       []string `msgpack:"tags,omitempty"`       // List of tags associated with the directory (optional)
+	ParentPath string   `msgpack:"parentPath,omitempty"` // Path to the parent directory (optional)
+
 }
 
 func (*DirEntry) fsEntry() {}
@@ -59,16 +57,8 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 
 	return &DirEntry{
 		Version:            VERSION,
-		Name:               record.Stat.Name(),
 		Type:               record.Type,
-		Size:               record.Stat.Size(),
-		Permissions:        record.Stat.Mode(),
-		ModTime:            record.Stat.ModTime(),
-		DeviceID:           record.Stat.Dev(),
-		InodeID:            record.Stat.Ino(),
-		UserID:             record.Stat.Uid(),
-		GroupID:            record.Stat.Gid(),
-		NumLinks:           record.Stat.Nlink(),
+		Info:               record.Stat,
 		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
 	}
@@ -103,15 +93,5 @@ func (d *DirEntry) Serialize() ([]byte, error) {
 }
 
 func (d *DirEntry) FileInfo() *objects.FileInfo {
-	return &objects.FileInfo{
-		Lname:    d.Name,
-		Lsize:    d.Size,
-		Lmode:    d.Permissions,
-		LmodTime: d.ModTime,
-		Ldev:     d.DeviceID,
-		Lino:     d.InodeID,
-		Luid:     d.UserID,
-		Lgid:     d.GroupID,
-		Lnlink:   d.NumLinks,
-	}
+	return &d.Info
 }

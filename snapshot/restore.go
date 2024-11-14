@@ -81,8 +81,8 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 			defer wg.Done()
 			defer func() { <-restoreContext.maxConcurrency }()
 
-			if fileEntry.NumLinks > 1 {
-				key := fmt.Sprintf("%d:%d", fileEntry.DeviceID, fileEntry.InodeID)
+			if fileEntry.Info.Nlink() > 1 {
+				key := fmt.Sprintf("%d:%d", fileEntry.Info.Dev(), fileEntry.Info.Ino())
 				restoreContext.hardlinksMutex.Lock()
 				v, ok := restoreContext.hardlinks[key]
 				restoreContext.hardlinksMutex.Unlock()

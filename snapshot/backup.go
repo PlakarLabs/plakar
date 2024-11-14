@@ -462,11 +462,13 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			// Check if the file entry and underlying objects are already in the cache
 			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
 			if err == nil && cachedFileEntry != nil {
-				if cachedFileEntry.ModTime.Equal(record.Stat.ModTime()) && cachedFileEntry.Size == record.Stat.Size() {
+				if cachedFileEntry.Info.ModTime().Equal(record.Stat.ModTime()) && cachedFileEntry.Info.Size() == record.Stat.Size() {
 					fileEntry = cachedFileEntry
-					cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Checksum)
-					if err == nil && cachedObject != nil {
-						object = cachedObject
+					if fileEntry.Type == importer.RecordTypeFile {
+						cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Object.Checksum)
+						if err == nil && cachedObject != nil {
+							object = cachedObject
+						}
 					}
 				}
 			}
@@ -513,13 +515,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			} else {
 				fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 				if object != nil {
-					for _, chunk := range object.Chunks {
-						fileEntry.AddChunk(chunk)
-					}
-					fileEntry.AddChecksum(object.Checksum)
-					if object.ContentType != "" {
-						fileEntry.AddContentType(object.ContentType)
-					}
+					fileEntry.Object = object
 				}
 
 				// Serialize the FileEntry and store it in the repository

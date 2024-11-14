@@ -143,20 +143,20 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 		}
 
 		var header *tar.Header
-		switch info := info.(type) {
+		switch entry := info.(type) {
 		case *vfs.FileEntry:
 			header = &tar.Header{
 				Name:    filepath,
-				Size:    info.Size,
-				Mode:    int64(info.Permissions),
-				ModTime: info.ModTime,
+				Size:    entry.Info.Size(),
+				Mode:    int64(entry.Info.Mode()),
+				ModTime: entry.Info.ModTime(),
 			}
 		case *vfs.DirEntry:
 			header = &tar.Header{
 				Name:    filepath,
-				Size:    info.Size,
-				Mode:    int64(info.Permissions),
-				ModTime: info.ModTime,
+				Size:    entry.Info.Size(),
+				Mode:    int64(entry.Info.Mode()),
+				ModTime: entry.Info.ModTime(),
 			}
 		default:
 			logger.Error("could not stat file %T: %s %s", file, file, err)

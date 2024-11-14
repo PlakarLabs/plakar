@@ -47,9 +47,9 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 			defer wg.Done()
 			defer func() { <-concurrency }()
 
-			object, err := snap.LookupObject(_fileEntry.Checksum)
+			object, err := snap.LookupObject(_fileEntry.Object.Checksum)
 			if err != nil {
-				snap.Event(events.ObjectMissingEvent(snap.Header.SnapshotID, _fileEntry.Checksum))
+				snap.Event(events.ObjectMissingEvent(snap.Header.SnapshotID, _fileEntry.Object.Checksum))
 				return
 			}
 

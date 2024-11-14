@@ -364,7 +364,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	if op.Offset > info.(*vfs.FileEntry).Size {
+	if op.Offset > info.(*vfs.FileEntry).Info.Size() {
 		return nil
 	}
 

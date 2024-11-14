@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
@@ -115,8 +116,8 @@ func NewReader(snap *Snapshot, pathname string) (*Reader, error) {
 		return nil, os.ErrInvalid
 	}
 
-	if st := st.(*vfs.FileEntry); st != nil {
-		object, err := snap.LookupObject(st.Checksum)
+	if st := st.(*vfs.FileEntry); st != nil && st.Type == importer.RecordTypeFile {
+		object, err := snap.LookupObject(st.Object.Checksum)
 		if err != nil {
 			return nil, err
 		}

@@ -13,8 +13,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-/* snapshot API */
-
 func snapshotHeader(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	snapshotIDstr := vars["snapshot"]

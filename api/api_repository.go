@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"sort"
 	"strconv"
 
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -19,8 +18,11 @@ func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
 }
 
 func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	_ = vars
+	sortKeys, err := header.ParseSortKeys(r.URL.Query().Get("sort"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
@@ -38,9 +40,7 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		headers = append(headers, *snap.Header)
 	}
 
-	sort.Slice(headers, func(i, j int) bool {
-		return headers[i].CreationTime.Before(headers[j].CreationTime)
-	})
+	header.SortHeaders(headers, sortKeys)
 
 	err = json.NewEncoder(w).Encode(headers)
 	if err != nil {

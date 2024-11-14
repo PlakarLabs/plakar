@@ -106,6 +106,7 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 		NumLinks:           record.Stat.Nlink(),
 		SymlinkTarget:      target,
 		ExtendedAttributes: ExtendedAttributes,
+		Tags:               []string{},
 		ParentPath:         parentPath,
 	}
 }
@@ -181,7 +182,7 @@ type AggregatedStats struct {
 type ChildEntry struct {
 	Checksum        [32]byte         `msgpack:"checksum"`
 	FileInfo        objects.FileInfo `msgpack:"fileInfo"`
-	AggregatedStats *AggregatedStats `msgpack:"aggregatedStats,omitempty"`
+	AggregatedStats *AggregatedStats `msgpack:"aggregatedStats,omitempty" json:"AggregatedStats,omitempty"`
 }
 
 // DirEntry represents the comprehensive structure for a directory entry
@@ -235,6 +236,7 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 		NumChildren:        0,
 		NumLinks:           record.Stat.Nlink(),
 		ExtendedAttributes: ExtendedAttributes,
+		Tags:               []string{},
 		ParentPath:         parentPath,
 	}
 }

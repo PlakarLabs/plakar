@@ -178,9 +178,9 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 	var fileinfo os.FileInfo
 	switch fsinfo := fsinfo.(type) {
 	case *vfs.DirEntry:
-		fileinfo = fsinfo.FileInfo()
+		fileinfo = fsinfo.Stat()
 	case *vfs.FileEntry:
-		fileinfo = fsinfo.FileInfo()
+		fileinfo = fsinfo.Stat()
 	}
 
 	return fuseops.InodeAttributes{
@@ -297,9 +297,9 @@ func (fs *plakarFS) LookUpInode(
 	var fileinfo os.FileInfo
 	switch fsinfo := fsinfo.(type) {
 	case *vfs.DirEntry:
-		fileinfo = fsinfo.FileInfo()
+		fileinfo = fsinfo.Stat()
 	case *vfs.FileEntry:
-		fileinfo = fsinfo.FileInfo()
+		fileinfo = fsinfo.Stat()
 	}
 
 	op.Entry.Child = inodeID
@@ -364,7 +364,7 @@ func (fs *plakarFS) ReadFile(
 		return fuse.EIO
 	}
 
-	if op.Offset > info.(*vfs.FileEntry).Info.Size() {
+	if op.Offset > info.(*vfs.FileEntry).Stat().Size() {
 		return nil
 	}
 

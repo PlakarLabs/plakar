@@ -21,22 +21,26 @@ type ChildEntry struct {
 }
 
 type DirEntry struct {
-	Version uint32              `msgpack:"version"` // Version number of the file entry structure for compatibility
-	Type    importer.RecordType `msgpack:"type"`    // Type of entry (directory)
-	Info    objects.FileInfo    `msgpack:"info"`
+	Version    uint32              `msgpack:"version"`              // Version number of the file entry structure for compatibility
+	ParentPath string              `msgpack:"parentPath,omitempty"` // Path to the parent directory (optional)
+	Type       importer.RecordType `msgpack:"type"`                 // Type of entry (directory)
+	FileInfo   objects.FileInfo    `msgpack:"info"`
 
+	/* Directory specific fields */
 	Children        []ChildEntry    `msgpack:"children,omitempty"` // List of child entries' serialized checksums (files and subdirectories)
 	AggregatedStats AggregatedStats `msgpack:"aggregatedStats,omitempty"`
 
+	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
 	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"` // Security descriptor (optional)
 	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
 
+	/* Unix fields */
 	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
-	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
 
-	Tags       []string `msgpack:"tags,omitempty"`       // List of tags associated with the directory (optional)
-	ParentPath string   `msgpack:"parentPath,omitempty"` // Path to the parent directory (optional)
+	/* Custom metadata and tags */
+	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"` // Custom key-value metadata defined by the user (optional)
+	Tags           []string         `msgpack:"tags,omitempty"`           // List of tags associated with the directory (optional)
 
 }
 
@@ -58,7 +62,7 @@ func NewDirectoryEntry(parentPath string, record *importer.ScanRecord) *DirEntry
 	return &DirEntry{
 		Version:            VERSION,
 		Type:               record.Type,
-		Info:               record.Stat,
+		FileInfo:           record.FileInfo,
 		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
 	}
@@ -92,6 +96,6 @@ func (d *DirEntry) Serialize() ([]byte, error) {
 	return data, nil
 }
 
-func (d *DirEntry) FileInfo() *objects.FileInfo {
-	return &d.Info
+func (d *DirEntry) Stat() *objects.FileInfo {
+	return &d.FileInfo
 }

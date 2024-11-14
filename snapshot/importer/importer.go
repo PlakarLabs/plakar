@@ -62,7 +62,7 @@ type ScanRecord struct {
 	Type               RecordType
 	Pathname           string
 	Target             string
-	Stat               objects.FileInfo
+	FileInfo           objects.FileInfo
 	Children           []objects.FileInfo
 	ExtendedAttributes map[string][]byte
 	FileAttributes     []string

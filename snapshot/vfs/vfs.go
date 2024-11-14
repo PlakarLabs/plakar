@@ -76,7 +76,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 			fmt.Println("error decoding directory entry")
 			return
 		}
-		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Info.Name())
+		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	for _, child := range currentEntry.Children {
@@ -115,7 +115,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 		if err != nil {
 			return
 		}
-		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Info.Name())
+		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	for _, child := range currentEntry.Children {
@@ -158,7 +158,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 			return
 		}
 	}
-	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Info.Name())
+	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	out <- baseDir
 
 	for _, child := range currentEntry.Children {

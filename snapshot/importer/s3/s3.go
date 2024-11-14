@@ -151,10 +151,10 @@ func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
 		})
 
 		for _, directory := range directoryNames {
-			c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: directory, Stat: directories[directory]}
+			c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: directory, FileInfo: directories[directory]}
 		}
 		for _, filename := range fileNames {
-			c <- importer.ScanRecord{Type: importer.RecordTypeFile, Pathname: filename, Stat: files[filename]}
+			c <- importer.ScanRecord{Type: importer.RecordTypeFile, Pathname: filename, FileInfo: files[filename]}
 		}
 		close(c)
 	}()

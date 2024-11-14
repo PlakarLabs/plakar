@@ -91,7 +91,7 @@ func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *sna
 
 	if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
 		return err
-	} else if !fsinfo.FileInfo().Mode().IsRegular() {
+	} else if !fsinfo.Stat().Mode().IsRegular() {
 		return err
 	}
 

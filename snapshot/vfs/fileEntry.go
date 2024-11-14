@@ -12,24 +12,27 @@ type FSEntry interface {
 	fsEntry()
 }
 
-// FileEntry represents the comprehensive structure for a file entry, capturing all relevant metadata
 type FileEntry struct {
-	Version       uint32              `msgpack:"version"` // Version number of the file entry structure for compatibility
-	Type          importer.RecordType `msgpack:"type"`    // Type of entry (file, directory, symlink, etc.)
-	Info          objects.FileInfo    `msgpack:"info"`
-	SymlinkTarget string              `msgpack:"symlinkTarget,omitempty"` // Target path if the entry is a symbolic link (optional)
+	Version    uint32              `msgpack:"version"`
+	ParentPath string              `msgpack:"parentPath,omitempty"`
+	Type       importer.RecordType `msgpack:"type"`
+	FileInfo   objects.FileInfo    `msgpack:"info"`
 
-	Object *objects.Object `msgpack:"object,omitempty"` // Object metadata (optional)
+	/* File specific fields */
+	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty"`
+	Object        *objects.Object `msgpack:"object,omitempty"` // nil for !regular files
 
+	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
-	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"` // Security descriptor (optional)
-	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
+	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"`
+	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`
 
-	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
-	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
+	/* Unix fields */
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"`
 
-	Tags       []string `msgpack:"tags,omitempty"`       // List of tags associated with the file or directory (optional)
-	ParentPath string   `msgpack:"parentPath,omitempty"` // Path to the parent directory (optional)
+	/* Custom metadata and tags */
+	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
+	Tags           []string         `msgpack:"tags,omitempty"`
 }
 
 func (*FileEntry) fsEntry() {}
@@ -55,7 +58,7 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 	return &FileEntry{
 		Version:            VERSION,
 		Type:               record.Type,
-		Info:               record.Stat,
+		FileInfo:           record.FileInfo,
 		SymlinkTarget:      target,
 		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
@@ -70,18 +73,6 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	return &f, nil
 }
 
-func (f *FileEntry) AddFileAttributes(fileAttributes uint32) {
-	f.FileAttributes = fileAttributes
-}
-
-func (f *FileEntry) AddSymlinkTarget(symlinkTarget string) {
-	f.SymlinkTarget = symlinkTarget
-}
-
-func (f *FileEntry) AddTags(tags []string) {
-	f.Tags = tags
-}
-
 func (f *FileEntry) Serialize() ([]byte, error) {
 	data, err := msgpack.Marshal(f)
 	if err != nil {
@@ -90,6 +81,6 @@ func (f *FileEntry) Serialize() ([]byte, error) {
 	return data, nil
 }
 
-func (f *FileEntry) FileInfo() *objects.FileInfo {
-	return &f.Info
+func (f *FileEntry) Stat() *objects.FileInfo {
+	return &f.FileInfo
 }

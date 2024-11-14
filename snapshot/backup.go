@@ -77,7 +77,7 @@ func (cache *scanCache) RecordPathname(record importer.ScanRecord) error {
 	}
 
 	var key string
-	if record.Stat.Mode().IsDir() {
+	if record.FileInfo.Mode().IsDir() {
 		if record.Pathname == "/" {
 			key = "__pathname__:/"
 		} else {
@@ -310,10 +310,10 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 		switch record.Type {
 		case importer.RecordTypeFile:
 			atomic.AddUint64(&snap.statistics.ImporterFiles, 1)
-			if record.Stat.Nlink() > 1 {
+			if record.FileInfo.Nlink() > 1 {
 				atomic.AddUint64(&snap.statistics.ImporterLinks, 1)
 			}
-			atomic.AddUint64(&snap.statistics.ImporterSize, uint64(record.Stat.Size()))
+			atomic.AddUint64(&snap.statistics.ImporterSize, uint64(record.FileInfo.Size()))
 		case importer.RecordTypeDirectory:
 			atomic.AddUint64(&snap.statistics.ImporterDirectories, 1)
 		case importer.RecordTypeSymlink:
@@ -366,7 +366,7 @@ func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir
 
 				case importer.ScanRecord:
 					snap.Event(events.PathEvent(snap.Header.SnapshotID, record.Pathname))
-					if record.Stat.Mode().IsDir() {
+					if record.FileInfo.Mode().IsDir() {
 						if err := sc.RecordPathname(record); err != nil {
 							//return err
 							return
@@ -462,7 +462,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			// Check if the file entry and underlying objects are already in the cache
 			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
 			if err == nil && cachedFileEntry != nil {
-				if cachedFileEntry.Info.ModTime().Equal(record.Stat.ModTime()) && cachedFileEntry.Info.Size() == record.Stat.Size() {
+				if cachedFileEntry.Stat().ModTime().Equal(record.FileInfo.ModTime()) && cachedFileEntry.Stat().Size() == record.FileInfo.Size() {
 					fileEntry = cachedFileEntry
 					if fileEntry.Type == importer.RecordTypeFile {
 						cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Object.Checksum)
@@ -474,7 +474,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			}
 
 			// Chunkify the file if it is a regular file and we don't have a cached object
-			if record.Stat.Mode().IsRegular() {
+			if record.FileInfo.Mode().IsRegular() {
 				if object == nil || !snap.CheckObject(object.Checksum) {
 					object, err = snap.chunkify(imp, record)
 					if err != nil {
@@ -549,7 +549,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				// return err
 				return
 			}
-			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.Stat.Size()))
+			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.FileInfo.Size()))
 			snap.Event(events.FileOKEvent(snap.Header.SnapshotID, record.Pathname))
 		}(_record)
 	}
@@ -736,12 +736,12 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		return nil
 	}
 
-	if record.Stat.Size() == 0 {
+	if record.FileInfo.Size() == 0 {
 		// Produce an empty chunk for empty file
 		if err := processChunk([]byte{}); err != nil {
 			return nil, err
 		}
-	} else if record.Stat.Size() < int64(snap.repository.Configuration().ChunkingMin) {
+	} else if record.FileInfo.Size() < int64(snap.repository.Configuration().ChunkingMin) {
 		// Small file case: read entire file into memory
 		buf, err := io.ReadAll(rd)
 		if err != nil {
@@ -773,7 +773,7 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		}
 	}
 	atomic.AddUint64(&snap.statistics.ChunkerObjects, 1)
-	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.Stat.Size()))
+	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.FileInfo.Size()))
 
 	copy(object_t32[:], objectHasher.Sum(nil))
 	object.Checksum = object_t32

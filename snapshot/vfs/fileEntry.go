@@ -14,7 +14,7 @@ type FSEntry interface {
 
 type FileEntry struct {
 	Version    uint32              `msgpack:"version"`
-	ParentPath string              `msgpack:"parentPath,omitempty"`
+	ParentPath string              `msgpack:"parentPath"`
 	Type       importer.RecordType `msgpack:"type"`
 	FileInfo   objects.FileInfo    `msgpack:"info"`
 

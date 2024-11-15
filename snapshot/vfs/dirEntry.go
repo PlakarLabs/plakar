@@ -39,10 +39,6 @@ type AggregatedStats struct {
 	MaxDepth uint64  `msgpack:"maxDepth,omitempty"` // Maximum depth of the directory
 	AvgDepth float64 `msgpack:"avgDepth,omitempty"` // Average depth of the directory
 
-	MinErrors uint64  `msgpack:"minErrors,omitempty"` // Minimum number of errors encountered in a file
-	MaxErrors uint64  `msgpack:"maxErrors,omitempty"` // Maximum number of errors encountered in a file
-	AvgErrors float64 `msgpack:"avgErrors,omitempty"` // Average number of errors encountered in a file
-
 	MinEntropy            float64 `msgpack:"minEntropy,omitempty"`            // Minimum entropy of the directory
 	MaxEntropy            float64 `msgpack:"maxEntropy,omitempty"`            // Maximum entropy of the directory
 	AvgEntropy            float64 `msgpack:"avgEntropy,omitempty"`            // Average entropy of the directory

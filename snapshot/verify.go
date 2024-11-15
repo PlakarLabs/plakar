@@ -38,7 +38,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 			snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, pathname))
 		}
 		return complete, err
-	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
+	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.Stat().Mode().IsRegular() {
 		snap.Event(events.FileEvent(snap.Header.SnapshotID, pathname))
 
 		concurrency <- true
@@ -47,9 +47,9 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 			defer wg.Done()
 			defer func() { <-concurrency }()
 
-			object, err := snap.LookupObject(_fileEntry.Checksum)
+			object, err := snap.LookupObject(_fileEntry.Object.Checksum)
 			if err != nil {
-				snap.Event(events.ObjectMissingEvent(snap.Header.SnapshotID, _fileEntry.Checksum))
+				snap.Event(events.ObjectMissingEvent(snap.Header.SnapshotID, _fileEntry.Object.Checksum))
 				return
 			}
 

@@ -131,9 +131,9 @@ func (p *FTPImporter) ftpWalker_worker(jobs <-chan string, results chan<- import
 				}
 				children = append(children, objects.FileInfoFromStat(child))
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo, Children: children}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), FileInfo: fileinfo, Children: children}
 		} else {
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Stat: fileinfo}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), FileInfo: fileinfo}
 		}
 
 		// Handle symlinks separately
@@ -143,7 +143,7 @@ func (p *FTPImporter) ftpWalker_worker(jobs <-chan string, results chan<- import
 				results <- importer.ScanError{Pathname: path, Err: err}
 				continue
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, Stat: fileinfo}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), Target: originFile, FileInfo: fileinfo}
 		}
 	}
 }

@@ -1,50 +1,38 @@
 package vfs
 
 import (
-	"os"
 	"sort"
-	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// FileAttributes represents platform-specific file attributes (e.g., hidden, system, etc.)
-type FileAttributes struct {
-	IsHidden    bool `msgpack:"isHidden,omitempty"`    // Hidden file attribute (Windows, Linux)
-	IsSystem    bool `msgpack:"isSystem,omitempty"`    // System file attribute (Windows)
-	IsReadonly  bool `msgpack:"isReadonly,omitempty"`  // Read-only attribute
-	IsArchive   bool `msgpack:"isArchive,omitempty"`   // Archive attribute (Windows)
-	IsTemporary bool `msgpack:"isTemporary,omitempty"` // Temporary file (Windows)
-}
-
 type FSEntry interface {
 	fsEntry()
 }
 
-// FileEntry represents the comprehensive structure for a file entry, capturing all relevant metadata
 type FileEntry struct {
-	Version            uint32              `msgpack:"version"`                      // Version number of the file entry structure for compatibility
-	Name               string              `msgpack:"name"`                         // Name of the file
-	Type               importer.RecordType `msgpack:"type"`                         // Type of entry (file, directory, symlink, etc.)
-	Size               int64               `msgpack:"size,omitempty"`               // Size of the file in bytes (optional for directories)
-	Permissions        os.FileMode         `msgpack:"permissions"`                  // File permissions (read/write/execute)
-	ModTime            time.Time           `msgpack:"modTime"`                      // Modification time of the file or directory
-	DeviceID           uint64              `msgpack:"deviceID,omitempty"`           // Device ID for special files (block/character devices)
-	InodeID            uint64              `msgpack:"inodeID,omitempty"`            // Inode ID for special files (block/character devices)
-	UserID             uint64              `msgpack:"userID,omitempty"`             // User ID of the owner (optional)
-	GroupID            uint64              `msgpack:"groupID,omitempty"`            // Group ID of the owner (optional)
-	NumLinks           uint16              `msgpack:"numLinks,omitempty"`           // Number of hard links to the file (optional)
-	Checksum           [32]byte            `msgpack:"checksum,omitempty"`           // Checksum of the file contents (SHA-256, etc.)
-	Chunks             []objects.Chunk     `msgpack:"chunks,omitempty"`             // List of chunk checksums (optional)
-	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"` // Extended attributes (xattrs) (optional)
-	FileAttributes     FileAttributes      `msgpack:"fileAttributes,omitempty"`     // Platform-specific attributes (e.g., hidden, system, etc.)
-	SymlinkTarget      string              `msgpack:"symlinkTarget,omitempty"`      // Target path if the entry is a symbolic link (optional)
-	ContentType        string              `msgpack:"contentType,omitempty"`        // MIME type of the file (optional)
-	CustomMetadata     []CustomMetadata    `msgpack:"customMetadata,omitempty"`     // Custom key-value metadata defined by the user (optional)
-	Tags               []string            `msgpack:"tags,omitempty"`               // List of tags associated with the file or directory (optional)
-	ParentPath         string              `msgpack:"parentPath,omitempty"`         // Path to the parent directory (optional)
+	Version    uint32              `msgpack:"version"`
+	ParentPath string              `msgpack:"parentPath"`
+	Type       importer.RecordType `msgpack:"type"`
+	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
+
+	/* File specific fields */
+	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty"`
+	Object        *objects.Object `msgpack:"object,omitempty" json:"Object,omitempty"` // nil for !regular files
+
+	/* Windows specific fields */
+	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
+	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"`
+	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`
+
+	/* Unix fields */
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"`
+
+	/* Custom metadata and tags */
+	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
+	Tags           []string         `msgpack:"tags,omitempty"`
 }
 
 func (*FileEntry) fsEntry() {}
@@ -69,16 +57,8 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 
 	return &FileEntry{
 		Version:            VERSION,
-		Name:               record.Stat.Name(),
 		Type:               record.Type,
-		Size:               record.Stat.Size(),
-		Permissions:        record.Stat.Mode(),
-		ModTime:            record.Stat.ModTime(),
-		DeviceID:           record.Stat.Dev(),
-		InodeID:            record.Stat.Ino(),
-		UserID:             record.Stat.Uid(),
-		GroupID:            record.Stat.Gid(),
-		NumLinks:           record.Stat.Nlink(),
+		FileInfo:           record.FileInfo,
 		SymlinkTarget:      target,
 		ExtendedAttributes: ExtendedAttributes,
 		ParentPath:         parentPath,
@@ -90,31 +70,22 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	if err := msgpack.Unmarshal(serialized, &f); err != nil {
 		return nil, err
 	}
+	if f.AlternateDataStreams == nil {
+		f.AlternateDataStreams = make([]AlternateDataStream, 0)
+	}
+	if f.SecurityDescriptor == nil {
+		f.SecurityDescriptor = make([]byte, 0)
+	}
+	if f.ExtendedAttributes == nil {
+		f.ExtendedAttributes = make([]ExtendedAttribute, 0)
+	}
+	if f.CustomMetadata == nil {
+		f.CustomMetadata = make([]CustomMetadata, 0)
+	}
+	if f.Tags == nil {
+		f.Tags = make([]string, 0)
+	}
 	return &f, nil
-}
-
-func (f *FileEntry) AddChecksum(checksum [32]byte) {
-	f.Checksum = checksum
-}
-
-func (f *FileEntry) AddChunk(chunk objects.Chunk) {
-	f.Chunks = append(f.Chunks, chunk)
-}
-
-func (f *FileEntry) AddFileAttributes(fileAttributes FileAttributes) {
-	f.FileAttributes = fileAttributes
-}
-
-func (f *FileEntry) AddSymlinkTarget(symlinkTarget string) {
-	f.SymlinkTarget = symlinkTarget
-}
-
-func (f *FileEntry) AddContentType(contentType string) {
-	f.ContentType = contentType
-}
-
-func (f *FileEntry) AddTags(tags []string) {
-	f.Tags = tags
 }
 
 func (f *FileEntry) Serialize() ([]byte, error) {
@@ -125,16 +96,6 @@ func (f *FileEntry) Serialize() ([]byte, error) {
 	return data, nil
 }
 
-func (f *FileEntry) FileInfo() *objects.FileInfo {
-	return &objects.FileInfo{
-		Lname:    f.Name,
-		Lsize:    f.Size,
-		Lmode:    f.Permissions,
-		LmodTime: f.ModTime,
-		Ldev:     f.DeviceID,
-		Lino:     f.InodeID,
-		Luid:     f.UserID,
-		Lgid:     f.GroupID,
-		Lnlink:   f.NumLinks,
-	}
+func (f *FileEntry) Stat() *objects.FileInfo {
+	return &f.FileInfo
 }

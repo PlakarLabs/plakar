@@ -22,11 +22,9 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 	var sortKeys []string
 	var offset int64
 	var limit int64
-	var reversed bool
 
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
-	orderStr := r.URL.Query().Get("order")
 
 	sortKeysStr := r.URL.Query().Get("sort")
 	if sortKeysStr == "" {
@@ -60,17 +58,6 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	reversed = false
-	if orderStr != "" {
-		if orderStr != "asc" && orderStr != "desc" {
-			http.Error(w, "Invalid order", http.StatusBadRequest)
-			return
-		}
-		if orderStr == "desc" {
-			reversed = true
-		}
-	}
-
 	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -91,7 +78,7 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		limit = int64(len(headers))
 	}
 
-	header.SortHeaders(headers, sortKeys, reversed)
+	header.SortHeaders(headers, sortKeys)
 	if offset > int64(len(headers)) {
 		headers = []header.Header{}
 	} else if offset+limit > int64(len(headers)) {

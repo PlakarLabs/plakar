@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"sort"
 	"strconv"
 
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -85,7 +84,6 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
-	orderStr := r.URL.Query().Get("order")
 
 	var offset int64
 	var limit int64
@@ -109,14 +107,6 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid limit", http.StatusBadRequest)
 			return
 		}
-	}
-	if orderStr != "" {
-		if orderStr != "asc" && orderStr != "desc" {
-			http.Error(w, "Invalid order", http.StatusBadRequest)
-			return
-		}
-	} else {
-		orderStr = "asc"
 	}
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
@@ -153,12 +143,6 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
-		if orderStr == "desc" {
-			sort.Slice(dirEntry.Children, func(i, j int) bool {
-				return dirEntry.Children[i].FileInfo.Name() > dirEntry.Children[j].FileInfo.Name()
-			})
-		}
-
 		if offset != 0 {
 			if offset >= int64(len(dirEntry.Children)) {
 				http.Error(w, "offset out of range", http.StatusBadRequest)

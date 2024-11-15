@@ -149,12 +149,17 @@ func ParseFileInfoSortKeys(sortKeysStr string) ([]string, error) {
 
 	for _, key := range keys {
 		key = strings.TrimSpace(key)
-		if uniqueKeys[key] {
+		lookupKey := key
+		if strings.HasPrefix(key, "-") {
+			lookupKey = key[1:]
+		}
+
+		if uniqueKeys[lookupKey] {
 			return nil, errors.New("duplicate sort key: " + key)
 		}
-		uniqueKeys[key] = true
+		uniqueKeys[lookupKey] = true
 
-		if _, found := headerType.FieldByName(key); !found {
+		if _, found := headerType.FieldByName(lookupKey); !found {
 			return nil, errors.New("invalid sort key: " + key)
 		}
 		validKeys = append(validKeys, key)
@@ -163,7 +168,7 @@ func ParseFileInfoSortKeys(sortKeysStr string) ([]string, error) {
 	return validKeys, nil
 }
 
-func SortFileInfos(infos []FileInfo, sortKeys []string, reversed bool) error {
+func SortFileInfos(infos []FileInfo, sortKeys []string) error {
 	var err error
 	sort.Slice(infos, func(i, j int) bool {
 		for _, key := range sortKeys {
@@ -172,45 +177,89 @@ func SortFileInfos(infos []FileInfo, sortKeys []string, reversed bool) error {
 				if !infos[i].ModTime().Equal(infos[j].ModTime()) {
 					return infos[i].ModTime().Before(infos[j].ModTime())
 				}
+			case "-ModTime":
+				if !infos[i].ModTime().Equal(infos[j].ModTime()) {
+					return infos[i].ModTime().After(infos[j].ModTime())
+				}
 			case "Name":
 				if infos[i].Name() != infos[j].Name() {
 					return infos[i].Name() < infos[j].Name()
+				}
+			case "-Name":
+				if infos[i].Name() != infos[j].Name() {
+					return infos[i].Name() > infos[j].Name()
 				}
 			case "Size":
 				if infos[i].Size() != infos[j].Size() {
 					return infos[i].Size() < infos[j].Size()
 				}
+			case "-Size":
+				if infos[i].Size() != infos[j].Size() {
+					return infos[i].Size() > infos[j].Size()
+				}
 			case "Mode":
 				if infos[i].Mode() != infos[j].Mode() {
 					return infos[i].Mode() < infos[j].Mode()
+				}
+			case "-Mode":
+				if infos[i].Mode() != infos[j].Mode() {
+					return infos[i].Mode() > infos[j].Mode()
 				}
 			case "Dev":
 				if infos[i].Dev() != infos[j].Dev() {
 					return infos[i].Dev() < infos[j].Dev()
 				}
+			case "-Dev":
+				if infos[i].Dev() != infos[j].Dev() {
+					return infos[i].Dev() > infos[j].Dev()
+				}
 			case "Ino":
 				if infos[i].Ino() != infos[j].Ino() {
 					return infos[i].Ino() < infos[j].Ino()
+				}
+			case "-Ino":
+				if infos[i].Ino() != infos[j].Ino() {
+					return infos[i].Ino() > infos[j].Ino()
 				}
 			case "Uid":
 				if infos[i].Uid() != infos[j].Uid() {
 					return infos[i].Uid() < infos[j].Uid()
 				}
+			case "-Uid":
+				if infos[i].Uid() != infos[j].Uid() {
+					return infos[i].Uid() > infos[j].Uid()
+				}
 			case "Gid":
 				if infos[i].Gid() != infos[j].Gid() {
 					return infos[i].Gid() < infos[j].Gid()
+				}
+			case "-Gid":
+				if infos[i].Gid() != infos[j].Gid() {
+					return infos[i].Gid() > infos[j].Gid()
 				}
 			case "Nlink":
 				if infos[i].Nlink() != infos[j].Nlink() {
 					return infos[i].Nlink() < infos[j].Nlink()
 				}
+			case "-Nlink":
+				if infos[i].Nlink() != infos[j].Nlink() {
+					return infos[i].Nlink() > infos[j].Nlink()
+				}
 			case "Username":
 				if infos[i].Username() != infos[j].Username() {
 					return infos[i].Username() < infos[j].Username()
 				}
+			case "-Username":
+				if infos[i].Username() != infos[j].Username() {
+					return infos[i].Username() > infos[j].Username()
+				}
 			case "Groupname":
 				if infos[i].Groupname() != infos[j].Groupname() {
 					return infos[i].Groupname() < infos[j].Groupname()
+				}
+			case "-Groupname":
+				if infos[i].Groupname() != infos[j].Groupname() {
+					return infos[i].Groupname() > infos[j].Groupname()
 				}
 			default:
 				err = errors.New("invalid sort key: " + key)
@@ -219,11 +268,5 @@ func SortFileInfos(infos []FileInfo, sortKeys []string, reversed bool) error {
 		}
 		return false
 	})
-
-	if err == nil && reversed {
-		for i, j := 0, len(infos)-1; i < j; i, j = i+1, j-1 {
-			infos[i], infos[j] = infos[j], infos[i]
-		}
-	}
 	return err
 }

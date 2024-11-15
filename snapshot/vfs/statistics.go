@@ -1,18 +1,11 @@
 package vfs
 
-type StatEntry struct {
-	Key   string      `msgpack:"key"`
-	Value interface{} `msgpack:"value"`
-}
-
 type Statistics struct {
 	Files       uint64 `msgpack:"files,omitempty"`
 	Directories uint64 `msgpack:"directories,omitempty"`
 	TotalSize   uint64 `msgpack:"totalSize,omitempty"`
 
-	stats map[string]interface{}
 	/*
-
 		Files       uint64 `msgpack:"files,omitempty"`       // Total number of files in the directory
 		Directories uint64 `msgpack:"directories,omitempty"` // Total number of subdirectories in the directory
 		Symlinks    uint64 `msgpack:"symlinks,omitempty"`    // Total number of symlinks in the directory
@@ -42,10 +35,4 @@ type Statistics struct {
 		TotalHighEntropyFiles uint64  `msgpack:"totalHighEntropyFiles,omitempty"` // Total number of files with high entropy
 		TotalLowEntropyFiles  uint64  `msgpack:"totalLowEntropyFiles,omitempty"`  // Total number of files with low entropy
 	*/
-}
-
-func NewStatistics() *Statistics {
-	return &Statistics{
-		stats: make(map[string]interface{}),
-	}
 }

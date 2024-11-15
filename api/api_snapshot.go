@@ -93,7 +93,7 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 	sortKeysStr := r.URL.Query().Get("sort")
 	if sortKeysStr == "" {
-		sortKeysStr = "CreationTime"
+		sortKeysStr = "Name"
 	}
 
 	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)

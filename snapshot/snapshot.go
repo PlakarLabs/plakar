@@ -886,7 +886,7 @@ func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
 			if err != nil {
 				break
 			}
-			for _, chunk := range fsentry.(*vfs.FileEntry).Chunks {
+			for _, chunk := range fsentry.(*vfs.FileEntry).Object.Chunks {
 				c <- chunk.Checksum
 			}
 		}
@@ -907,7 +907,7 @@ func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
 			if err != nil {
 				break
 			}
-			c <- fsentry.(*vfs.FileEntry).Checksum
+			c <- fsentry.(*vfs.FileEntry).Object.Checksum
 		}
 		close(c)
 	}()

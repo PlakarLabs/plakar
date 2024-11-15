@@ -117,9 +117,9 @@ func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.
 				}
 				children = append(children, objects.FileInfoFromStat(info))
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Stat: fileinfo, ExtendedAttributes: extendedAttributes, Children: children}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, FileInfo: fileinfo, ExtendedAttributes: extendedAttributes, Children: children}
 		} else {
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Stat: fileinfo, ExtendedAttributes: extendedAttributes}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, FileInfo: fileinfo, ExtendedAttributes: extendedAttributes}
 		}
 
 		// Handle symlinks separately
@@ -129,7 +129,7 @@ func walkDir_worker(rootDir string, jobs <-chan string, results chan<- importer.
 				results <- importer.ScanError{Pathname: path, Err: err}
 				continue
 			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Target: originFile, Stat: fileinfo, ExtendedAttributes: extendedAttributes}
+			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), User: username, Group: groupname, Target: originFile, FileInfo: fileinfo, ExtendedAttributes: extendedAttributes}
 		}
 	}
 }

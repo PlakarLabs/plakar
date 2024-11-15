@@ -56,7 +56,6 @@ func (p *FSImporter) Type() string {
 
 func (p *FSImporter) Scan() (<-chan importer.ScanResult, error) {
 	return walkDir_walker(p.rootDir, 256)
-	//return cwalk_walker(p.rootDir, 256)
 }
 
 func (p *FSImporter) NewReader(pathname string) (io.ReadCloser, error) {

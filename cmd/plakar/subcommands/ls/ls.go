@@ -132,7 +132,7 @@ func _list_snapshot(pvfs *vfs.Filesystem, pathname string, recursive bool) error
 		}
 
 	case *vfs.FileEntry:
-		fi := entry.FileInfo()
+		fi := entry.Stat()
 		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
 		username := fmt.Sprintf("%d", fi.Uid())
 		if err == nil {

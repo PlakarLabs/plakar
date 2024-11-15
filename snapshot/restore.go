@@ -64,7 +64,7 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 			return err
 		} else {
 			if pathname != "/" {
-				if err := exp.SetPermissions(dest, dirEntry.FileInfo()); err != nil {
+				if err := exp.SetPermissions(dest, dirEntry.Stat()); err != nil {
 					snap.Event(events.DirectoryErrorEvent(snap.Header.SnapshotID, pathname, err.Error()))
 					return err
 				}
@@ -72,7 +72,7 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 			snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, pathname))
 			return nil
 		}
-	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.FileInfo().Mode().IsRegular() {
+	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile && fileEntry.Stat().Mode().IsRegular() {
 		snap.Event(events.FileEvent(snap.Header.SnapshotID, pathname))
 
 		restoreContext.maxConcurrency <- true
@@ -81,8 +81,8 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 			defer wg.Done()
 			defer func() { <-restoreContext.maxConcurrency }()
 
-			if fileEntry.NumLinks > 1 {
-				key := fmt.Sprintf("%d:%d", fileEntry.DeviceID, fileEntry.InodeID)
+			if fileEntry.Stat().Nlink() > 1 {
+				key := fmt.Sprintf("%d:%d", fileEntry.Stat().Dev(), fileEntry.Stat().Ino())
 				restoreContext.hardlinksMutex.Lock()
 				v, ok := restoreContext.hardlinks[key]
 				restoreContext.hardlinksMutex.Unlock()
@@ -105,7 +105,7 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 
 			if err := exp.StoreFile(dest, rd); err != nil {
 				snap.Event(events.FileErrorEvent(snap.Header.SnapshotID, pathname, err.Error()))
-			} else if err := exp.SetPermissions(dest, fileEntry.FileInfo()); err != nil {
+			} else if err := exp.SetPermissions(dest, fileEntry.Stat()); err != nil {
 				snap.Event(events.FileErrorEvent(snap.Header.SnapshotID, pathname, err.Error()))
 			} else {
 				snap.Event(events.FileOKEvent(snap.Header.SnapshotID, pathname))

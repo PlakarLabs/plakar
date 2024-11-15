@@ -21,6 +21,11 @@ type CustomMetadata struct {
 	Value []byte `msgpack:"value"`
 }
 
+type AlternateDataStream struct {
+	Name    string `msgpack:"name"`
+	Content []byte `msgpack:"content"`
+}
+
 type Filesystem struct {
 	repo      *repository.Repository
 	root      [32]byte
@@ -71,7 +76,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 			fmt.Println("error decoding directory entry")
 			return
 		}
-		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Name)
+		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	for _, child := range currentEntry.Children {
@@ -110,7 +115,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 		if err != nil {
 			return
 		}
-		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Name)
+		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	for _, child := range currentEntry.Children {
@@ -153,7 +158,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 			return
 		}
 	}
-	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Name)
+	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	out <- baseDir
 
 	for _, child := range currentEntry.Children {

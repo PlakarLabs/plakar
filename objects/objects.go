@@ -10,73 +10,18 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Directory struct {
-	Checksum [32]byte
-	FileInfo FileInfo
-}
-
-func NewDirectory(checksum [32]byte, fileInfo FileInfo) *Directory {
-	return &Directory{
-		Checksum: checksum,
-		FileInfo: fileInfo,
-	}
-}
-
-func NewDirectoryFromBytes(serialized []byte) (*Directory, error) {
-	var d Directory
-	if err := msgpack.Unmarshal(serialized, &d); err != nil {
-		return nil, err
-	}
-	return &d, nil
-}
-
-func (d *Directory) Serialize() ([]byte, error) {
-	serialized, err := msgpack.Marshal(d)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
-}
-
-type File struct {
-	Checksum [32]byte
-	FileInfo FileInfo
-}
-
-func NewFile(checksum [32]byte, fileInfo FileInfo) *File {
-	return &File{
-		Checksum: checksum,
-		FileInfo: fileInfo,
-	}
-}
-
-func NewFileFromBytes(serialized []byte) (*File, error) {
-	var f File
-	if err := msgpack.Unmarshal(serialized, &f); err != nil {
-		return nil, err
-	}
-	return &f, nil
-}
-
-func (f *File) Serialize() ([]byte, error) {
-	serialized, err := msgpack.Marshal(f)
-	if err != nil {
-		return nil, err
-	}
-	return serialized, nil
-}
-
 type CustomMetadata struct {
-	Key   string
-	Value []byte
+	Key   string `msgpack:"key"`
+	Value []byte `msgpack:"value"`
 }
 
 type Object struct {
-	Checksum       [32]byte
-	Chunks         []Chunk
-	ContentType    string
-	CustomMetadata []CustomMetadata
-	Tags           []string
+	Checksum       [32]byte         `msgpack:"checksum"`
+	Chunks         []Chunk          `msgpack:"chunks"`
+	ContentType    string           `msgpack:"contentType,omitempty"`
+	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
+	Tags           []string         `msgpack:"tags,omitempty"`
+	Entropy        float64          `msgpack:"entropy,omitempty"`
 }
 
 func NewObject() *Object {
@@ -90,6 +35,12 @@ func NewObjectFromBytes(serialized []byte) (*Object, error) {
 	if err := msgpack.Unmarshal(serialized, &o); err != nil {
 		return nil, err
 	}
+	if o.CustomMetadata == nil {
+		o.CustomMetadata = make([]CustomMetadata, 0)
+	}
+	if o.Tags == nil {
+		o.Tags = make([]string, 0)
+	}
 	return &o, nil
 }
 
@@ -102,20 +53,21 @@ func (o *Object) Serialize() ([]byte, error) {
 }
 
 type Chunk struct {
-	Checksum [32]byte
-	Length   uint32
+	Checksum [32]byte `msgpack:"checksum"`
+	Length   uint32   `msgpack:"length"`
+	Entropy  float64  `msgpack:"entropy"`
 }
 
 type FileInfo struct {
-	Lname    string      `json:"Name" msgpack:"Name"`
-	Lsize    int64       `json:"Size" msgpack:"Size"`
-	Lmode    fs.FileMode `json:"Mode" msgpack:"Mode"`
-	LmodTime time.Time   `json:"ModTime" msgpack:"ModTime"`
-	Ldev     uint64      `json:"Dev" msgpack:"Dev"`
-	Lino     uint64      `json:"Ino" msgpack:"Ino"`
-	Luid     uint64      `json:"Uid" msgpack:"Uid"`
-	Lgid     uint64      `json:"Gid" msgpack:"Gid"`
-	Lnlink   uint16      `json:"Nlink" msgpack:"Nlink"`
+	Lname    string      `json:"Name" msgpack:"name"`
+	Lsize    int64       `json:"Size" msgpack:"size"`
+	Lmode    fs.FileMode `json:"Mode" msgpack:"mode"`
+	LmodTime time.Time   `json:"ModTime" msgpack:"modTime"`
+	Ldev     uint64      `json:"Dev" msgpack:"dev"`
+	Lino     uint64      `json:"Ino" msgpack:"ino"`
+	Luid     uint64      `json:"Uid" msgpack:"uid"`
+	Lgid     uint64      `json:"Gid" msgpack:"gid"`
+	Lnlink   uint16      `json:"Nlink" msgpack:"nlink"`
 }
 
 func (f FileInfo) Name() string {

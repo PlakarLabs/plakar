@@ -28,7 +28,12 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
 	orderStr := r.URL.Query().Get("order")
 
-	sortKeys, err = header.ParseSortKeys(r.URL.Query().Get("sort"))
+	sortKeysStr := r.URL.Query().Get("sort")
+	if sortKeysStr == "" {
+		sortKeysStr = "CreationTime"
+	}
+
+	sortKeys, err = header.ParseSortKeys(sortKeysStr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

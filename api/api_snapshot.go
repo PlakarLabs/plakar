@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gorilla/mux"
@@ -82,12 +83,25 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
+	var err error
+	var sortKeys []string
+	var offset int64
+	var limit int64
+
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
 
-	var offset int64
-	var limit int64
-	var err error
+	sortKeysStr := r.URL.Query().Get("sort")
+	if sortKeysStr == "" {
+		sortKeysStr = "CreationTime"
+	}
+
+	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
@@ -143,19 +157,31 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
-		if offset != 0 {
-			if offset >= int64(len(dirEntry.Children)) {
-				http.Error(w, "offset out of range", http.StatusBadRequest)
-				return
-			}
-			dirEntry.Children = dirEntry.Children[offset:]
+		fileInfos := make([]objects.FileInfo, 0, len(dirEntry.Children))
+		children := make(map[string]vfs.ChildEntry)
+		for _, child := range dirEntry.Children {
+			fileInfos = append(fileInfos, child.FileInfo)
+			children[child.FileInfo.Name()] = child
 		}
-		if limit != 0 {
-			if limit >= int64(len(dirEntry.Children)) {
-				limit = int64(len(dirEntry.Children))
-			}
-			dirEntry.Children = dirEntry.Children[:limit]
+
+		if limit == 0 {
+			limit = int64(len(dirEntry.Children))
 		}
+		objects.SortFileInfos(fileInfos, sortKeys)
+
+		if offset > int64(len(dirEntry.Children)) {
+			fileInfos = []objects.FileInfo{}
+		} else if offset+limit > int64(len(dirEntry.Children)) {
+			fileInfos = fileInfos[offset:]
+		} else {
+			fileInfos = fileInfos[offset : offset+limit]
+		}
+
+		childEntries := make([]vfs.ChildEntry, 0, len(fileInfos))
+		for _, fileInfo := range fileInfos {
+			childEntries = append(childEntries, children[fileInfo.Name()])
+		}
+		dirEntry.Children = childEntries
 		json.NewEncoder(w).Encode(dirEntry)
 		return
 	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {

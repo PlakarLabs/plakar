@@ -137,6 +137,20 @@ func (fileinfo *FileInfo) Equal(fi *FileInfo) bool {
 		fileinfo.Lnlink == fi.Lnlink
 }
 
+var sortKeyMapping = map[string]string{
+	"Name":      "Lname",
+	"Size":      "Lsize",
+	"Mode":      "Lmode",
+	"ModTime":   "LmodTime",
+	"Dev":       "Ldev",
+	"Ino":       "Lino",
+	"Uid":       "Luid",
+	"Gid":       "Lgid",
+	"Nlink":     "Lnlink",
+	"Username":  "Lusername",
+	"Groupname": "Lgroupname",
+}
+
 func ParseFileInfoSortKeys(sortKeysStr string) ([]string, error) {
 	if sortKeysStr == "" {
 		return nil, nil
@@ -145,8 +159,6 @@ func ParseFileInfoSortKeys(sortKeysStr string) ([]string, error) {
 	uniqueKeys := make(map[string]bool)
 	validKeys := []string{}
 
-	headerType := reflect.TypeOf(FileInfo{})
-
 	for _, key := range keys {
 		key = strings.TrimSpace(key)
 		lookupKey := key
@@ -154,115 +166,64 @@ func ParseFileInfoSortKeys(sortKeysStr string) ([]string, error) {
 			lookupKey = key[1:]
 		}
 
+		// Use the mapping to validate the key
+		if _, found := sortKeyMapping[lookupKey]; !found {
+			return nil, errors.New("invalid sort key: " + key)
+		}
 		if uniqueKeys[lookupKey] {
 			return nil, errors.New("duplicate sort key: " + key)
 		}
 		uniqueKeys[lookupKey] = true
-
-		if _, found := headerType.FieldByName(lookupKey); !found {
-			return nil, errors.New("invalid sort key: " + key)
-		}
 		validKeys = append(validKeys, key)
 	}
 
 	return validKeys, nil
 }
-
 func SortFileInfos(infos []FileInfo, sortKeys []string) error {
 	var err error
 	sort.Slice(infos, func(i, j int) bool {
 		for _, key := range sortKeys {
-			switch key {
-			case "ModTime":
-				if !infos[i].ModTime().Equal(infos[j].ModTime()) {
-					return infos[i].ModTime().Before(infos[j].ModTime())
+			ascending := true
+			if strings.HasPrefix(key, "-") {
+				ascending = false
+				key = key[1:]
+			}
+
+			// Use reflection with the mapped member variable
+			field := sortKeyMapping[key]
+			valI := reflect.ValueOf(infos[i]).FieldByName(field)
+			valJ := reflect.ValueOf(infos[j]).FieldByName(field)
+
+			if !valI.IsValid() || !valJ.IsValid() {
+				err = errors.New("invalid sort key: " + key)
+				return false
+			}
+
+			// Compare based on the field type
+			switch valI.Kind() {
+			case reflect.String:
+				if valI.String() != valJ.String() {
+					if ascending {
+						return valI.String() < valJ.String()
+					}
+					return valI.String() > valJ.String()
 				}
-			case "-ModTime":
-				if !infos[i].ModTime().Equal(infos[j].ModTime()) {
-					return infos[i].ModTime().After(infos[j].ModTime())
+			case reflect.Int, reflect.Int64:
+				if valI.Int() != valJ.Int() {
+					if ascending {
+						return valI.Int() < valJ.Int()
+					}
+					return valI.Int() > valJ.Int()
 				}
-			case "Name":
-				if infos[i].Name() != infos[j].Name() {
-					return infos[i].Name() < infos[j].Name()
-				}
-			case "-Name":
-				if infos[i].Name() != infos[j].Name() {
-					return infos[i].Name() > infos[j].Name()
-				}
-			case "Size":
-				if infos[i].Size() != infos[j].Size() {
-					return infos[i].Size() < infos[j].Size()
-				}
-			case "-Size":
-				if infos[i].Size() != infos[j].Size() {
-					return infos[i].Size() > infos[j].Size()
-				}
-			case "Mode":
-				if infos[i].Mode() != infos[j].Mode() {
-					return infos[i].Mode() < infos[j].Mode()
-				}
-			case "-Mode":
-				if infos[i].Mode() != infos[j].Mode() {
-					return infos[i].Mode() > infos[j].Mode()
-				}
-			case "Dev":
-				if infos[i].Dev() != infos[j].Dev() {
-					return infos[i].Dev() < infos[j].Dev()
-				}
-			case "-Dev":
-				if infos[i].Dev() != infos[j].Dev() {
-					return infos[i].Dev() > infos[j].Dev()
-				}
-			case "Ino":
-				if infos[i].Ino() != infos[j].Ino() {
-					return infos[i].Ino() < infos[j].Ino()
-				}
-			case "-Ino":
-				if infos[i].Ino() != infos[j].Ino() {
-					return infos[i].Ino() > infos[j].Ino()
-				}
-			case "Uid":
-				if infos[i].Uid() != infos[j].Uid() {
-					return infos[i].Uid() < infos[j].Uid()
-				}
-			case "-Uid":
-				if infos[i].Uid() != infos[j].Uid() {
-					return infos[i].Uid() > infos[j].Uid()
-				}
-			case "Gid":
-				if infos[i].Gid() != infos[j].Gid() {
-					return infos[i].Gid() < infos[j].Gid()
-				}
-			case "-Gid":
-				if infos[i].Gid() != infos[j].Gid() {
-					return infos[i].Gid() > infos[j].Gid()
-				}
-			case "Nlink":
-				if infos[i].Nlink() != infos[j].Nlink() {
-					return infos[i].Nlink() < infos[j].Nlink()
-				}
-			case "-Nlink":
-				if infos[i].Nlink() != infos[j].Nlink() {
-					return infos[i].Nlink() > infos[j].Nlink()
-				}
-			case "Username":
-				if infos[i].Username() != infos[j].Username() {
-					return infos[i].Username() < infos[j].Username()
-				}
-			case "-Username":
-				if infos[i].Username() != infos[j].Username() {
-					return infos[i].Username() > infos[j].Username()
-				}
-			case "Groupname":
-				if infos[i].Groupname() != infos[j].Groupname() {
-					return infos[i].Groupname() < infos[j].Groupname()
-				}
-			case "-Groupname":
-				if infos[i].Groupname() != infos[j].Groupname() {
-					return infos[i].Groupname() > infos[j].Groupname()
+			case reflect.Uint, reflect.Uint64:
+				if valI.Uint() != valJ.Uint() {
+					if ascending {
+						return valI.Uint() < valJ.Uint()
+					}
+					return valI.Uint() > valJ.Uint()
 				}
 			default:
-				err = errors.New("invalid sort key: " + key)
+				err = errors.New("unsupported field type for sorting: " + key)
 				return false
 			}
 		}

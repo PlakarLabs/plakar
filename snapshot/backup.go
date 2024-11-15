@@ -115,17 +115,17 @@ func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error
 	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
 }
 
-func (cache *scanCache) RecordAggregates(pathname string, aggregatedStats *vfs.AggregatedStats) error {
+func (cache *scanCache) RecordStatistics(pathname string, statistics *vfs.Statistics) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
-	buffer, err := msgpack.Marshal(aggregatedStats)
+	buffer, err := msgpack.Marshal(statistics)
 	if err != nil {
 		return err
 	}
-	return cache.db.Put([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), buffer, nil)
+	return cache.db.Put([]byte(fmt.Sprintf("__statistics__:%s", pathname)), buffer, nil)
 }
 
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
@@ -143,13 +143,13 @@ func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	return ret, nil
 }
 
-func (cache *scanCache) GetAggregate(pathname string) (*vfs.AggregatedStats, error) {
-	data, err := cache.db.Get([]byte(fmt.Sprintf("__aggregate__:%s", pathname)), nil)
+func (cache *scanCache) GetStatistics(pathname string) (*vfs.Statistics, error) {
+	data, err := cache.db.Get([]byte(fmt.Sprintf("__statistics__:%s", pathname)), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var stats vfs.AggregatedStats
+	var stats vfs.Statistics
 	err = msgpack.Unmarshal(data, &stats)
 	if err != nil {
 		return nil, err
@@ -562,27 +562,27 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				continue
 			}
 
-			var childAggregatedStates *vfs.AggregatedStats
+			var childStatistics *vfs.Statistics
 			if child.IsDir() {
-				childAggregatedStates = &vfs.AggregatedStats{}
-				dirEntry.AggregatedStats.Directories++
+				childStatistics = &vfs.Statistics{}
+				dirEntry.Statistics.Directories++
 
-				aggregatedCache, err := sc.GetAggregate(childpath)
+				aggregatedCache, err := sc.GetStatistics(childpath)
 				if err != nil {
 					continue
 				}
-				childAggregatedStates.Directories = aggregatedCache.Directories
-				childAggregatedStates.Files = aggregatedCache.Files
-				childAggregatedStates.TotalSize = aggregatedCache.TotalSize
+				childStatistics.Directories = aggregatedCache.Directories
+				childStatistics.Files = aggregatedCache.Files
+				childStatistics.TotalSize = aggregatedCache.TotalSize
 
-				dirEntry.AggregatedStats.Directories += aggregatedCache.Directories
-				dirEntry.AggregatedStats.Files += aggregatedCache.Files
-				dirEntry.AggregatedStats.TotalSize += aggregatedCache.TotalSize
+				dirEntry.Statistics.Directories += aggregatedCache.Directories
+				dirEntry.Statistics.Files += aggregatedCache.Files
+				dirEntry.Statistics.TotalSize += aggregatedCache.TotalSize
 			} else {
-				dirEntry.AggregatedStats.Files++
-				dirEntry.AggregatedStats.TotalSize += uint64(child.Size())
+				dirEntry.Statistics.Files++
+				dirEntry.Statistics.TotalSize += uint64(child.Size())
 			}
-			dirEntry.AddChild(value, child, childAggregatedStates)
+			dirEntry.AddChild(value, child, childStatistics)
 		}
 
 		serialized, err := dirEntry.Serialize()
@@ -602,7 +602,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if err != nil {
 			return err
 		}
-		err = sc.RecordAggregates(record.Pathname, &dirEntry.AggregatedStats)
+		err = sc.RecordStatistics(record.Pathname, &dirEntry.Statistics)
 		if err != nil {
 			return err
 		}

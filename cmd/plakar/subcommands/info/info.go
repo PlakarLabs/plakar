@@ -458,9 +458,9 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("ExtendedAttributes: %s\n", dirEntry.ExtendedAttributes)
 		fmt.Printf("CustomMetadata: %s\n", dirEntry.CustomMetadata)
 		fmt.Printf("Tags: %s\n", dirEntry.Tags)
-		fmt.Printf("AggregateDirs: %d\n", dirEntry.AggregatedStats.Directories)
-		fmt.Printf("AggregateFiles: %d\n", dirEntry.AggregatedStats.Files)
-		fmt.Printf("AggregateSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.AggregatedStats.TotalSize)), dirEntry.AggregatedStats.TotalSize)
+		fmt.Printf("AggregateDirs: %d\n", dirEntry.Statistics.Directories)
+		fmt.Printf("AggregateFiles: %d\n", dirEntry.Statistics.Files)
+		fmt.Printf("AggregateSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.Statistics.TotalSize)), dirEntry.Statistics.TotalSize)
 		for offset, child := range dirEntry.Children {
 			fmt.Printf("Child[%d].Checksum: %x\n", offset, child.Checksum)
 			fmt.Printf("Child[%d].FileInfo.Name(): %s\n", offset, child.FileInfo.Name())

@@ -14,13 +14,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Blob struct {
-	Type     string
-	Version  string
-	Checksum [32]byte
-	Size     uint64
-}
-
 type Header struct {
 	SnapshotID       objects.Checksum
 	Version          string
@@ -69,14 +62,6 @@ func NewHeader(indexID [32]byte) *Header {
 		Root:       [32]byte{},
 		Metadata:   [32]byte{},
 		Statistics: [32]byte{},
-
-		//FileKind:      make(map[string]uint64),
-		//FileType:      make(map[string]uint64),
-		//FileExtension: make(map[string]uint64),
-
-		//FilePercentKind:      make(map[string]float64),
-		//FilePercentType:      make(map[string]float64),
-		//FilePercentExtension: make(map[string]float64),
 	}
 }
 

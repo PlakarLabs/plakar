@@ -87,7 +87,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 		return err
 	}
 
-	compressedConfig, err := compression.DeflateStream("gzip", bytes.NewReader(jconfig))
+	compressedConfig, err := compression.DeflateStream("GZIP", bytes.NewReader(jconfig))
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (repository *Repository) Open(location string) error {
 		return err
 	}
 
-	jconfig, err := compression.InflateStream("gzip", rd)
+	jconfig, err := compression.InflateStream("GZIP", rd)
 	if err != nil {
 		return err
 	}

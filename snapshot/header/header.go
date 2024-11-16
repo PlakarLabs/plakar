@@ -276,21 +276,21 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				if headers[i].CommandLine != headers[j].CommandLine {
 					return headers[i].CommandLine > headers[j].CommandLine
 				}
-			case "ImporterType":
-				if headers[i].ImporterType != headers[j].ImporterType {
-					return headers[i].ImporterType < headers[j].ImporterType
+			case "Type":
+				if headers[i].Type != headers[j].Type {
+					return headers[i].Type < headers[j].Type
 				}
-			case "-ImporterType":
-				if headers[i].ImporterType != headers[j].ImporterType {
-					return headers[i].ImporterType > headers[j].ImporterType
+			case "-Type":
+				if headers[i].Type != headers[j].Type {
+					return headers[i].Type > headers[j].Type
 				}
-			case "ImporterOrigin":
-				if headers[i].ImporterOrigin != headers[j].ImporterOrigin {
-					return headers[i].ImporterOrigin < headers[j].ImporterOrigin
+			case "Origin":
+				if headers[i].Origin != headers[j].Origin {
+					return headers[i].Origin < headers[j].Origin
 				}
-			case "-ImporterOrigin":
-				if headers[i].ImporterOrigin != headers[j].ImporterOrigin {
-					return headers[i].ImporterOrigin > headers[j].ImporterOrigin
+			case "-Origin":
+				if headers[i].Origin != headers[j].Origin {
+					return headers[i].Origin > headers[j].Origin
 				}
 			case "ScanSize":
 				if headers[i].ScanSize != headers[j].ScanSize {

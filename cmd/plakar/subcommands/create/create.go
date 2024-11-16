@@ -21,11 +21,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
+	"github.com/PlakarKorp/plakar/compression"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
+	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 )
@@ -43,17 +46,28 @@ func cmd_create(ctx *context.Context, _ *repository.Repository, args []string) i
 	flags := flag.NewFlagSet("create", flag.ExitOnError)
 	flags.BoolVar(&opt_noencryption, "no-encryption", false, "disable transparent encryption")
 	flags.BoolVar(&opt_nocompression, "no-compression", false, "disable transparent compression")
-	flags.StringVar(&opt_hashing, "hashing", "sha256", "swap the hashing function")
-	flags.StringVar(&opt_compression, "compression", "lz4", "swap the compression function")
+	flags.StringVar(&opt_hashing, "hashing", "SHA256", "swap the hashing function")
+	flags.StringVar(&opt_compression, "compression", "LZ4", "swap the compression function")
 	flags.Parse(args)
 
 	storageConfiguration := storage.NewConfiguration()
 	if opt_nocompression {
-		storageConfiguration.Compression = ""
+		storageConfiguration.Compression = nil
 	} else {
-		storageConfiguration.Compression = opt_compression
+		compressionConfiguration, err := compression.LookupDefaultConfiguration(strings.ToUpper(opt_compression))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+			return 1
+		}
+		storageConfiguration.Compression = compressionConfiguration
 	}
-	storageConfiguration.Hashing = opt_hashing
+
+	hashingConfiguration, err := hashing.LookupDefaultConfiguration(strings.ToUpper(opt_hashing))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
+		return 1
+	}
+	storageConfiguration.Hashing = *hashingConfiguration
 
 	if !opt_noencryption {
 		var passphrase []byte
@@ -83,8 +97,10 @@ func cmd_create(ctx *context.Context, _ *repository.Repository, args []string) i
 			return 1
 		}
 
-		storageConfiguration.Encryption = encryption.DefaultAlgorithm()
-		storageConfiguration.EncryptionKey = encryptionKey
+		storageConfiguration.Encryption.Algorithm = encryption.DefaultConfiguration().Algorithm
+		storageConfiguration.Encryption.Key = encryptionKey
+	} else {
+		storageConfiguration.Encryption = nil
 	}
 
 	switch flags.NArg() {

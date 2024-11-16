@@ -6,6 +6,7 @@ import (
 	"hash"
 	"io"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/PlakarKorp/plakar/compression"
@@ -178,8 +179,8 @@ func (r *Repository) Decode(buffer []byte) ([]byte, error) {
 		}
 	}
 
-	if r.configuration.Compression != "" {
-		tmp, err := compression.InflateStream(r.configuration.Compression, bytes.NewReader(buffer))
+	if r.configuration.Compression != nil {
+		tmp, err := compression.InflateStream(r.configuration.Compression.Algorithm, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
@@ -198,8 +199,8 @@ func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 		logger.Trace("repository", "Encode(%d): %s", len(buffer), time.Since(t0))
 	}()
 
-	if r.configuration.Compression != "" {
-		tmp, err := compression.DeflateStream(r.configuration.Compression, bytes.NewReader(buffer))
+	if r.configuration.Compression != nil {
+		tmp, err := compression.DeflateStream(r.configuration.Compression.Algorithm, bytes.NewReader(buffer))
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +225,7 @@ func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 }
 
 func (r *Repository) Hasher() hash.Hash {
-	return hashing.GetHasher(r.Configuration().Hashing)
+	return hashing.GetHasher(r.Configuration().Hashing.Algorithm)
 }
 
 func (r *Repository) Checksum(data []byte) objects.Checksum {
@@ -243,15 +244,15 @@ func (r *Repository) Checksum(data []byte) objects.Checksum {
 }
 
 func (r *Repository) Chunker(rd io.ReadCloser) (*chunkers.Chunker, error) {
-	chunkingAlgorithm := r.configuration.Chunking
-	chunkingMinSize := r.configuration.ChunkingMin
-	chunkingNormalSize := r.configuration.ChunkingNormal
-	chunkingMaxSize := r.configuration.ChunkingMax
+	chunkingAlgorithm := r.configuration.Chunking.Algorithm
+	chunkingMinSize := r.configuration.Chunking.MinSize
+	chunkingNormalSize := r.configuration.Chunking.NormalSize
+	chunkingMaxSize := r.configuration.Chunking.MaxSize
 
-	return chunkers.NewChunker(chunkingAlgorithm, rd, &chunkers.ChunkerOpts{
-		MinSize:    chunkingMinSize,
-		NormalSize: chunkingNormalSize,
-		MaxSize:    chunkingMaxSize,
+	return chunkers.NewChunker(strings.ToLower(chunkingAlgorithm), rd, &chunkers.ChunkerOpts{
+		MinSize:    int(chunkingMinSize),
+		NormalSize: int(chunkingNormalSize),
+		MaxSize:    int(chunkingMaxSize),
 	})
 }
 

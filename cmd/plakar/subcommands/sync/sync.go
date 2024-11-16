@@ -66,7 +66,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	}
 
 	var peerSecret []byte
-	if peerStore.Configuration().Encryption != "" {
+	if peerStore.Configuration().Encryption != nil {
 		for {
 			passphrase, err := utils.GetPassphrase("destination repository")
 			if err != nil {
@@ -74,7 +74,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 				continue
 			}
 
-			secret, err := encryption.DeriveSecret(passphrase, peerStore.Configuration().EncryptionKey)
+			secret, err := encryption.DeriveSecret(passphrase, peerStore.Configuration().Encryption.Key)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue

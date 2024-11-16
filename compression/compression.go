@@ -9,8 +9,49 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-func DefaultAlgorithm() string {
-	return "lz4"
+type Configuration struct {
+	Algorithm  string
+	Level      int  // Compression level (-1 for default)
+	WindowSize int  // Window size for algorithms like zstd or Brotli
+	ChunkSize  int  // Chunk size for streaming compression
+	BlockSize  int  // Block size for block-based algorithms like bzip2
+	EnableCRC  bool // Enable/disable checksum (e.g., gzip CRC32, zstd)
+}
+
+func DefaultConfiguration() *Configuration {
+	return &Configuration{
+		Algorithm:  "LZ4",
+		Level:      int(lz4.Level9),
+		WindowSize: -1,
+		ChunkSize:  -1,
+		BlockSize:  -1,
+		EnableCRC:  false,
+	}
+}
+
+func LookupDefaultConfiguration(algorithm string) (*Configuration, error) {
+	switch algorithm {
+	case "LZ4":
+		return &Configuration{
+			Algorithm:  "LZ4",
+			Level:      int(lz4.Level9),
+			WindowSize: -1,
+			ChunkSize:  -1,
+			BlockSize:  -1,
+			EnableCRC:  false,
+		}, nil
+	case "GZIP":
+		return &Configuration{
+			Algorithm:  "GZIP",
+			Level:      -1,
+			WindowSize: -1,
+			ChunkSize:  -1,
+			BlockSize:  -1,
+			EnableCRC:  false,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown hashing algorithm: %s", algorithm)
+	}
 }
 
 func DeflateStream(name string, r io.Reader) (io.Reader, error) {
@@ -26,8 +67,8 @@ func DeflateStream(name string, r io.Reader) (io.Reader, error) {
 	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
 
 	m := map[string]func(io.Reader) (io.Reader, error){
-		"gzip": DeflateGzipStream,
-		"lz4":  DeflateLZ4Stream,
+		"GZIP": DeflateGzipStream,
+		"LZ4":  DeflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
 		return fn(r)
@@ -76,8 +117,8 @@ func InflateStream(name string, r io.Reader) (io.Reader, error) {
 	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
 
 	m := map[string]func(io.Reader) (io.Reader, error){
-		"gzip": InflateGzipStream,
-		"lz4":  InflateLZ4Stream,
+		"GZIP": InflateGzipStream,
+		"LZ4":  InflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
 		return fn(r)

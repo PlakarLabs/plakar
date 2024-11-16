@@ -254,7 +254,7 @@ func entryPoint() int {
 
 	var secret []byte
 	if !skipPassphrase {
-		if store.Configuration().Encryption != "" {
+		if store.Configuration().Encryption != nil {
 			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
 			if ctx.GetKeyFromFile() == "" {
 				attempts := 0
@@ -270,7 +270,7 @@ func entryPoint() int {
 						passphrase = []byte(envPassphrase)
 					}
 
-					secret, err = encryption.DeriveSecret(passphrase, store.Configuration().EncryptionKey)
+					secret, err = encryption.DeriveSecret(passphrase, store.Configuration().Encryption.Key)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "%s\n", err)
 						attempts++
@@ -283,7 +283,7 @@ func entryPoint() int {
 					break
 				}
 			} else {
-				secret, err = encryption.DeriveSecret([]byte(ctx.GetKeyFromFile()), store.Configuration().EncryptionKey)
+				secret, err = encryption.DeriveSecret([]byte(ctx.GetKeyFromFile()), store.Configuration().Encryption.Key)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "%s\n", err)
 					os.Exit(1)

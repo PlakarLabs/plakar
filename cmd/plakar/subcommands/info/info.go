@@ -112,43 +112,46 @@ func info_repository(repo *repository.Repository) int {
 		return 1
 	}
 
-	fmt.Println("RepositoryID:", repo.Configuration().RepositoryID)
-	fmt.Printf("CreationTime: %s\n", repo.Configuration().CreationTime)
 	fmt.Println("Version:", repo.Configuration().Version)
+	fmt.Println("CreationTime:", repo.Configuration().CreationTime)
+	fmt.Println("RepositoryID:", repo.Configuration().RepositoryID)
 
-	if repo.Configuration().Encryption != "" {
-		fmt.Println("Encryption:", repo.Configuration().Encryption)
-		fmt.Println("EncryptionKey:", repo.Configuration().EncryptionKey)
-	} else {
-		fmt.Println("Encryption:", "no")
+	fmt.Println("Packfile:")
+	fmt.Printf(" - MaxSize: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repo.Configuration().Packfile.MaxSize)),
+		repo.Configuration().Packfile.MaxSize)
+
+	fmt.Println("Chunking:")
+	fmt.Println(" - Algorithm:", repo.Configuration().Chunking.Algorithm)
+	fmt.Printf(" - MinSize: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repo.Configuration().Chunking.MinSize)), repo.Configuration().Chunking.MinSize)
+	fmt.Printf(" - NormalSize: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repo.Configuration().Chunking.NormalSize)), repo.Configuration().Chunking.NormalSize)
+	fmt.Printf(" - MaxSize: %s (%d bytes)\n",
+		humanize.Bytes(uint64(repo.Configuration().Chunking.MaxSize)), repo.Configuration().Chunking.MaxSize)
+
+	fmt.Println("Hashing:")
+	fmt.Println(" - Algorithm:", repo.Configuration().Hashing.Algorithm)
+	fmt.Println(" - Bits:", repo.Configuration().Hashing.Bits)
+
+	if repo.Configuration().Compression != nil {
+		fmt.Println("Compression:")
+		fmt.Println(" - Algorithm:", repo.Configuration().Compression.Algorithm)
+		fmt.Println(" - Level:", repo.Configuration().Compression.Level)
 	}
 
-	if repo.Configuration().Compression != "" {
-		fmt.Println("Compression:", repo.Configuration().Compression)
-	} else {
-		fmt.Println("Compression:", "no")
+	if repo.Configuration().Encryption != nil {
+		fmt.Println("Encryption:")
+		fmt.Println(" - Algorithm:", repo.Configuration().Encryption.Algorithm)
+		fmt.Println(" - Key:", repo.Configuration().Encryption.Key)
 	}
-
-	fmt.Println("Hashing:", repo.Configuration().Hashing)
-
-	fmt.Println("Chunking:", repo.Configuration().Chunking)
-	fmt.Printf("ChunkingMin: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repo.Configuration().ChunkingMin)), repo.Configuration().ChunkingMin)
-	fmt.Printf("ChunkingNormal: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repo.Configuration().ChunkingNormal)), repo.Configuration().ChunkingNormal)
-	fmt.Printf("ChunkingMax: %s (%d bytes)\n",
-		humanize.Bytes(uint64(repo.Configuration().ChunkingMax)), repo.Configuration().ChunkingMax)
 
 	fmt.Println("Snapshots:", len(metadatas))
 	totalSize := uint64(0)
-	totalIndexSize := uint64(0)
-	totalMetadataSize := uint64(0)
 	for _, metadata := range metadatas {
 		totalSize += metadata.ScanProcessedSize
 	}
 	fmt.Printf("Size: %s (%d bytes)\n", humanize.Bytes(totalSize), totalSize)
-	fmt.Printf("Index Size: %s (%d bytes)\n", humanize.Bytes(totalIndexSize), totalIndexSize)
-	fmt.Printf("Metadata Size: %s (%d bytes)\n", humanize.Bytes(totalMetadataSize), totalMetadataSize)
 
 	return 0
 }

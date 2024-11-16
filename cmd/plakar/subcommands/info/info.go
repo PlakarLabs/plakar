@@ -98,7 +98,7 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 		}
 
 	default:
-		fmt.Println("Invalid parameter. usage: info [repository|snapshot|object|chunk|state|packfile|vfs]")
+		fmt.Println("Invalid parameter. usage: info [snapshot|object|chunk|state|packfile|vfs]")
 		return 1
 	}
 
@@ -179,8 +179,8 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf("Architecture: %s\n", header.Architecture)
 	fmt.Printf("NumCPU: %d\n", header.NumCPU)
 
-	fmt.Printf("ImporterType: %s\n", header.ImporterType)
-	fmt.Printf("ImporterOrigin: %s\n", header.ImporterOrigin)
+	fmt.Printf("Type: %s\n", header.Type)
+	fmt.Printf("Origin: %s\n", header.Origin)
 
 	fmt.Printf("MachineID: %s\n", header.MachineID)
 	fmt.Printf("PublicKey: %s\n", header.PublicKey)

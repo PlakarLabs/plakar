@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"syscall"
@@ -10,13 +12,19 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Checksum [32]byte
+
+func (m Checksum) MarshalJSON() ([]byte, error) {
+	return json.Marshal(fmt.Sprintf("%0x", m[:]))
+}
+
 type CustomMetadata struct {
 	Key   string `msgpack:"key"`
 	Value []byte `msgpack:"value"`
 }
 
 type Object struct {
-	Checksum       [32]byte         `msgpack:"checksum"`
+	Checksum       Checksum         `msgpack:"checksum"`
 	Chunks         []Chunk          `msgpack:"chunks"`
 	ContentType    string           `msgpack:"contentType,omitempty"`
 	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
@@ -53,7 +61,7 @@ func (o *Object) Serialize() ([]byte, error) {
 }
 
 type Chunk struct {
-	Checksum [32]byte `msgpack:"checksum"`
+	Checksum Checksum `msgpack:"checksum"`
 	Length   uint32   `msgpack:"length"`
 	Entropy  float64  `msgpack:"entropy"`
 }

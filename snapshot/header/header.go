@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
@@ -17,7 +18,7 @@ type Blob struct {
 }
 
 type Header struct {
-	SnapshotID       [32]byte
+	SnapshotID       objects.Checksum
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
@@ -34,28 +35,20 @@ type Header struct {
 	Client          string
 	CommandLine     string
 
-	ImporterType   string
-	ImporterOrigin string
+	Type   string
+	Origin string
 
 	ScanSize          uint64
 	ScanProcessedSize uint64
 
-	Root       [32]byte
-	Metadata   [32]byte
-	Statistics [32]byte
+	Root       objects.Checksum
+	Metadata   objects.Checksum
+	Statistics objects.Checksum
 
 	ScannedDirectory string
 
 	FilesCount       uint64
 	DirectoriesCount uint64
-
-	//FileKind      map[string]uint64
-	//FileType      map[string]uint64
-	//FileExtension map[string]uint64
-
-	//FilePercentKind      map[string]float64
-	//FilePercentType      map[string]float64
-	//FilePercentExtension map[string]float64
 }
 
 func NewHeader(indexID [32]byte) *Header {

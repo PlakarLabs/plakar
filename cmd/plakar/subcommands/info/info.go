@@ -457,6 +457,8 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("InodeID: %d\n", dirEntry.Stat().Ino())
 		fmt.Printf("UserID: %d\n", dirEntry.Stat().Uid())
 		fmt.Printf("GroupID: %d\n", dirEntry.Stat().Gid())
+		fmt.Printf("Username: %s\n", dirEntry.Stat().Username())
+		fmt.Printf("Groupname: %s\n", dirEntry.Stat().Groupname())
 		fmt.Printf("NumLinks: %d\n", dirEntry.Stat().Nlink())
 		fmt.Printf("ExtendedAttributes: %s\n", dirEntry.ExtendedAttributes)
 		fmt.Printf("CustomMetadata: %s\n", dirEntry.CustomMetadata)
@@ -473,6 +475,8 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			fmt.Printf("Child[%d].FileInfo.Ino(): %d\n", offset, child.FileInfo.Ino())
 			fmt.Printf("Child[%d].FileInfo.Uid(): %d\n", offset, child.FileInfo.Uid())
 			fmt.Printf("Child[%d].FileInfo.Gid(): %d\n", offset, child.FileInfo.Gid())
+			fmt.Printf("Child[%d].FileInfo.Username(): %s\n", offset, child.FileInfo.Username())
+			fmt.Printf("Child[%d].FileInfo.Groupname(): %s\n", offset, child.FileInfo.Groupname())
 			fmt.Printf("Child[%d].FileInfo.Nlink(): %d\n", offset, child.FileInfo.Nlink())
 		}
 
@@ -489,6 +493,8 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("InodeID: %d\n", fileEntry.Stat().Ino())
 		fmt.Printf("UserID: %d\n", fileEntry.Stat().Uid())
 		fmt.Printf("GroupID: %d\n", fileEntry.Stat().Gid())
+		fmt.Printf("Username: %s\n", fileEntry.Stat().Username())
+		fmt.Printf("Groupname: %s\n", fileEntry.Stat().Groupname())
 		fmt.Printf("NumLinks: %d\n", fileEntry.Stat().Nlink())
 		fmt.Printf("ExtendedAttributes: %s\n", fileEntry.ExtendedAttributes)
 		fmt.Printf("FileAttributes: %v\n", fileEntry.FileAttributes)

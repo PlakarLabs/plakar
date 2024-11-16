@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/gob"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
 )
@@ -44,12 +45,12 @@ type ReqGetStates struct {
 }
 
 type ResGetStates struct {
-	Checksums [][32]byte
+	Checksums []objects.Checksum
 	Err       string
 }
 
 type ReqPutState struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 	Data     []byte
 }
 
@@ -58,7 +59,7 @@ type ResPutState struct {
 }
 
 type ReqGetState struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 }
 
 type ResGetState struct {
@@ -67,7 +68,7 @@ type ResGetState struct {
 }
 
 type ReqDeleteState struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 }
 type ResDeleteState struct {
 	Err string
@@ -78,12 +79,12 @@ type ReqGetPackfiles struct {
 }
 
 type ResGetPackfiles struct {
-	Checksums [][32]byte
+	Checksums []objects.Checksum
 	Err       string
 }
 
 type ReqPutPackfile struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 	Data     []byte
 }
 
@@ -92,7 +93,7 @@ type ResPutPackfile struct {
 }
 
 type ReqGetPackfile struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 }
 
 type ResGetPackfile struct {
@@ -101,7 +102,7 @@ type ResGetPackfile struct {
 }
 
 type ReqGetPackfileBlob struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 	Offset   uint32
 	Length   uint32
 }
@@ -112,7 +113,7 @@ type ResGetPackfileBlob struct {
 }
 
 type ReqDeletePackfile struct {
-	Checksum [32]byte
+	Checksum objects.Checksum
 }
 type ResDeletePackfile struct {
 	Err string

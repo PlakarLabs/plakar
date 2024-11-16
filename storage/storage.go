@@ -36,6 +36,7 @@ import (
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/locking"
 	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/google/uuid"
@@ -250,7 +251,7 @@ func (store *Store) Configuration() Configuration {
 }
 
 /* Packfiles */
-func (store *Store) GetPackfiles() ([][32]byte, error) {
+func (store *Store) GetPackfiles() ([]objects.Checksum, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -259,10 +260,16 @@ func (store *Store) GetPackfiles() ([][32]byte, error) {
 		profiler.RecordEvent("store.GetPackfiles", time.Since(t0))
 		logger.Trace("store", "GetPackfiles(): %s", time.Since(t0))
 	}()
-	return store.backend.GetPackfiles()
+
+	checksums, err := store.backend.GetPackfiles()
+	ret := make([]objects.Checksum, 0, len(checksums))
+	for _, checksum := range checksums {
+		ret = append(ret, objects.Checksum(checksum))
+	}
+	return ret, err
 }
 
-func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+func (store *Store) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -280,7 +287,7 @@ func (store *Store) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, datalen, nil
 }
 
-func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
+func (store *Store) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -298,7 +305,7 @@ func (store *Store) GetPackfileBlob(checksum [32]byte, offset uint32, length uin
 	return rd, datalen, nil
 }
 
-func (store *Store) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
+func (store *Store) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -315,7 +322,7 @@ func (store *Store) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) er
 	return store.backend.PutPackfile(checksum, rd, size)
 }
 
-func (store *Store) DeletePackfile(checksum [32]byte) error {
+func (store *Store) DeletePackfile(checksum objects.Checksum) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -328,7 +335,7 @@ func (store *Store) DeletePackfile(checksum [32]byte) error {
 }
 
 /* Indexes */
-func (store *Store) GetStates() ([][32]byte, error) {
+func (store *Store) GetStates() ([]objects.Checksum, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -337,10 +344,16 @@ func (store *Store) GetStates() ([][32]byte, error) {
 		profiler.RecordEvent("store.GetStates", time.Since(t0))
 		logger.Trace("store", "GetStates(): %s", time.Since(t0))
 	}()
-	return store.backend.GetStates()
+
+	checksums, err := store.backend.GetStates()
+	ret := make([]objects.Checksum, 0, len(checksums))
+	for _, checksum := range checksums {
+		ret = append(ret, objects.Checksum(checksum))
+	}
+	return ret, err
 }
 
-func (store *Store) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
+func (store *Store) PutState(checksum objects.Checksum, rd io.Reader, size uint64) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
@@ -357,7 +370,7 @@ func (store *Store) PutState(checksum [32]byte, rd io.Reader, size uint64) error
 	return err
 }
 
-func (store *Store) GetState(checksum [32]byte) (io.Reader, uint64, error) {
+func (store *Store) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
@@ -374,7 +387,7 @@ func (store *Store) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, size, nil
 }
 
-func (store *Store) DeleteState(checksum [32]byte) error {
+func (store *Store) DeleteState(checksum objects.Checksum) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 

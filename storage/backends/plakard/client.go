@@ -370,7 +370,12 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	if result.Payload.(network.ResGetStates).Err != "" {
 		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetStates).Err)
 	}
-	return result.Payload.(network.ResGetStates).Checksums, nil
+
+	ret := make([][32]byte, len(result.Payload.(network.ResGetStates).Checksums))
+	for i, checksum := range result.Payload.(network.ResGetStates).Checksums {
+		ret[i] = checksum
+	}
+	return ret, nil
 }
 
 func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
@@ -432,8 +437,12 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	if result.Payload.(network.ResGetPackfiles).Err != "" {
 		return nil, fmt.Errorf("%s", result.Payload.(network.ResGetPackfiles).Err)
 	}
-	return result.Payload.(network.ResGetPackfiles).Checksums, nil
 
+	ret := make([][32]byte, len(result.Payload.(network.ResGetPackfiles).Checksums))
+	for i, checksum := range result.Payload.(network.ResGetPackfiles).Checksums {
+		ret[i] = checksum
+	}
+	return ret, nil
 }
 
 func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {

@@ -39,10 +39,10 @@ func TestCompression(t *testing.T) {
 		algorithm string
 		data      []byte
 	}{
-		{"gzip", []byte("Hello, world!")},
-		{"gzip", []byte{}}, // Test empty buffer for gzip
-		{"lz4", []byte("Hello, world!")},
-		{"lz4", []byte{}}, // Test empty buffer for lz4
+		{"GZIP", []byte("Hello, world!")},
+		{"GZIP", []byte{}}, // Test empty buffer for gzip
+		{"LZ4", []byte("Hello, world!")},
+		{"LZ4", []byte{}}, // Test empty buffer for lz4
 	}
 
 	for _, tt := range tests {
@@ -53,7 +53,7 @@ func TestCompression(t *testing.T) {
 }
 
 func TestDefaultAlgorithm(t *testing.T) {
-	expected := "lz4"
+	expected := "LZ4"
 	result := DefaultConfiguration().Algorithm
 
 	if result != expected {
@@ -104,7 +104,7 @@ func TestInflateStreamErrorHandling(t *testing.T) {
 
 func TestDeflateStreamRewindLogic(t *testing.T) {
 	data := []byte("test rewind logic")
-	compressedReader, err := DeflateStream("gzip", bytes.NewReader(data))
+	compressedReader, err := DeflateStream("GZIP", bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("DeflateStream failed: %v", err)
 	}
@@ -122,12 +122,12 @@ func TestLargeDataCompression(t *testing.T) {
 		largeData[i] = byte(i % 256)
 	}
 
-	compressedReader, err := DeflateStream("lz4", bytes.NewReader(largeData))
+	compressedReader, err := DeflateStream("LZ4", bytes.NewReader(largeData))
 	if err != nil {
 		t.Fatalf("DeflateStream failed for large data: %v", err)
 	}
 
-	decompressedReader, err := InflateStream("lz4", compressedReader)
+	decompressedReader, err := InflateStream("LZ4", compressedReader)
 	if err != nil {
 		t.Fatalf("InflateStream failed for large data: %v", err)
 	}

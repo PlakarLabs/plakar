@@ -67,8 +67,8 @@ func DeflateStream(name string, r io.Reader) (io.Reader, error) {
 	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
 
 	m := map[string]func(io.Reader) (io.Reader, error){
-		"gzip": DeflateGzipStream,
-		"lz4":  DeflateLZ4Stream,
+		"GZIP": DeflateGzipStream,
+		"LZ4":  DeflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
 		return fn(r)
@@ -117,8 +117,8 @@ func InflateStream(name string, r io.Reader) (io.Reader, error) {
 	r = io.MultiReader(bytes.NewReader(buf[:n]), r)
 
 	m := map[string]func(io.Reader) (io.Reader, error){
-		"gzip": InflateGzipStream,
-		"lz4":  InflateLZ4Stream,
+		"GZIP": InflateGzipStream,
+		"LZ4":  InflateLZ4Stream,
 	}
 	if fn, exists := m[name]; exists {
 		return fn(r)

@@ -254,7 +254,7 @@ func entryPoint() int {
 
 	var secret []byte
 	if !skipPassphrase {
-		if store.Configuration().Encryption.Algorithm != "" {
+		if store.Configuration().Encryption != nil {
 			envPassphrase := os.Getenv("PLAKAR_PASSPHRASE")
 			if ctx.GetKeyFromFile() == "" {
 				attempts := 0

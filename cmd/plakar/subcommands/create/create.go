@@ -99,6 +99,8 @@ func cmd_create(ctx *context.Context, _ *repository.Repository, args []string) i
 
 		storageConfiguration.Encryption.Algorithm = encryption.DefaultConfiguration().Algorithm
 		storageConfiguration.Encryption.Key = encryptionKey
+	} else {
+		storageConfiguration.Encryption = nil
 	}
 
 	switch flags.NArg() {

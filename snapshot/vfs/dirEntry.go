@@ -21,8 +21,9 @@ type DirEntry struct {
 	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
 
 	/* Directory specific fields */
-	Children   []ChildEntry `msgpack:"children,omitempty"`
-	Statistics Statistics   `msgpack:"statistics"`
+	NumChildren uint64       `msgpack:"numChildren"`
+	Children    []ChildEntry `msgpack:"children,omitempty"`
+	Statistics  Statistics   `msgpack:"statistics"`
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`

@@ -10,16 +10,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-/* Storage API */
-/*
-	GetStates() ([][32]byte, error)
-	GetState(checksum [32]byte) (io.Reader, uint64, error)
-
-	GetPackfiles() ([][32]byte, error)
-	GetPackfile(checksum [32]byte) (io.Reader, uint64, error)
-	GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error)
-*/
-
 func storageConfiguration(w http.ResponseWriter, r *http.Request) {
 	configuration := lstore.Configuration()
 	json.NewEncoder(w).Encode(configuration)

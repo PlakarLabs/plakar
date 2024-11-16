@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"sort"
 	"strconv"
 
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -19,8 +18,45 @@ func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
 }
 
 func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	_ = vars
+	var err error
+	var sortKeys []string
+	var offset int64
+	var limit int64
+
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+
+	sortKeysStr := r.URL.Query().Get("sort")
+	if sortKeysStr == "" {
+		sortKeysStr = "CreationTime"
+	}
+
+	sortKeys, err = header.ParseSortKeys(sortKeysStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if offset < 0 {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+	if limitStr != "" {
+		limit, err = strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
 
 	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
@@ -38,9 +74,18 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		headers = append(headers, *snap.Header)
 	}
 
-	sort.Slice(headers, func(i, j int) bool {
-		return headers[i].CreationTime.Before(headers[j].CreationTime)
-	})
+	if limit == 0 {
+		limit = int64(len(headers))
+	}
+
+	header.SortHeaders(headers, sortKeys)
+	if offset > int64(len(headers)) {
+		headers = []header.Header{}
+	} else if offset+limit > int64(len(headers)) {
+		headers = headers[offset:]
+	} else {
+		headers = headers[offset : offset+limit]
+	}
 
 	err = json.NewEncoder(w).Encode(headers)
 	if err != nil {

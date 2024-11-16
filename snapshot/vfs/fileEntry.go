@@ -61,6 +61,7 @@ func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 		FileInfo:           record.FileInfo,
 		SymlinkTarget:      target,
 		ExtendedAttributes: ExtendedAttributes,
+		Tags:               []string{},
 		ParentPath:         parentPath,
 	}
 }

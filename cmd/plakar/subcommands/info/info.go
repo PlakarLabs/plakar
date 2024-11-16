@@ -467,7 +467,7 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("AggregateFiles: %d\n", dirEntry.Statistics.Files)
 		fmt.Printf("AggregateSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.Statistics.TotalSize)), dirEntry.Statistics.TotalSize)
 		for offset, child := range dirEntry.Children {
-			fmt.Printf("Child[%d].Checksum: %x\n", offset, child.Checksum)
+			fmt.Printf("Child[%d].Checksum: %x\n", offset, child.Checksum())
 			fmt.Printf("Child[%d].FileInfo.Name(): %s\n", offset, child.Stat().Name())
 			fmt.Printf("Child[%d].FileInfo.Size(): %d\n", offset, child.Stat().Size())
 			fmt.Printf("Child[%d].FileInfo.Mode(): %s\n", offset, child.Stat().Mode())

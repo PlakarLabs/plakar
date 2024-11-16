@@ -8,11 +8,38 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type ChildEntry struct {
-	Checksum   objects.Checksum `msgpack:"checksum"`
-	FileInfo   objects.FileInfo `msgpack:"fileInfo"`
-	Statistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
+type ChildEntry interface {
+	childEntry()
+	Checksum() objects.Checksum
+	Stat() objects.FileInfo
 }
+
+type FileChildEntry struct {
+	Lchecksum objects.Checksum `msgpack:"checksum" json:"Checksum"`
+	LfileInfo objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
+}
+
+func (f *FileChildEntry) Checksum() objects.Checksum {
+	return f.Lchecksum
+}
+func (f *FileChildEntry) Stat() objects.FileInfo {
+	return f.LfileInfo
+}
+func (*FileChildEntry) childEntry() {}
+
+type DirectoryChildEntry struct {
+	Lchecksum   objects.Checksum `msgpack:"checksum" json:"Checksum"`
+	LfileInfo   objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
+	Lstatistics Statistics       `msgpack:"statistics" json:"Statistics"`
+}
+
+func (d *DirectoryChildEntry) Checksum() objects.Checksum {
+	return d.Lchecksum
+}
+func (d *DirectoryChildEntry) Stat() objects.FileInfo {
+	return d.LfileInfo
+}
+func (*DirectoryChildEntry) childEntry() {}
 
 type DirEntry struct {
 	Version    uint32              `msgpack:"version"`
@@ -88,11 +115,18 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	return &d, nil
 }
 
-func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
-	d.Children = append(d.Children, ChildEntry{
-		Checksum:   checksum,
-		FileInfo:   fileInfo,
-		Statistics: statistics,
+func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
+	d.Children = append(d.Children, &FileChildEntry{
+		Lchecksum: checksum,
+		LfileInfo: fileInfo,
+	})
+}
+
+func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
+	d.Children = append(d.Children, &DirectoryChildEntry{
+		Lchecksum:   checksum,
+		LfileInfo:   fileInfo,
+		Lstatistics: *statistics,
 	})
 }
 

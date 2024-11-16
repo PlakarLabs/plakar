@@ -83,7 +83,7 @@ func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *sna
 
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
 		for _, entry := range dirEntry.Children {
-			if err := displayChecksums(fs, repo, snap, filepath.Join(pathname, entry.FileInfo.Name()), fastcheck); err != nil {
+			if err := displayChecksums(fs, repo, snap, filepath.Join(pathname, entry.Stat().Name()), fastcheck); err != nil {
 				return err
 			}
 		}

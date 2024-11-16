@@ -578,11 +578,13 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Statistics.Directories += aggregatedCache.Directories
 				dirEntry.Statistics.Files += aggregatedCache.Files
 				dirEntry.Statistics.TotalSize += aggregatedCache.TotalSize
+				dirEntry.AddDirectoryChild(value, child, childStatistics)
+
 			} else {
 				dirEntry.Statistics.Files++
 				dirEntry.Statistics.TotalSize += uint64(child.Size())
+				dirEntry.AddFileChild(value, child)
 			}
-			dirEntry.AddChild(value, child, childStatistics)
 		}
 
 		serialized, err := dirEntry.Serialize()

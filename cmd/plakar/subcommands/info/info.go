@@ -468,16 +468,16 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("AggregateSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.Statistics.TotalSize)), dirEntry.Statistics.TotalSize)
 		for offset, child := range dirEntry.Children {
 			fmt.Printf("Child[%d].Checksum: %x\n", offset, child.Checksum)
-			fmt.Printf("Child[%d].FileInfo.Name(): %s\n", offset, child.FileInfo.Name())
-			fmt.Printf("Child[%d].FileInfo.Size(): %d\n", offset, child.FileInfo.Size())
-			fmt.Printf("Child[%d].FileInfo.Mode(): %s\n", offset, child.FileInfo.Mode())
-			fmt.Printf("Child[%d].FileInfo.Dev(): %d\n", offset, child.FileInfo.Dev())
-			fmt.Printf("Child[%d].FileInfo.Ino(): %d\n", offset, child.FileInfo.Ino())
-			fmt.Printf("Child[%d].FileInfo.Uid(): %d\n", offset, child.FileInfo.Uid())
-			fmt.Printf("Child[%d].FileInfo.Gid(): %d\n", offset, child.FileInfo.Gid())
-			fmt.Printf("Child[%d].FileInfo.Username(): %s\n", offset, child.FileInfo.Username())
-			fmt.Printf("Child[%d].FileInfo.Groupname(): %s\n", offset, child.FileInfo.Groupname())
-			fmt.Printf("Child[%d].FileInfo.Nlink(): %d\n", offset, child.FileInfo.Nlink())
+			fmt.Printf("Child[%d].FileInfo.Name(): %s\n", offset, child.Stat().Name())
+			fmt.Printf("Child[%d].FileInfo.Size(): %d\n", offset, child.Stat().Size())
+			fmt.Printf("Child[%d].FileInfo.Mode(): %s\n", offset, child.Stat().Mode())
+			fmt.Printf("Child[%d].FileInfo.Dev(): %d\n", offset, child.Stat().Dev())
+			fmt.Printf("Child[%d].FileInfo.Ino(): %d\n", offset, child.Stat().Ino())
+			fmt.Printf("Child[%d].FileInfo.Uid(): %d\n", offset, child.Stat().Uid())
+			fmt.Printf("Child[%d].FileInfo.Gid(): %d\n", offset, child.Stat().Gid())
+			fmt.Printf("Child[%d].FileInfo.Username(): %s\n", offset, child.Stat().Username())
+			fmt.Printf("Child[%d].FileInfo.Groupname(): %s\n", offset, child.Stat().Groupname())
+			fmt.Printf("Child[%d].FileInfo.Nlink(): %d\n", offset, child.Stat().Nlink())
 		}
 
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile {

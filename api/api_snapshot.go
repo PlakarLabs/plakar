@@ -160,8 +160,8 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		fileInfos := make([]objects.FileInfo, 0, len(dirEntry.Children))
 		children := make(map[string]vfs.ChildEntry)
 		for _, child := range dirEntry.Children {
-			fileInfos = append(fileInfos, child.FileInfo)
-			children[child.FileInfo.Name()] = child
+			fileInfos = append(fileInfos, child.Stat())
+			children[child.Stat().Name()] = child
 		}
 
 		if limit == 0 {

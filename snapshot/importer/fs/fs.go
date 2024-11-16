@@ -19,6 +19,7 @@ package fs
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -34,9 +35,17 @@ func init() {
 }
 
 func NewFSImporter(location string) (importer.ImporterBackend, error) {
+	var err error
+
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}
+
+	location, err = filepath.Abs(location)
+	if err != nil {
+		return nil, err
+	}
+
 	return &FSImporter{
 		rootDir: location,
 	}, nil

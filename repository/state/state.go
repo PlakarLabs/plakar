@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -34,7 +35,7 @@ type Metadata struct {
 	Version      uint32
 	CreationTime time.Time
 	Aggregate    bool
-	Extends      [][32]byte
+	Extends      []objects.Checksum
 }
 
 type Location struct {
@@ -45,8 +46,8 @@ type Location struct {
 
 type State struct {
 	muChecksum   sync.Mutex
-	checksumToId map[[32]byte]uint64
-	IdToChecksum map[uint64][32]byte
+	checksumToId map[objects.Checksum]uint64
+	IdToChecksum map[uint64]objects.Checksum
 
 	muChunks sync.Mutex
 	Chunks   map[uint64]Location
@@ -76,8 +77,8 @@ type State struct {
 
 func New() *State {
 	return &State{
-		IdToChecksum:     make(map[uint64][32]byte),
-		checksumToId:     make(map[[32]byte]uint64),
+		IdToChecksum:     make(map[uint64]objects.Checksum),
+		checksumToId:     make(map[objects.Checksum]uint64),
 		Chunks:           make(map[uint64]Location),
 		Objects:          make(map[uint64]Location),
 		Files:            make(map[uint64]Location),
@@ -89,7 +90,7 @@ func New() *State {
 			Version:      VERSION,
 			CreationTime: time.Now(),
 			Aggregate:    false,
-			Extends:      [][32]byte{},
+			Extends:      []objects.Checksum{},
 		},
 	}
 }
@@ -104,7 +105,7 @@ func (st *State) rebuildChecksums() {
 	st.muChecksum.Lock()
 	defer st.muChecksum.Unlock()
 
-	st.checksumToId = make(map[[32]byte]uint64)
+	st.checksumToId = make(map[objects.Checksum]uint64)
 
 	// Rebuild checksumToID by reversing the IDToChecksum map
 	for id, checksum := range st.IdToChecksum {
@@ -112,7 +113,7 @@ func (st *State) rebuildChecksums() {
 	}
 }
 
-func (st *State) getOrCreateIdForChecksum(checksum [32]byte) uint64 {
+func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 	st.muChecksum.Lock()
 	defer st.muChecksum.Unlock()
 
@@ -171,11 +172,11 @@ func (st *State) Serialize() ([]byte, error) {
 	return append(serialized, versionBytes...), nil
 }
 
-func (st *State) Extends(stateID [32]byte) {
+func (st *State) Extends(stateID objects.Checksum) {
 	st.Metadata.Extends = append(st.Metadata.Extends, stateID)
 }
 
-func (st *State) Merge(stateID [32]byte, deltaState *State) {
+func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 	deltaState.muChunks.Lock()
 	for deltaChunkChecksumID, subpart := range deltaState.Chunks {
 		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
@@ -251,14 +252,14 @@ func (st *State) Merge(stateID [32]byte, deltaState *State) {
 	deltaState.muDeletedSnapshots.Unlock()
 }
 
-func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForChunk(chunkChecksum objects.Checksum) (objects.Checksum, bool) {
 	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
 
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
 	if subpart, exists := st.Chunks[chunkID]; !exists {
-		return [32]byte{}, false
+		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -267,14 +268,14 @@ func (st *State) GetPackfileForChunk(chunkChecksum [32]byte) ([32]byte, bool) {
 	}
 }
 
-func (st *State) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForObject(objectChecksum objects.Checksum) (objects.Checksum, bool) {
 	objectID := st.getOrCreateIdForChecksum(objectChecksum)
 
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
 	if subpart, exists := st.Objects[objectID]; !exists {
-		return [32]byte{}, false
+		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -283,14 +284,14 @@ func (st *State) GetPackfileForObject(objectChecksum [32]byte) ([32]byte, bool) 
 	}
 }
 
-func (st *State) GetPackfileForFile(fileChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForFile(fileChecksum objects.Checksum) (objects.Checksum, bool) {
 	fileID := st.getOrCreateIdForChecksum(fileChecksum)
 
 	st.muFiles.Lock()
 	defer st.muFiles.Unlock()
 
 	if subpart, exists := st.Files[fileID]; !exists {
-		return [32]byte{}, false
+		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -299,14 +300,14 @@ func (st *State) GetPackfileForFile(fileChecksum [32]byte) ([32]byte, bool) {
 	}
 }
 
-func (st *State) GetPackfileForDirectory(directoryChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForDirectory(directoryChecksum objects.Checksum) (objects.Checksum, bool) {
 	directoryID := st.getOrCreateIdForChecksum(directoryChecksum)
 
 	st.muDirectories.Lock()
 	defer st.muDirectories.Unlock()
 
 	if subpart, exists := st.Directories[directoryID]; !exists {
-		return [32]byte{}, false
+		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -315,14 +316,14 @@ func (st *State) GetPackfileForDirectory(directoryChecksum [32]byte) ([32]byte, 
 	}
 }
 
-func (st *State) GetPackfileForData(blobChecksum [32]byte) ([32]byte, bool) {
+func (st *State) GetPackfileForData(blobChecksum objects.Checksum) (objects.Checksum, bool) {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	st.muDatas.Lock()
 	defer st.muDatas.Unlock()
 
 	if subpart, exists := st.Datas[blobID]; !exists {
-		return [32]byte{}, false
+		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -331,14 +332,14 @@ func (st *State) GetPackfileForData(blobChecksum [32]byte) ([32]byte, bool) {
 	}
 }
 
-func (st *State) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForChunk(chunkChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
 
 	st.muChunks.Lock()
 	defer st.muChunks.Unlock()
 
 	if subpart, exists := st.Chunks[chunkID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -347,14 +348,14 @@ func (st *State) GetSubpartForChunk(chunkChecksum [32]byte) ([32]byte, uint32, u
 	}
 }
 
-func (st *State) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForObject(objectChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	objectID := st.getOrCreateIdForChecksum(objectChecksum)
 
 	st.muObjects.Lock()
 	defer st.muObjects.Unlock()
 
 	if subpart, exists := st.Objects[objectID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -363,14 +364,14 @@ func (st *State) GetSubpartForObject(objectChecksum [32]byte) ([32]byte, uint32,
 	}
 }
 
-func (st *State) GetSubpartForFile(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForFile(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	fileID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muFiles.Lock()
 	defer st.muFiles.Unlock()
 
 	if subpart, exists := st.Files[fileID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -379,14 +380,14 @@ func (st *State) GetSubpartForFile(checksum [32]byte) ([32]byte, uint32, uint32,
 	}
 }
 
-func (st *State) GetSubpartForDirectory(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForDirectory(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	directoryID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muDirectories.Lock()
 	defer st.muDirectories.Unlock()
 
 	if subpart, exists := st.Directories[directoryID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -395,14 +396,14 @@ func (st *State) GetSubpartForDirectory(checksum [32]byte) ([32]byte, uint32, ui
 	}
 }
 
-func (st *State) GetSubpartForData(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForData(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muDatas.Lock()
 	defer st.muDatas.Unlock()
 
 	if subpart, exists := st.Datas[blobID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -411,14 +412,14 @@ func (st *State) GetSubpartForData(checksum [32]byte) ([32]byte, uint32, uint32,
 	}
 }
 
-func (st *State) GetSubpartForSnapshot(checksum [32]byte) ([32]byte, uint32, uint32, bool) {
+func (st *State) GetSubpartForSnapshot(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muSnapshots.Lock()
 	defer st.muSnapshots.Unlock()
 
 	if subpart, exists := st.Snapshots[blobID]; !exists {
-		return [32]byte{}, 0, 0, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[subpart.Packfile]
@@ -427,7 +428,7 @@ func (st *State) GetSubpartForSnapshot(checksum [32]byte) ([32]byte, uint32, uin
 	}
 }
 
-func (st *State) ChunkExists(chunkChecksum [32]byte) bool {
+func (st *State) ChunkExists(chunkChecksum objects.Checksum) bool {
 	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
 
 	st.muChunks.Lock()
@@ -440,7 +441,7 @@ func (st *State) ChunkExists(chunkChecksum [32]byte) bool {
 	}
 }
 
-func (st *State) ObjectExists(objectChecksum [32]byte) bool {
+func (st *State) ObjectExists(objectChecksum objects.Checksum) bool {
 	objectID := st.getOrCreateIdForChecksum(objectChecksum)
 
 	st.muObjects.Lock()
@@ -453,7 +454,7 @@ func (st *State) ObjectExists(objectChecksum [32]byte) bool {
 	}
 }
 
-func (st *State) FileExists(checksum [32]byte) bool {
+func (st *State) FileExists(checksum objects.Checksum) bool {
 	checksumID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muFiles.Lock()
@@ -466,7 +467,7 @@ func (st *State) FileExists(checksum [32]byte) bool {
 	}
 }
 
-func (st *State) DirectoryExists(checksum [32]byte) bool {
+func (st *State) DirectoryExists(checksum objects.Checksum) bool {
 	checksumID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muDirectories.Lock()
@@ -479,7 +480,7 @@ func (st *State) DirectoryExists(checksum [32]byte) bool {
 	}
 }
 
-func (st *State) DataExists(checksum [32]byte) bool {
+func (st *State) DataExists(checksum objects.Checksum) bool {
 	checksumID := st.getOrCreateIdForChecksum(checksum)
 
 	st.muDatas.Lock()
@@ -500,7 +501,7 @@ func (st *State) ResetDirty() {
 	atomic.StoreInt32(&st.dirty, 0)
 }
 
-func (st *State) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForChunk(packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
 
@@ -518,7 +519,7 @@ func (st *State) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [3
 	}
 }
 
-func (st *State) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForObject(packfileChecksum objects.Checksum, objectChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	objectID := st.getOrCreateIdForChecksum(objectChecksum)
 
@@ -536,7 +537,7 @@ func (st *State) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum 
 	}
 }
 
-func (st *State) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForFile(packfileChecksum objects.Checksum, fileChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	fileID := st.getOrCreateIdForChecksum(fileChecksum)
 
@@ -554,7 +555,7 @@ func (st *State) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum [32]
 	}
 }
 
-func (st *State) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForDirectory(packfileChecksum objects.Checksum, directoryChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	directoryID := st.getOrCreateIdForChecksum(directoryChecksum)
 
@@ -572,7 +573,7 @@ func (st *State) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChe
 	}
 }
 
-func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForData(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
@@ -590,7 +591,7 @@ func (st *State) SetPackfileForData(packfileChecksum [32]byte, blobChecksum [32]
 	}
 }
 
-func (st *State) SetPackfileForSnapshot(packfileChecksum [32]byte, blobChecksum [32]byte, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForSnapshot(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
@@ -608,7 +609,7 @@ func (st *State) SetPackfileForSnapshot(packfileChecksum [32]byte, blobChecksum 
 	}
 }
 
-func (st *State) DeleteSnapshot(snapshotChecksum [32]byte) error {
+func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
 	snapshotID := st.getOrCreateIdForChecksum(snapshotChecksum)
 
 	st.muSnapshots.Lock()
@@ -629,10 +630,10 @@ func (st *State) DeleteSnapshot(snapshotChecksum [32]byte) error {
 	return nil
 }
 
-func (st *State) ListSnapshots() <-chan [32]byte {
-	ch := make(chan [32]byte)
+func (st *State) ListSnapshots() <-chan objects.Checksum {
+	ch := make(chan objects.Checksum)
 	go func() {
-		snapshotsList := make([][32]byte, 0)
+		snapshotsList := make([]objects.Checksum, 0)
 		st.muSnapshots.Lock()
 		for k := range st.Snapshots {
 			st.muDeletedSnapshots.Lock()
@@ -652,10 +653,10 @@ func (st *State) ListSnapshots() <-chan [32]byte {
 	return ch
 }
 
-func (st *State) ListChunks() <-chan [32]byte {
-	ch := make(chan [32]byte)
+func (st *State) ListChunks() <-chan objects.Checksum {
+	ch := make(chan objects.Checksum)
 	go func() {
-		chunksList := make([][32]byte, 0)
+		chunksList := make([]objects.Checksum, 0)
 		st.muChunks.Lock()
 		for k := range st.Chunks {
 			chunksList = append(chunksList, st.IdToChecksum[k])
@@ -670,10 +671,10 @@ func (st *State) ListChunks() <-chan [32]byte {
 	return ch
 }
 
-func (st *State) ListObjects() <-chan [32]byte {
-	ch := make(chan [32]byte)
+func (st *State) ListObjects() <-chan objects.Checksum {
+	ch := make(chan objects.Checksum)
 	go func() {
-		objectsList := make([][32]byte, 0)
+		objectsList := make([]objects.Checksum, 0)
 		st.muObjects.Lock()
 		for k := range st.Objects {
 			objectsList = append(objectsList, st.IdToChecksum[k])

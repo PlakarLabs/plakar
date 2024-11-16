@@ -117,7 +117,12 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	if resGetStates.Err != "" {
 		return nil, fmt.Errorf("%s", resGetStates.Err)
 	}
-	return resGetStates.Checksums, nil
+
+	ret := make([][32]byte, len(resGetStates.Checksums))
+	for i, checksum := range resGetStates.Checksums {
+		ret[i] = checksum
+	}
+	return ret, nil
 }
 
 func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
@@ -194,7 +199,12 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	if resGetPackfiles.Err != "" {
 		return nil, fmt.Errorf("%s", resGetPackfiles.Err)
 	}
-	return resGetPackfiles.Checksums, nil
+
+	ret := make([][32]byte, len(resGetPackfiles.Checksums))
+	for i, checksum := range resGetPackfiles.Checksums {
+		ret[i] = checksum
+	}
+	return ret, nil
 }
 
 func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {

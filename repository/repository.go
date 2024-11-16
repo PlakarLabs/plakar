@@ -13,6 +13,7 @@ import (
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/repository/cache"
 	"github.com/PlakarKorp/plakar/repository/state"
@@ -64,7 +65,7 @@ func (r *Repository) rebuildState() error {
 	}()
 
 	// identify local states
-	localStates := make(map[[32]byte]struct{})
+	localStates := make(map[objects.Checksum]struct{})
 	for stateID := range r.cache.List() {
 		localStates[stateID] = struct{}{}
 	}
@@ -74,7 +75,7 @@ func (r *Repository) rebuildState() error {
 	if err != nil {
 		return err
 	}
-	remoteStatesMap := make(map[[32]byte]struct{})
+	remoteStatesMap := make(map[objects.Checksum]struct{})
 	for _, stateID := range remoteStates {
 		remoteStatesMap[stateID] = struct{}{}
 	}
@@ -82,7 +83,7 @@ func (r *Repository) rebuildState() error {
 	desynchronized := false
 
 	// build delta of local and remote states
-	missingStates := make([][32]byte, 0)
+	missingStates := make([]objects.Checksum, 0)
 	for _, stateID := range remoteStates {
 		if _, exists := localStates[stateID]; !exists {
 			missingStates = append(missingStates, stateID)
@@ -90,7 +91,7 @@ func (r *Repository) rebuildState() error {
 		}
 	}
 
-	outdatedStates := make([][32]byte, 0)
+	outdatedStates := make([]objects.Checksum, 0)
 	for stateID := range localStates {
 		if _, exists := remoteStatesMap[stateID]; !exists {
 			outdatedStates = append(outdatedStates, stateID)
@@ -226,7 +227,7 @@ func (r *Repository) Hasher() hash.Hash {
 	return hashing.GetHasher(r.Configuration().Hashing)
 }
 
-func (r *Repository) Checksum(data []byte) [32]byte {
+func (r *Repository) Checksum(data []byte) objects.Checksum {
 	hasher := r.Hasher()
 	hasher.Write(data)
 	result := hasher.Sum(nil)
@@ -235,7 +236,7 @@ func (r *Repository) Checksum(data []byte) [32]byte {
 		panic("hasher returned invalid length")
 	}
 
-	var checksum [32]byte
+	var checksum objects.Checksum
 	copy(checksum[:], result)
 
 	return checksum
@@ -266,21 +267,21 @@ func (r *Repository) Configuration() storage.Configuration {
 	return r.configuration
 }
 
-func (r *Repository) GetSnapshots() ([][32]byte, error) {
+func (r *Repository) GetSnapshots() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetSnapshots", time.Since(t0))
 		logger.Trace("repository", "GetSnapshots(): %s", time.Since(t0))
 	}()
 
-	ret := make([][32]byte, 0)
+	ret := make([]objects.Checksum, 0)
 	for snapshotID := range r.state.ListSnapshots() {
 		ret = append(ret, snapshotID)
 	}
 	return ret, nil
 }
 
-func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
+func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DeleteSnapshot", time.Since(t0))
@@ -304,7 +305,7 @@ func (r *Repository) DeleteSnapshot(snapshotID [32]byte) error {
 	return nil
 }
 
-func (r *Repository) GetStates() ([][32]byte, error) {
+func (r *Repository) GetStates() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetStates", time.Since(t0))
@@ -314,7 +315,7 @@ func (r *Repository) GetStates() ([][32]byte, error) {
 	return r.store.GetStates()
 }
 
-func (r *Repository) GetState(checksum [32]byte) ([]byte, int64, error) {
+func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetState", time.Since(t0))
@@ -346,7 +347,7 @@ func (r *Repository) GetState(checksum [32]byte) ([]byte, int64, error) {
 	return data, int64(len(data)), err
 }
 
-func (r *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) (int, error) {
+func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int64) (int, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutState", time.Since(t0))
@@ -372,7 +373,7 @@ func (r *Repository) PutState(checksum [32]byte, rd io.Reader, size int64) (int,
 	return len(encoded), ret
 }
 
-func (r *Repository) DeleteState(checksum [32]byte) error {
+func (r *Repository) DeleteState(checksum objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DeleteState", time.Since(t0))
@@ -382,7 +383,7 @@ func (r *Repository) DeleteState(checksum [32]byte) error {
 	return r.store.DeleteState(checksum)
 }
 
-func (r *Repository) GetPackfiles() ([][32]byte, error) {
+func (r *Repository) GetPackfiles() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfiles", time.Since(t0))
@@ -392,7 +393,7 @@ func (r *Repository) GetPackfiles() ([][32]byte, error) {
 	return r.store.GetPackfiles()
 }
 
-func (r *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfile", time.Since(t0))
@@ -402,7 +403,7 @@ func (r *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	return r.store.GetPackfile(checksum)
 }
 
-func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, int64, error) {
+func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, int64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetPackfileBlob", time.Since(t0))
@@ -427,7 +428,7 @@ func (r *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length ui
 	return bytes.NewBuffer(decoded), int64(len(decoded)), nil
 }
 
-func (r *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
+func (r *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.PutPackfile", time.Since(t0))
@@ -437,7 +438,7 @@ func (r *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) e
 	return r.store.PutPackfile(checksum, rd, size)
 }
 
-func (r *Repository) DeletePackfile(checksum [32]byte) error {
+func (r *Repository) DeletePackfile(checksum objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DeletePackfile", time.Since(t0))
@@ -447,7 +448,7 @@ func (r *Repository) DeletePackfile(checksum [32]byte) error {
 	return r.store.DeletePackfile(checksum)
 }
 
-func (r *Repository) GetChunk(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetChunk(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetChunk", time.Since(t0))
@@ -467,7 +468,7 @@ func (r *Repository) GetChunk(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) GetObject(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetObject(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetObject", time.Since(t0))
@@ -487,7 +488,7 @@ func (r *Repository) GetObject(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) GetFile(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetFile(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetFile", time.Since(t0))
@@ -507,7 +508,7 @@ func (r *Repository) GetFile(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) GetDirectory(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetDirectory(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetDirectory", time.Since(t0))
@@ -527,7 +528,7 @@ func (r *Repository) GetDirectory(checksum [32]byte) (io.Reader, uint64, error) 
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) GetData(checksum [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetData(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetData", time.Since(t0))
@@ -547,7 +548,7 @@ func (r *Repository) GetData(checksum [32]byte) (io.Reader, uint64, error) {
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) GetSnapshot(snapshotID [32]byte) (io.Reader, uint64, error) {
+func (r *Repository) GetSnapshot(snapshotID objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetSnapshot", time.Since(t0))
@@ -567,7 +568,7 @@ func (r *Repository) GetSnapshot(snapshotID [32]byte) (io.Reader, uint64, error)
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) ChunkExists(checksum [32]byte) bool {
+func (r *Repository) ChunkExists(checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.ChunkExists", time.Since(t0))
@@ -577,7 +578,7 @@ func (r *Repository) ChunkExists(checksum [32]byte) bool {
 	return r.state.ChunkExists(checksum)
 }
 
-func (r *Repository) ObjectExists(checksum [32]byte) bool {
+func (r *Repository) ObjectExists(checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.ObjectExists", time.Since(t0))
@@ -587,7 +588,7 @@ func (r *Repository) ObjectExists(checksum [32]byte) bool {
 	return r.state.ObjectExists(checksum)
 }
 
-func (r *Repository) FileExists(checksum [32]byte) bool {
+func (r *Repository) FileExists(checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.ObjectExists", time.Since(t0))
@@ -597,7 +598,7 @@ func (r *Repository) FileExists(checksum [32]byte) bool {
 	return r.state.FileExists(checksum)
 }
 
-func (r *Repository) DirectoryExists(checksum [32]byte) bool {
+func (r *Repository) DirectoryExists(checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DirectoryExists", time.Since(t0))
@@ -607,7 +608,7 @@ func (r *Repository) DirectoryExists(checksum [32]byte) bool {
 	return r.state.DirectoryExists(checksum)
 }
 
-func (r *Repository) DataExists(checksum [32]byte) bool {
+func (r *Repository) DataExists(checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.DataExists", time.Since(t0))
@@ -617,7 +618,7 @@ func (r *Repository) DataExists(checksum [32]byte) bool {
 	return r.state.DataExists(checksum)
 }
 
-func (r *Repository) ListSnapshots() <-chan [32]byte {
+func (r *Repository) ListSnapshots() <-chan objects.Checksum {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.ListSnapshots", time.Since(t0))
@@ -626,7 +627,7 @@ func (r *Repository) ListSnapshots() <-chan [32]byte {
 	return r.state.ListSnapshots()
 }
 
-func (r *Repository) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksum [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForChunk(packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForChunk", time.Since(t0))
@@ -636,7 +637,7 @@ func (r *Repository) SetPackfileForChunk(packfileChecksum [32]byte, chunkChecksu
 	r.state.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
 }
 
-func (r *Repository) SetPackfileForObject(packfileChecksum [32]byte, objectChecksum [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForObject(packfileChecksum objects.Checksum, objectChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForObject", time.Since(t0))
@@ -646,7 +647,7 @@ func (r *Repository) SetPackfileForObject(packfileChecksum [32]byte, objectCheck
 	r.state.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
 }
 
-func (r *Repository) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForFile(packfileChecksum objects.Checksum, fileChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForFile", time.Since(t0))
@@ -656,7 +657,7 @@ func (r *Repository) SetPackfileForFile(packfileChecksum [32]byte, fileChecksum 
 	r.state.SetPackfileForFile(packfileChecksum, fileChecksum, offset, length)
 }
 
-func (r *Repository) SetPackfileForDirectory(packfileChecksum [32]byte, directoryChecksum [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForDirectory(packfileChecksum objects.Checksum, directoryChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForDirectory", time.Since(t0))
@@ -666,7 +667,7 @@ func (r *Repository) SetPackfileForDirectory(packfileChecksum [32]byte, director
 	r.state.SetPackfileForDirectory(packfileChecksum, directoryChecksum, offset, length)
 }
 
-func (r *Repository) SetPackfileForData(packfileChecksum [32]byte, dataChecksum [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForData(packfileChecksum objects.Checksum, dataChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForData", time.Since(t0))
@@ -676,7 +677,7 @@ func (r *Repository) SetPackfileForData(packfileChecksum [32]byte, dataChecksum 
 	r.state.SetPackfileForData(packfileChecksum, dataChecksum, offset, length)
 }
 
-func (r *Repository) SetPackfileForSnapshot(packfileChecksum [32]byte, snapshotID [32]byte, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForSnapshot(packfileChecksum objects.Checksum, snapshotID objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForSnapshot", time.Since(t0))

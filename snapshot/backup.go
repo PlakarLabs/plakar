@@ -411,8 +411,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	defer imp.Close()
 
-	snap.Header.ImporterOrigin = imp.Origin()
-	snap.Header.ImporterType = imp.Type()
+	snap.Header.Origin = imp.Origin()
+	snap.Header.Type = imp.Type()
 
 	//t0 := time.Now()
 

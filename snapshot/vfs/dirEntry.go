@@ -9,7 +9,7 @@ import (
 )
 
 type ChildEntry struct {
-	Checksum   [32]byte         `msgpack:"checksum"`
+	Checksum   objects.Checksum `msgpack:"checksum"`
 	FileInfo   objects.FileInfo `msgpack:"fileInfo"`
 	Statistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
 }

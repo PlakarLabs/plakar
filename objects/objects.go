@@ -3,9 +3,16 @@ package objects
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
+
+type Checksum [32]byte
+
+func (m Checksum) MarshalJSON() ([]byte, error) {
+	return json.Marshal(fmt.Sprintf("%0x", m[:]))
+}
 
 type CustomMetadata struct {
 	Key   string `msgpack:"key"`
@@ -13,23 +20,12 @@ type CustomMetadata struct {
 }
 
 type Object struct {
-	Checksum       [32]byte         `msgpack:"checksum"`
+	Checksum       Checksum         `msgpack:"checksum"`
 	Chunks         []Chunk          `msgpack:"chunks"`
 	ContentType    string           `msgpack:"contentType,omitempty"`
 	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
 	Tags           []string         `msgpack:"tags,omitempty"`
 	Entropy        float64          `msgpack:"entropy,omitempty"`
-}
-
-func (m Object) MarshalJSON() ([]byte, error) {
-	type Alias Object // Create an alias to avoid recursion
-	return json.Marshal(&struct {
-		Checksum string `json:"Checksum"`
-		*Alias
-	}{
-		Checksum: base64.RawURLEncoding.EncodeToString(m.Checksum[:]),
-		Alias:    (*Alias)(&m),
-	})
 }
 
 func NewObject() *Object {
@@ -61,7 +57,7 @@ func (o *Object) Serialize() ([]byte, error) {
 }
 
 type Chunk struct {
-	Checksum [32]byte `msgpack:"checksum"`
+	Checksum Checksum `msgpack:"checksum"`
 	Length   uint32   `msgpack:"length"`
 	Entropy  float64  `msgpack:"entropy"`
 }

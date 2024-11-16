@@ -1,6 +1,8 @@
 package objects
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"syscall"
@@ -22,6 +24,17 @@ type Object struct {
 	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
 	Tags           []string         `msgpack:"tags,omitempty"`
 	Entropy        float64          `msgpack:"entropy,omitempty"`
+}
+
+func (m Object) MarshalJSON() ([]byte, error) {
+	type Alias Object // Create an alias to avoid recursion
+	return json.Marshal(&struct {
+		Checksum string `json:"Checksum"`
+		*Alias
+	}{
+		Checksum: base64.RawURLEncoding.EncodeToString(m.Checksum[:]),
+		Alias:    (*Alias)(&m),
+	})
 }
 
 func NewObject() *Object {
@@ -56,6 +69,17 @@ type Chunk struct {
 	Checksum [32]byte `msgpack:"checksum"`
 	Length   uint32   `msgpack:"length"`
 	Entropy  float64  `msgpack:"entropy"`
+}
+
+func (m Chunk) MarshalJSON() ([]byte, error) {
+	type Alias Chunk // Create an alias to avoid recursion
+	return json.Marshal(&struct {
+		Checksum string `json:"Checksum"`
+		*Alias
+	}{
+		Checksum: base64.RawURLEncoding.EncodeToString(m.Checksum[:]),
+		Alias:    (*Alias)(&m),
+	})
 }
 
 type FileInfo struct {

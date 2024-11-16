@@ -54,7 +54,7 @@ func TestCompression(t *testing.T) {
 
 func TestDefaultAlgorithm(t *testing.T) {
 	expected := "lz4"
-	result := DefaultAlgorithm()
+	result := DefaultConfiguration().Algorithm
 
 	if result != expected {
 		t.Errorf("DefaultAlgorithm failed: expected %v, got %v", expected, result)

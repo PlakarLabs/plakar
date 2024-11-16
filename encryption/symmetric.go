@@ -12,13 +12,20 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
+type Configuration struct {
+	Algorithm string
+	Key       string
+}
+
 const (
 	saltSize  = 16
 	chunkSize = 1024 // Size of each chunk for encryption/decryption
 )
 
-func DefaultAlgorithm() string {
-	return "AES256-GCM"
+func DefaultConfiguration() *Configuration {
+	return &Configuration{
+		Algorithm: "AES256-GCM",
+	}
 }
 
 // BuildSecretFromPassphrase generates a secret from a passphrase using scrypt

@@ -33,6 +33,7 @@ import (
 	"github.com/PlakarKorp/plakar/chunking"
 	"github.com/PlakarKorp/plakar/compression"
 	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/locking"
 	"github.com/PlakarKorp/plakar/logger"
@@ -47,36 +48,27 @@ const VERSION string = "0.6.0"
 type Configuration struct {
 	Version      string
 	CreationTime time.Time
-
 	RepositoryID uuid.UUID
 
-	Encryption    string
-	EncryptionKey string
-
-	Compression string
-
-	Hashing string
-
-	Chunking       string
-	ChunkingMin    int
-	ChunkingNormal int
-	ChunkingMax    int
-
-	PackfileSize uint32
+	Packfile    packfile.Configuration
+	Chunking    chunking.Configuration
+	Hashing     hashing.Configuration
+	Compression *compression.Configuration
+	Encryption  *encryption.Configuration
 }
 
 func NewConfiguration() *Configuration {
 	return &Configuration{
-		Version:        VERSION,
-		RepositoryID:   uuid.Must(uuid.NewRandom()),
-		CreationTime:   time.Now(),
-		Compression:    compression.DefaultAlgorithm(),
-		Hashing:        hashing.DefaultAlgorithm(),
-		Chunking:       chunking.DefaultAlgorithm(),
-		ChunkingMin:    chunking.DefaultConfiguration().MinSize,
-		ChunkingNormal: chunking.DefaultConfiguration().NormalSize,
-		ChunkingMax:    chunking.DefaultConfiguration().MaxSize,
-		PackfileSize:   packfile.DefaultConfiguration().MaxSize,
+		Version:      VERSION,
+		CreationTime: time.Now(),
+		RepositoryID: uuid.Must(uuid.NewRandom()),
+
+		Packfile: *packfile.DefaultConfiguration(),
+		Chunking: *chunking.DefaultConfiguration(),
+		Hashing:  *hashing.DefaultConfiguration(),
+
+		Compression: compression.DefaultConfiguration(),
+		Encryption:  encryption.DefaultConfiguration(),
 	}
 }
 

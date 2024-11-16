@@ -115,7 +115,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						}
 					}
 
-					if pack.Size() > uint32(repo.Configuration().PackfileSize) {
+					if pack.Size() > uint32(repo.Configuration().Packfile.MaxSize) {
 						snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
 						for snapshotID := range snapshotHeaders {
 							snapshotHeadersList = append(snapshotHeadersList, snapshotID)
@@ -281,7 +281,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						}
 					}
 
-					if pack.Size() > uint32(repo.Configuration().PackfileSize) {
+					if pack.Size() > uint32(repo.Configuration().Packfile.MaxSize) {
 						snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
 						for snapshotID := range snapshotHeaders {
 							snapshotHeadersList = append(snapshotHeadersList, snapshotID)

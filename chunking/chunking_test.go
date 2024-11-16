@@ -7,7 +7,7 @@ import (
 )
 
 func TestDefaultAlgorithm(t *testing.T) {
-	expected := "fastcdc"
+	expected := "FASTCDC"
 	result := DefaultConfiguration().Algorithm
 
 	if result != expected {

@@ -5,7 +5,7 @@ import (
 )
 
 func TestDefaultAlgorithm(t *testing.T) {
-	expected := "sha256"
+	expected := "SHA256"
 	actual := DefaultConfiguration().Algorithm
 	if actual != expected {
 		t.Errorf("Expected default algorithm %s, but got %s", expected, actual)
@@ -14,7 +14,7 @@ func TestDefaultAlgorithm(t *testing.T) {
 
 func TestGetHasher(t *testing.T) {
 	// Test for sha256
-	hasher := GetHasher("sha256")
+	hasher := GetHasher("SHA256")
 	if hasher == nil {
 		t.Error("Expected sha256 hasher, but got nil")
 	}

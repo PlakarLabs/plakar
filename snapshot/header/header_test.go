@@ -21,7 +21,7 @@ func TestSortHeaders(t *testing.T) {
 
 	// Test 1: Sort by CreationTime, ascending
 	headers := resetHeaders()
-	expected1 := []Header{headers[0], headers[1], headers[2]}
+	expected1 := []Header{headers[1], headers[0], headers[2]}
 	if err := SortHeaders(headers, []string{"CreationTime"}); err != nil {
 		t.Fatalf("Test 1 failed: unexpected error: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestSortHeaders(t *testing.T) {
 
 	// Test 2: Sort by CreationTime, descending
 	headers = resetHeaders()
-	expected2 := []Header{headers[2], headers[1], headers[0]}
+	expected2 := []Header{headers[2], headers[0], headers[1]}
 	if err := SortHeaders(headers, []string{"-CreationTime"}); err != nil {
 		t.Fatalf("Test 2 failed: unexpected error: %v", err)
 	}

@@ -323,7 +323,7 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir string, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
+func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
 	//imp, err := importer.NewImporter(scanDir)
 	//if err != nil {
 	//		return nil, nil, err
@@ -430,7 +430,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 
 	/* importer */
-	filesChannel, err := snap.importerJob(imp, sc, scanDir, options, maxConcurrency)
+	filesChannel, err := snap.importerJob(imp, sc, options, maxConcurrency)
 	if err != nil {
 		return err
 	}

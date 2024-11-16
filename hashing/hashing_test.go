@@ -6,7 +6,7 @@ import (
 
 func TestDefaultAlgorithm(t *testing.T) {
 	expected := "sha256"
-	actual := DefaultAlgorithm()
+	actual := DefaultConfiguration().Algorithm
 	if actual != expected {
 		t.Errorf("Expected default algorithm %s, but got %s", expected, actual)
 	}

@@ -681,6 +681,14 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 				dirEntry.Statistics.Below.HiEntropy += childStatistics.Below.HiEntropy + childStatistics.Directory.HiEntropy
 				dirEntry.Statistics.Below.LoEntropy += childStatistics.Below.LoEntropy + childStatistics.Directory.LoEntropy
+
+				dirEntry.Statistics.Below.MIMEAudio += childStatistics.Directory.MIMEAudio + childStatistics.Below.MIMEAudio
+				dirEntry.Statistics.Below.MIMEVideo += childStatistics.Directory.MIMEVideo + childStatistics.Below.MIMEVideo
+				dirEntry.Statistics.Below.MIMEImage += childStatistics.Directory.MIMEImage + childStatistics.Below.MIMEImage
+				dirEntry.Statistics.Below.MIMEText += childStatistics.Directory.MIMEText + childStatistics.Below.MIMEText
+				dirEntry.Statistics.Below.MIMEApplication += childStatistics.Directory.MIMEApplication + childStatistics.Below.MIMEApplication
+				dirEntry.Statistics.Below.MIMEOther += childStatistics.Directory.MIMEOther + childStatistics.Below.MIMEOther
+
 				dirEntry.AddDirectoryChild(value, child, childStatistics)
 
 			} else {
@@ -770,6 +778,22 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 				dirEntropy += fileSummary.Entropy
 				nFiles++
+
+				if fileSummary.ContentType != "" {
+					if strings.HasPrefix(fileSummary.ContentType, "text/") {
+						dirEntry.Statistics.Directory.MIMEText++
+					} else if strings.HasPrefix(fileSummary.ContentType, "image/") {
+						dirEntry.Statistics.Directory.MIMEImage++
+					} else if strings.HasPrefix(fileSummary.ContentType, "audio/") {
+						dirEntry.Statistics.Directory.MIMEAudio++
+					} else if strings.HasPrefix(fileSummary.ContentType, "video/") {
+						dirEntry.Statistics.Directory.MIMEVideo++
+					} else if strings.HasPrefix(fileSummary.ContentType, "application/") {
+						dirEntry.Statistics.Directory.MIMEApplication++
+					} else {
+						dirEntry.Statistics.Directory.MIMEOther++
+					}
+				}
 
 				dirEntry.Statistics.Directory.Size += fileSummary.Size
 				dirEntry.Statistics.Below.Size += uint64(child.Size())

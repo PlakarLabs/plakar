@@ -8,38 +8,18 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type ChildEntry interface {
-	childEntry()
-	Checksum() objects.Checksum
-	Stat() objects.FileInfo
-}
-
-type FileChildEntry struct {
-	Lchecksum objects.Checksum `msgpack:"checksum" json:"Checksum"`
-	LfileInfo objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
-}
-
-func (f *FileChildEntry) Checksum() objects.Checksum {
-	return f.Lchecksum
-}
-func (f *FileChildEntry) Stat() objects.FileInfo {
-	return f.LfileInfo
-}
-func (*FileChildEntry) childEntry() {}
-
-type DirectoryChildEntry struct {
+type ChildEntry struct {
 	Lchecksum   objects.Checksum `msgpack:"checksum" json:"Checksum"`
 	LfileInfo   objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
-	Lstatistics Statistics       `msgpack:"statistics" json:"Statistics"`
+	Lstatistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
 }
 
-func (d *DirectoryChildEntry) Checksum() objects.Checksum {
-	return d.Lchecksum
+func (c *ChildEntry) Checksum() objects.Checksum {
+	return c.Lchecksum
 }
-func (d *DirectoryChildEntry) Stat() objects.FileInfo {
-	return d.LfileInfo
+func (c *ChildEntry) Stat() objects.FileInfo {
+	return c.LfileInfo
 }
-func (*DirectoryChildEntry) childEntry() {}
 
 type DirEntry struct {
 	Version    uint32              `msgpack:"version"`
@@ -116,17 +96,17 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 }
 
 func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
-	d.Children = append(d.Children, &FileChildEntry{
+	d.Children = append(d.Children, ChildEntry{
 		Lchecksum: checksum,
 		LfileInfo: fileInfo,
 	})
 }
 
 func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
-	d.Children = append(d.Children, &DirectoryChildEntry{
+	d.Children = append(d.Children, ChildEntry{
 		Lchecksum:   checksum,
 		LfileInfo:   fileInfo,
-		Lstatistics: *statistics,
+		Lstatistics: statistics,
 	})
 }
 

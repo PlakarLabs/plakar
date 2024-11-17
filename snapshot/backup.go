@@ -37,6 +37,16 @@ type scanCache struct {
 	dbdir string
 }
 
+type FileSummary struct {
+	Type        importer.RecordType `msgpack:"type"`
+	Size        uint64              `msgpack:"size"`
+	Objects     uint64              `msgpack:"objects"`
+	Chunks      uint64              `msgpack:"chunks"`
+	ModTime     int64               `msgpack:"modTime"`
+	ContentType string              `msgpack:"contentType"`
+	Entropy     float64             `msgpack:"entropy"`
+}
+
 func newScanCache() (*scanCache, error) {
 	tempDir, err := os.MkdirTemp("", "leveldb-temp")
 	if err != nil {
@@ -128,6 +138,19 @@ func (cache *scanCache) RecordStatistics(pathname string, statistics *vfs.Statis
 	return cache.db.Put([]byte(fmt.Sprintf("__statistics__:%s", pathname)), buffer, nil)
 }
 
+func (cache *scanCache) RecordFileSummary(pathname string, summary *FileSummary) error {
+	pathname = strings.TrimSuffix(pathname, "/")
+	if pathname == "" {
+		pathname = "/"
+	}
+
+	buffer, err := msgpack.Marshal(summary)
+	if err != nil {
+		return err
+	}
+	return cache.db.Put([]byte(fmt.Sprintf("__file_summary__:%s", pathname)), buffer, nil)
+}
+
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
 	if err != nil {
@@ -150,6 +173,20 @@ func (cache *scanCache) GetStatistics(pathname string) (*vfs.Statistics, error) 
 	}
 
 	var stats vfs.Statistics
+	err = msgpack.Unmarshal(data, &stats)
+	if err != nil {
+		return nil, err
+	}
+	return &stats, nil
+}
+
+func (cache *scanCache) GetFileSummary(pathname string) (*FileSummary, error) {
+	data, err := cache.db.Get([]byte(fmt.Sprintf("__file_summary__:%s", pathname)), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var stats FileSummary
 	err = msgpack.Unmarshal(data, &stats)
 	if err != nil {
 		return nil, err
@@ -323,7 +360,7 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, scanDir string, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
+func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
 	//imp, err := importer.NewImporter(scanDir)
 	//if err != nil {
 	//		return nil, nil, err
@@ -430,7 +467,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 
 	/* importer */
-	filesChannel, err := snap.importerJob(imp, sc, scanDir, options, maxConcurrency)
+	filesChannel, err := snap.importerJob(imp, sc, options, maxConcurrency)
 	if err != nil {
 		return err
 	}
@@ -532,6 +569,24 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					return
 					//						return err
 				}
+
+				fileSummary := &FileSummary{
+					Type:    importer.RecordTypeFile,
+					Size:    uint64(record.FileInfo.Size()),
+					ModTime: record.FileInfo.ModTime().Unix(),
+				}
+				if object != nil {
+					fileSummary.Objects++
+					fileSummary.Chunks += uint64(len(object.Chunks))
+					fileSummary.ContentType = object.ContentType
+					fileSummary.Entropy = object.Entropy
+				}
+
+				err = sc.RecordFileSummary(record.Pathname, fileSummary)
+				if err != nil {
+					return
+					//return err
+				}
 			}
 			atomic.AddUint64(&snap.statistics.VFSFilesCount, 1)
 			atomic.AddUint64(&snap.statistics.VFSFilesSize, fileEntrySize)
@@ -555,6 +610,10 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	for record := range directories {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 		dirEntry.NumChildren = uint64(len(record.Children))
+
+		dirEntropy := 0.0
+		dirSize := uint64(0)
+		nFiles := 0
 		for _, child := range record.Children {
 			childpath := filepath.Join(record.Pathname, child.Name())
 			value, err := sc.GetChecksum(childpath)
@@ -562,27 +621,188 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				continue
 			}
 
-			var childStatistics *vfs.Statistics
 			if child.IsDir() {
-				childStatistics = &vfs.Statistics{}
-				dirEntry.Statistics.Directories++
+				childStatistics := &vfs.Statistics{}
+				dirEntry.Statistics.Directory.Directories++
+				dirEntry.Statistics.Below.Directories++
 
-				aggregatedCache, err := sc.GetStatistics(childpath)
+				childStatistics, err := sc.GetStatistics(childpath)
 				if err != nil {
 					continue
 				}
-				childStatistics.Directories = aggregatedCache.Directories
-				childStatistics.Files = aggregatedCache.Files
-				childStatistics.TotalSize = aggregatedCache.TotalSize
 
-				dirEntry.Statistics.Directories += aggregatedCache.Directories
-				dirEntry.Statistics.Files += aggregatedCache.Files
-				dirEntry.Statistics.TotalSize += aggregatedCache.TotalSize
+				dirEntry.Statistics.Below.Files += childStatistics.Below.Files + childStatistics.Directory.Files
+				dirEntry.Statistics.Below.Directories += childStatistics.Below.Directories + childStatistics.Directory.Directories
+				dirEntry.Statistics.Below.Symlinks += childStatistics.Below.Symlinks + childStatistics.Directory.Symlinks
+				dirEntry.Statistics.Below.Devices += childStatistics.Below.Devices + childStatistics.Directory.Devices
+				dirEntry.Statistics.Below.Pipes += childStatistics.Below.Pipes + childStatistics.Directory.Pipes
+				dirEntry.Statistics.Below.Sockets += childStatistics.Below.Sockets + childStatistics.Directory.Sockets
+				dirEntry.Statistics.Below.Objects += childStatistics.Below.Objects + childStatistics.Directory.Objects
+				dirEntry.Statistics.Below.Chunks += childStatistics.Below.Chunks + childStatistics.Directory.Chunks
+
+				if dirEntry.Statistics.Below.MinSize == 0 || childStatistics.Below.MinSize < dirEntry.Statistics.Below.MinSize {
+					dirEntry.Statistics.Below.MinSize = childStatistics.Below.MinSize
+				}
+				if dirEntry.Statistics.Below.MinSize == 0 || childStatistics.Directory.MinSize < dirEntry.Statistics.Below.MinSize {
+					dirEntry.Statistics.Below.MinSize = childStatistics.Directory.MinSize
+				}
+				if dirEntry.Statistics.Below.MaxSize == 0 || childStatistics.Below.MaxSize > dirEntry.Statistics.Below.MaxSize {
+					dirEntry.Statistics.Below.MaxSize = childStatistics.Below.MaxSize
+				}
+				if dirEntry.Statistics.Below.MaxSize == 0 || childStatistics.Directory.MaxSize > dirEntry.Statistics.Below.MaxSize {
+					dirEntry.Statistics.Below.MaxSize = childStatistics.Directory.MaxSize
+				}
+				dirEntry.Statistics.Below.Size += childStatistics.Below.Size + childStatistics.Directory.Size
+
+				if dirEntry.Statistics.Below.MinModTime == 0 || childStatistics.Below.MinModTime < dirEntry.Statistics.Below.MinModTime {
+					dirEntry.Statistics.Below.MinModTime = childStatistics.Below.MinModTime
+				}
+				if dirEntry.Statistics.Below.MinModTime == 0 || childStatistics.Directory.MinModTime < dirEntry.Statistics.Below.MinModTime {
+					dirEntry.Statistics.Below.MinModTime = childStatistics.Directory.MinModTime
+				}
+				if dirEntry.Statistics.Below.MaxModTime == 0 || childStatistics.Below.MaxModTime > dirEntry.Statistics.Below.MaxModTime {
+					dirEntry.Statistics.Below.MaxModTime = childStatistics.Below.MaxModTime
+				}
+				if dirEntry.Statistics.Below.MaxModTime == 0 || childStatistics.Directory.MaxModTime > dirEntry.Statistics.Below.MaxModTime {
+					dirEntry.Statistics.Below.MaxModTime = childStatistics.Directory.MaxModTime
+				}
+
+				if dirEntry.Statistics.Below.MinEntropy == 0 || childStatistics.Below.MinEntropy < dirEntry.Statistics.Below.MinEntropy {
+					dirEntry.Statistics.Below.MinEntropy = childStatistics.Below.MinEntropy
+				}
+				if dirEntry.Statistics.Below.MinEntropy == 0 || childStatistics.Directory.MinEntropy < dirEntry.Statistics.Below.MinEntropy {
+					dirEntry.Statistics.Below.MinEntropy = childStatistics.Directory.MinEntropy
+				}
+				if dirEntry.Statistics.Below.MaxEntropy == 0 || childStatistics.Below.MaxEntropy > dirEntry.Statistics.Below.MaxEntropy {
+					dirEntry.Statistics.Below.MaxEntropy = childStatistics.Below.MaxEntropy
+				}
+				if dirEntry.Statistics.Below.MaxEntropy == 0 || childStatistics.Directory.MaxEntropy > dirEntry.Statistics.Below.MaxEntropy {
+					dirEntry.Statistics.Below.MaxEntropy = childStatistics.Directory.MaxEntropy
+				}
+				dirEntry.Statistics.Below.HiEntropy += childStatistics.Below.HiEntropy + childStatistics.Directory.HiEntropy
+				dirEntry.Statistics.Below.LoEntropy += childStatistics.Below.LoEntropy + childStatistics.Directory.LoEntropy
+
+				dirEntry.Statistics.Below.MIMEAudio += childStatistics.Directory.MIMEAudio + childStatistics.Below.MIMEAudio
+				dirEntry.Statistics.Below.MIMEVideo += childStatistics.Directory.MIMEVideo + childStatistics.Below.MIMEVideo
+				dirEntry.Statistics.Below.MIMEImage += childStatistics.Directory.MIMEImage + childStatistics.Below.MIMEImage
+				dirEntry.Statistics.Below.MIMEText += childStatistics.Directory.MIMEText + childStatistics.Below.MIMEText
+				dirEntry.Statistics.Below.MIMEApplication += childStatistics.Directory.MIMEApplication + childStatistics.Below.MIMEApplication
+				dirEntry.Statistics.Below.MIMEOther += childStatistics.Directory.MIMEOther + childStatistics.Below.MIMEOther
+
+				dirEntry.AddDirectoryChild(value, child, childStatistics)
+
 			} else {
-				dirEntry.Statistics.Files++
-				dirEntry.Statistics.TotalSize += uint64(child.Size())
+				fileSummary, err := sc.GetFileSummary(childpath)
+				if err != nil {
+					continue
+				}
+
+				switch fileSummary.Type {
+				case importer.RecordTypeFile:
+					dirEntry.Statistics.Below.Files++
+					dirEntry.Statistics.Directory.Files++
+				case importer.RecordTypeDirectory:
+					dirEntry.Statistics.Below.Directories++
+					dirEntry.Statistics.Directory.Directories++
+				case importer.RecordTypeSymlink:
+					dirEntry.Statistics.Below.Symlinks++
+					dirEntry.Statistics.Directory.Symlinks++
+				case importer.RecordTypeDevice:
+					dirEntry.Statistics.Below.Devices++
+					dirEntry.Statistics.Directory.Devices++
+				case importer.RecordTypePipe:
+					dirEntry.Statistics.Below.Pipes++
+					dirEntry.Statistics.Directory.Pipes++
+				case importer.RecordTypeSocket:
+					dirEntry.Statistics.Below.Sockets++
+					dirEntry.Statistics.Directory.Sockets++
+				default:
+					panic("unexpected record type")
+				}
+
+				if fileSummary.Objects > 0 {
+					dirEntry.Statistics.Below.Objects += fileSummary.Objects
+					dirEntry.Statistics.Below.Chunks += fileSummary.Chunks
+					dirEntry.Statistics.Directory.Objects += fileSummary.Objects
+					dirEntry.Statistics.Directory.Chunks += fileSummary.Chunks
+				}
+
+				if fileSummary.ModTime < dirEntry.Statistics.Below.MinModTime || dirEntry.Statistics.Below.MinModTime == 0 {
+					dirEntry.Statistics.Below.MinModTime = fileSummary.ModTime
+				}
+				if fileSummary.ModTime > dirEntry.Statistics.Below.MaxModTime || dirEntry.Statistics.Below.MaxModTime == 0 {
+					dirEntry.Statistics.Below.MaxModTime = fileSummary.ModTime
+				}
+
+				if fileSummary.ModTime < dirEntry.Statistics.Directory.MinModTime || dirEntry.Statistics.Directory.MinModTime == 0 {
+					dirEntry.Statistics.Directory.MinModTime = fileSummary.ModTime
+				}
+				if fileSummary.ModTime > dirEntry.Statistics.Directory.MaxModTime || dirEntry.Statistics.Directory.MaxModTime == 0 {
+					dirEntry.Statistics.Directory.MaxModTime = fileSummary.ModTime
+				}
+
+				if fileSummary.Size < dirEntry.Statistics.Below.MinSize || dirEntry.Statistics.Below.MinSize == 0 {
+					dirEntry.Statistics.Below.MinSize = fileSummary.Size
+				}
+				if fileSummary.Size > dirEntry.Statistics.Below.MaxSize || dirEntry.Statistics.Below.MaxSize == 0 {
+					dirEntry.Statistics.Below.MaxSize = fileSummary.Size
+				}
+
+				if fileSummary.Size < dirEntry.Statistics.Directory.MinSize || dirEntry.Statistics.Directory.MinSize == 0 {
+					dirEntry.Statistics.Directory.MinSize = fileSummary.Size
+				}
+				if fileSummary.Size > dirEntry.Statistics.Directory.MaxSize || dirEntry.Statistics.Directory.MaxSize == 0 {
+					dirEntry.Statistics.Directory.MaxSize = fileSummary.Size
+				}
+
+				if fileSummary.Entropy < dirEntry.Statistics.Below.MinEntropy || dirEntry.Statistics.Below.MinEntropy == 0 {
+					dirEntry.Statistics.Below.MinEntropy = fileSummary.Entropy
+				}
+				if fileSummary.Entropy > dirEntry.Statistics.Below.MaxEntropy || dirEntry.Statistics.Below.MaxEntropy == 0 {
+					dirEntry.Statistics.Below.MaxEntropy = fileSummary.Entropy
+				}
+
+				if fileSummary.Entropy < dirEntry.Statistics.Directory.MinEntropy || dirEntry.Statistics.Directory.MinEntropy == 0 {
+					dirEntry.Statistics.Directory.MinEntropy = fileSummary.Entropy
+				}
+				if fileSummary.Entropy > dirEntry.Statistics.Directory.MaxEntropy || dirEntry.Statistics.Directory.MaxEntropy == 0 {
+					dirEntry.Statistics.Directory.MaxEntropy = fileSummary.Entropy
+				}
+
+				if fileSummary.Entropy <= 2.0 {
+					dirEntry.Statistics.Below.LoEntropy++
+					dirEntry.Statistics.Directory.LoEntropy++
+				} else if fileSummary.Entropy >= 7.0 {
+					dirEntry.Statistics.Below.HiEntropy++
+					dirEntry.Statistics.Directory.HiEntropy++
+				}
+				dirEntropy += fileSummary.Entropy
+				nFiles++
+
+				if fileSummary.ContentType != "" {
+					if strings.HasPrefix(fileSummary.ContentType, "text/") {
+						dirEntry.Statistics.Directory.MIMEText++
+					} else if strings.HasPrefix(fileSummary.ContentType, "image/") {
+						dirEntry.Statistics.Directory.MIMEImage++
+					} else if strings.HasPrefix(fileSummary.ContentType, "audio/") {
+						dirEntry.Statistics.Directory.MIMEAudio++
+					} else if strings.HasPrefix(fileSummary.ContentType, "video/") {
+						dirEntry.Statistics.Directory.MIMEVideo++
+					} else if strings.HasPrefix(fileSummary.ContentType, "application/") {
+						dirEntry.Statistics.Directory.MIMEApplication++
+					} else {
+						dirEntry.Statistics.Directory.MIMEOther++
+					}
+				}
+
+				dirEntry.Statistics.Directory.Size += fileSummary.Size
+				dirEntry.Statistics.Below.Size += uint64(child.Size())
+				dirEntry.AddFileChild(value, child)
 			}
-			dirEntry.AddChild(value, child, childStatistics)
+		}
+		if nFiles > 0 {
+			dirEntry.Statistics.Directory.AvgEntropy = dirEntropy / float64(nFiles)
+			dirEntry.Statistics.Directory.AvgSize = dirSize / uint64(nFiles)
 		}
 
 		serialized, err := dirEntry.Serialize()

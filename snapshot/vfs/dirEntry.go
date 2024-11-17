@@ -9,9 +9,16 @@ import (
 )
 
 type ChildEntry struct {
-	Checksum   objects.Checksum `msgpack:"checksum"`
-	FileInfo   objects.FileInfo `msgpack:"fileInfo"`
-	Statistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
+	Lchecksum   objects.Checksum `msgpack:"checksum" json:"Checksum"`
+	LfileInfo   objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
+	Lstatistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
+}
+
+func (c *ChildEntry) Checksum() objects.Checksum {
+	return c.Lchecksum
+}
+func (c *ChildEntry) Stat() objects.FileInfo {
+	return c.LfileInfo
 }
 
 type DirEntry struct {
@@ -88,11 +95,18 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	return &d, nil
 }
 
-func (d *DirEntry) AddChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
+func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
 	d.Children = append(d.Children, ChildEntry{
-		Checksum:   checksum,
-		FileInfo:   fileInfo,
-		Statistics: statistics,
+		Lchecksum: checksum,
+		LfileInfo: fileInfo,
+	})
+}
+
+func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
+	d.Children = append(d.Children, ChildEntry{
+		Lchecksum:   checksum,
+		LfileInfo:   fileInfo,
+		Lstatistics: statistics,
 	})
 }
 

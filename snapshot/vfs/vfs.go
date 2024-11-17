@@ -80,11 +80,11 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.DirectoryExists(child.Checksum()); !exists {
 			continue
 		}
-		out <- filepath.Join(baseDir, child.FileInfo.Name())
-		fsc.directoriesRecursive(child.Checksum, out)
+		out <- filepath.Join(baseDir, child.Stat().Name())
+		fsc.directoriesRecursive(child.Checksum(), out)
 	}
 }
 
@@ -119,13 +119,13 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum()); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum()); !exists {
 				return
 			}
-			fsc.filesRecursive(child.Checksum, out)
+			fsc.filesRecursive(child.Checksum(), out)
 		} else {
-			out <- filepath.Join(baseDir, child.FileInfo.Name())
+			out <- filepath.Join(baseDir, child.Stat().Name())
 		}
 	}
 }
@@ -162,13 +162,13 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 	out <- baseDir
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum()); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum()); !exists {
 				return
 			}
-			fsc.pathnamesRecursive(child.Checksum, out)
+			fsc.pathnamesRecursive(child.Checksum(), out)
 		} else {
-			out <- filepath.Join(baseDir, child.FileInfo.Name())
+			out <- filepath.Join(baseDir, child.Stat().Name())
 		}
 	}
 }
@@ -244,9 +244,9 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 
 		// Look for the next component (file or directory) in the children of the directory
 		for _, child := range dirEntry.Children {
-			if child.FileInfo.Name() == components[0] {
+			if child.Stat().Name() == components[0] {
 				// Recursively continue with the child checksum
-				return fsc.statRecursive(child.Checksum, components[1:])
+				return fsc.statRecursive(child.Checksum(), components[1:])
 			}
 		}
 
@@ -293,7 +293,7 @@ func (fsc *Filesystem) Children(path string) (<-chan string, error) {
 	go func() {
 		defer close(ch)
 		for _, child := range fsEntry.(*DirEntry).Children {
-			ch <- child.FileInfo.Name()
+			ch <- child.Stat().Name()
 		}
 	}()
 	return ch, nil
@@ -319,13 +319,13 @@ func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]by
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.FileExists(child.Checksum); !exists {
-			if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.FileExists(child.Checksum()); !exists {
+			if exists := fsc.repo.DirectoryExists(child.Checksum()); !exists {
 				return
 			}
-			fsc.fileChecksumsRecursive(child.Checksum, out)
+			fsc.fileChecksumsRecursive(child.Checksum(), out)
 		} else {
-			out <- child.Checksum
+			out <- child.Checksum()
 		}
 	}
 }
@@ -362,11 +362,11 @@ func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [
 	}
 
 	for _, child := range currentEntry.Children {
-		if exists := fsc.repo.DirectoryExists(child.Checksum); !exists {
+		if exists := fsc.repo.DirectoryExists(child.Checksum()); !exists {
 			continue
 		}
-		out <- child.Checksum
-		fsc.directoryChecksumsRecursive(child.Checksum, out)
+		out <- child.Checksum()
+		fsc.directoryChecksumsRecursive(child.Checksum(), out)
 	}
 }
 func (fsc *Filesystem) DirectoryChecksums() <-chan [32]byte {

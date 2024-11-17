@@ -562,9 +562,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				continue
 			}
 
-			var childStatistics *vfs.Statistics
 			if child.IsDir() {
-				childStatistics = &vfs.Statistics{}
+				childStatistics := &vfs.Statistics{}
 				dirEntry.Statistics.Directories++
 
 				aggregatedCache, err := sc.GetStatistics(childpath)
@@ -586,6 +585,9 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.AddFileChild(value, child)
 			}
 		}
+
+		/* update statistics */
+		/* /update statistics */
 
 		serialized, err := dirEntry.Serialize()
 		if err != nil {

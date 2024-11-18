@@ -21,7 +21,9 @@ type Header struct {
 	CreationTime     time.Time
 	CreationDuration time.Duration
 	PublicKey        string
-	Tags             []string
+
+	Category string
+	Tags     []string
 
 	Hostname        string
 	Username        string
@@ -35,9 +37,6 @@ type Header struct {
 
 	Type   string
 	Origin string
-
-	//ScanSize          uint64
-	//ScanProcessedSize uint64
 
 	Root       objects.Checksum
 	Metadata   objects.Checksum
@@ -55,11 +54,13 @@ func NewHeader(indexID [32]byte) *Header {
 		SnapshotID:   indexID,
 		CreationTime: time.Now(),
 		Version:      storage.VERSION,
-		Hostname:     "",
-		Username:     "",
-		CommandLine:  "",
-		MachineID:    "",
-		PublicKey:    "",
+		Category:     "default",
+
+		Hostname:    "",
+		Username:    "",
+		CommandLine: "",
+		MachineID:   "",
+		PublicKey:   "",
 
 		Root:       [32]byte{},
 		Metadata:   [32]byte{},

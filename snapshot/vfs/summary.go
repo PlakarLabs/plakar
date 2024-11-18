@@ -31,6 +31,8 @@ type Directory struct {
 	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
 	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
 	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+
+	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
 }
 
 type Below struct {
@@ -62,6 +64,8 @@ type Below struct {
 	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
 	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
 	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+
+	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
 }
 
 type Summary struct {

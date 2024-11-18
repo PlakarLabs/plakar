@@ -90,6 +90,60 @@ func (cache *scanCache) RecordError(pathname string, err error) error {
 	return cache.db.Put([]byte(key), []byte(err.Error()), nil)
 }
 
+func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string) (<-chan ErrorEntry, error) {
+	// Ensure directory ends with a trailing slash for consistency
+	if !strings.HasSuffix(directory, "/") {
+		directory += "/"
+	}
+
+	// Create a channel to return the keys
+	keyChan := make(chan ErrorEntry)
+
+	// Start a goroutine to perform the iteration
+	go func() {
+		defer close(keyChan) // Ensure the channel is closed when the function exits
+
+		iter := cache.db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		// Create the directory prefix to match keys
+		directoryKeyPrefix := "__error__:" + directory
+
+		for iter.Seek([]byte(directoryKeyPrefix)); iter.Valid(); iter.Next() {
+			key := string(iter.Key())
+			if key == directoryKeyPrefix {
+				continue
+			}
+
+			// Check if the key starts with the directory prefix
+			if strings.HasPrefix(key, directoryKeyPrefix) {
+				// Remove the prefix and the directory to isolate the remaining part of the path
+				remainingPath := key[len(directoryKeyPrefix):]
+
+				// Determine if this is an immediate child
+				slashCount := strings.Count(remainingPath, "/")
+
+				// Immediate child should either:
+				// - Have no slash (a file)
+				// - Have exactly one slash at the end (a directory)
+				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
+					// Retrieve the value for the current key
+					path := strings.TrimPrefix(key, "__error__:")
+					value := iter.Value()
+					keyChan <- ErrorEntry{Pathname: path, Error: string(value)}
+				}
+			} else {
+				// Stop if the key is no longer within the expected prefix
+				break
+			}
+		}
+
+	}()
+
+	// Return the channel for the caller to consume
+	return keyChan, nil
+}
+
 func (cache *scanCache) EnumerateErrorsWithPrefixRecursive(directory string) (<-chan ErrorEntry, error) {
 	// Ensure directory ends with a trailing slash for consistency
 	if !strings.HasSuffix(directory, "/") {
@@ -741,6 +795,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Summary.Below.MIMEText += childStatistics.Directory.MIMEText + childStatistics.Below.MIMEText
 				dirEntry.Summary.Below.MIMEApplication += childStatistics.Directory.MIMEApplication + childStatistics.Below.MIMEApplication
 				dirEntry.Summary.Below.MIMEOther += childStatistics.Directory.MIMEOther + childStatistics.Below.MIMEOther
+				dirEntry.Summary.Below.Errors += childStatistics.Directory.Errors + childStatistics.Below.Errors
 
 				dirEntry.AddDirectoryChild(value, child, childStatistics)
 
@@ -859,6 +914,14 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			dirEntry.Summary.Directory.AvgSize = dirSize / uint64(nFiles)
 		}
 
+		// process errors
+		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname); err == nil {
+			for entry := range errc {
+				dirEntry.AddError(filepath.Base(entry.Pathname), entry.Error)
+				dirEntry.Summary.Directory.Errors++
+			}
+		}
+
 		serialized, err := dirEntry.Serialize()
 		if err != nil {
 			return err
@@ -945,9 +1008,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	snap.Header.Errors = errorsLogChecksum
 	snap.Header.CreationDuration = time.Since(snap.statistics.ImporterStart)
 	snap.Header.Summary = *rootSummary
-	snap.Header.ScanSize = snap.statistics.ImporterSize
-	snap.Header.ScanProcessedSize = snap.statistics.ScannerProcessedSize
-	snap.Header.NumErrors = uint64(len(errorsLog.Errors))
 
 	/*
 		for _, key := range snap.Metadata.ListKeys() {

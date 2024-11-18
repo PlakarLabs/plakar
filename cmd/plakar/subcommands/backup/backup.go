@@ -160,7 +160,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	logger.Info("created snapshot %x with root %s of size %s in %s",
 		snap.Header.GetIndexShortID(),
 		base64.RawStdEncoding.EncodeToString(snap.Header.Root[:]),
-		humanize.Bytes(snap.Header.ScanProcessedSize),
+		humanize.Bytes(snap.Header.Summary.Directory.Size+snap.Header.Summary.Below.Size),
 		snap.Header.CreationDuration)
 	return 0
 }

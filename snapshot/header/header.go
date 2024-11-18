@@ -36,8 +36,8 @@ type Header struct {
 	Type   string
 	Origin string
 
-	ScanSize          uint64
-	ScanProcessedSize uint64
+	//ScanSize          uint64
+	//ScanProcessedSize uint64
 
 	Root       objects.Checksum
 	Metadata   objects.Checksum
@@ -271,22 +271,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 			case "-Origin":
 				if headers[i].Origin != headers[j].Origin {
 					return headers[i].Origin > headers[j].Origin
-				}
-			case "ScanSize":
-				if headers[i].ScanSize != headers[j].ScanSize {
-					return headers[i].ScanSize < headers[j].ScanSize
-				}
-			case "-ScanSize":
-				if headers[i].ScanSize != headers[j].ScanSize {
-					return headers[i].ScanSize > headers[j].ScanSize
-				}
-			case "ScanProcessedSize":
-				if headers[i].ScanProcessedSize != headers[j].ScanProcessedSize {
-					return headers[i].ScanProcessedSize < headers[j].ScanProcessedSize
-				}
-			case "-ScanProcessedSize":
-				if headers[i].ScanProcessedSize != headers[j].ScanProcessedSize {
-					return headers[i].ScanProcessedSize > headers[j].ScanProcessedSize
 				}
 			case "ScannedDirectory":
 				if headers[i].ScannedDirectory != headers[j].ScannedDirectory {

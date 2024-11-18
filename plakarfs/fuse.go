@@ -157,7 +157,7 @@ func (fs *plakarFS) getAttributes(id fuseops.InodeID) (fuseops.InodeAttributes, 
 			Mode:  0700 | os.ModeDir,
 			Ctime: metadata.CreationTime,
 			Mtime: metadata.CreationTime,
-			Size:  metadata.ScanProcessedSize,
+			Size:  metadata.Summary.Directory.Size + metadata.Summary.Below.Size,
 			Uid:   uint32(os.Geteuid()),
 			Gid:   uint32(os.Getgid()),
 		}, nil
@@ -228,7 +228,7 @@ func (fs *plakarFS) LookUpInode(
 
 		op.Entry.Child = inodeID
 		op.Entry.Attributes = fuseops.InodeAttributes{
-			Size:  hdr.ScanProcessedSize,
+			Size:  hdr.Summary.Directory.Size + hdr.Summary.Below.Size,
 			Nlink: 1,
 			Mode:  0700 | os.ModeDir,
 			Ctime: hdr.CreationTime,

@@ -15,38 +15,33 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type Importer struct {
+	Type      string
+	Origin    string
+	Directory string
+}
+
 type Header struct {
 	SnapshotID       objects.Checksum
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
-	PublicKey        string
+	PublicKey        []byte
 
 	Category string
 	Tags     []string
 
-	Hostname        string
-	Username        string
-	OperatingSystem string
-	Architecture    string
-	NumCPU          int
-	MachineID       string
-	ProcessID       int
-	Client          string
-	CommandLine     string
+	Context map[string]interface{}
 
-	Type   string
-	Origin string
+	Importer Importer
 
 	Root       objects.Checksum
+	Index      objects.Checksum
 	Metadata   objects.Checksum
 	Statistics objects.Checksum
 	Errors     objects.Checksum
 
-	ScannedDirectory string
-
-	Summary   vfs.Summary
-	NumErrors uint64
+	Summary vfs.Summary
 }
 
 func NewHeader(indexID [32]byte) *Header {
@@ -56,13 +51,11 @@ func NewHeader(indexID [32]byte) *Header {
 		Version:      storage.VERSION,
 		Category:     "default",
 
-		Hostname:    "",
-		Username:    "",
-		CommandLine: "",
-		MachineID:   "",
-		PublicKey:   "",
+		Context:   make(map[string]interface{}),
+		PublicKey: []byte{},
 
 		Root:       [32]byte{},
+		Index:      [32]byte{},
 		Metadata:   [32]byte{},
 		Statistics: [32]byte{},
 		Errors:     [32]byte{},
@@ -153,14 +146,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				if !headers[i].CreationTime.Equal(headers[j].CreationTime) {
 					return headers[i].CreationTime.After(headers[j].CreationTime)
 				}
-			case "Hostname":
-				if headers[i].Hostname != headers[j].Hostname {
-					return headers[i].Hostname < headers[j].Hostname
-				}
-			case "-Hostname":
-				if headers[i].Hostname != headers[j].Hostname {
-					return headers[i].Hostname > headers[j].Hostname
-				}
 			case "SnapshotID":
 				for k := 0; k < len(headers[i].SnapshotID); k++ {
 					if headers[i].SnapshotID[k] != headers[j].SnapshotID[k] {
@@ -182,12 +167,16 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 					return headers[i].Version > headers[j].Version
 				}
 			case "PublicKey":
-				if headers[i].PublicKey != headers[j].PublicKey {
-					return headers[i].PublicKey < headers[j].PublicKey
+				for k := 0; k < len(headers[i].PublicKey); k++ {
+					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
+						return headers[i].PublicKey[k] < headers[j].PublicKey[k]
+					}
 				}
 			case "-PublicKey":
-				if headers[i].PublicKey != headers[j].PublicKey {
-					return headers[i].PublicKey > headers[j].PublicKey
+				for k := 0; k < len(headers[i].PublicKey); k++ {
+					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
+						return headers[i].PublicKey[k] > headers[j].PublicKey[k]
+					}
 				}
 			case "Tags":
 				// Compare Tags lexicographically, element by element
@@ -208,78 +197,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				}
 				if len(headers[i].Tags) != len(headers[j].Tags) {
 					return len(headers[i].Tags) > len(headers[j].Tags)
-				}
-			case "OperatingSystem":
-				if headers[i].OperatingSystem != headers[j].OperatingSystem {
-					return headers[i].OperatingSystem < headers[j].OperatingSystem
-				}
-			case "-OperatingSystem":
-				if headers[i].OperatingSystem != headers[j].OperatingSystem {
-					return headers[i].OperatingSystem > headers[j].OperatingSystem
-				}
-			case "Architecture":
-				if headers[i].Architecture != headers[j].Architecture {
-					return headers[i].Architecture < headers[j].Architecture
-				}
-			case "-Architecture":
-				if headers[i].Architecture != headers[j].Architecture {
-					return headers[i].Architecture > headers[j].Architecture
-				}
-			case "MachineID":
-				if headers[i].MachineID != headers[j].MachineID {
-					return headers[i].MachineID < headers[j].MachineID
-				}
-			case "-MachineID":
-				if headers[i].MachineID != headers[j].MachineID {
-					return headers[i].MachineID > headers[j].MachineID
-				}
-			case "ProcessID":
-				if headers[i].ProcessID != headers[j].ProcessID {
-					return headers[i].ProcessID < headers[j].ProcessID
-				}
-			case "-ProcessID":
-				if headers[i].ProcessID != headers[j].ProcessID {
-					return headers[i].ProcessID > headers[j].ProcessID
-				}
-			case "Client":
-				if headers[i].Client != headers[j].Client {
-					return headers[i].Client < headers[j].Client
-				}
-			case "-Client":
-				if headers[i].Client != headers[j].Client {
-					return headers[i].Client > headers[j].Client
-				}
-			case "CommandLine":
-				if headers[i].CommandLine != headers[j].CommandLine {
-					return headers[i].CommandLine < headers[j].CommandLine
-				}
-			case "-CommandLine":
-				if headers[i].CommandLine != headers[j].CommandLine {
-					return headers[i].CommandLine > headers[j].CommandLine
-				}
-			case "Type":
-				if headers[i].Type != headers[j].Type {
-					return headers[i].Type < headers[j].Type
-				}
-			case "-Type":
-				if headers[i].Type != headers[j].Type {
-					return headers[i].Type > headers[j].Type
-				}
-			case "Origin":
-				if headers[i].Origin != headers[j].Origin {
-					return headers[i].Origin < headers[j].Origin
-				}
-			case "-Origin":
-				if headers[i].Origin != headers[j].Origin {
-					return headers[i].Origin > headers[j].Origin
-				}
-			case "ScannedDirectory":
-				if headers[i].ScannedDirectory != headers[j].ScannedDirectory {
-					return headers[i].ScannedDirectory < headers[j].ScannedDirectory
-				}
-			case "-ScannedDirectory":
-				if headers[i].ScannedDirectory != headers[j].ScannedDirectory {
-					return headers[i].ScannedDirectory > headers[j].ScannedDirectory
 				}
 			default:
 				err = errors.New("invalid sort key: " + key)

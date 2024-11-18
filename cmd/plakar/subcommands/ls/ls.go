@@ -82,7 +82,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 				hex.EncodeToString(metadata.GetIndexShortID()),
 				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),
 				metadata.CreationDuration.Round(time.Second),
-				metadata.ScannedDirectory)
+				metadata.Importer.Directory)
 		} else {
 			indexID := metadata.GetIndexID()
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
@@ -90,7 +90,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 				hex.EncodeToString(indexID[:]),
 				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),
 				metadata.CreationDuration.Round(time.Second),
-				metadata.ScannedDirectory)
+				metadata.Importer.Directory)
 		}
 	}
 }

@@ -514,8 +514,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	defer imp.Close()
 
-	snap.Header.Origin = imp.Origin()
-	snap.Header.Type = imp.Type()
+	snap.Header.Importer.Origin = imp.Origin()
+	snap.Header.Importer.Type = imp.Type()
 
 	//t0 := time.Now()
 
@@ -528,7 +528,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	} else {
 		scanDir = imp.Root()
 	}
-	snap.Header.ScannedDirectory = filepath.ToSlash(scanDir)
+	snap.Header.Importer.Directory = filepath.ToSlash(scanDir)
 
 	maxConcurrency := make(chan bool, options.MaxConcurrency)
 

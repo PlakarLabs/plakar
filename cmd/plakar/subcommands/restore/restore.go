@@ -77,7 +77,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 
 		for i := len(metadatas); i != 0; i-- {
 			metadata := metadatas[i-1]
-			if ctx.GetCWD() == metadata.ScannedDirectory || strings.HasPrefix(ctx.GetCWD(), fmt.Sprintf("%s/", metadata.ScannedDirectory)) {
+			if ctx.GetCWD() == metadata.Importer.Directory || strings.HasPrefix(ctx.GetCWD(), fmt.Sprintf("%s/", metadata.Importer.Directory)) {
 				snap, err := snapshot.Load(repo, metadata.GetIndexID())
 				if err != nil {
 					return 1

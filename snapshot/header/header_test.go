@@ -9,9 +9,9 @@ import (
 func TestSortHeaders(t *testing.T) {
 	// Define base test data for consistent resetting
 	baseHeaders := []Header{
-		{CreationTime: time.Now().Add(-1 * time.Hour), Hostname: "server1", SnapshotID: [32]byte{0x1}},
-		{CreationTime: time.Now().Add(-2 * time.Hour), Hostname: "server2", SnapshotID: [32]byte{0x3}},
-		{CreationTime: time.Now(), Hostname: "server3", SnapshotID: [32]byte{0x2}},
+		{CreationTime: time.Now().Add(-1 * time.Hour), SnapshotID: [32]byte{0x1}},
+		{CreationTime: time.Now().Add(-2 * time.Hour), SnapshotID: [32]byte{0x3}},
+		{CreationTime: time.Now(), SnapshotID: [32]byte{0x2}},
 	}
 
 	// Helper function to reset headers before each test
@@ -64,26 +64,6 @@ func TestSortHeaders(t *testing.T) {
 	err := SortHeaders(headers, []string{"InvalidKey"})
 	if err == nil || err.Error() != "invalid sort key: InvalidKey" {
 		t.Errorf("Test 5 failed: expected error 'invalid sort key: InvalidKey', got %v", err)
-	}
-
-	// Test 8: Sort by Hostname, ascending
-	headers = resetHeaders()
-	expected8 := []Header{headers[0], headers[1], headers[2]}
-	if err := SortHeaders(headers, []string{"Hostname"}); err != nil {
-		t.Fatalf("Test 8 failed: unexpected error: %v", err)
-	}
-	if !reflect.DeepEqual(headers, expected8) {
-		t.Errorf("Test 8 failed: expected %v, got %v", expected8, headers)
-	}
-
-	// Test 9: Sort by Hostname, descending
-	headers = resetHeaders()
-	expected9 := []Header{headers[2], headers[1], headers[0]}
-	if err := SortHeaders(headers, []string{"-Hostname"}); err != nil {
-		t.Fatalf("Test 9 failed: unexpected error: %v", err)
-	}
-	if !reflect.DeepEqual(headers, expected9) {
-		t.Errorf("Test 9 failed: expected %v, got %v", expected9, headers)
 	}
 
 	// Multi-key test: Sort by FilesCount ascending, then CreationTime ascending

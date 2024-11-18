@@ -198,6 +198,7 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf(" - OperatingSystem: %s\n", header.Context["OperatingSystem"])
 	fmt.Printf(" - Architecture: %s\n", header.Context["Architecture"])
 	fmt.Printf(" - NumCPU: %d\n", header.Context["NumCPU"])
+	fmt.Printf(" - GOMAXPROCS: %d\n", header.Context["GOMAXPROCS"])
 	fmt.Printf(" - ProcessID: %d\n", header.Context["ProcessID"])
 	fmt.Printf(" - Client: %s\n", header.Context["Client"])
 	fmt.Printf(" - CommandLine: %s\n", header.Context["CommandLine"])

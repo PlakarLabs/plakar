@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
@@ -118,7 +119,8 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	snap.Header.Context["CommandLine"] = ctx.GetCommandLine()
 	snap.Header.Context["ProcessID"] = ctx.GetProcessID()
 	snap.Header.Context["Architecture"] = ctx.GetArchitecture()
-	snap.Header.Context["NumCPU"] = ctx.GetNumCPU()
+	snap.Header.Context["NumCPU"] = runtime.NumCPU()
+	snap.Header.Context["GOMAXPROCS"] = runtime.GOMAXPROCS(0)
 	snap.Header.Context["Client"] = "plakar/" + utils.GetVersion()
 
 	var tags []string

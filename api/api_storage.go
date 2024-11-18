@@ -24,7 +24,16 @@ func storageStates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(states)
+
+	items := Items{
+		Total: len(states),
+		Items: make([]Item, len(states)),
+	}
+	for i, state := range states {
+		items.Items[i] = Item{Item: state}
+	}
+
+	json.NewEncoder(w).Encode(items)
 }
 
 func storageState(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +71,16 @@ func storagePackfiles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(packfiles)
+
+	items := Items{
+		Total: len(packfiles),
+		Items: make([]Item, len(packfiles)),
+	}
+	for i, packfile := range packfiles {
+		items.Items[i] = Item{Item: packfile}
+	}
+
+	json.NewEncoder(w).Encode(items)
 }
 
 func storagePackfile(w http.ResponseWriter, r *http.Request) {

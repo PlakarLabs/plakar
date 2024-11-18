@@ -87,7 +87,15 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		headers = headers[offset : offset+limit]
 	}
 
-	err = json.NewEncoder(w).Encode(headers)
+	items := Items{
+		Total: len(snapshotIDs),
+		Items: make([]Item, len(headers)),
+	}
+	for i, header := range headers {
+		items.Items[i] = Item{Item: header}
+	}
+
+	err = json.NewEncoder(w).Encode(items)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,7 +111,16 @@ func repositoryStates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(states)
+
+	items := Items{
+		Total: len(states),
+		Items: make([]Item, len(states)),
+	}
+	for i, state := range states {
+		items.Items[i] = Item{Item: state}
+	}
+
+	json.NewEncoder(w).Encode(items)
 }
 
 func repositoryState(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +158,16 @@ func repositoryPackfiles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(packfiles)
+
+	items := Items{
+		Total: len(packfiles),
+		Items: make([]Item, len(packfiles)),
+	}
+	for i, packfile := range packfiles {
+		items.Items[i] = Item{Item: packfile}
+	}
+
+	json.NewEncoder(w).Encode(items)
 }
 
 func repositoryPackfile(w http.ResponseWriter, r *http.Request) {

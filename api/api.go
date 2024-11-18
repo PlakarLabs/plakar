@@ -9,6 +9,15 @@ import (
 var lstore *storage.Store
 var lrepository *repository.Repository
 
+type Item struct {
+	Item interface{} `json:"item"`
+}
+
+type Items struct {
+	Total int    `json:"total"`
+	Items []Item `json:"items"`
+}
+
 func NewRouter(repo *repository.Repository) *mux.Router {
 	lstore = repo.Store()
 	lrepository = repo

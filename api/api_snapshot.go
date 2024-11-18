@@ -35,7 +35,7 @@ func snapshotHeader(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(snap.Header)
+	json.NewEncoder(w).Encode(Item{Item: snap.Header})
 }
 
 func snapshotReader(w http.ResponseWriter, r *http.Request) {
@@ -181,11 +181,19 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		for _, fileInfo := range fileInfos {
 			childEntries = append(childEntries, children[fileInfo.Name()])
 		}
-		dirEntry.Children = childEntries
-		json.NewEncoder(w).Encode(dirEntry)
+
+		items := Items{
+			Total: len(dirEntry.Children),
+			Items: make([]Item, len(childEntries)),
+		}
+		for i, child := range childEntries {
+			items.Items[i] = Item{Item: child}
+		}
+
+		json.NewEncoder(w).Encode(items)
 		return
 	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
-		json.NewEncoder(w).Encode(fileEntry)
+		json.NewEncoder(w).Encode(Item{Item: fileEntry})
 		return
 	} else {
 		http.Error(w, "", http.StatusInternalServerError)

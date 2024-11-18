@@ -110,14 +110,14 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		return 1
 	}
 
-	snap.Header.Hostname = ctx.GetHostname()
-	snap.Header.Username = ctx.GetUsername()
-	snap.Header.OperatingSystem = ctx.GetOperatingSystem()
-	snap.Header.MachineID = ctx.GetMachineID()
-	snap.Header.CommandLine = ctx.GetCommandLine()
-	snap.Header.ProcessID = ctx.GetProcessID()
-	snap.Header.Architecture = ctx.GetArchitecture()
-	snap.Header.NumCPU = ctx.GetNumCPU()
+	snap.Header.Context.Hostname = ctx.GetHostname()
+	snap.Header.Context.Username = ctx.GetUsername()
+	snap.Header.Context.OperatingSystem = ctx.GetOperatingSystem()
+	snap.Header.Context.MachineID = ctx.GetMachineID()
+	snap.Header.Context.CommandLine = ctx.GetCommandLine()
+	snap.Header.Context.ProcessID = ctx.GetProcessID()
+	snap.Header.Context.Architecture = ctx.GetArchitecture()
+	snap.Header.Context.NumCPU = ctx.GetNumCPU()
 
 	var tags []string
 	if opt_tags == "" {

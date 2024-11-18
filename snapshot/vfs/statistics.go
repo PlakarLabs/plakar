@@ -64,7 +64,7 @@ type Below struct {
 	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
 }
 
-type Statistics struct {
+type Summary struct {
 	Directory Directory `msgpack:"directory,omitempty"` // Directory statistics
 	Below     Below     `msgpack:"under,omitempty"`     // Under statistics
 }

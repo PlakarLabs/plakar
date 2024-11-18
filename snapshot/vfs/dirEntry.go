@@ -9,9 +9,9 @@ import (
 )
 
 type ChildEntry struct {
-	Lchecksum   objects.Checksum `msgpack:"checksum" json:"Checksum"`
-	LfileInfo   objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
-	Lstatistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
+	Lchecksum objects.Checksum `msgpack:"checksum" json:"Checksum"`
+	LfileInfo objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
+	Lsummary  *Summary         `msgpack:"summary,omitempty" json:"Summary,omitempty"`
 }
 
 func (c *ChildEntry) Checksum() objects.Checksum {
@@ -30,7 +30,7 @@ type DirEntry struct {
 	/* Directory specific fields */
 	NumChildren uint64       `msgpack:"numChildren"`
 	Children    []ChildEntry `msgpack:"children,omitempty"`
-	Statistics  Statistics   `msgpack:"statistics"`
+	Summary     Summary      `msgpack:"summary"`
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
@@ -102,11 +102,11 @@ func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
 	})
 }
 
-func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
+func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, summary *Summary) {
 	d.Children = append(d.Children, ChildEntry{
-		Lchecksum:   checksum,
-		LfileInfo:   fileInfo,
-		Lstatistics: statistics,
+		Lchecksum: checksum,
+		LfileInfo: fileInfo,
+		Lsummary:  summary,
 	})
 }
 

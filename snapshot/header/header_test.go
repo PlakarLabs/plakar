@@ -9,9 +9,9 @@ import (
 func TestSortHeaders(t *testing.T) {
 	// Define base test data for consistent resetting
 	baseHeaders := []Header{
-		{CreationTime: time.Now().Add(-1 * time.Hour), Hostname: "server1", FilesCount: 100, SnapshotID: [32]byte{0x1}},
-		{CreationTime: time.Now().Add(-2 * time.Hour), Hostname: "server2", FilesCount: 200, SnapshotID: [32]byte{0x3}},
-		{CreationTime: time.Now(), Hostname: "server3", FilesCount: 150, SnapshotID: [32]byte{0x2}},
+		{CreationTime: time.Now().Add(-1 * time.Hour), Hostname: "server1", SnapshotID: [32]byte{0x1}},
+		{CreationTime: time.Now().Add(-2 * time.Hour), Hostname: "server2", SnapshotID: [32]byte{0x3}},
+		{CreationTime: time.Now(), Hostname: "server3", SnapshotID: [32]byte{0x2}},
 	}
 
 	// Helper function to reset headers before each test

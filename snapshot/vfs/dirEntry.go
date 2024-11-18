@@ -8,10 +8,15 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+type ErrorEntry struct {
+	Filename string `msgpack:"filename" json:"filename"`
+	Error    string `msgpack:"error" json:"error"`
+}
+
 type ChildEntry struct {
-	Lchecksum   objects.Checksum `msgpack:"checksum" json:"Checksum"`
-	LfileInfo   objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
-	Lstatistics *Statistics      `msgpack:"statistics,omitempty" json:"Statistics,omitempty"`
+	Lchecksum objects.Checksum `msgpack:"checksum" json:"Checksum"`
+	LfileInfo objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
+	Lsummary  *Summary         `msgpack:"summary,omitempty" json:"Summary,omitempty"`
 }
 
 func (c *ChildEntry) Checksum() objects.Checksum {
@@ -30,7 +35,7 @@ type DirEntry struct {
 	/* Directory specific fields */
 	NumChildren uint64       `msgpack:"numChildren"`
 	Children    []ChildEntry `msgpack:"children,omitempty"`
-	Statistics  Statistics   `msgpack:"statistics"`
+	Summary     Summary      `msgpack:"summary"`
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
@@ -43,6 +48,9 @@ type DirEntry struct {
 	/* Custom metadata and tags */
 	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
 	Tags           []string         `msgpack:"tags,omitempty"`
+
+	/* Errors */
+	Errors []ErrorEntry `msgpack:"errors,omitempty"`
 }
 
 func (*DirEntry) fsEntry() {}
@@ -95,6 +103,13 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	return &d, nil
 }
 
+func (d *DirEntry) AddError(filename, error string) {
+	d.Errors = append(d.Errors, ErrorEntry{
+		Filename: filename,
+		Error:    error,
+	})
+}
+
 func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
 	d.Children = append(d.Children, ChildEntry{
 		Lchecksum: checksum,
@@ -102,11 +117,11 @@ func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
 	})
 }
 
-func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, statistics *Statistics) {
+func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, summary *Summary) {
 	d.Children = append(d.Children, ChildEntry{
-		Lchecksum:   checksum,
-		LfileInfo:   fileInfo,
-		Lstatistics: statistics,
+		Lchecksum: checksum,
+		LfileInfo: fileInfo,
+		Lsummary:  summary,
 	})
 }
 

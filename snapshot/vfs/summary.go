@@ -1,5 +1,17 @@
 package vfs
 
+import "github.com/PlakarKorp/plakar/snapshot/importer"
+
+type FileSummary struct {
+	Type        importer.RecordType `msgpack:"type"`
+	Size        uint64              `msgpack:"size"`
+	Objects     uint64              `msgpack:"objects"`
+	Chunks      uint64              `msgpack:"chunks"`
+	ModTime     int64               `msgpack:"modTime"`
+	ContentType string              `msgpack:"contentType"`
+	Entropy     float64             `msgpack:"entropy"`
+}
+
 type Directory struct {
 	Directories uint64 `msgpack:"directories,omitempty"`
 	Files       uint64 `msgpack:"files,omitempty"`
@@ -31,6 +43,8 @@ type Directory struct {
 	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
 	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
 	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+
+	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
 }
 
 type Below struct {
@@ -62,9 +76,11 @@ type Below struct {
 	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
 	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
 	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+
+	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
 }
 
-type Statistics struct {
+type Summary struct {
 	Directory Directory `msgpack:"directory,omitempty"` // Directory statistics
 	Below     Below     `msgpack:"under,omitempty"`     // Under statistics
 }

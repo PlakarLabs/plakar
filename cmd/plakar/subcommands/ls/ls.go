@@ -80,7 +80,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				hex.EncodeToString(metadata.GetIndexShortID()),
-				humanize.Bytes(metadata.ScanProcessedSize),
+				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),
 				metadata.CreationDuration.Round(time.Second),
 				metadata.ScannedDirectory)
 		} else {
@@ -88,7 +88,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				hex.EncodeToString(indexID[:]),
-				humanize.Bytes(metadata.ScanProcessedSize),
+				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),
 				metadata.CreationDuration.Round(time.Second),
 				metadata.ScannedDirectory)
 		}

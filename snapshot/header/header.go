@@ -10,6 +10,7 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/profiler"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -20,7 +21,9 @@ type Header struct {
 	CreationTime     time.Time
 	CreationDuration time.Duration
 	PublicKey        string
-	Tags             []string
+
+	Category string
+	Tags     []string
 
 	Hostname        string
 	Username        string
@@ -35,17 +38,15 @@ type Header struct {
 	Type   string
 	Origin string
 
-	ScanSize          uint64
-	ScanProcessedSize uint64
-
 	Root       objects.Checksum
 	Metadata   objects.Checksum
 	Statistics objects.Checksum
+	Errors     objects.Checksum
 
 	ScannedDirectory string
 
-	FilesCount       uint64
-	DirectoriesCount uint64
+	Summary   vfs.Summary
+	NumErrors uint64
 }
 
 func NewHeader(indexID [32]byte) *Header {
@@ -53,15 +54,18 @@ func NewHeader(indexID [32]byte) *Header {
 		SnapshotID:   indexID,
 		CreationTime: time.Now(),
 		Version:      storage.VERSION,
-		Hostname:     "",
-		Username:     "",
-		CommandLine:  "",
-		MachineID:    "",
-		PublicKey:    "",
+		Category:     "default",
+
+		Hostname:    "",
+		Username:    "",
+		CommandLine: "",
+		MachineID:   "",
+		PublicKey:   "",
 
 		Root:       [32]byte{},
 		Metadata:   [32]byte{},
 		Statistics: [32]byte{},
+		Errors:     [32]byte{},
 	}
 }
 
@@ -156,14 +160,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 			case "-Hostname":
 				if headers[i].Hostname != headers[j].Hostname {
 					return headers[i].Hostname > headers[j].Hostname
-				}
-			case "FilesCount":
-				if headers[i].FilesCount != headers[j].FilesCount {
-					return headers[i].FilesCount < headers[j].FilesCount
-				}
-			case "-FilesCount":
-				if headers[i].FilesCount != headers[j].FilesCount {
-					return headers[i].FilesCount > headers[j].FilesCount
 				}
 			case "SnapshotID":
 				for k := 0; k < len(headers[i].SnapshotID); k++ {
@@ -277,22 +273,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				if headers[i].Origin != headers[j].Origin {
 					return headers[i].Origin > headers[j].Origin
 				}
-			case "ScanSize":
-				if headers[i].ScanSize != headers[j].ScanSize {
-					return headers[i].ScanSize < headers[j].ScanSize
-				}
-			case "-ScanSize":
-				if headers[i].ScanSize != headers[j].ScanSize {
-					return headers[i].ScanSize > headers[j].ScanSize
-				}
-			case "ScanProcessedSize":
-				if headers[i].ScanProcessedSize != headers[j].ScanProcessedSize {
-					return headers[i].ScanProcessedSize < headers[j].ScanProcessedSize
-				}
-			case "-ScanProcessedSize":
-				if headers[i].ScanProcessedSize != headers[j].ScanProcessedSize {
-					return headers[i].ScanProcessedSize > headers[j].ScanProcessedSize
-				}
 			case "ScannedDirectory":
 				if headers[i].ScannedDirectory != headers[j].ScannedDirectory {
 					return headers[i].ScannedDirectory < headers[j].ScannedDirectory
@@ -300,14 +280,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 			case "-ScannedDirectory":
 				if headers[i].ScannedDirectory != headers[j].ScannedDirectory {
 					return headers[i].ScannedDirectory > headers[j].ScannedDirectory
-				}
-			case "DirectoriesCount":
-				if headers[i].DirectoriesCount != headers[j].DirectoriesCount {
-					return headers[i].DirectoriesCount < headers[j].DirectoriesCount
-				}
-			case "-DirectoriesCount":
-				if headers[i].DirectoriesCount != headers[j].DirectoriesCount {
-					return headers[i].DirectoriesCount > headers[j].DirectoriesCount
 				}
 			default:
 				err = errors.New("invalid sort key: " + key)

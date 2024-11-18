@@ -14,8 +14,8 @@ type Item struct {
 }
 
 type Items struct {
-	Total int    `json:"total"`
-	Items []Item `json:"items"`
+	Total int           `json:"total"`
+	Items []interface{} `json:"items"`
 }
 
 func NewRouter(repo *repository.Repository) *mux.Router {

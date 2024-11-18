@@ -83,6 +83,56 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
+	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(snapshotID) != 32 {
+		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		return
+	}
+	snapshotID32 := [32]byte{}
+	copy(snapshotID32[:], snapshotID)
+
+	snap, err := snapshot.Load(lrepository, snapshotID32)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if path == "" {
+		path = "/"
+	}
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
+		json.NewEncoder(w).Encode(Item{Item: dirEntry})
+		return
+	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
+		json.NewEncoder(w).Encode(Item{Item: fileEntry})
+		return
+	} else {
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
+}
+
+func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	snapshotIDstr := vars["snapshot"]
+	path := vars["path"]
+
 	var err error
 	var sortKeys []string
 	var offset int64
@@ -156,7 +206,10 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
+	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
+		http.Error(w, "not a directory", http.StatusBadRequest)
+		return
+	} else {
 		fileInfos := make([]objects.FileInfo, 0, len(dirEntry.Children))
 		children := make(map[string]vfs.ChildEntry)
 		for _, child := range dirEntry.Children {
@@ -184,19 +237,11 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 		items := Items{
 			Total: len(dirEntry.Children),
-			Items: make([]Item, len(childEntries)),
+			Items: make([]interface{}, len(childEntries)),
 		}
 		for i, child := range childEntries {
-			items.Items[i] = Item{Item: child}
+			items.Items[i] = child
 		}
-
 		json.NewEncoder(w).Encode(items)
-		return
-	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
-		json.NewEncoder(w).Encode(Item{Item: fileEntry})
-		return
-	} else {
-		http.Error(w, "", http.StatusInternalServerError)
-		return
 	}
 }

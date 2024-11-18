@@ -14,8 +14,8 @@ type Item struct {
 }
 
 type Items struct {
-	Total int    `json:"total"`
-	Items []Item `json:"items"`
+	Total int           `json:"total"`
+	Items []interface{} `json:"items"`
 }
 
 func NewRouter(repo *repository.Repository) *mux.Router {
@@ -43,6 +43,10 @@ func NewRouter(repo *repository.Repository) *mux.Router {
 	r.HandleFunc("/api/snapshot/vfs/{snapshot}:/", snapshotVFSBrowse).Methods("GET")
 	r.HandleFunc("/api/snapshot/vfs/{snapshot}:{path:.+}/", snapshotVFSBrowse).Methods("GET")
 	r.HandleFunc("/api/snapshot/vfs/{snapshot}:{path:.+}", snapshotVFSBrowse).Methods("GET")
+
+	r.HandleFunc("/api/snapshot/vfs/children/{snapshot}:/", snapshotVFSChildren).Methods("GET")
+	r.HandleFunc("/api/snapshot/vfs/children/{snapshot}:{path:.+}/", snapshotVFSChildren).Methods("GET")
+	r.HandleFunc("/api/snapshot/vfs/children/{snapshot}:{path:.+}", snapshotVFSChildren).Methods("GET")
 
 	return r
 }

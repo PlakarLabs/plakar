@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
+	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
@@ -110,14 +111,15 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		return 1
 	}
 
-	snap.Header.Context.Hostname = ctx.GetHostname()
-	snap.Header.Context.Username = ctx.GetUsername()
-	snap.Header.Context.OperatingSystem = ctx.GetOperatingSystem()
-	snap.Header.Context.MachineID = ctx.GetMachineID()
-	snap.Header.Context.CommandLine = ctx.GetCommandLine()
-	snap.Header.Context.ProcessID = ctx.GetProcessID()
-	snap.Header.Context.Architecture = ctx.GetArchitecture()
-	snap.Header.Context.NumCPU = ctx.GetNumCPU()
+	snap.Header.Context["Hostname"] = ctx.GetHostname()
+	snap.Header.Context["Username"] = ctx.GetUsername()
+	snap.Header.Context["OperatingSystem"] = ctx.GetOperatingSystem()
+	snap.Header.Context["MachineID"] = ctx.GetMachineID()
+	snap.Header.Context["CommandLine"] = ctx.GetCommandLine()
+	snap.Header.Context["ProcessID"] = ctx.GetProcessID()
+	snap.Header.Context["Architecture"] = ctx.GetArchitecture()
+	snap.Header.Context["NumCPU"] = ctx.GetNumCPU()
+	snap.Header.Context["Client"] = "plakar/" + utils.GetVersion()
 
 	var tags []string
 	if opt_tags == "" {

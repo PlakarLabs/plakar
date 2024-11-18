@@ -15,16 +15,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Context struct {
-	MachineID       string
-	Hostname        string
-	Username        string
-	OperatingSystem string
-	Architecture    string
-	NumCPU          int
-	ProcessID       int
-	Client          string
-	CommandLine     string
+type Importer struct {
+	Type      string
+	Origin    string
+	Directory string
 }
 
 type Header struct {
@@ -32,37 +26,22 @@ type Header struct {
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
-	PublicKey        string
+	PublicKey        []byte
 
 	Category string
 	Tags     []string
 
-	Context Context
+	Context map[string]interface{}
 
-	Type      string
-	Origin    string
-	Directory string
+	Importer Importer
 
 	Root       objects.Checksum
+	Index      objects.Checksum
 	Metadata   objects.Checksum
 	Statistics objects.Checksum
 	Errors     objects.Checksum
 
 	Summary vfs.Summary
-}
-
-func NewContext() *Context {
-	return &Context{
-		MachineID:       "",
-		Hostname:        "",
-		Username:        "",
-		OperatingSystem: "",
-		Architecture:    "",
-		NumCPU:          0,
-		ProcessID:       0,
-		Client:          "",
-		CommandLine:     "",
-	}
 }
 
 func NewHeader(indexID [32]byte) *Header {
@@ -72,10 +51,11 @@ func NewHeader(indexID [32]byte) *Header {
 		Version:      storage.VERSION,
 		Category:     "default",
 
-		Context:   *NewContext(),
-		PublicKey: "",
+		Context:   make(map[string]interface{}),
+		PublicKey: []byte{},
 
 		Root:       [32]byte{},
+		Index:      [32]byte{},
 		Metadata:   [32]byte{},
 		Statistics: [32]byte{},
 		Errors:     [32]byte{},
@@ -187,12 +167,16 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 					return headers[i].Version > headers[j].Version
 				}
 			case "PublicKey":
-				if headers[i].PublicKey != headers[j].PublicKey {
-					return headers[i].PublicKey < headers[j].PublicKey
+				for k := 0; k < len(headers[i].PublicKey); k++ {
+					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
+						return headers[i].PublicKey[k] < headers[j].PublicKey[k]
+					}
 				}
 			case "-PublicKey":
-				if headers[i].PublicKey != headers[j].PublicKey {
-					return headers[i].PublicKey > headers[j].PublicKey
+				for k := 0; k < len(headers[i].PublicKey); k++ {
+					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
+						return headers[i].PublicKey[k] > headers[j].PublicKey[k]
+					}
 				}
 			case "Tags":
 				// Compare Tags lexicographically, element by element
@@ -213,22 +197,6 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				}
 				if len(headers[i].Tags) != len(headers[j].Tags) {
 					return len(headers[i].Tags) > len(headers[j].Tags)
-				}
-			case "Type":
-				if headers[i].Type != headers[j].Type {
-					return headers[i].Type < headers[j].Type
-				}
-			case "-Type":
-				if headers[i].Type != headers[j].Type {
-					return headers[i].Type > headers[j].Type
-				}
-			case "Origin":
-				if headers[i].Origin != headers[j].Origin {
-					return headers[i].Origin < headers[j].Origin
-				}
-			case "-Origin":
-				if headers[i].Origin != headers[j].Origin {
-					return headers[i].Origin > headers[j].Origin
 				}
 			default:
 				err = errors.New("invalid sort key: " + key)

@@ -184,10 +184,10 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 		items := Items{
 			Total: len(dirEntry.Children),
-			Items: make([]Item, len(childEntries)),
+			Items: make([]interface{}, len(childEntries)),
 		}
 		for i, child := range childEntries {
-			items.Items[i] = Item{Item: child}
+			items.Items[i] = child
 		}
 
 		json.NewEncoder(w).Encode(items)

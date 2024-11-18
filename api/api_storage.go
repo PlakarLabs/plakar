@@ -27,10 +27,10 @@ func storageStates(w http.ResponseWriter, r *http.Request) {
 
 	items := Items{
 		Total: len(states),
-		Items: make([]Item, len(states)),
+		Items: make([]interface{}, len(states)),
 	}
 	for i, state := range states {
-		items.Items[i] = Item{Item: state}
+		items.Items[i] = state
 	}
 
 	json.NewEncoder(w).Encode(items)
@@ -74,10 +74,10 @@ func storagePackfiles(w http.ResponseWriter, r *http.Request) {
 
 	items := Items{
 		Total: len(packfiles),
-		Items: make([]Item, len(packfiles)),
+		Items: make([]interface{}, len(packfiles)),
 	}
 	for i, packfile := range packfiles {
-		items.Items[i] = Item{Item: packfile}
+		items.Items[i] = packfile
 	}
 
 	json.NewEncoder(w).Encode(items)

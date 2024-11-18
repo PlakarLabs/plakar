@@ -38,16 +38,6 @@ type scanCache struct {
 	dbdir string
 }
 
-type FileSummary struct {
-	Type        importer.RecordType `msgpack:"type"`
-	Size        uint64              `msgpack:"size"`
-	Objects     uint64              `msgpack:"objects"`
-	Chunks      uint64              `msgpack:"chunks"`
-	ModTime     int64               `msgpack:"modTime"`
-	ContentType string              `msgpack:"contentType"`
-	Entropy     float64             `msgpack:"entropy"`
-}
-
 type ErrorEntry struct {
 	Pathname string `msgpack:"pathname"`
 	Error    string `msgpack:"error"`
@@ -240,19 +230,6 @@ func (cache *scanCache) RecordStatistics(pathname string, statistics *vfs.Summar
 	return cache.db.Put([]byte(fmt.Sprintf("__statistics__:%s", pathname)), buffer, nil)
 }
 
-func (cache *scanCache) RecordFileSummary(pathname string, summary *FileSummary) error {
-	pathname = strings.TrimSuffix(pathname, "/")
-	if pathname == "" {
-		pathname = "/"
-	}
-
-	buffer, err := msgpack.Marshal(summary)
-	if err != nil {
-		return err
-	}
-	return cache.db.Put([]byte(fmt.Sprintf("__file_summary__:%s", pathname)), buffer, nil)
-}
-
 func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
 	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
 	if err != nil {
@@ -280,20 +257,6 @@ func (cache *scanCache) GetStatistics(pathname string) (*vfs.Summary, error) {
 		return nil, err
 	}
 	return &stats, nil
-}
-
-func (cache *scanCache) GetFileSummary(pathname string) (*FileSummary, error) {
-	data, err := cache.db.Get([]byte(fmt.Sprintf("__file_summary__:%s", pathname)), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var summary FileSummary
-	err = msgpack.Unmarshal(data, &summary)
-	if err != nil {
-		return nil, err
-	}
-	return &summary, nil
 }
 
 func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
@@ -593,7 +556,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			var object *objects.Object
 
 			// Check if the file entry and underlying objects are already in the cache
-			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(scanDir, record.Pathname)
+			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(imp.Origin(), record.Pathname)
 			if err == nil && cachedFileEntry != nil {
 				if cachedFileEntry.Stat().ModTime().Equal(record.FileInfo.ModTime()) && cachedFileEntry.Stat().Size() == record.FileInfo.Size() {
 					fileEntry = cachedFileEntry
@@ -667,13 +630,13 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 
 				// Store the newly generated FileEntry in the cache for future runs
-				err = cacheInstance.RecordFilename(scanDir, record.Pathname, fileEntry)
+				err = cacheInstance.RecordFilename(imp.Origin(), record.Pathname, fileEntry)
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
 					return
 				}
 
-				fileSummary := &FileSummary{
+				fileSummary := &vfs.FileSummary{
 					Type:    importer.RecordTypeFile,
 					Size:    uint64(record.FileInfo.Size()),
 					ModTime: record.FileInfo.ModTime().Unix(),
@@ -685,7 +648,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					fileSummary.Entropy = object.Entropy
 				}
 
-				err = sc.RecordFileSummary(record.Pathname, fileSummary)
+				err = cacheInstance.RecordFileSummary(imp.Origin(), record.Pathname, fileSummary)
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
 					return
@@ -800,7 +763,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.AddDirectoryChild(value, child, childStatistics)
 
 			} else {
-				fileSummary, err := sc.GetFileSummary(childpath)
+				fileSummary, _, _, err := cacheInstance.LookupFileSummary(imp.Origin(), childpath)
 				if err != nil {
 					//sc.RecordError(childpath, err.Error())
 					continue

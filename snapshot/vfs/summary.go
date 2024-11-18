@@ -1,5 +1,17 @@
 package vfs
 
+import "github.com/PlakarKorp/plakar/snapshot/importer"
+
+type FileSummary struct {
+	Type        importer.RecordType `msgpack:"type"`
+	Size        uint64              `msgpack:"size"`
+	Objects     uint64              `msgpack:"objects"`
+	Chunks      uint64              `msgpack:"chunks"`
+	ModTime     int64               `msgpack:"modTime"`
+	ContentType string              `msgpack:"contentType"`
+	Entropy     float64             `msgpack:"entropy"`
+}
+
 type Directory struct {
 	Directories uint64 `msgpack:"directories,omitempty"`
 	Files       uint64 `msgpack:"files,omitempty"`

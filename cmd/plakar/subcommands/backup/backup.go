@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -112,16 +113,21 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		return 1
 	}
 
-	snap.Header.Context["Hostname"] = ctx.GetHostname()
-	snap.Header.Context["Username"] = ctx.GetUsername()
-	snap.Header.Context["OperatingSystem"] = ctx.GetOperatingSystem()
-	snap.Header.Context["MachineID"] = ctx.GetMachineID()
-	snap.Header.Context["CommandLine"] = ctx.GetCommandLine()
-	snap.Header.Context["ProcessID"] = ctx.GetProcessID()
-	snap.Header.Context["Architecture"] = ctx.GetArchitecture()
-	snap.Header.Context["NumCPU"] = runtime.NumCPU()
-	snap.Header.Context["GOMAXPROCS"] = runtime.GOMAXPROCS(0)
-	snap.Header.Context["Client"] = "plakar/" + utils.GetVersion()
+	if ctx.GetIdentity() != uuid.Nil {
+		snap.Header.Identity.Identifier = ctx.GetIdentity()
+		snap.Header.Identity.PublicKey = ctx.GetKeypair().PublicKey
+	}
+
+	snap.Header.SetContext("Hostname", ctx.GetHostname())
+	snap.Header.SetContext("Username", ctx.GetUsername())
+	snap.Header.SetContext("OperatingSystem", ctx.GetOperatingSystem())
+	snap.Header.SetContext("MachineID", ctx.GetMachineID())
+	snap.Header.SetContext("CommandLine", ctx.GetCommandLine())
+	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", ctx.GetProcessID()))
+	snap.Header.SetContext("Architecture", ctx.GetArchitecture())
+	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
+	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
+	snap.Header.SetContext("Client", "plakar/"+utils.GetVersion())
 
 	var tags []string
 	if opt_tags == "" {

@@ -27,6 +27,7 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -71,6 +72,17 @@ func cmd_verify(ctx *context.Context, repo *repository.Repository, args []string
 			logger.Warn("%s", err)
 		} else if !ok {
 			failures = true
+		}
+
+		if snap.Header.Identity.Identifier != uuid.Nil {
+			if ok, err := snap.VerifySignature(); err != nil {
+				logger.Warn("%s", err)
+			} else if !ok {
+				logger.Info("snapshot %x signature verification failed", snap.Header.SnapshotID)
+				failures = true
+			} else {
+				logger.Info("snapshot %x signature verification succeeded", snap.Header.SnapshotID)
+			}
 		}
 	}
 

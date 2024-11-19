@@ -18,6 +18,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
+	"github.com/PlakarKorp/plakar/identity"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/repository"
@@ -95,7 +96,9 @@ func entryPoint() int {
 	var opt_quiet bool
 	var opt_profiling bool
 	var opt_keyfile string
+	var opt_keyring string
 	var opt_stats int
+	var opt_identity string
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
@@ -108,6 +111,8 @@ func entryPoint() int {
 	flag.BoolVar(&opt_quiet, "quiet", false, "no output except errors")
 	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
+	flag.StringVar(&opt_keyring, "keyring", "", "path to directory holding the keyring")
+	flag.StringVar(&opt_identity, "identity", "", "use identity from keyring")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
 
@@ -115,6 +120,19 @@ func entryPoint() int {
 	defer ctx.Close()
 
 	ctx.SetCWD(cwd)
+
+	keyringDir := filepath.Join(opt_userDefault.HomeDir, ".plakar-keyring")
+	ctx.SetKeyringDir(keyringDir)
+
+	if opt_identity != "" {
+		id, err := identity.UnsealIdentity(keyringDir, uuid.MustParse(opt_identity))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s: could not unseal identity: %s\n", flag.CommandLine.Name(), err)
+			return 1
+		}
+		ctx.SetIdentity(id.Identifier)
+		ctx.SetKeypair(&id.Keypair)
+	}
 
 	cacheDir, err := utils.GetCacheDir("plakar")
 	if err != nil {
@@ -225,7 +243,7 @@ func entryPoint() int {
 	}
 
 	// these commands need to be ran before the repository is opened
-	if command == "create" || command == "version" || command == "stdio" || command == "help" {
+	if command == "create" || command == "version" || command == "stdio" || command == "help" || command == "identity" {
 		retval, err := subcommands.Execute(ctx, nil, command, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)

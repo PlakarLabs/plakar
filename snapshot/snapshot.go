@@ -80,6 +80,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				var files map[[32]byte]struct{}
 				var directories map[[32]byte]struct{}
 				var datas map[[32]byte]struct{}
+				var signatures map[[32]byte]struct{}
 
 				for msg := range snapshot.packerChan {
 					if pack == nil {
@@ -90,6 +91,8 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						files = make(map[[32]byte]struct{})
 						directories = make(map[[32]byte]struct{})
 						datas = make(map[[32]byte]struct{})
+						signatures = make(map[[32]byte]struct{})
+
 					}
 
 					if msg, ok := msg.(*PackerMsg); !ok {
@@ -110,6 +113,8 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 							directories[msg.Checksum] = struct{}{}
 						case packfile.TYPE_DATA:
 							datas[msg.Checksum] = struct{}{}
+						case packfile.TYPE_SIGNATURE:
+							signatures[msg.Checksum] = struct{}{}
 						default:
 							panic("received msg with unexpected blob type")
 						}
@@ -140,7 +145,11 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						for dataChecksum := range datas {
 							datasList = append(datasList, dataChecksum)
 						}
-						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
+						signaturesList := make([][32]byte, len(signatures))
+						for signatureChecksum := range signatures {
+							signaturesList = append(signaturesList, signatureChecksum)
+						}
+						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
 						if err != nil {
 							panic(err)
 						}
@@ -173,7 +182,11 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					for dataChecksum := range datas {
 						datasList = append(datasList, dataChecksum)
 					}
-					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
+					signaturesList := make([][32]byte, len(signatures))
+					for signatureChecksum := range signatures {
+						signaturesList = append(signaturesList, signatureChecksum)
+					}
+					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
 					if err != nil {
 						panic(err)
 					}
@@ -246,6 +259,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				var files map[[32]byte]struct{}
 				var directories map[[32]byte]struct{}
 				var datas map[[32]byte]struct{}
+				var signatures map[[32]byte]struct{}
 
 				for msg := range snap.packerChan {
 					if pack == nil {
@@ -256,6 +270,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						files = make(map[[32]byte]struct{})
 						directories = make(map[[32]byte]struct{})
 						datas = make(map[[32]byte]struct{})
+						signatures = make(map[[32]byte]struct{})
 					}
 
 					if msg, ok := msg.(*PackerMsg); !ok {
@@ -276,6 +291,8 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 							directories[msg.Checksum] = struct{}{}
 						case packfile.TYPE_DATA:
 							datas[msg.Checksum] = struct{}{}
+						case packfile.TYPE_SIGNATURE:
+							signatures[msg.Checksum] = struct{}{}
 						default:
 							panic("received msg with unexpected blob type")
 						}
@@ -306,7 +323,11 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						for dataChecksum := range datas {
 							datasList = append(datasList, dataChecksum)
 						}
-						err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
+						signaturesList := make([][32]byte, len(signatures))
+						for signatureChecksum := range signatures {
+							signaturesList = append(signaturesList, signatureChecksum)
+						}
+						err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
 						if err != nil {
 							panic(err)
 						}
@@ -339,7 +360,11 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					for dataChecksum := range datas {
 						datasList = append(datasList, dataChecksum)
 					}
-					err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, snapshotHeadersList)
+					signaturesList := make([][32]byte, len(signatures))
+					for signatureChecksum := range signatures {
+						signaturesList = append(signaturesList, signatureChecksum)
+					}
+					err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
 					if err != nil {
 						panic(err)
 					}
@@ -426,6 +451,22 @@ func (snap *Snapshot) PutHeader(checksum [32]byte, data []byte) error {
 	}
 
 	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_SNAPSHOT, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	return nil
+}
+
+func (snap *Snapshot) PutSignature(checksum [32]byte, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutSignature", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: PutSignature(%064x)", snap.Header.GetIndexShortID(), checksum)
+
+	encoded, err := snap.repository.Encode(data)
+	if err != nil {
+		return err
+	}
+
+	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_SIGNATURE, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
 	return nil
 }
 
@@ -527,7 +568,7 @@ func (snap *Snapshot) PutDirectory(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, snapshots [][32]byte) error {
+func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, signatures [][32]byte, snapshots [][32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
@@ -658,6 +699,22 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 					pack.Index[idx].Length)
 				snap.stateDelta.SetPackfileForData(checksum32,
 					dataChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				break
+			}
+		}
+	}
+
+	for _, signatureChecksum := range signatures {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == signatureChecksum && blob.Type == packfile.TYPE_SIGNATURE {
+				snap.Repository().SetPackfileForSignature(checksum32,
+					signatureChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				snap.stateDelta.SetPackfileForSignature(checksum32,
+					signatureChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
 				break
@@ -818,6 +875,14 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
+	if kp := snapshot.repository.Context().GetKeypair(); kp != nil {
+		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
+		signature := kp.Sign(serializedHdrChecksum[:])
+		if err := snapshot.PutSignature(snapshot.Header.SnapshotID, signature); err != nil {
+			return err
+		}
+	}
+
 	if err := snapshot.PutHeader(snapshot.Header.SnapshotID, serializedHdr); err != nil {
 		return err
 	}
@@ -850,6 +915,26 @@ func (snapshot *Snapshot) GetData(checksum [32]byte) ([]byte, error) {
 	logger.Trace("snapshot", "%x: GetData(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
 	rd, _, err := snapshot.repository.GetData(checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
+func (snapshot *Snapshot) GetSignature(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetSignature", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetSignature(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	rd, _, err := snapshot.repository.GetSignature(checksum)
 	if err != nil {
 		return nil, err
 	}

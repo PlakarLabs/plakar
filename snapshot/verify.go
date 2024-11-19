@@ -2,12 +2,14 @@ package snapshot
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"fmt"
 	"path/filepath"
 	"sync"
 
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
+	"github.com/google/uuid"
 )
 
 type CheckOptions struct {
@@ -125,4 +127,23 @@ func (snap *Snapshot) Verify(pathname string, opts *CheckOptions) (bool, error) 
 	defer close(maxConcurrency)
 
 	return snapshotCheckPath(snap, fs, pathname, opts, maxConcurrency, &wg)
+}
+
+func (snap *Snapshot) VerifySignature() (bool, error) {
+	if snap.Header.Identity.Identifier == uuid.Nil {
+		return false, nil
+	}
+
+	signature, err := snap.GetSignature(snap.Header.SnapshotID)
+	if err != nil {
+		return false, err
+	}
+
+	serializedHdr, err := snap.Header.Serialize()
+	if err != nil {
+		return false, err
+	}
+	serializedHdrChecksum := snap.repository.Checksum(serializedHdr)
+
+	return ed25519.Verify(snap.Header.Identity.PublicKey, serializedHdrChecksum[:], signature), nil
 }

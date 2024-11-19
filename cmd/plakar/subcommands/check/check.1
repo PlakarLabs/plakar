@@ -8,6 +8,7 @@
 .Nm
 .Op Fl concurrency Ar number
 .Op Fl fast
+.Op Fl no-verify
 .Op Fl quiet
 .Op Ar snapshotID ...
 .Sh DESCRIPTION
@@ -30,6 +31,10 @@ Defaults to
 Enable a faster check that skips checksum verification.
 This option performs only structural validation without confirming
 data integrity.
+.It Fl no-verify
+Disable signature verification.
+This option allows to proceed with checking snapshot integrity
+regardless of an invalid snapshot signature.
 .It Fl quiet
 Suppress output to standard output, only logging errors and warnings.
 .El

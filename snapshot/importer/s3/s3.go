@@ -18,11 +18,14 @@ package s3
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"io/fs"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -36,8 +39,11 @@ type S3Importer struct {
 	importer.ImporterBackend
 
 	minioClient *minio.Client
-	rootDir     string
+	bucket      string
 	host        string
+	scanDir     string
+
+	ino uint64
 }
 
 func init() {
@@ -68,101 +74,99 @@ func NewS3Importer(location string) (importer.ImporterBackend, error) {
 		return nil, err
 	}
 
+	atoms := strings.Split(parsed.RequestURI()[1:], "/")
+	bucket := atoms[0]
+	scanDir := filepath.Clean("/" + strings.Join(atoms[1:], "/"))
+
 	return &S3Importer{
-		rootDir:     parsed.RequestURI()[1:],
+		bucket:      bucket,
+		scanDir:     scanDir,
 		minioClient: conn,
 		host:        parsed.Host,
 	}, nil
 }
 
-func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
-	c := make(chan importer.ScanResult)
+func (p *S3Importer) scanRecursive(prefix string, result chan importer.ScanResult) {
+	children := make([]objects.FileInfo, 0)
+	for object := range p.minioClient.ListObjects(context.Background(), p.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: false}) {
+		objectPath := "/" + object.Key
+		if !strings.HasPrefix(objectPath, p.scanDir) && !strings.HasPrefix(p.scanDir, objectPath) {
+			continue
+		}
 
-	go func() {
-		directories := make(map[string]objects.FileInfo)
-		files := make(map[string]objects.FileInfo)
-		ino := uint64(0)
-		fi := objects.NewFileInfo(
-			"/",
-			0,
-			0700|fs.ModeDir,
-			time.Now(),
-			0,
-			ino,
-			0,
-			0,
-			1,
-		)
-		directories["/"] = fi
-		ino++
-
-		for object := range p.minioClient.ListObjects(context.Background(), p.rootDir, minio.ListObjectsOptions{Prefix: "", Recursive: true}) {
-			atoms := strings.Split(object.Key, "/")
-
-			for i := 0; i < len(atoms)-1; i++ {
-				dir := strings.Join(atoms[0:i+1], "/")
-				if _, exists := directories[dir]; !exists {
-					fi := objects.NewFileInfo(
-						atoms[i],
-						0,
-						0700|fs.ModeDir,
-						time.Now(),
-						0,
-						ino,
-						0,
-						0,
-						1,
-					)
-					directories["/"+dir] = fi
-					ino++
-				}
-			}
-
-			stat := objects.NewFileInfo(
-				atoms[len(atoms)-1],
+		if strings.HasSuffix(object.Key, "/") {
+			p.scanRecursive(object.Key, result)
+			children = append(children, objects.NewFileInfo(
+				filepath.Base(strings.TrimRight(object.Key, "/")),
+				object.Size,
+				0700|os.ModeDir,
+				object.LastModified,
+				0,
+				atomic.AddUint64(&p.ino, 1),
+				0,
+				0,
+				0,
+			))
+		} else {
+			fi := objects.NewFileInfo(
+				filepath.Base("/"+prefix+object.Key),
 				object.Size,
 				0700,
 				object.LastModified,
-				0,
-				ino,
-				0,
-				0,
 				1,
+				atomic.AddUint64(&p.ino, 1),
+				0,
+				0,
+				0,
 			)
-			ino++
-			files["/"+object.Key] = stat
+			children = append(children, fi)
+			result <- importer.ScanRecord{Type: importer.RecordTypeFile, Pathname: "/" + object.Key, FileInfo: fi}
 		}
+	}
 
-		directoryNames := make([]string, 0)
-		for name := range directories {
-			directoryNames = append(directoryNames, name)
-		}
+	sort.Slice(children, func(i, j int) bool {
+		return children[i].Name() < children[j].Name()
+	})
 
-		fileNames := make([]string, 0)
-		for name := range files {
-			fileNames = append(fileNames, name)
-		}
+	var currentName string
+	if prefix == "" {
+		currentName = "/"
+	} else {
+		currentName = filepath.Base(prefix)
+	}
 
-		sort.Slice(directoryNames, func(i, j int) bool {
-			return len(directoryNames[i]) < len(directoryNames[j])
-		})
-		sort.Slice(fileNames, func(i, j int) bool {
-			return len(fileNames[i]) < len(fileNames[j])
-		})
+	result <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: "/" + prefix, FileInfo: objects.NewFileInfo(
+		currentName,
+		0,
+		0700|os.ModeDir,
+		time.Now(),
+		0,
+		atomic.AddUint64(&p.ino, 1),
+		0,
+		0,
+		0,
+	), Children: children}
+}
 
-		for _, directory := range directoryNames {
-			c <- importer.ScanRecord{Type: importer.RecordTypeDirectory, Pathname: directory, FileInfo: directories[directory]}
-		}
-		for _, filename := range fileNames {
-			c <- importer.ScanRecord{Type: importer.RecordTypeFile, Pathname: filename, FileInfo: files[filename]}
-		}
-		close(c)
+func (p *S3Importer) Scan() (<-chan importer.ScanResult, error) {
+	c := make(chan importer.ScanResult)
+	go func() {
+		defer close(c)
+		p.scanRecursive("", c)
 	}()
 	return c, nil
 }
 
 func (p *S3Importer) NewReader(pathname string) (io.ReadCloser, error) {
-	obj, err := p.minioClient.GetObject(context.Background(), p.rootDir, pathname,
+	if pathname == "/" {
+		return nil, fmt.Errorf("cannot read root directory")
+	}
+	if strings.HasSuffix(pathname, "/") {
+		return nil, fmt.Errorf("cannot read directory")
+	}
+	pathname = strings.TrimPrefix(pathname, "/")
+
+	obj, err := p.minioClient.GetObject(context.Background(), p.bucket, pathname,
 		minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
@@ -175,11 +179,11 @@ func (p *S3Importer) Close() error {
 }
 
 func (p *S3Importer) Root() string {
-	return p.rootDir
+	return p.scanDir
 }
 
 func (p *S3Importer) Origin() string {
-	return p.host
+	return p.host + "/" + p.bucket
 }
 
 func (p *S3Importer) Type() string {

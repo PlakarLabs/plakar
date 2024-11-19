@@ -68,11 +68,6 @@ func cmd_verify(ctx *context.Context, repo *repository.Repository, args []string
 		if err != nil {
 			log.Fatal(err)
 		}
-		if ok, err := snap.Verify(pathname, opts); err != nil {
-			logger.Warn("%s", err)
-		} else if !ok {
-			failures = true
-		}
 
 		if snap.Header.Identity.Identifier != uuid.Nil {
 			if ok, err := snap.VerifySignature(); err != nil {
@@ -84,6 +79,13 @@ func cmd_verify(ctx *context.Context, repo *repository.Repository, args []string
 				logger.Info("snapshot %x signature verification succeeded", snap.Header.SnapshotID)
 			}
 		}
+
+		if ok, err := snap.Verify(pathname, opts); err != nil {
+			logger.Warn("%s", err)
+		} else if !ok {
+			failures = true
+		}
+
 	}
 
 	if failures {

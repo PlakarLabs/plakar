@@ -163,7 +163,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 
 	if err != nil {
-		logger.Error("%s", err)
+		logger.Error("failed to create snapshot: %s", err)
 		return 1
 	}
 

@@ -43,6 +43,14 @@ type ErrorEntry struct {
 	Error    string `msgpack:"error"`
 }
 
+type BackupContext struct {
+	aborted        atomic.Bool
+	abortedReason  error
+	imp            *importer.Importer
+	sc             *scanCache
+	maxConcurrency chan bool
+}
+
 func newScanCache() (*scanCache, error) {
 	tempDir, err := os.MkdirTemp("", "leveldb-temp")
 	if err != nil {
@@ -425,13 +433,8 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, options *PushOptions, maxConcurrency chan bool) (chan importer.ScanRecord, error) {
-	//imp, err := importer.NewImporter(scanDir)
-	//if err != nil {
-	//		return nil, nil, err
-	//	}
-
-	scanner, err := imp.Scan()
+func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *PushOptions) (chan importer.ScanRecord, error) {
+	scanner, err := backupCtx.imp.Scan()
 	if err != nil {
 		return nil, err
 	}
@@ -442,38 +445,46 @@ func (snap *Snapshot) importerJob(imp *importer.Importer, sc *scanCache, options
 	go func() {
 		snap.statistics.ImporterStart = time.Now()
 		for _record := range scanner {
+			if backupCtx.aborted.Load() {
+				break
+			}
 			if snap.skipExcludedPathname(options, _record) {
 				continue
 			}
 
-			maxConcurrency <- true
+			backupCtx.maxConcurrency <- true
 			wg.Add(1)
 			go func(record importer.ScanResult) {
 				defer func() {
-					<-maxConcurrency
+					<-backupCtx.maxConcurrency
 					wg.Done()
 				}()
 				snap.updateImporterStatistics(record)
 
 				switch record := record.(type) {
 				case importer.ScanError:
-					sc.RecordError(record.Pathname, record.Err)
+					if record.Pathname == backupCtx.imp.Root() || len(record.Pathname) < len(backupCtx.imp.Root()) {
+						backupCtx.aborted.Store(true)
+						backupCtx.abortedReason = record.Err
+						return
+					}
+					backupCtx.sc.RecordError(record.Pathname, record.Err)
 					snap.Event(events.PathErrorEvent(snap.Header.SnapshotID, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
 					snap.Event(events.PathEvent(snap.Header.SnapshotID, record.Pathname))
 					if record.FileInfo.Mode().IsDir() {
-						if err := sc.RecordPathname(record); err != nil {
-							sc.RecordError(record.Pathname, err)
+						if err := backupCtx.sc.RecordPathname(record); err != nil {
+							backupCtx.sc.RecordError(record.Pathname, err)
 							return
 						}
 					} else {
 						filesChannel <- record
 					}
-					extension := strings.ToLower(filepath.Ext(record.Pathname))
-					if extension == "" {
-						extension = "none"
-					}
+					//extension := strings.ToLower(filepath.Ext(record.Pathname))
+					//if extension == "" {
+					//	extension = "none"
+					//}
 					//					mu.Lock()
 					//					if _, exists := snap.Header.FileExtension[extension]; !exists {
 					//						snap.Header.FileExtension[extension] = 0
@@ -530,10 +541,14 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	snap.Header.Importer.Directory = filepath.ToSlash(scanDir)
 
-	maxConcurrency := make(chan bool, options.MaxConcurrency)
+	backupCtx := &BackupContext{
+		imp:            imp,
+		sc:             sc,
+		maxConcurrency: make(chan bool, options.MaxConcurrency),
+	}
 
 	/* importer */
-	filesChannel, err := snap.importerJob(imp, sc, options, maxConcurrency)
+	filesChannel, err := snap.importerJob(backupCtx, options)
 	if err != nil {
 		return err
 	}
@@ -542,11 +557,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	scannerWg := sync.WaitGroup{}
 	snap.statistics.ScannerStart = time.Now()
 	for _record := range filesChannel {
-		maxConcurrency <- true
+		backupCtx.maxConcurrency <- true
 		scannerWg.Add(1)
 		go func(record importer.ScanRecord) {
 			defer func() {
-				<-maxConcurrency
+				<-backupCtx.maxConcurrency
 				scannerWg.Done()
 			}()
 
@@ -884,6 +899,10 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		if record.Pathname == "/" {
 			rootSummary = &dirEntry.Summary
 		}
+	}
+
+	if backupCtx.aborted.Load() {
+		return backupCtx.abortedReason
 	}
 
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)

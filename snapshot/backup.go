@@ -771,39 +771,24 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 				switch fileSummary.Type {
 				case importer.RecordTypeFile:
-					dirEntry.Summary.Below.Files++
 					dirEntry.Summary.Directory.Files++
 				case importer.RecordTypeDirectory:
-					dirEntry.Summary.Below.Directories++
 					dirEntry.Summary.Directory.Directories++
 				case importer.RecordTypeSymlink:
-					dirEntry.Summary.Below.Symlinks++
 					dirEntry.Summary.Directory.Symlinks++
 				case importer.RecordTypeDevice:
-					dirEntry.Summary.Below.Devices++
 					dirEntry.Summary.Directory.Devices++
 				case importer.RecordTypePipe:
-					dirEntry.Summary.Below.Pipes++
 					dirEntry.Summary.Directory.Pipes++
 				case importer.RecordTypeSocket:
-					dirEntry.Summary.Below.Sockets++
 					dirEntry.Summary.Directory.Sockets++
 				default:
 					panic("unexpected record type")
 				}
 
 				if fileSummary.Objects > 0 {
-					dirEntry.Summary.Below.Objects += fileSummary.Objects
-					dirEntry.Summary.Below.Chunks += fileSummary.Chunks
 					dirEntry.Summary.Directory.Objects += fileSummary.Objects
 					dirEntry.Summary.Directory.Chunks += fileSummary.Chunks
-				}
-
-				if fileSummary.ModTime < dirEntry.Summary.Below.MinModTime || dirEntry.Summary.Below.MinModTime == 0 {
-					dirEntry.Summary.Below.MinModTime = fileSummary.ModTime
-				}
-				if fileSummary.ModTime > dirEntry.Summary.Below.MaxModTime || dirEntry.Summary.Below.MaxModTime == 0 {
-					dirEntry.Summary.Below.MaxModTime = fileSummary.ModTime
 				}
 
 				if fileSummary.ModTime < dirEntry.Summary.Directory.MinModTime || dirEntry.Summary.Directory.MinModTime == 0 {
@@ -813,25 +798,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					dirEntry.Summary.Directory.MaxModTime = fileSummary.ModTime
 				}
 
-				if fileSummary.Size < dirEntry.Summary.Below.MinSize || dirEntry.Summary.Below.MinSize == 0 {
-					dirEntry.Summary.Below.MinSize = fileSummary.Size
-				}
-				if fileSummary.Size > dirEntry.Summary.Below.MaxSize || dirEntry.Summary.Below.MaxSize == 0 {
-					dirEntry.Summary.Below.MaxSize = fileSummary.Size
-				}
-
 				if fileSummary.Size < dirEntry.Summary.Directory.MinSize || dirEntry.Summary.Directory.MinSize == 0 {
 					dirEntry.Summary.Directory.MinSize = fileSummary.Size
 				}
 				if fileSummary.Size > dirEntry.Summary.Directory.MaxSize || dirEntry.Summary.Directory.MaxSize == 0 {
 					dirEntry.Summary.Directory.MaxSize = fileSummary.Size
-				}
-
-				if fileSummary.Entropy < dirEntry.Summary.Below.MinEntropy || dirEntry.Summary.Below.MinEntropy == 0 {
-					dirEntry.Summary.Below.MinEntropy = fileSummary.Entropy
-				}
-				if fileSummary.Entropy > dirEntry.Summary.Below.MaxEntropy || dirEntry.Summary.Below.MaxEntropy == 0 {
-					dirEntry.Summary.Below.MaxEntropy = fileSummary.Entropy
 				}
 
 				if fileSummary.Entropy < dirEntry.Summary.Directory.MinEntropy || dirEntry.Summary.Directory.MinEntropy == 0 {
@@ -842,10 +813,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 
 				if fileSummary.Entropy <= 2.0 {
-					dirEntry.Summary.Below.LoEntropy++
 					dirEntry.Summary.Directory.LoEntropy++
 				} else if fileSummary.Entropy >= 7.0 {
-					dirEntry.Summary.Below.HiEntropy++
 					dirEntry.Summary.Directory.HiEntropy++
 				}
 				dirEntropy += fileSummary.Entropy
@@ -868,7 +837,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 
 				dirEntry.Summary.Directory.Size += fileSummary.Size
-				dirEntry.Summary.Below.Size += uint64(child.Size())
 				dirEntry.AddFileChild(value, child)
 			}
 		}

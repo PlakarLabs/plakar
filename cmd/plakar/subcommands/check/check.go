@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package verify
+package check
 
 import (
 	"flag"
@@ -31,15 +31,15 @@ import (
 )
 
 func init() {
-	subcommands.Register("verify", cmd_verify)
+	subcommands.Register("check", cmd_check)
 }
 
-func cmd_verify(ctx *context.Context, repo *repository.Repository, args []string) int {
+func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var opt_concurrency uint64
 	var opt_fastCheck bool
 	var opt_quiet bool
 
-	flags := flag.NewFlagSet("verify", flag.ExitOnError)
+	flags := flag.NewFlagSet("check", flag.ExitOnError)
 	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
 	flags.BoolVar(&opt_fastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")

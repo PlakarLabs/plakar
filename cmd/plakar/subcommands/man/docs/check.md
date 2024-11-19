@@ -1,12 +1,12 @@
-PLAKAR-VERIFY(1) - General Commands Manual
+PLAKAR(CHECK) - CHECK (1)
 
 # NAME
 
-**plakar verify** - Verify data integrity in a Plakar repository or snapshot
+**plakar check** - Check data integrity in a Plakar repository or snapshot
 
 # SYNOPSIS
 
-**plakar verify**
+**plakar check**
 \[**-concurrency**&nbsp;*number*]
 \[**-fast**]
 \[**-quiet**]
@@ -15,7 +15,7 @@ PLAKAR-VERIFY(1) - General Commands Manual
 # DESCRIPTION
 
 The
-**plakar verify**
+**plakar check**
 command verifies the integrity of data in a Plakar repository.
 It checks snapshots for consistency and validates file checksums to
 ensure no corruption has occurred.
@@ -52,15 +52,15 @@ integrity check.
 
 Perform a full integrity check on all snapshots:
 
-	plakar verify
+	plakar check
 
 Perform a fast check on a specific snapshot:
 
-	plakar verify -fast abc123
+	plakar check -fast abc123
 
 # DIAGNOSTICS
 
-The **plakar verify** utility exits&#160;0 on success, and&#160;&gt;0 if an error occurs.
+The **plakar check** utility exits&#160;0 on success, and&#160;&gt;0 if an error occurs.
 
 0
 
@@ -69,7 +69,7 @@ The **plakar verify** utility exits&#160;0 on success, and&#160;&gt;0 if an erro
 &gt;0
 
 > An error occurred, such as corruption detected in a snapshot or
-> failure to verify data.
+> failure to check data integrity.
 
 # SEE ALSO
 

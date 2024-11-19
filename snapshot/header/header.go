@@ -12,6 +12,7 @@ import (
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/PlakarKorp/plakar/storage"
+	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -21,17 +22,28 @@ type Importer struct {
 	Directory string
 }
 
+type Identity struct {
+	Identifier uuid.UUID
+	PublicKey  []byte
+}
+
+type KeyValue struct {
+	Key   string
+	Value string
+}
+
 type Header struct {
 	SnapshotID       objects.Checksum
 	Version          string
 	CreationTime     time.Time
 	CreationDuration time.Duration
-	PublicKey        []byte
+
+	Identity Identity
 
 	Category string
 	Tags     []string
 
-	Context map[string]interface{}
+	Context []KeyValue
 
 	Importer Importer
 
@@ -50,9 +62,13 @@ func NewHeader(indexID [32]byte) *Header {
 		CreationTime: time.Now(),
 		Version:      storage.VERSION,
 		Category:     "default",
+		Tags:         []string{},
 
-		Context:   make(map[string]interface{}),
-		PublicKey: []byte{},
+		Identity: Identity{},
+
+		Importer: Importer{},
+
+		Context: make([]KeyValue, 0),
 
 		Root:       [32]byte{},
 		Index:      [32]byte{},
@@ -89,6 +105,19 @@ func (h *Header) Serialize() ([]byte, error) {
 	} else {
 		return serialized, nil
 	}
+}
+
+func (h *Header) SetContext(key, value string) {
+	h.Context = append(h.Context, KeyValue{Key: key, Value: value})
+}
+
+func (h *Header) GetContext(key string) string {
+	for _, kv := range h.Context {
+		if kv.Key == key {
+			return kv.Value
+		}
+	}
+	return ""
 }
 
 func (h *Header) GetIndexID() [32]byte {
@@ -166,18 +195,7 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 				if headers[i].Version != headers[j].Version {
 					return headers[i].Version > headers[j].Version
 				}
-			case "PublicKey":
-				for k := 0; k < len(headers[i].PublicKey); k++ {
-					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
-						return headers[i].PublicKey[k] < headers[j].PublicKey[k]
-					}
-				}
-			case "-PublicKey":
-				for k := 0; k < len(headers[i].PublicKey); k++ {
-					if headers[i].PublicKey[k] != headers[j].PublicKey[k] {
-						return headers[i].PublicKey[k] > headers[j].PublicKey[k]
-					}
-				}
+
 			case "Tags":
 				// Compare Tags lexicographically, element by element
 				for k := 0; k < len(headers[i].Tags) && k < len(headers[j].Tags); k++ {

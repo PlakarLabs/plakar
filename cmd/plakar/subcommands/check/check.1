@@ -1,9 +1,9 @@
 .Dd November 12, 2024
-.Dt PLAKAR-VERIFY 1
+.Dt PLAKAR CHECK 1
 .Os
 .Sh NAME
-.Nm plakar verify
-.Nd Verify data integrity in a Plakar repository or snapshot
+.Nm plakar check
+.Nd Check data integrity in a Plakar repository or snapshot
 .Sh SYNOPSIS
 .Nm
 .Op Fl concurrency Ar number
@@ -42,12 +42,12 @@ If omitted, the command checks all snapshots in the repository.
 .Sh EXAMPLES
 Perform a full integrity check on all snapshots:
 .Bd -literal -offset indent
-plakar verify
+plakar check
 .Ed
 .Pp
 Perform a fast check on a specific snapshot:
 .Bd -literal -offset indent
-plakar verify -fast abc123
+plakar check -fast abc123
 .Ed
 .Sh DIAGNOSTICS
 .Ex -std
@@ -56,7 +56,7 @@ plakar verify -fast abc123
 Command completed successfully with no integrity issues found.
 .It >0
 An error occurred, such as corruption detected in a snapshot or
-failure to verify data.
+failure to check data integrity.
 .El
 .Sh SEE ALSO
 .Xr plakar 1

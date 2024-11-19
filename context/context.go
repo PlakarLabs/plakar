@@ -1,6 +1,10 @@
 package context
 
-import "github.com/PlakarKorp/plakar/events"
+import (
+	"github.com/PlakarKorp/plakar/encryption/keypair"
+	"github.com/PlakarKorp/plakar/events"
+	"github.com/google/uuid"
+)
 
 type Context struct {
 	events *events.Receiver
@@ -13,12 +17,16 @@ type Context struct {
 	machineID   string
 	keyFromFile string
 	cacheDir    string
+	keyringDir  string
 
 	operatingSystem string
 	architecture    string
 	processID       int
 
 	cwd string
+
+	identity uuid.UUID
+	keypair  *keypair.KeyPair
 }
 
 func NewContext() *Context {
@@ -129,4 +137,28 @@ func (c *Context) SetProcessID(processID int) {
 
 func (c *Context) GetProcessID() int {
 	return c.processID
+}
+
+func (c *Context) SetKeyringDir(keyringDir string) {
+	c.keyringDir = keyringDir
+}
+
+func (c *Context) GetKeyringDir() string {
+	return c.keyringDir
+}
+
+func (c *Context) SetIdentity(identity uuid.UUID) {
+	c.identity = identity
+}
+
+func (c *Context) GetIdentity() uuid.UUID {
+	return c.identity
+}
+
+func (c *Context) SetKeypair(keypair *keypair.KeyPair) {
+	c.keypair = keypair
+}
+
+func (c *Context) GetKeypair() *keypair.KeyPair {
+	return c.keypair
 }

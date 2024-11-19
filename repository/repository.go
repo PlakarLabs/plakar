@@ -549,6 +549,26 @@ func (r *Repository) GetData(checksum objects.Checksum) (io.Reader, uint64, erro
 	return rd, uint64(len), nil
 }
 
+func (r *Repository) GetSignature(checksum objects.Checksum) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetSignature", time.Since(t0))
+		logger.Trace("repository", "GetSignature(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForSignature(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
 func (r *Repository) GetSnapshot(snapshotID objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
@@ -676,6 +696,16 @@ func (r *Repository) SetPackfileForData(packfileChecksum objects.Checksum, dataC
 	}()
 
 	r.state.SetPackfileForData(packfileChecksum, dataChecksum, offset, length)
+}
+
+func (r *Repository) SetPackfileForSignature(packfileChecksum objects.Checksum, signatureChecksum objects.Checksum, offset uint32, length uint32) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.SetPackfileForSignature", time.Since(t0))
+		logger.Trace("repository", "SetPackfileForSignature(%x, %x, %d, %d): %s", packfileChecksum, signatureChecksum, offset, length, time.Since(t0))
+	}()
+
+	r.state.SetPackfileForSignature(packfileChecksum, signatureChecksum, offset, length)
 }
 
 func (r *Repository) SetPackfileForSnapshot(packfileChecksum objects.Checksum, snapshotID objects.Checksum, offset uint32, length uint32) {

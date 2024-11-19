@@ -19,6 +19,7 @@ package info
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
@@ -39,6 +40,7 @@ import (
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/dustin/go-humanize"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -176,8 +178,10 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 		fmt.Printf("Tags: %s\n", strings.Join(header.Tags, ", "))
 	}
 
-	if !bytes.Equal(header.PublicKey[:], []byte{}[:]) {
-		fmt.Printf("PublicKey: %s\n", header.PublicKey)
+	if header.Identity.Identifier != uuid.Nil {
+		fmt.Println("Identity:")
+		fmt.Printf(" - Identifier: %s\n", header.Identity.Identifier)
+		fmt.Printf(" - PublicKey: %s\n", base64.RawStdEncoding.EncodeToString(header.Identity.PublicKey))
 	}
 
 	fmt.Printf("Root: %x\n", header.Root)
@@ -192,16 +196,16 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf(" - Directory: %s\n", header.Importer.Directory)
 
 	fmt.Println("Context:")
-	fmt.Printf(" - MachineID: %s\n", header.Context["MachineID"])
-	fmt.Printf(" - Hostname: %s\n", header.Context["Hostname"])
-	fmt.Printf(" - Username: %s\n", header.Context["Username"])
-	fmt.Printf(" - OperatingSystem: %s\n", header.Context["OperatingSystem"])
-	fmt.Printf(" - Architecture: %s\n", header.Context["Architecture"])
-	fmt.Printf(" - NumCPU: %d\n", header.Context["NumCPU"])
-	fmt.Printf(" - GOMAXPROCS: %d\n", header.Context["GOMAXPROCS"])
-	fmt.Printf(" - ProcessID: %d\n", header.Context["ProcessID"])
-	fmt.Printf(" - Client: %s\n", header.Context["Client"])
-	fmt.Printf(" - CommandLine: %s\n", header.Context["CommandLine"])
+	fmt.Printf(" - MachineID: %s\n", header.GetContext("MachineID"))
+	fmt.Printf(" - Hostname: %s\n", header.GetContext("Hostname"))
+	fmt.Printf(" - Username: %s\n", header.GetContext("Username"))
+	fmt.Printf(" - OperatingSystem: %s\n", header.GetContext("OperatingSystem"))
+	fmt.Printf(" - Architecture: %s\n", header.GetContext("Architecture"))
+	fmt.Printf(" - NumCPU: %d\n", header.GetContext("NumCPU"))
+	fmt.Printf(" - GOMAXPROCS: %d\n", header.GetContext("GOMAXPROCS"))
+	fmt.Printf(" - ProcessID: %d\n", header.GetContext("ProcessID"))
+	fmt.Printf(" - Client: %s\n", header.GetContext("Client"))
+	fmt.Printf(" - CommandLine: %s\n", header.GetContext("CommandLine"))
 
 	fmt.Println("Summary:")
 	fmt.Printf(" - Directories: %d\n", header.Summary.Directory.Directories+header.Summary.Below.Directories)

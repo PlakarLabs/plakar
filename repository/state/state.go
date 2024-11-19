@@ -70,6 +70,9 @@ type State struct {
 	muDeletedSnapshots sync.Mutex
 	DeletedSnapshots   map[uint64]time.Time
 
+	muSignatures sync.Mutex
+	Signatures   map[uint64]Location
+
 	Metadata Metadata
 
 	dirty int32
@@ -85,6 +88,7 @@ func New() *State {
 		Directories:      make(map[uint64]Location),
 		Datas:            make(map[uint64]Location),
 		Snapshots:        make(map[uint64]Location),
+		Signatures:       make(map[uint64]Location),
 		DeletedSnapshots: make(map[uint64]time.Time),
 		Metadata: Metadata{
 			Version:      VERSION,
@@ -250,6 +254,17 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 		st.DeletedSnapshots[snapshotID] = tm
 	}
 	deltaState.muDeletedSnapshots.Unlock()
+
+	deltaState.muSignatures.Lock()
+	for deltaBlobChecksumID, subpart := range deltaState.Signatures {
+		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
+		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
+		st.SetPackfileForSignature(packfileChecksum, deltaBlobChecksum,
+			subpart.Offset,
+			subpart.Length,
+		)
+	}
+	deltaState.muSignatures.Unlock()
 }
 
 func (st *State) GetPackfileForChunk(chunkChecksum objects.Checksum) (objects.Checksum, bool) {
@@ -323,6 +338,22 @@ func (st *State) GetPackfileForData(blobChecksum objects.Checksum) (objects.Chec
 	defer st.muDatas.Unlock()
 
 	if subpart, exists := st.Datas[blobID]; !exists {
+		return objects.Checksum{}, false
+	} else {
+		st.muChecksum.Lock()
+		packfileChecksum := st.IdToChecksum[subpart.Packfile]
+		st.muChecksum.Unlock()
+		return packfileChecksum, true
+	}
+}
+
+func (st *State) GetPackfileForSignature(blobChecksum objects.Checksum) (objects.Checksum, bool) {
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
+
+	st.muSignatures.Lock()
+	defer st.muSignatures.Unlock()
+
+	if subpart, exists := st.Signatures[blobID]; !exists {
 		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
@@ -412,6 +443,22 @@ func (st *State) GetSubpartForData(checksum objects.Checksum) (objects.Checksum,
 	}
 }
 
+func (st *State) GetSubpartForSignature(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	blobID := st.getOrCreateIdForChecksum(checksum)
+
+	st.muSignatures.Lock()
+	defer st.muSignatures.Unlock()
+
+	if subpart, exists := st.Signatures[blobID]; !exists {
+		return objects.Checksum{}, 0, 0, false
+	} else {
+		st.muChecksum.Lock()
+		packfileChecksum := st.IdToChecksum[subpart.Packfile]
+		st.muChecksum.Unlock()
+		return packfileChecksum, subpart.Offset, subpart.Length, true
+	}
+}
+
 func (st *State) GetSubpartForSnapshot(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(checksum)
 
@@ -487,6 +534,19 @@ func (st *State) DataExists(checksum objects.Checksum) bool {
 	defer st.muDatas.Unlock()
 
 	if _, exists := st.Datas[checksumID]; !exists {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (st *State) SignatureExists(checksum objects.Checksum) bool {
+	checksumID := st.getOrCreateIdForChecksum(checksum)
+
+	st.muSignatures.Lock()
+	defer st.muSignatures.Unlock()
+
+	if _, exists := st.Signatures[checksumID]; !exists {
 		return false
 	} else {
 		return true
@@ -591,6 +651,24 @@ func (st *State) SetPackfileForData(packfileChecksum objects.Checksum, blobCheck
 	}
 }
 
+func (st *State) SetPackfileForSignature(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
+
+	st.muSignatures.Lock()
+	if _, exists := st.Signatures[blobID]; !exists {
+		st.Signatures[blobID] = Location{
+			Packfile: packfileID,
+			Offset:   packfileOffset,
+			Length:   chunkLength,
+		}
+		st.muSignatures.Unlock()
+		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muSignatures.Unlock()
+	}
+}
+
 func (st *State) SetPackfileForSnapshot(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
@@ -682,6 +760,24 @@ func (st *State) ListObjects() <-chan objects.Checksum {
 		st.muObjects.Unlock()
 
 		for _, checksum := range objectsList {
+			ch <- checksum
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+func (st *State) ListSignatures() <-chan objects.Checksum {
+	ch := make(chan objects.Checksum)
+	go func() {
+		signatureList := make([]objects.Checksum, 0)
+		st.muSignatures.Lock()
+		for k := range st.Signatures {
+			signatureList = append(signatureList, st.IdToChecksum[k])
+		}
+		st.muSignatures.Unlock()
+
+		for _, checksum := range signatureList {
 			ch <- checksum
 		}
 		close(ch)

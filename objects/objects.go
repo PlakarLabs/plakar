@@ -1,7 +1,6 @@
 package objects
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -60,15 +59,4 @@ type Chunk struct {
 	Checksum Checksum `msgpack:"checksum"`
 	Length   uint32   `msgpack:"length"`
 	Entropy  float64  `msgpack:"entropy"`
-}
-
-func (m Chunk) MarshalJSON() ([]byte, error) {
-	type Alias Chunk // Create an alias to avoid recursion
-	return json.Marshal(&struct {
-		Checksum string `json:"Checksum"`
-		*Alias
-	}{
-		Checksum: base64.RawURLEncoding.EncodeToString(m.Checksum[:]),
-		Alias:    (*Alias)(&m),
-	})
 }

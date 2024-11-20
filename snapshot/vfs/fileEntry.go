@@ -71,11 +71,13 @@ func FileEntryFromBytes(serialized []byte) (*FileEntry, error) {
 	if err := msgpack.Unmarshal(serialized, &f); err != nil {
 		return nil, err
 	}
-	if f.Object.CustomMetadata == nil {
-		f.Object.CustomMetadata = make([]objects.CustomMetadata, 0)
-	}
-	if f.Object.Tags == nil {
-		f.Object.Tags = make([]string, 0)
+	if f.Object != nil {
+		if f.Object.CustomMetadata == nil {
+			f.Object.CustomMetadata = make([]objects.CustomMetadata, 0)
+		}
+		if f.Object.Tags == nil {
+			f.Object.Tags = make([]string, 0)
+		}
 	}
 	if f.AlternateDataStreams == nil {
 		f.AlternateDataStreams = make([]AlternateDataStream, 0)

@@ -227,7 +227,10 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 		if limit == 0 {
 			limit = int64(len(dirEntry.Children))
 		}
-		objects.SortFileInfos(fileInfos, sortKeys)
+		if err := objects.SortFileInfos(fileInfos, sortKeys); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		if offset > int64(len(dirEntry.Children)) {
 			fileInfos = []objects.FileInfo{}

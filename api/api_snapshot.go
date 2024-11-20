@@ -3,10 +3,13 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
+	"syscall"
 
+	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -73,7 +76,11 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 
 	_, err = io.Copy(w, rd)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		// Connection closed by client
+		if errors.Is(err, syscall.EPIPE) {
+			return
+		}
+		logger.Error("Failed to copy data: %s", err)
 		return
 	}
 }
@@ -220,7 +227,10 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 		if limit == 0 {
 			limit = int64(len(dirEntry.Children))
 		}
-		objects.SortFileInfos(fileInfos, sortKeys)
+		if err := objects.SortFileInfos(fileInfos, sortKeys); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		if offset > int64(len(dirEntry.Children)) {
 			fileInfos = []objects.FileInfo{}

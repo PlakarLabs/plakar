@@ -25,6 +25,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -289,7 +290,28 @@ type ReleaseUpdateSummary struct {
 	ReliabilityFix bool
 }
 
-func CheckUpdate() (update ReleaseUpdateSummary, err error) {
+func shouldCheckUpdate(cachedir string) bool {
+	cookie := path.Join(cachedir, "last-update-check")
+	cutoff := time.Now().Add(-24 * time.Hour)
+
+	sb, err := os.Stat(cookie)
+	if err == nil && sb.ModTime().After(cutoff) {
+		return false
+	}
+
+	file, err := os.Create(cookie)
+	if err != nil {
+		file.Close()
+	}
+
+	return true
+}
+
+func CheckUpdate(cachedir string) (update ReleaseUpdateSummary, err error) {
+	if !shouldCheckUpdate(cachedir) {
+		return
+	}
+
 	req, err := http.NewRequest("GET", "https://plakar.io/api/releases.atom", nil)
 	if err != nil {
 		return

@@ -58,6 +58,8 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	lrepository.RebuildState()
+
 	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

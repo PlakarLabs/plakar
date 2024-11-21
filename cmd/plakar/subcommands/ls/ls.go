@@ -77,7 +77,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 			}
 		}
 		if !useUuid {
-			fmt.Fprintf(os.Stdout, "%s%10s%10s%10s %s\n",
+			fmt.Fprintf(os.Stdout, "%s %10s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				hex.EncodeToString(metadata.GetIndexShortID()),
 				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),
@@ -85,7 +85,7 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 				metadata.Importer.Directory)
 		} else {
 			indexID := metadata.GetIndexID()
-			fmt.Fprintf(os.Stdout, "%s%38s%10s%10s %s\n",
+			fmt.Fprintf(os.Stdout, "%s %3s%10s%10s %s\n",
 				metadata.CreationTime.UTC().Format(time.RFC3339),
 				hex.EncodeToString(indexID[:]),
 				humanize.Bytes(metadata.Summary.Directory.Size+metadata.Summary.Below.Size),

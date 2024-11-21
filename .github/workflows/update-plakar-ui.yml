@@ -1,0 +1,66 @@
+name: Update Plakar UI
+
+on:
+  workflow_dispatch:
+    inputs:
+      plakar-ui-ref:
+        description: "Git ref for plakar-ui (branch, tag, or commit SHA)"
+        required: true
+        default: "main"
+      plakar-branch:
+        description: "Target branch for plakar PR"
+        required: true
+        default: "main"
+
+jobs:
+  update-ui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout plakar-ui
+        uses: actions/checkout@v4
+        with:
+          repository: PlakarKorp/plakar-ui
+          ssh-key: ${{ secrets.PLAKAR_UI_SSH_KEY }}
+          path: ./plakar-ui
+          ref: ${{ github.event.inputs.plakar-ui-ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: ./plakar-ui
+
+      - name: Build plakar-ui
+        run: |
+          cd ./plakar-ui
+          npm install
+          npm run build
+
+      - name: Checkout plakar
+        uses: actions/checkout@v4
+        with:
+          repository: PlakarKorp/plakar
+          ref: ${{ github.event.inputs.plakar-branch }}
+          path: ./plakar
+
+      - name: Copy dist to plakar
+        run: |
+          rm -rf -- ./plakar/ui/v2/frontend
+          mkdir -p ./plakar/ui/v2/frontend
+          cp -r ./plakar-ui/dist/* ./plakar/ui/v2/frontend/
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          path: ./plakar
+          base: ${{ github.event.inputs.plakar-branch }}
+          branch: update-plakar-ui/from-${{ github.event.inputs.plakar-ui-ref }}
+          delete-branch: true
+          author: "Plakup <noreply@plakar.io>"
+          committer: "Plakup <noreply@plakar.io>"
+          title: "Update Plakar UI from ${{ github.event.inputs.plakar-ui-ref }}"
+          body: |
+            Update plakar-ui frontend from ${{ github.event.inputs.plakar-ui-ref }}
+          commit-message: |
+            Update plakar-ui frontend from ${{ github.event.inputs.plakar-ui-ref }}

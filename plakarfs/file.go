@@ -32,16 +32,17 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 		return err
 	}
 	if fi, ok := fi.(*vfs.FileEntry); !ok {
-		return fmt.Errorf("not a file")
+		panic(fmt.Sprintf("unexpected type %T", fi))
 	} else {
+		a.Rdev = uint32(fi.Stat().Dev())
 		a.Inode = fi.Stat().Ino()
 		a.Mode = fi.Stat().Mode()
 		a.Uid = uint32(fi.Stat().Uid())
 		a.Gid = uint32(fi.Stat().Gid())
 		a.Ctime = fi.Stat().ModTime()
 		a.Mtime = fi.Stat().ModTime()
-		a.Atime = fi.Stat().ModTime()
 		a.Size = uint64(fi.Stat().Size())
+		a.Nlink = uint32(fi.Stat().Nlink())
 	}
 	return nil
 }

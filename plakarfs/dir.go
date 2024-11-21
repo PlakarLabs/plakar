@@ -27,7 +27,7 @@ type Dir struct {
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	if d.name == "/" {
-		d.fullpath = "/"
+		d.fullpath = d.name
 		a.Inode = 1
 		a.Mode = os.ModeDir | 0o700
 		a.Uid = uint32(os.Geteuid())
@@ -35,10 +35,10 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	} else if d.parent.name == "/" {
 		snapshotID, err := hex.DecodeString(d.name)
 		if err != nil {
-			return err
+			panic(fmt.Sprintf("invalid snapshot id %x", snapshotID))
 		}
 		if len(snapshotID) != 32 {
-			return fmt.Errorf("invalid snapshot ID")
+			panic(fmt.Sprintf("invalid snapshot id length %d", len(snapshotID)))
 		}
 		snap, err := snapshot.Load(d.repo, objects.Checksum(snapshotID))
 		if err != nil {
@@ -76,18 +76,17 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 		}
 
 		if fi, ok := fi.(*vfs.DirEntry); !ok {
-			return fmt.Errorf("not a directory")
+			panic(fmt.Sprintf("unexpected type %T", fi))
 		} else {
+			a.Rdev = uint32(fi.Stat().Dev())
 			a.Inode = fi.Stat().Ino()
 			a.Mode = fi.Stat().Mode()
 			a.Uid = uint32(fi.Stat().Uid())
 			a.Gid = uint32(fi.Stat().Gid())
 			a.Ctime = fi.Stat().ModTime()
 			a.Mtime = fi.Stat().ModTime()
-			a.Atime = fi.Stat().ModTime()
 			a.Size = uint64(fi.Stat().Size())
 		}
-
 	}
 	return nil
 }

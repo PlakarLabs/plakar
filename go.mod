@@ -16,7 +16,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.0
-	github.com/jacobsa/fuse v0.0.0-20230624161425-b8484ee15dad
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a

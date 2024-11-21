@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"syscall"
 
@@ -251,6 +252,120 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 		}
 		for i, child := range childEntries {
 			items.Items[i] = child
+		}
+		json.NewEncoder(w).Encode(items)
+	}
+}
+
+func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	snapshotIDstr := vars["snapshot"]
+	path := vars["path"]
+
+	var err error
+	var offset int64
+	var limit int64
+
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+
+	sortKeysStr := r.URL.Query().Get("sort")
+	if sortKeysStr == "" {
+		sortKeysStr = "Name"
+	}
+	if sortKeysStr != "Name" && sortKeysStr != "-Name" {
+		http.Error(w, "Invalid sort key", http.StatusBadRequest)
+		return
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if offset < 0 {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+	if limitStr != "" {
+		limit, err = strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
+
+	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(snapshotID) != 32 {
+		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		return
+	}
+	snapshotID32 := [32]byte{}
+	copy(snapshotID32[:], snapshotID)
+
+	snap, err := snapshot.Load(lrepository, snapshotID32)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if path == "" {
+		path = "/"
+	}
+	fsinfo, err := fs.Stat(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
+		http.Error(w, "not a directory", http.StatusBadRequest)
+		return
+	} else {
+		errors := make([]vfs.ErrorEntry, 0, len(dirEntry.Errors))
+		errors = append(errors, dirEntry.Errors...)
+		if limit == 0 {
+			limit = int64(len(errors))
+		}
+
+		if sortKeysStr == "Name" {
+			sort.Slice(errors, func(i, j int) bool {
+				return errors[i].Filename < errors[j].Filename
+			})
+		} else if sortKeysStr == "-Name" {
+			sort.Slice(errors, func(i, j int) bool {
+				return errors[i].Filename > errors[j].Filename
+			})
+		}
+
+		if offset > int64(len(dirEntry.Children)) {
+			errors = []vfs.ErrorEntry{}
+		} else if offset+limit > int64(len(dirEntry.Children)) {
+			errors = errors[offset:]
+		} else {
+			errors = errors[offset : offset+limit]
+		}
+
+		items := Items{
+			Total: len(dirEntry.Errors),
+			Items: make([]interface{}, len(errors)),
+		}
+		for i, ee := range errors {
+			items.Items[i] = ee
 		}
 		json.NewEncoder(w).Encode(items)
 	}

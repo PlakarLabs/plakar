@@ -289,10 +289,10 @@ type ReleaseUpdateSummary struct {
 	ReliabilityFix bool
 }
 
-func CheckUpdate() (ReleaseUpdateSummary, error) {
+func CheckUpdate() (update ReleaseUpdateSummary, err error) {
 	req, err := http.NewRequest("GET", "https://plakar.io/api/releases.atom", nil)
 	if err != nil {
-		return ReleaseUpdateSummary{}, err
+		return
 	}
 
 	req.Header.Set("User-Agent", fmt.Sprintf("plakar/%s (%s/%s)", VERSION, runtime.GOOS, runtime.GOARCH))
@@ -300,50 +300,44 @@ func CheckUpdate() (ReleaseUpdateSummary, error) {
 	client := http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return ReleaseUpdateSummary{}, err
+		return
 	}
 	defer res.Body.Close()
 
 	var feed []atom.Feed
 	err = xml.NewDecoder(res.Body).Decode(&feed)
 	if err != nil {
-		return ReleaseUpdateSummary{}, err
+		return
 	}
 
-	found := false
-	foundCount := 0
 	var latestEntry *atom.Entry
-	sawSecurityFix := false
-	sawReliabilityFix := false
 	for _, entry := range feed[0].Entry {
 		if !semver.IsValid(entry.Title) {
 			continue
 		}
-		if semver.Compare(VERSION, entry.Title) < 0 {
-			found = true
-			foundCount++
-			if latestEntry == nil {
-				latestEntry = entry
-			} else {
-				if semver.Compare(latestEntry.Title, entry.Title) < 0 {
-					latestEntry = entry
-				}
-			}
-			if latestEntry.Content != nil {
-				if strings.Contains(latestEntry.Content.Body, "SECURITY") {
-					sawSecurityFix = true
-				}
-				if strings.Contains(latestEntry.Content.Body, "RELIABILITY") {
-					sawReliabilityFix = true
-				}
-			}
+		if semver.Compare(VERSION, entry.Title) >= 0 {
+			continue
+		}
+
+		update.FoundCount++
+
+		if latestEntry == nil || semver.Compare(latestEntry.Title, entry.Title) < 0 {
+			latestEntry = entry
+		}
+
+		if latestEntry.Content == nil {
+			continue
+		}
+
+		body := latestEntry.Content.Body
+		if strings.Contains(body, "SECURITY") {
+			update.SecurityFix = true
+		}
+		if strings.Contains(body, "RELIABILITY") {
+			update.ReliabilityFix = true
 		}
 	}
-	if !found {
-		return ReleaseUpdateSummary{FoundCount: 0, Latest: VERSION}, nil
-	} else {
-		return ReleaseUpdateSummary{FoundCount: foundCount, Latest: latestEntry.Title, SecurityFix: sawSecurityFix, ReliabilityFix: sawReliabilityFix}, nil
-	}
+	return
 }
 
 func PathIsWithin(pathname string, within string) bool {

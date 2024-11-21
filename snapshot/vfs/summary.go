@@ -1,12 +1,17 @@
 package vfs
 
-import "github.com/PlakarKorp/plakar/snapshot/importer"
+import (
+	"io/fs"
+
+	"github.com/PlakarKorp/plakar/snapshot/importer"
+)
 
 type FileSummary struct {
 	Type        importer.RecordType `msgpack:"type"`
 	Size        uint64              `msgpack:"size"`
 	Objects     uint64              `msgpack:"objects"`
 	Chunks      uint64              `msgpack:"chunks"`
+	Mode        fs.FileMode         `msgpack:"mode"`
 	ModTime     int64               `msgpack:"modTime"`
 	ContentType string              `msgpack:"contentType"`
 	Entropy     float64             `msgpack:"entropy"`
@@ -19,6 +24,10 @@ type Directory struct {
 	Devices     uint64 `msgpack:"devices,omitempty"`  // Total number of devices in the directory
 	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
 	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
+
+	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
+	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
+	Sticky uint64 `msgpack:"sticky,omitempty"` // Total number of sticky files in the directory
 
 	Objects uint64 `msgpack:"objects,omitempty"` // Total number of objects in the directory
 	Chunks  uint64 `msgpack:"chunks,omitempty"`  // Total number of chunks across all files
@@ -54,6 +63,10 @@ type Below struct {
 	Devices     uint64 `msgpack:"devices,omitempty"`  // Total number of devices in the directory
 	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
 	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
+
+	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
+	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
+	Sticky uint64 `msgpack:"sticky,omitempty"` // Total number of sticky files in the directory
 
 	Objects uint64 `msgpack:"objects,omitempty"` // Total number of objects in the directory
 	Chunks  uint64 `msgpack:"chunks,omitempty"`  // Total number of chunks across all files

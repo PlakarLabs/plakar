@@ -654,6 +654,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				fileSummary := &vfs.FileSummary{
 					Type:    importer.RecordTypeFile,
 					Size:    uint64(record.FileInfo.Size()),
+					Mode:    record.FileInfo.Mode(),
 					ModTime: record.FileInfo.ModTime().Unix(),
 				}
 				if object != nil {
@@ -722,6 +723,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Summary.Below.Devices += childStatistics.Below.Devices + childStatistics.Directory.Devices
 				dirEntry.Summary.Below.Pipes += childStatistics.Below.Pipes + childStatistics.Directory.Pipes
 				dirEntry.Summary.Below.Sockets += childStatistics.Below.Sockets + childStatistics.Directory.Sockets
+
+				dirEntry.Summary.Below.Setuid += childStatistics.Below.Setuid + childStatistics.Directory.Setuid
+				dirEntry.Summary.Below.Setgid += childStatistics.Below.Setgid + childStatistics.Directory.Setgid
+				dirEntry.Summary.Below.Sticky += childStatistics.Below.Sticky + childStatistics.Directory.Sticky
+
 				dirEntry.Summary.Below.Objects += childStatistics.Below.Objects + childStatistics.Directory.Objects
 				dirEntry.Summary.Below.Chunks += childStatistics.Below.Chunks + childStatistics.Directory.Chunks
 
@@ -799,6 +805,16 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					dirEntry.Summary.Directory.Sockets++
 				default:
 					panic("unexpected record type")
+				}
+
+				if fileSummary.Mode&os.ModeSetuid != 0 {
+					dirEntry.Summary.Directory.Setuid++
+				}
+				if fileSummary.Mode&os.ModeSetgid != 0 {
+					dirEntry.Summary.Directory.Setgid++
+				}
+				if fileSummary.Mode&os.ModeSticky != 0 {
+					dirEntry.Summary.Directory.Sticky++
 				}
 
 				if fileSummary.Objects > 0 {

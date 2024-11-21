@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/PlakarLabs/go-cdc-chunkers v0.0.7
 	github.com/alecthomas/chroma v0.10.0
+	github.com/anacrolix/fuse v0.4.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/charmbracelet/log v0.4.0
@@ -13,8 +14,8 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.2
 	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.0
-	github.com/iafan/cwalk v0.0.0-20210125030640-586a8832a711
 	github.com/jacobsa/fuse v0.0.0-20230624161425-b8484ee15dad
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/minio/minio-go/v7 v7.0.61
@@ -43,7 +44,6 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect

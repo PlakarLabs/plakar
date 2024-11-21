@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/repository"
@@ -72,7 +73,7 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 
 		fi, err := d.vfs.Stat(d.fullpath)
 		if err != nil {
-			return err
+			return syscall.ENOENT
 		}
 
 		if fi, ok := fi.(*vfs.DirEntry); !ok {

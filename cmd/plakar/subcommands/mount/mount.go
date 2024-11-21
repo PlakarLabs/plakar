@@ -57,6 +57,7 @@ func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string)
 		log.Fatalf("Mount: %v", err)
 	}
 	defer c.Close()
+	logger.Info("mounted repository %s at %s", repo.Location(), mountpoint)
 
 	err = fs.Serve(c, plakarfs.NewFS(repo, mountpoint))
 	if err != nil {

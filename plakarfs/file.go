@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"syscall"
 
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -29,7 +30,7 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 	fi, err := f.vfs.Stat(f.fullpath)
 	if err != nil {
-		return err
+		return syscall.ENOENT
 	}
 	if fi, ok := fi.(*vfs.FileEntry); !ok {
 		panic(fmt.Sprintf("unexpected type %T", fi))

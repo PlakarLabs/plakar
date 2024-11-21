@@ -20,7 +20,6 @@
 package mount
 
 import (
-	goctx "context"
 	"flag"
 	"log"
 
@@ -29,7 +28,8 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/plakarfs"
 	"github.com/PlakarKorp/plakar/repository"
-	"github.com/jacobsa/fuse"
+	"github.com/anacrolix/fuse"
+	"github.com/anacrolix/fuse/fs"
 )
 
 func init() {
@@ -47,25 +47,24 @@ func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string)
 
 	mountpoint := flags.Arg(0)
 
-	// Create an appropriate file system.
-	server, err := plakarfs.NewPlakarFS(repo, mountpoint)
-	if err != nil {
-		log.Fatalf("makeFS: %v", err)
-	}
-
-	cfg := &fuse.MountConfig{
-		ReadOnly: true,
-	}
-
-	mfs, err := fuse.Mount(mountpoint, server, cfg)
+	c, err := fuse.Mount(
+		mountpoint,
+		fuse.FSName("plakar"),
+		fuse.Subtype("plakarfs"),
+		fuse.LocalVolume(),
+	)
 	if err != nil {
 		log.Fatalf("Mount: %v", err)
 	}
+	defer c.Close()
 
-	// Wait for it to be unmounted.
-	if err = mfs.Join(goctx.Background()); err != nil {
-		log.Fatalf("Join: %v", err)
+	err = fs.Serve(c, plakarfs.NewFS(repo, mountpoint))
+	if err != nil {
+		log.Fatalf("Serve: %v", err)
 	}
-
+	<-c.Ready
+	if err := c.MountError; err != nil {
+		log.Fatalf("Mount: %v", err)
+	}
 	return 0
 }

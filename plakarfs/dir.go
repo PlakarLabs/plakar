@@ -35,10 +35,10 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 	} else if d.parent.name == "/" {
 		snapshotID, err := hex.DecodeString(d.name)
 		if err != nil {
-			panic(fmt.Sprintf("invalid snapshot id %x", snapshotID))
+			return err
 		}
 		if len(snapshotID) != 32 {
-			panic(fmt.Sprintf("invalid snapshot id length %d", len(snapshotID)))
+			return fmt.Errorf("invalid snapshot id length %d", len(snapshotID))
 		}
 		snap, err := snapshot.Load(d.repo, objects.Checksum(snapshotID))
 		if err != nil {

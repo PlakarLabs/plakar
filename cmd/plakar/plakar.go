@@ -142,7 +142,7 @@ func entryPoint() int {
 	ctx.SetCacheDir(cacheDir)
 
 	// best effort check if security or reliability fix have been issued
-	if rus, err := utils.CheckUpdate(); err == nil {
+	if rus, err := utils.CheckUpdate(ctx.GetCacheDir()); err == nil {
 		if rus.SecurityFix || rus.ReliabilityFix {
 			concerns := ""
 			if rus.SecurityFix {

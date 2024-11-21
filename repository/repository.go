@@ -52,13 +52,13 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 		configuration: store.Configuration(),
 		secret:        secret,
 	}
-	if err := r.rebuildState(); err != nil {
+	if err := r.RebuildState(); err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (r *Repository) rebuildState() error {
+func (r *Repository) RebuildState() error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.rebuildState", time.Since(t0))

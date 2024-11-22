@@ -82,68 +82,6 @@ func TestNewFromBytesError(t *testing.T) {
 	}
 }
 
-func TestSetAndGetPackfileForChunk(t *testing.T) {
-	st := New()
-
-	packfileChecksum := [32]byte{1, 1, 1}
-	chunkChecksum := [32]byte{2, 2, 2}
-	offset := uint32(500)
-	length := uint32(1000)
-
-	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
-
-	pf, exists := st.GetPackfileForChunk(chunkChecksum)
-	if !exists {
-		t.Fatalf("Expected packfile for chunk %v to exist", chunkChecksum)
-	}
-	if pf != packfileChecksum {
-		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
-	}
-
-	exists = st.ChunkExists(chunkChecksum)
-	if !exists {
-		t.Errorf("Expected ChunkExists to return true for %v", chunkChecksum)
-	}
-
-	// Test non-existing chunk
-	nonExisting := [32]byte{3, 3, 3}
-	exists = st.ChunkExists(nonExisting)
-	if exists {
-		t.Errorf("Expected ChunkExists to return false for %v", nonExisting)
-	}
-}
-
-func TestSetAndGetPackfileForObject(t *testing.T) {
-	st := New()
-
-	packfileChecksum := [32]byte{4, 4, 4}
-	objectChecksum := [32]byte{5, 5, 5}
-	offset := uint32(1500)
-	length := uint32(2000)
-
-	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
-
-	pf, exists := st.GetPackfileForObject(objectChecksum)
-	if !exists {
-		t.Fatalf("Expected packfile for object %v to exist", objectChecksum)
-	}
-	if pf != packfileChecksum {
-		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
-	}
-
-	exists = st.ObjectExists(objectChecksum)
-	if !exists {
-		t.Errorf("Expected ObjectExists to return true for %v", objectChecksum)
-	}
-
-	// Test non-existing object
-	nonExisting := [32]byte{6, 6, 6}
-	exists = st.ObjectExists(nonExisting)
-	if exists {
-		t.Errorf("Expected ObjectExists to return false for %v", nonExisting)
-	}
-}
-
 func TestMerge(t *testing.T) {
 	st1 := New()
 	st2 := New()

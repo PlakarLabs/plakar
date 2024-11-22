@@ -185,72 +185,65 @@ func (st *State) Extends(stateID objects.Checksum) {
 	st.Metadata.Extends = append(st.Metadata.Extends, stateID)
 }
 
+func (st *State) mergeLocationMaps(blobType packfile.BlobType, deltaState *State) {
+	var mapPtr *map[uint64]Location
+	switch blobType {
+	case packfile.TYPE_SNAPSHOT:
+		deltaState.muSnapshots.Lock()
+		defer deltaState.muSnapshots.Unlock()
+		mapPtr = &deltaState.Snapshots
+	case packfile.TYPE_CHUNK:
+		deltaState.muChunks.Lock()
+		defer deltaState.muChunks.Unlock()
+		mapPtr = &deltaState.Chunks
+	case packfile.TYPE_OBJECT:
+		deltaState.muObjects.Lock()
+		defer deltaState.muObjects.Unlock()
+		mapPtr = &deltaState.Objects
+	case packfile.TYPE_FILE:
+		deltaState.muFiles.Lock()
+		defer deltaState.muFiles.Unlock()
+		mapPtr = &deltaState.Files
+	case packfile.TYPE_DIRECTORY:
+		deltaState.muDirectories.Lock()
+		defer deltaState.muDirectories.Unlock()
+		mapPtr = &deltaState.Directories
+	case packfile.TYPE_DATA:
+		deltaState.muDatas.Lock()
+		defer deltaState.muDatas.Unlock()
+		mapPtr = &deltaState.Datas
+	case packfile.TYPE_SIGNATURE:
+		deltaState.muSignatures.Lock()
+		defer deltaState.muSignatures.Unlock()
+		mapPtr = &deltaState.Signatures
+	case packfile.TYPE_ERROR:
+		deltaState.muErrors.Lock()
+		defer deltaState.muErrors.Unlock()
+		mapPtr = &deltaState.Errors
+	default:
+		panic("invalid blob type")
+	}
+
+	for deltaBlobChecksumID, subpart := range *mapPtr {
+		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
+		deltaChunkChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
+		st.SetPackfileForBlob(blobType, packfileChecksum, deltaChunkChecksum,
+			subpart.Offset,
+			subpart.Length,
+		)
+	}
+}
+
 func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
-	deltaState.muChunks.Lock()
-	for deltaChunkChecksumID, subpart := range deltaState.Chunks {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaChunkChecksum := deltaState.IdToChecksum[deltaChunkChecksumID]
-		st.SetPackfileForChunk(packfileChecksum, deltaChunkChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muChunks.Unlock()
-
-	deltaState.muObjects.Lock()
-	for deltaObjectChecksumID, subpart := range deltaState.Objects {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaObjectChecksum := deltaState.IdToChecksum[deltaObjectChecksumID]
-		st.SetPackfileForObject(packfileChecksum, deltaObjectChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muObjects.Unlock()
-
-	deltaState.muFiles.Lock()
-	for deltaFileChecksumID, subpart := range deltaState.Files {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaFileChecksum := deltaState.IdToChecksum[deltaFileChecksumID]
-		st.SetPackfileForFile(packfileChecksum, deltaFileChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muFiles.Unlock()
-
-	deltaState.muDirectories.Lock()
-	for deltaDirectoryChecksumID, subpart := range deltaState.Directories {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaDirectoryChecksum := deltaState.IdToChecksum[deltaDirectoryChecksumID]
-		st.SetPackfileForDirectory(packfileChecksum, deltaDirectoryChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muDirectories.Unlock()
-
-	deltaState.muDatas.Lock()
-	for deltaBlobChecksumID, subpart := range deltaState.Datas {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
-		st.SetPackfileForData(packfileChecksum, deltaBlobChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muDatas.Unlock()
-
-	deltaState.muSnapshots.Lock()
-	for deltaSnapshotID, subpart := range deltaState.Snapshots {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaSnapshotID := deltaState.IdToChecksum[deltaSnapshotID]
-		st.SetPackfileForSnapshot(packfileChecksum, deltaSnapshotID,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muSnapshots.Unlock()
+	st.mergeLocationMaps(packfile.TYPE_CHUNK, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_OBJECT, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_DIRECTORY, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_DATA, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_SNAPSHOT, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_SIGNATURE, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_ERROR, deltaState)
 
 	deltaState.muDeletedSnapshots.Lock()
 	for originalSnapshotID, tm := range deltaState.DeletedSnapshots {
@@ -259,31 +252,9 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 		st.DeletedSnapshots[snapshotID] = tm
 	}
 	deltaState.muDeletedSnapshots.Unlock()
-
-	deltaState.muSignatures.Lock()
-	for deltaBlobChecksumID, subpart := range deltaState.Signatures {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
-		st.SetPackfileForSignature(packfileChecksum, deltaBlobChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muSignatures.Unlock()
-
-	deltaState.muErrors.Lock()
-	for deltaBlobChecksumID, subpart := range deltaState.Errors {
-		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
-		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
-		st.SetPackfileForError(packfileChecksum, deltaBlobChecksum,
-			subpart.Offset,
-			subpart.Length,
-		)
-	}
-	deltaState.muErrors.Unlock()
 }
 
-func (st *State) GetPackfileFor(blobType packfile.BlobType, blobChecksum objects.Checksum) (objects.Checksum, bool) {
+func (st *State) GetSubpartForBlob(blobType packfile.BlobType, blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	var mapPtr *map[uint64]Location
@@ -325,260 +296,121 @@ func (st *State) GetPackfileFor(blobType packfile.BlobType, blobChecksum objects
 	}
 
 	if blob, exists := (*mapPtr)[blobID]; !exists {
-		return objects.Checksum{}, false
+		return objects.Checksum{}, 0, 0, false
 	} else {
 		st.muChecksum.Lock()
 		packfileChecksum := st.IdToChecksum[blob.Packfile]
 		st.muChecksum.Unlock()
-		return packfileChecksum, true
+		return packfileChecksum, blob.Offset, blob.Length, true
 	}
 }
 
-func (st *State) GetPackfileForChunk(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_CHUNK, blobChecksum)
+func (st *State) GetSubpartForChunk(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_CHUNK, blobChecksum)
 }
 
-func (st *State) GetPackfileForObject(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_CHUNK, blobChecksum)
+func (st *State) GetSubpartForObject(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_OBJECT, blobChecksum)
 }
 
-func (st *State) GetPackfileForFile(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_FILE, blobChecksum)
+func (st *State) GetSubpartForFile(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_FILE, blobChecksum)
 }
 
-func (st *State) GetPackfileForDirectory(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_DIRECTORY, blobChecksum)
+func (st *State) GetSubpartForDirectory(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_DIRECTORY, blobChecksum)
 }
 
-func (st *State) GetPackfileForData(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_DATA, blobChecksum)
+func (st *State) GetSubpartForData(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_DATA, blobChecksum)
 }
 
-func (st *State) GetPackfileForSignature(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_SIGNATURE, blobChecksum)
+func (st *State) GetSubpartForSignature(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_SIGNATURE, blobChecksum)
 }
 
-func (st *State) GetPackfileForError(blobChecksum objects.Checksum) (objects.Checksum, bool) {
-	return st.GetPackfileFor(packfile.TYPE_ERROR, blobChecksum)
+func (st *State) GetSubpartForError(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_ERROR, blobChecksum)
 }
 
-func (st *State) GetSubpartForChunk(chunkChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
+func (st *State) GetSubpartForSnapshot(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	return st.GetSubpartForBlob(packfile.TYPE_SNAPSHOT, blobChecksum)
+}
 
-	st.muChunks.Lock()
-	defer st.muChunks.Unlock()
+func (st *State) BlobExists(blobType packfile.BlobType, blobChecksum objects.Checksum) bool {
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
-	if subpart, exists := st.Chunks[chunkID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
+	var mapPtr *map[uint64]Location
+	switch blobType {
+	case packfile.TYPE_SNAPSHOT:
+		st.muSnapshots.Lock()
+		defer st.muSnapshots.Unlock()
+		mapPtr = &st.Snapshots
+	case packfile.TYPE_CHUNK:
+		st.muChunks.Lock()
+		defer st.muChunks.Unlock()
+		mapPtr = &st.Chunks
+	case packfile.TYPE_OBJECT:
+		st.muObjects.Lock()
+		defer st.muObjects.Unlock()
+		mapPtr = &st.Objects
+	case packfile.TYPE_FILE:
+		st.muFiles.Lock()
+		defer st.muFiles.Unlock()
+		mapPtr = &st.Files
+	case packfile.TYPE_DIRECTORY:
+		st.muDirectories.Lock()
+		defer st.muDirectories.Unlock()
+		mapPtr = &st.Directories
+	case packfile.TYPE_DATA:
+		st.muDatas.Lock()
+		defer st.muDatas.Unlock()
+		mapPtr = &st.Datas
+	case packfile.TYPE_SIGNATURE:
+		st.muSignatures.Lock()
+		defer st.muSignatures.Unlock()
+		mapPtr = &st.Signatures
+	case packfile.TYPE_ERROR:
+		st.muErrors.Lock()
+		defer st.muErrors.Unlock()
+		mapPtr = &st.Errors
+	default:
+		panic("invalid blob type")
 	}
-}
 
-func (st *State) GetSubpartForObject(objectChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	objectID := st.getOrCreateIdForChecksum(objectChecksum)
-
-	st.muObjects.Lock()
-	defer st.muObjects.Unlock()
-
-	if subpart, exists := st.Objects[objectID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForFile(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	fileID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muFiles.Lock()
-	defer st.muFiles.Unlock()
-
-	if subpart, exists := st.Files[fileID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForDirectory(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	directoryID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muDirectories.Lock()
-	defer st.muDirectories.Unlock()
-
-	if subpart, exists := st.Directories[directoryID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForData(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	blobID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muDatas.Lock()
-	defer st.muDatas.Unlock()
-
-	if subpart, exists := st.Datas[blobID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForSignature(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	blobID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muSignatures.Lock()
-	defer st.muSignatures.Unlock()
-
-	if subpart, exists := st.Signatures[blobID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForError(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	blobID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muErrors.Lock()
-	defer st.muErrors.Unlock()
-
-	if subpart, exists := st.Errors[blobID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) GetSubpartForSnapshot(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	blobID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muSnapshots.Lock()
-	defer st.muSnapshots.Unlock()
-
-	if subpart, exists := st.Snapshots[blobID]; !exists {
-		return objects.Checksum{}, 0, 0, false
-	} else {
-		st.muChecksum.Lock()
-		packfileChecksum := st.IdToChecksum[subpart.Packfile]
-		st.muChecksum.Unlock()
-		return packfileChecksum, subpart.Offset, subpart.Length, true
-	}
-}
-
-func (st *State) ChunkExists(chunkChecksum objects.Checksum) bool {
-	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
-
-	st.muChunks.Lock()
-	defer st.muChunks.Unlock()
-
-	if _, exists := st.Chunks[chunkID]; !exists {
+	if _, exists := (*mapPtr)[blobID]; !exists {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (st *State) ObjectExists(objectChecksum objects.Checksum) bool {
-	objectID := st.getOrCreateIdForChecksum(objectChecksum)
-
-	st.muObjects.Lock()
-	defer st.muObjects.Unlock()
-
-	if _, exists := st.Objects[objectID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) ChunkExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_CHUNK, blobChecksum)
 }
 
-func (st *State) FileExists(checksum objects.Checksum) bool {
-	checksumID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muFiles.Lock()
-	defer st.muFiles.Unlock()
-
-	if _, exists := st.Files[checksumID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) ObjectExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_OBJECT, blobChecksum)
 }
 
-func (st *State) DirectoryExists(checksum objects.Checksum) bool {
-	checksumID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muDirectories.Lock()
-	defer st.muDirectories.Unlock()
-
-	if _, exists := st.Directories[checksumID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) FileExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_FILE, blobChecksum)
 }
 
-func (st *State) DataExists(checksum objects.Checksum) bool {
-	checksumID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muDatas.Lock()
-	defer st.muDatas.Unlock()
-
-	if _, exists := st.Datas[checksumID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) DirectoryExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_DIRECTORY, blobChecksum)
 }
 
-func (st *State) SignatureExists(checksum objects.Checksum) bool {
-	checksumID := st.getOrCreateIdForChecksum(checksum)
-
-	st.muSignatures.Lock()
-	defer st.muSignatures.Unlock()
-
-	if _, exists := st.Signatures[checksumID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) DataExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_DATA, blobChecksum)
 }
 
-func (st *State) ErrorExists(checksum objects.Checksum) bool {
-	checksumID := st.getOrCreateIdForChecksum(checksum)
+func (st *State) SignatureExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_SIGNATURE, blobChecksum)
+}
 
-	st.muErrors.Lock()
-	defer st.muErrors.Unlock()
-
-	if _, exists := st.Errors[checksumID]; !exists {
-		return false
-	} else {
-		return true
-	}
+func (st *State) ErrorExists(blobChecksum objects.Checksum) bool {
+	return st.BlobExists(packfile.TYPE_ERROR, blobChecksum)
 }
 
 func (st *State) Dirty() bool {
@@ -589,148 +421,88 @@ func (st *State) ResetDirty() {
 	atomic.StoreInt32(&st.dirty, 0)
 }
 
-func (st *State) SetPackfileForChunk(packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForBlob(blobType packfile.BlobType, packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	chunkID := st.getOrCreateIdForChecksum(chunkChecksum)
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
-	st.muChunks.Lock()
-	if _, exists := st.Chunks[chunkID]; !exists {
-		st.Chunks[chunkID] = Location{
+	var mapPtr *map[uint64]Location
+	switch blobType {
+	case packfile.TYPE_SNAPSHOT:
+		st.muSnapshots.Lock()
+		defer st.muSnapshots.Unlock()
+		mapPtr = &st.Snapshots
+	case packfile.TYPE_CHUNK:
+		st.muChunks.Lock()
+		defer st.muChunks.Unlock()
+		mapPtr = &st.Chunks
+	case packfile.TYPE_OBJECT:
+		st.muObjects.Lock()
+		defer st.muObjects.Unlock()
+		mapPtr = &st.Objects
+	case packfile.TYPE_FILE:
+		st.muFiles.Lock()
+		defer st.muFiles.Unlock()
+		mapPtr = &st.Files
+	case packfile.TYPE_DIRECTORY:
+		st.muDirectories.Lock()
+		defer st.muDirectories.Unlock()
+		mapPtr = &st.Directories
+	case packfile.TYPE_DATA:
+		st.muDatas.Lock()
+		defer st.muDatas.Unlock()
+		mapPtr = &st.Datas
+	case packfile.TYPE_SIGNATURE:
+		st.muSignatures.Lock()
+		defer st.muSignatures.Unlock()
+		mapPtr = &st.Signatures
+	case packfile.TYPE_ERROR:
+		st.muErrors.Lock()
+		defer st.muErrors.Unlock()
+		mapPtr = &st.Errors
+	default:
+		panic("invalid blob type")
+	}
+
+	if _, exists := (*mapPtr)[blobID]; !exists {
+		(*mapPtr)[blobID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,
 		}
-		st.muChunks.Unlock()
 		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muChunks.Unlock()
 	}
 }
 
-func (st *State) SetPackfileForObject(packfileChecksum objects.Checksum, objectChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	objectID := st.getOrCreateIdForChecksum(objectChecksum)
-
-	st.muObjects.Lock()
-	if _, exists := st.Objects[objectID]; !exists {
-		st.Objects[objectID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muObjects.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muObjects.Unlock()
-	}
+func (st *State) SetPackfileForChunk(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
-func (st *State) SetPackfileForFile(packfileChecksum objects.Checksum, fileChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	fileID := st.getOrCreateIdForChecksum(fileChecksum)
-
-	st.muFiles.Lock()
-	if _, exists := st.Files[fileID]; !exists {
-		st.Files[fileID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muFiles.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muFiles.Unlock()
-	}
+func (st *State) SetPackfileForObject(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	st.SetPackfileForBlob(packfile.TYPE_OBJECT, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
-func (st *State) SetPackfileForDirectory(packfileChecksum objects.Checksum, directoryChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	directoryID := st.getOrCreateIdForChecksum(directoryChecksum)
+func (st *State) SetPackfileForFile(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	st.SetPackfileForBlob(packfile.TYPE_FILE, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
+}
 
-	st.muDirectories.Lock()
-	if _, exists := st.Directories[directoryID]; !exists {
-		st.Directories[directoryID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muDirectories.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muDirectories.Unlock()
-	}
+func (st *State) SetPackfileForDirectory(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	st.SetPackfileForBlob(packfile.TYPE_DIRECTORY, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
 func (st *State) SetPackfileForData(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	blobID := st.getOrCreateIdForChecksum(blobChecksum)
-
-	st.muDatas.Lock()
-	if _, exists := st.Datas[blobID]; !exists {
-		st.Datas[blobID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muDatas.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muDatas.Unlock()
-	}
+	st.SetPackfileForBlob(packfile.TYPE_DATA, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
 func (st *State) SetPackfileForSignature(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	blobID := st.getOrCreateIdForChecksum(blobChecksum)
-
-	st.muSignatures.Lock()
-	if _, exists := st.Signatures[blobID]; !exists {
-		st.Signatures[blobID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muSignatures.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muSignatures.Unlock()
-	}
+	st.SetPackfileForBlob(packfile.TYPE_SIGNATURE, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
 func (st *State) SetPackfileForError(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	blobID := st.getOrCreateIdForChecksum(blobChecksum)
-
-	st.muSignatures.Lock()
-	if _, exists := st.Errors[blobID]; !exists {
-		st.Errors[blobID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muSignatures.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muSignatures.Unlock()
-	}
+	st.SetPackfileForBlob(packfile.TYPE_ERROR, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
 func (st *State) SetPackfileForSnapshot(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
-	blobID := st.getOrCreateIdForChecksum(blobChecksum)
-
-	st.muSnapshots.Lock()
-	if _, exists := st.Snapshots[blobID]; !exists {
-		st.Snapshots[blobID] = Location{
-			Packfile: packfileID,
-			Offset:   packfileOffset,
-			Length:   chunkLength,
-		}
-		st.muSnapshots.Unlock()
-		atomic.StoreInt32(&st.dirty, 1)
-	} else {
-		st.muSnapshots.Unlock()
-	}
+	st.SetPackfileForBlob(packfile.TYPE_SNAPSHOT, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
 }
 
 func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
@@ -752,6 +524,55 @@ func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
 
 	atomic.StoreInt32(&st.dirty, 1)
 	return nil
+}
+
+func (st *State) ListBlobs(blobType packfile.BlobType) <-chan objects.Checksum {
+	ch := make(chan objects.Checksum)
+	go func() {
+		var mapPtr *map[uint64]Location
+		var mtx *sync.Mutex
+		switch blobType {
+		case packfile.TYPE_SNAPSHOT:
+			mtx = &st.muSnapshots
+			mapPtr = &st.Snapshots
+		case packfile.TYPE_CHUNK:
+			mtx = &st.muChunks
+			mapPtr = &st.Chunks
+		case packfile.TYPE_OBJECT:
+			mtx = &st.muObjects
+			mapPtr = &st.Objects
+		case packfile.TYPE_FILE:
+			mtx = &st.muFiles
+			mapPtr = &st.Files
+		case packfile.TYPE_DIRECTORY:
+			mtx = &st.muDirectories
+			mapPtr = &st.Directories
+		case packfile.TYPE_DATA:
+			mtx = &st.muDatas
+			mapPtr = &st.Datas
+		case packfile.TYPE_SIGNATURE:
+			mtx = &st.muSignatures
+			mapPtr = &st.Signatures
+		case packfile.TYPE_ERROR:
+			mtx = &st.muErrors
+			mapPtr = &st.Errors
+		default:
+			panic("invalid blob type")
+		}
+
+		blobsList := make([]objects.Checksum, 0)
+		mtx.Lock()
+		for k := range *mapPtr {
+			blobsList = append(blobsList, st.IdToChecksum[k])
+		}
+		mtx.Unlock()
+
+		for _, checksum := range blobsList {
+			ch <- checksum
+		}
+		close(ch)
+	}()
+	return ch
 }
 
 func (st *State) ListSnapshots() <-chan objects.Checksum {
@@ -778,55 +599,13 @@ func (st *State) ListSnapshots() <-chan objects.Checksum {
 }
 
 func (st *State) ListChunks() <-chan objects.Checksum {
-	ch := make(chan objects.Checksum)
-	go func() {
-		chunksList := make([]objects.Checksum, 0)
-		st.muChunks.Lock()
-		for k := range st.Chunks {
-			chunksList = append(chunksList, st.IdToChecksum[k])
-		}
-		st.muChunks.Unlock()
-
-		for _, checksum := range chunksList {
-			ch <- checksum
-		}
-		close(ch)
-	}()
-	return ch
+	return st.ListBlobs(packfile.TYPE_CHUNK)
 }
 
 func (st *State) ListObjects() <-chan objects.Checksum {
-	ch := make(chan objects.Checksum)
-	go func() {
-		objectsList := make([]objects.Checksum, 0)
-		st.muObjects.Lock()
-		for k := range st.Objects {
-			objectsList = append(objectsList, st.IdToChecksum[k])
-		}
-		st.muObjects.Unlock()
-
-		for _, checksum := range objectsList {
-			ch <- checksum
-		}
-		close(ch)
-	}()
-	return ch
+	return st.ListBlobs(packfile.TYPE_OBJECT)
 }
 
 func (st *State) ListSignatures() <-chan objects.Checksum {
-	ch := make(chan objects.Checksum)
-	go func() {
-		signatureList := make([]objects.Checksum, 0)
-		st.muSignatures.Lock()
-		for k := range st.Signatures {
-			signatureList = append(signatureList, st.IdToChecksum[k])
-		}
-		st.muSignatures.Unlock()
-
-		for _, checksum := range signatureList {
-			ch <- checksum
-		}
-		close(ch)
-	}()
-	return ch
+	return st.ListBlobs(packfile.TYPE_SIGNATURE)
 }

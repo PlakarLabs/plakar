@@ -8,6 +8,7 @@ service Importer {
   rpc Info(InfoRequest) returns (InfoResponse);
   rpc Scan(ScanRequest) returns (stream ScanResponse);
   rpc Read(ReadRequest) returns (stream ReadResponse);
+  rpc ReadLocal(ReadRequest) returns (ReadLocalResponse);
 }
 
 message InfoRequest {
@@ -78,4 +79,8 @@ message ReadRequest {
 
 message ReadResponse {
   bytes data = 1;
+}
+
+message ReadLocalResponse {
+  string pipe = 1;
 }

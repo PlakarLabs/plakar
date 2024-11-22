@@ -578,9 +578,9 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			fmt.Printf("Child[%d].FileInfo.Nlink(): %d\n", offset, child.Stat().Nlink())
 		}
 
-		for offset, errentry := range dirEntry.Errors {
-			fmt.Printf("Error[%d]: %s: %s\n", offset, errentry.Filename, errentry.Error)
-		}
+		//for offset, errentry := range dirEntry.Errors {
+		//	fmt.Printf("Error[%d]: %s: %s\n", offset, errentry.Name, errentry.Error)
+		//}
 
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile {
 		fmt.Printf("[FileEntry]\n")

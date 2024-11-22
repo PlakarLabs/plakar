@@ -39,8 +39,9 @@ type scanCache struct {
 }
 
 type ErrorEntry struct {
-	Pathname string `msgpack:"pathname"`
-	Error    string `msgpack:"error"`
+	Predecessor objects.Checksum `msgpack:"predecessor"`
+	Pathname    string           `msgpack:"pathname"`
+	Error       string           `msgpack:"error"`
 }
 
 type BackupContext struct {
@@ -876,12 +877,67 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			dirEntry.Summary.Directory.AvgSize = dirSize / uint64(nFiles)
 		}
 
-		// process errors
+		var firstErrorChecksum *objects.Checksum
+		var lastErrorChecksum *objects.Checksum
+		var predecessorChecksum *objects.Checksum
+		var lastEntry *vfs.ErrorEntry
+
 		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname); err == nil {
 			for entry := range errc {
-				dirEntry.AddError(filepath.Base(entry.Pathname), entry.Error)
 				dirEntry.Summary.Directory.Errors++
+
+				errorEntry := &vfs.ErrorEntry{Name: filepath.Base(entry.Pathname), Error: entry.Error}
+				errorEntrySerialized, err := errorEntry.ToBytes()
+				if err != nil {
+					continue
+				}
+
+				currentChecksum := snap.repository.Checksum(errorEntrySerialized)
+
+				// Set predecessor for the current entry
+				if predecessorChecksum != nil {
+					errorEntry.Predecessor = predecessorChecksum
+				}
+
+				// Update first and last error checksums
+				if firstErrorChecksum == nil {
+					firstErrorChecksum = &currentChecksum
+				}
+				lastErrorChecksum = &currentChecksum
+
+				// Set the Successor for the previous entry
+				if lastEntry != nil {
+					lastEntry.Successor = &currentChecksum
+					updatedLastSerialized, err := lastEntry.ToBytes()
+					if err == nil {
+						if !snap.CheckError(*predecessorChecksum) {
+							snap.PutError(*predecessorChecksum, updatedLastSerialized) // Save the updated last entry
+						}
+					}
+				}
+
+				// Save the current entry
+				snap.PutError(currentChecksum, errorEntrySerialized)
+
+				// Update the state for the next iteration
+				predecessorChecksum = &currentChecksum
+				lastEntry = errorEntry // Update lastEntry to the current entry
 			}
+
+			// Handle the last entry after the loop (it has no successor)
+			if lastEntry != nil {
+				lastEntry.Successor = nil // Explicitly set no successor
+				finalSerialized, err := lastEntry.ToBytes()
+				if err == nil {
+					if !snap.CheckError(*predecessorChecksum) {
+						snap.PutError(*predecessorChecksum, finalSerialized)
+					}
+				}
+			}
+
+			// Set first and last error checksums in the directory entry
+			dirEntry.ErrorFirst = firstErrorChecksum
+			dirEntry.ErrorLast = lastErrorChecksum
 		}
 
 		serialized, err := dirEntry.Serialize()

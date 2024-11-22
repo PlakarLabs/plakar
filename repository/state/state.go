@@ -67,11 +67,14 @@ type State struct {
 	muSnapshots sync.Mutex
 	Snapshots   map[uint64]Location
 
-	muDeletedSnapshots sync.Mutex
-	DeletedSnapshots   map[uint64]time.Time
-
 	muSignatures sync.Mutex
 	Signatures   map[uint64]Location
+
+	muErrors sync.Mutex
+	Errors   map[uint64]Location
+
+	muDeletedSnapshots sync.Mutex
+	DeletedSnapshots   map[uint64]time.Time
 
 	Metadata Metadata
 
@@ -89,6 +92,7 @@ func New() *State {
 		Datas:            make(map[uint64]Location),
 		Snapshots:        make(map[uint64]Location),
 		Signatures:       make(map[uint64]Location),
+		Errors:           make(map[uint64]Location),
 		DeletedSnapshots: make(map[uint64]time.Time),
 		Metadata: Metadata{
 			Version:      VERSION,
@@ -264,7 +268,17 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 			subpart.Length,
 		)
 	}
-	deltaState.muSignatures.Unlock()
+
+	deltaState.muErrors.Lock()
+	for deltaBlobChecksumID, subpart := range deltaState.Errors {
+		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
+		deltaBlobChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
+		st.SetPackfileForError(packfileChecksum, deltaBlobChecksum,
+			subpart.Offset,
+			subpart.Length,
+		)
+	}
+	deltaState.muErrors.Unlock()
 }
 
 func (st *State) GetPackfileForChunk(chunkChecksum objects.Checksum) (objects.Checksum, bool) {
@@ -354,6 +368,22 @@ func (st *State) GetPackfileForSignature(blobChecksum objects.Checksum) (objects
 	defer st.muSignatures.Unlock()
 
 	if subpart, exists := st.Signatures[blobID]; !exists {
+		return objects.Checksum{}, false
+	} else {
+		st.muChecksum.Lock()
+		packfileChecksum := st.IdToChecksum[subpart.Packfile]
+		st.muChecksum.Unlock()
+		return packfileChecksum, true
+	}
+}
+
+func (st *State) GetPackfileForError(blobChecksum objects.Checksum) (objects.Checksum, bool) {
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
+
+	st.muErrors.Lock()
+	defer st.muErrors.Unlock()
+
+	if subpart, exists := st.Errors[blobID]; !exists {
 		return objects.Checksum{}, false
 	} else {
 		st.muChecksum.Lock()
@@ -459,6 +489,22 @@ func (st *State) GetSubpartForSignature(checksum objects.Checksum) (objects.Chec
 	}
 }
 
+func (st *State) GetSubpartForError(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+	blobID := st.getOrCreateIdForChecksum(checksum)
+
+	st.muErrors.Lock()
+	defer st.muErrors.Unlock()
+
+	if subpart, exists := st.Errors[blobID]; !exists {
+		return objects.Checksum{}, 0, 0, false
+	} else {
+		st.muChecksum.Lock()
+		packfileChecksum := st.IdToChecksum[subpart.Packfile]
+		st.muChecksum.Unlock()
+		return packfileChecksum, subpart.Offset, subpart.Length, true
+	}
+}
+
 func (st *State) GetSubpartForSnapshot(checksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(checksum)
 
@@ -547,6 +593,19 @@ func (st *State) SignatureExists(checksum objects.Checksum) bool {
 	defer st.muSignatures.Unlock()
 
 	if _, exists := st.Signatures[checksumID]; !exists {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (st *State) ErrorExists(checksum objects.Checksum) bool {
+	checksumID := st.getOrCreateIdForChecksum(checksum)
+
+	st.muErrors.Lock()
+	defer st.muErrors.Unlock()
+
+	if _, exists := st.Errors[checksumID]; !exists {
 		return false
 	} else {
 		return true
@@ -658,6 +717,24 @@ func (st *State) SetPackfileForSignature(packfileChecksum objects.Checksum, blob
 	st.muSignatures.Lock()
 	if _, exists := st.Signatures[blobID]; !exists {
 		st.Signatures[blobID] = Location{
+			Packfile: packfileID,
+			Offset:   packfileOffset,
+			Length:   chunkLength,
+		}
+		st.muSignatures.Unlock()
+		atomic.StoreInt32(&st.dirty, 1)
+	} else {
+		st.muSignatures.Unlock()
+	}
+}
+
+func (st *State) SetPackfileForError(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
+	blobID := st.getOrCreateIdForChecksum(blobChecksum)
+
+	st.muSignatures.Lock()
+	if _, exists := st.Errors[blobID]; !exists {
+		st.Errors[blobID] = Location{
 			Packfile: packfileID,
 			Offset:   packfileOffset,
 			Length:   chunkLength,

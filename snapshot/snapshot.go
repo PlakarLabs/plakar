@@ -81,6 +81,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				var directories map[[32]byte]struct{}
 				var datas map[[32]byte]struct{}
 				var signatures map[[32]byte]struct{}
+				var errors map[[32]byte]struct{}
 
 				for msg := range snapshot.packerChan {
 					if pack == nil {
@@ -92,7 +93,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						directories = make(map[[32]byte]struct{})
 						datas = make(map[[32]byte]struct{})
 						signatures = make(map[[32]byte]struct{})
-
+						errors = make(map[[32]byte]struct{})
 					}
 
 					if msg, ok := msg.(*PackerMsg); !ok {
@@ -115,6 +116,8 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 							datas[msg.Checksum] = struct{}{}
 						case packfile.TYPE_SIGNATURE:
 							signatures[msg.Checksum] = struct{}{}
+						case packfile.TYPE_ERROR:
+							errors[msg.Checksum] = struct{}{}
 						default:
 							panic("received msg with unexpected blob type")
 						}
@@ -149,7 +152,11 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						for signatureChecksum := range signatures {
 							signaturesList = append(signaturesList, signatureChecksum)
 						}
-						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
+						errorsList := make([][32]byte, len(errors))
+						for errorChecksum := range errors {
+							errorsList = append(errorsList, errorChecksum)
+						}
+						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
 						if err != nil {
 							panic(err)
 						}
@@ -186,7 +193,11 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					for signatureChecksum := range signatures {
 						signaturesList = append(signaturesList, signatureChecksum)
 					}
-					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
+					errorsList := make([][32]byte, len(errors))
+					for errorChecksum := range errors {
+						errorsList = append(errorsList, errorChecksum)
+					}
+					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
 					if err != nil {
 						panic(err)
 					}
@@ -260,6 +271,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 				var directories map[[32]byte]struct{}
 				var datas map[[32]byte]struct{}
 				var signatures map[[32]byte]struct{}
+				var errors map[[32]byte]struct{}
 
 				for msg := range snap.packerChan {
 					if pack == nil {
@@ -271,6 +283,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						directories = make(map[[32]byte]struct{})
 						datas = make(map[[32]byte]struct{})
 						signatures = make(map[[32]byte]struct{})
+						errors = make(map[[32]byte]struct{})
 					}
 
 					if msg, ok := msg.(*PackerMsg); !ok {
@@ -293,6 +306,8 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 							datas[msg.Checksum] = struct{}{}
 						case packfile.TYPE_SIGNATURE:
 							signatures[msg.Checksum] = struct{}{}
+						case packfile.TYPE_ERROR:
+							errors[msg.Checksum] = struct{}{}
 						default:
 							panic("received msg with unexpected blob type")
 						}
@@ -327,7 +342,11 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 						for signatureChecksum := range signatures {
 							signaturesList = append(signaturesList, signatureChecksum)
 						}
-						err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
+						errorsList := make([][32]byte, len(errors))
+						for errorChecksum := range errors {
+							errorsList = append(errorsList, errorChecksum)
+						}
+						err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
 						if err != nil {
 							panic(err)
 						}
@@ -364,7 +383,11 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 					for signatureChecksum := range signatures {
 						signaturesList = append(signaturesList, signatureChecksum)
 					}
-					err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, snapshotHeadersList)
+					errorsList := make([][32]byte, len(errors))
+					for errorChecksum := range errors {
+						errorsList = append(errorsList, errorChecksum)
+					}
+					err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
 					if err != nil {
 						panic(err)
 					}
@@ -470,6 +493,22 @@ func (snap *Snapshot) PutSignature(checksum [32]byte, data []byte) error {
 	return nil
 }
 
+func (snap *Snapshot) PutError(checksum [32]byte, data []byte) error {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.PutError", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: PutError(%064x)", snap.Header.GetIndexShortID(), checksum)
+
+	encoded, err := snap.repository.Encode(data)
+	if err != nil {
+		return err
+	}
+
+	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_ERROR, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	return nil
+}
+
 func (snap *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
@@ -568,7 +607,7 @@ func (snap *Snapshot) PutDirectory(checksum [32]byte, data []byte) error {
 	return nil
 }
 
-func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, signatures [][32]byte, snapshots [][32]byte) error {
+func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, signatures [][32]byte, errors [][32]byte, snapshots [][32]byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
@@ -722,6 +761,22 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 		}
 	}
 
+	for _, errorChecksum := range errors {
+		for idx, blob := range pack.Index {
+			if blob.Checksum == errorChecksum && blob.Type == packfile.TYPE_ERROR {
+				snap.Repository().SetPackfileForError(checksum32,
+					errorChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				snap.stateDelta.SetPackfileForError(checksum32,
+					errorChecksum,
+					pack.Index[idx].Offset,
+					pack.Index[idx].Length)
+				break
+			}
+		}
+	}
+
 	for _, snapshotID := range snapshots {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == snapshotID && blob.Type == packfile.TYPE_SNAPSHOT {
@@ -788,6 +843,26 @@ func (snapshot *Snapshot) GetDirectory(checksum [32]byte) ([]byte, error) {
 	logger.Trace("snapshot", "%x: GetDirectory(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
 	rd, _, err := snapshot.repository.GetDirectory(checksum)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer, err := io.ReadAll(rd)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer, nil
+}
+
+func (snapshot *Snapshot) GetError(checksum [32]byte) ([]byte, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.GetError", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: GetError(%x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	rd, _, err := snapshot.repository.GetError(checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -905,6 +980,17 @@ func (snapshot *Snapshot) Commit() error {
 
 	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
 	return nil
+}
+
+func (snapshot *Snapshot) CheckError(checksum [32]byte) bool {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("snapshot.CheckError", time.Since(t0))
+	}()
+	logger.Trace("snapshot", "%x: CheckError(%064x)", snapshot.Header.GetIndexShortID(), checksum)
+
+	return snapshot.Repository().ErrorExists(checksum)
+
 }
 
 func (snapshot *Snapshot) GetData(checksum [32]byte) ([]byte, error) {

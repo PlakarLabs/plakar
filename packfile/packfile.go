@@ -22,6 +22,7 @@ const (
 	TYPE_DIRECTORY = 4
 	TYPE_DATA      = 5
 	TYPE_SIGNATURE = 6
+	TYPE_ERROR     = 7
 )
 
 type Blob struct {
@@ -47,6 +48,8 @@ func (b Blob) TypeName() string {
 		return "data"
 	case TYPE_SIGNATURE:
 		return "signature"
+	case TYPE_ERROR:
+		return "error"
 	default:
 		return "unknown"
 	}

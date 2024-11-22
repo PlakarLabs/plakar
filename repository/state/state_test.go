@@ -2,6 +2,8 @@ package state
 
 import (
 	"testing"
+
+	"github.com/PlakarKorp/plakar/packfile"
 )
 
 func TestNew(t *testing.T) {
@@ -143,7 +145,7 @@ func TestGetSubpartForChunk(t *testing.T) {
 
 	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
 
-	pf, off, len_, exists := st.GetSubpartForChunk(chunkChecksum)
+	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_CHUNK, chunkChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for chunk %v to exist", chunkChecksum)
 	}
@@ -159,7 +161,7 @@ func TestGetSubpartForChunk(t *testing.T) {
 
 	// Test non-existing chunk
 	nonExisting := [32]byte{7, 8, 9}
-	_, _, _, exists = st.GetSubpartForChunk(nonExisting)
+	_, _, _, exists = st.GetSubpartForBlob(packfile.TYPE_CHUNK, nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForChunk to return false for %v", nonExisting)
 	}
@@ -175,7 +177,7 @@ func TestGetSubpartForObject(t *testing.T) {
 
 	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
 
-	pf, off, len_, exists := st.GetSubpartForObject(objectChecksum)
+	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_OBJECT, objectChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for object %v to exist", objectChecksum)
 	}
@@ -191,7 +193,7 @@ func TestGetSubpartForObject(t *testing.T) {
 
 	// Test non-existing object
 	nonExisting := [32]byte{16, 17, 18}
-	_, _, _, exists = st.GetSubpartForObject(nonExisting)
+	_, _, _, exists = st.GetSubpartForBlob(packfile.TYPE_OBJECT, nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForObject to return false for %v", nonExisting)
 	}

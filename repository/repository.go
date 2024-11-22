@@ -15,6 +15,7 @@ import (
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/repository/cache"
 	"github.com/PlakarKorp/plakar/repository/state"
@@ -456,7 +457,7 @@ func (r *Repository) GetChunk(checksum objects.Checksum) (io.Reader, uint64, err
 		logger.Trace("repository", "GetChunk(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForChunk(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_CHUNK, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -476,7 +477,7 @@ func (r *Repository) GetObject(checksum objects.Checksum) (io.Reader, uint64, er
 		logger.Trace("repository", "GetObject(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForObject(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_OBJECT, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -496,7 +497,7 @@ func (r *Repository) GetFile(checksum objects.Checksum) (io.Reader, uint64, erro
 		logger.Trace("repository", "GetFile(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForFile(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_FILE, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -516,7 +517,7 @@ func (r *Repository) GetDirectory(checksum objects.Checksum) (io.Reader, uint64,
 		logger.Trace("repository", "GetDirectory(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForDirectory(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_DIRECTORY, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -536,7 +537,7 @@ func (r *Repository) GetError(checksum objects.Checksum) (io.Reader, uint64, err
 		logger.Trace("repository", "GetError(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForError(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_ERROR, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -556,7 +557,7 @@ func (r *Repository) GetData(checksum objects.Checksum) (io.Reader, uint64, erro
 		logger.Trace("repository", "GetData(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForData(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_DATA, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -576,7 +577,7 @@ func (r *Repository) GetSignature(checksum objects.Checksum) (io.Reader, uint64,
 		logger.Trace("repository", "GetSignature(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForSignature(checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_SIGNATURE, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -596,7 +597,7 @@ func (r *Repository) GetSnapshot(snapshotID objects.Checksum) (io.Reader, uint64
 		logger.Trace("repository", "GetSnapshot(%x): %s", snapshotID, time.Since(t0))
 	}()
 
-	packfile, offset, length, exists := r.state.GetSubpartForSnapshot(snapshotID)
+	packfile, offset, length, exists := r.state.GetSubpartForBlob(packfile.TYPE_SNAPSHOT, snapshotID)
 	if !exists {
 		return nil, 0, fmt.Errorf("snapshot not found")
 	}
@@ -616,7 +617,7 @@ func (r *Repository) ChunkExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "ChunkExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.ChunkExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_CHUNK, checksum)
 }
 
 func (r *Repository) ObjectExists(checksum objects.Checksum) bool {
@@ -626,7 +627,7 @@ func (r *Repository) ObjectExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "ObjectExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.ObjectExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_OBJECT, checksum)
 }
 
 func (r *Repository) FileExists(checksum objects.Checksum) bool {
@@ -636,7 +637,7 @@ func (r *Repository) FileExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "ObjectExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.FileExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_FILE, checksum)
 }
 
 func (r *Repository) DirectoryExists(checksum objects.Checksum) bool {
@@ -646,7 +647,7 @@ func (r *Repository) DirectoryExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "DirectoryExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.DirectoryExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_DIRECTORY, checksum)
 }
 
 func (r *Repository) DataExists(checksum objects.Checksum) bool {
@@ -656,7 +657,8 @@ func (r *Repository) DataExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "DataExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.DataExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_DATA, checksum)
+
 }
 
 func (r *Repository) ErrorExists(checksum objects.Checksum) bool {
@@ -666,7 +668,8 @@ func (r *Repository) ErrorExists(checksum objects.Checksum) bool {
 		logger.Trace("repository", "ErrorExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.ErrorExists(checksum)
+	return r.state.BlobExists(packfile.TYPE_ERROR, checksum)
+
 }
 
 func (r *Repository) ListSnapshots() <-chan objects.Checksum {

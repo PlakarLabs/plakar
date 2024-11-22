@@ -305,38 +305,6 @@ func (st *State) GetSubpartForBlob(blobType packfile.BlobType, blobChecksum obje
 	}
 }
 
-func (st *State) GetSubpartForChunk(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_CHUNK, blobChecksum)
-}
-
-func (st *State) GetSubpartForObject(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_OBJECT, blobChecksum)
-}
-
-func (st *State) GetSubpartForFile(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_FILE, blobChecksum)
-}
-
-func (st *State) GetSubpartForDirectory(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_DIRECTORY, blobChecksum)
-}
-
-func (st *State) GetSubpartForData(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_DATA, blobChecksum)
-}
-
-func (st *State) GetSubpartForSignature(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_SIGNATURE, blobChecksum)
-}
-
-func (st *State) GetSubpartForError(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_ERROR, blobChecksum)
-}
-
-func (st *State) GetSubpartForSnapshot(blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
-	return st.GetSubpartForBlob(packfile.TYPE_SNAPSHOT, blobChecksum)
-}
-
 func (st *State) BlobExists(blobType packfile.BlobType, blobChecksum objects.Checksum) bool {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
@@ -383,34 +351,6 @@ func (st *State) BlobExists(blobType packfile.BlobType, blobChecksum objects.Che
 	} else {
 		return true
 	}
-}
-
-func (st *State) ChunkExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_CHUNK, blobChecksum)
-}
-
-func (st *State) ObjectExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_OBJECT, blobChecksum)
-}
-
-func (st *State) FileExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_FILE, blobChecksum)
-}
-
-func (st *State) DirectoryExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_DIRECTORY, blobChecksum)
-}
-
-func (st *State) DataExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_DATA, blobChecksum)
-}
-
-func (st *State) SignatureExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_SIGNATURE, blobChecksum)
-}
-
-func (st *State) ErrorExists(blobChecksum objects.Checksum) bool {
-	return st.BlobExists(packfile.TYPE_ERROR, blobChecksum)
 }
 
 func (st *State) Dirty() bool {

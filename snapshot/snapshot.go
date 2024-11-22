@@ -43,7 +43,7 @@ type Snapshot struct {
 
 type PackerMsg struct {
 	Timestamp time.Time
-	Type      uint8
+	Type      packfile.BlobType
 	Checksum  [32]byte
 	Data      []byte
 }

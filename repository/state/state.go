@@ -268,6 +268,7 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 			subpart.Length,
 		)
 	}
+	deltaState.muSignatures.Unlock()
 
 	deltaState.muErrors.Lock()
 	for deltaBlobChecksumID, subpart := range deltaState.Errors {

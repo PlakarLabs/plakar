@@ -343,7 +343,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 
 			if sortKeysStr == "Name" {
 				iter := dirEntry.ErrorFirst
-				for i := 0; i < int(limit+offset) && iter != nil; i++ {
+				for i := int64(0); i < limit+offset && iter != nil; i++ {
 					errorEntryBytes, err := snap.GetError(*iter)
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -357,7 +357,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 					}
 					iter = errorEntry.Successor
 
-					if i < int(offset) {
+					if i < offset {
 						continue
 					}
 

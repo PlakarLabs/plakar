@@ -529,6 +529,26 @@ func (r *Repository) GetDirectory(checksum objects.Checksum) (io.Reader, uint64,
 	return rd, uint64(len), nil
 }
 
+func (r *Repository) GetError(checksum objects.Checksum) (io.Reader, uint64, error) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.GetError", time.Since(t0))
+		logger.Trace("repository", "GetError(%x): %s", checksum, time.Since(t0))
+	}()
+
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForError(checksum)
+	if !exists {
+		return nil, 0, fmt.Errorf("packfile not found")
+	}
+
+	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return rd, uint64(len), nil
+}
+
 func (r *Repository) GetData(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
@@ -639,6 +659,16 @@ func (r *Repository) DataExists(checksum objects.Checksum) bool {
 	return r.state.DataExists(checksum)
 }
 
+func (r *Repository) ErrorExists(checksum objects.Checksum) bool {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.ErrorExists", time.Since(t0))
+		logger.Trace("repository", "ErrorExists(%x): %s", checksum, time.Since(t0))
+	}()
+
+	return r.state.ErrorExists(checksum)
+}
+
 func (r *Repository) ListSnapshots() <-chan objects.Checksum {
 	t0 := time.Now()
 	defer func() {
@@ -706,6 +736,16 @@ func (r *Repository) SetPackfileForSignature(packfileChecksum objects.Checksum, 
 	}()
 
 	r.state.SetPackfileForSignature(packfileChecksum, signatureChecksum, offset, length)
+}
+
+func (r *Repository) SetPackfileForError(packfileChecksum objects.Checksum, signatureChecksum objects.Checksum, offset uint32, length uint32) {
+	t0 := time.Now()
+	defer func() {
+		profiler.RecordEvent("repository.SetPackfileForError", time.Since(t0))
+		logger.Trace("repository", "SetPackfileForError(%x, %x, %d, %d): %s", packfileChecksum, signatureChecksum, offset, length, time.Since(t0))
+	}()
+
+	r.state.SetPackfileForError(packfileChecksum, signatureChecksum, offset, length)
 }
 
 func (r *Repository) SetPackfileForSnapshot(packfileChecksum objects.Checksum, snapshotID objects.Checksum, offset uint32, length uint32) {

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"sort"
 	"strconv"
 	"syscall"
 
@@ -336,36 +335,61 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not a directory", http.StatusBadRequest)
 		return
 	} else {
-		errors := make([]vfs.ErrorEntry, 0, len(dirEntry.Errors))
-		errors = append(errors, dirEntry.Errors...)
-		if limit == 0 {
-			limit = int64(len(errors))
-		}
-
-		if sortKeysStr == "Name" {
-			sort.Slice(errors, func(i, j int) bool {
-				return errors[i].Filename < errors[j].Filename
-			})
-		} else if sortKeysStr == "-Name" {
-			sort.Slice(errors, func(i, j int) bool {
-				return errors[i].Filename > errors[j].Filename
-			})
-		}
-
-		if offset > int64(len(dirEntry.Children)) {
-			errors = []vfs.ErrorEntry{}
-		} else if offset+limit > int64(len(dirEntry.Children)) {
-			errors = errors[offset:]
-		} else {
-			errors = errors[offset : offset+limit]
-		}
-
 		items := Items{
-			Total: len(dirEntry.Errors),
-			Items: make([]interface{}, len(errors)),
+			Total: 0,
+			Items: make([]interface{}, 0),
 		}
-		for i, ee := range errors {
-			items.Items[i] = ee
+		if dirEntry.ErrorFirst != nil {
+
+			if sortKeysStr == "Name" {
+				iter := dirEntry.ErrorFirst
+				for i := int64(0); i < limit+offset && iter != nil; i++ {
+					errorEntryBytes, err := snap.GetError(*iter)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+
+					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					iter = errorEntry.Successor
+
+					if i < offset {
+						continue
+					}
+
+					items.Total += 1
+					errorEntry.Predecessor = nil
+					errorEntry.Successor = nil
+					items.Items = append(items.Items, errorEntry)
+				}
+			} else if sortKeysStr == "-Name" {
+				iter := dirEntry.ErrorLast
+				for i := int64(0); i < limit+offset && iter != nil; i++ {
+					errorEntryBytes, err := snap.GetError(*iter)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+
+					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					iter = errorEntry.Predecessor
+					if i < offset {
+						continue
+					}
+					items.Total += 1
+					errorEntry.Predecessor = nil
+					errorEntry.Successor = nil
+					items.Items = append(items.Items, errorEntry)
+				}
+			}
 		}
 		json.NewEncoder(w).Encode(items)
 	}

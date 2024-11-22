@@ -6,8 +6,8 @@ import "google/protobuf/timestamp.proto";
 
 service Importer {
   rpc Info(InfoRequest) returns (InfoResponse);
-  rpc Scan (ScanRequest) returns (stream ScanResponse);
-  rpc Read (ReadRequest) returns (stream ReadResponse);
+  rpc Scan(ScanRequest) returns (stream ScanResponse);
+  rpc Read(ReadRequest) returns (stream ReadResponse);
 }
 
 message InfoRequest {

@@ -3,7 +3,7 @@ module github.com/PlakarKorp/plakar
 go 1.23.3
 
 require (
-	github.com/PlakarKorp/go-plakar-sdk v0.0.0-20241122115520-3e838717cf28
+	github.com/PlakarKorp/go-plakar-sdk v0.0.0-20241122140317-b8d4a80b739f
 	github.com/PlakarLabs/go-cdc-chunkers v0.0.7
 	github.com/alecthomas/chroma v0.10.0
 	github.com/anacrolix/fuse v0.4.0

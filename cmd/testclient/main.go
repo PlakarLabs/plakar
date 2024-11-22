@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 
 	"github.com/PlakarKorp/go-plakar-sdk/pkg/importer"
 	"google.golang.org/grpc"
@@ -23,36 +21,26 @@ func main() {
 
 	client := importer.NewImporterClient(conn)
 
-	type_, err := client.Type(context.Background(), &importer.TypeRequest{})
+	info, err := client.Info(context.Background(), &importer.InfoRequest{})
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Importer type: %v\n", type_.Type)
+	fmt.Printf("Importer type: %v\n", info.Type)
+	fmt.Printf("Importer origin: %v\n", info.Origin)
+	fmt.Printf("Importer root: %v\n", info.Root)
 
-	origin, err := client.Origin(context.Background(), &importer.OriginRequest{})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Importer origin: %v\n", origin.Origin)
-
-	root, err := client.Root(context.Background(), &importer.RootRequest{})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Importer root: %v\n", root.Root)
-
-	scanStream, err := client.Scan(context.Background(), &importer.ScanRequest{})
-	if err != nil {
-		panic(err)
-	}
-	for {
-		resp, err := scanStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			panic(err)
-		}
-		fmt.Printf("stream=%v\n", resp)
-	}
+	// scanStream, err := client.Scan(context.Background(), &importer.ScanRequest{})
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// for {
+	// 	resp, err := scanStream.Recv()
+	// 	if err != nil {
+	// 		if errors.Is(err, io.EOF) {
+	// 			break
+	// 		}
+	// 		panic(err)
+	// 	}
+	// 	fmt.Printf("stream=%v\n", resp)
+	// }
 }

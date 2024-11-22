@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package importer;
+
+import "google/protobuf/timestamp.proto";
+
+service Importer {
+  rpc Info(InfoRequest) returns (InfoResponse);
+  rpc Scan(ScanRequest) returns (stream ScanResponse);
+  rpc Read(ReadRequest) returns (stream ReadResponse);
+  rpc ReadLocal(ReadRequest) returns (ReadLocalResponse);
+}
+
+message InfoRequest {
+}
+
+message InfoResponse {
+  string type = 1;
+  string origin = 2;
+  string root = 3;
+}
+
+message ScanRequest {
+}
+
+message ScanResponse {
+  string pathname = 1;
+  oneof result {
+    ScanError error = 3;
+    ScanRecord record = 2;
+  }
+}
+
+message ScanError {
+  string message = 1;
+}
+
+message ScanRecord {
+  ScanRecordType type = 1;
+  string target = 2;
+  ScanRecordFileInfo fileinfo = 3;
+  repeated ScanRecordFileInfo children = 4;
+  map<string, bytes> extended_attributes = 5;
+  repeated string file_attributes = 6;
+}
+
+enum ScanRecordType {
+  SCAN_RECORD_TYPE_UNSPECIFIED = 0;
+  SCAN_RECORD_TYPE_FILE = 1;
+  SCAN_RECORD_TYPE_DIRECTORY = 2;
+  SCAN_RECORD_TYPE_SYMLINK = 3;
+  SCAN_RECORD_TYPE_DEVICE = 4;
+  SCAN_RECORD_TYPE_PIPE = 5;
+  SCAN_RECORD_TYPE_SOCKET = 6;
+}
+
+message ScanRecordFileInfo {
+  string name = 1;
+  int64 size = 2;
+  uint32 mode = 3;
+  google.protobuf.Timestamp mod_time = 4;
+  uint64 dev = 5;
+  uint64 ino = 6;
+  uint64 uid = 7;
+  uint64 gid = 8;
+  uint32 nlink = 9;
+  string username = 10;
+  string groupname = 11;
+}
+
+message ScanResponseError {
+  string name = 1;
+  int64 size = 3;
+}
+
+message ReadRequest {
+  string pathname = 1;
+}
+
+message ReadResponse {
+  bytes data = 1;
+}
+
+message ReadLocalResponse {
+  string pipe = 1;
+}

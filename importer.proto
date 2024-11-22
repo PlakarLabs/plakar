@@ -62,7 +62,7 @@ message ScanRecordFileInfo {
   uint64 ino = 6;
   uint64 uid = 7;
   uint64 gid = 8;
-  uint16 nlink = 9;
+  uint32 nlink = 9;
   string username = 10;
   string groupname = 11;
 }

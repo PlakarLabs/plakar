@@ -31,6 +31,7 @@ func main() {
 	fmt.Printf("Importer origin: %v\n", info.Origin)
 	fmt.Printf("Importer root: %v\n", info.Root)
 
+	// Scan FS
 	scanStream, err := client.Scan(context.Background(), &importer.ScanRequest{})
 	if err != nil {
 		panic(err)
@@ -50,5 +51,24 @@ func main() {
 		} else {
 			panic("?? unexpected response")
 		}
+	}
+
+	fmt.Printf("=========================================\n")
+
+	// Get file content
+	filename := "/Users/niluje/dev/plakar/plakar-ui/README.md"
+	data, err := client.Read(context.Background(), &importer.ReadRequest{Pathname: filename})
+	if err != nil {
+		panic(err)
+	}
+	for {
+		resp, err := data.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			panic(err)
+		}
+		fmt.Printf("%s", resp.Data)
 	}
 }

@@ -31,7 +31,7 @@ message ScanResponse {
 }
 
 message ScanError {
-  string error = 1;
+  string message = 1;
 }
 
 message ScanRecord {

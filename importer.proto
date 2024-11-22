@@ -56,7 +56,7 @@ enum ScanRecordType {
 message ScanRecordFileInfo {
   string name = 1;
   int64 size = 2;
-  int32 mode = 3;
+  uint32 mode = 3;
   google.protobuf.Timestamp mod_time = 4;
   uint64 dev = 5;
   uint64 ino = 6;

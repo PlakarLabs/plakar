@@ -43,6 +43,12 @@ func main() {
 			}
 			panic(err)
 		}
-		fmt.Printf("stream=%v\n", resp)
+		if scanError := resp.GetError(); scanError != nil {
+			fmt.Printf("[ERROR] %s: %s\n", resp.Pathname, scanError.GetMessage())
+		} else if record := resp.GetRecord(); record != nil {
+			fmt.Printf("[OK] %s: %v\n", resp.Pathname, record.Type)
+		} else {
+			panic("?? unexpected response")
+		}
 	}
 }

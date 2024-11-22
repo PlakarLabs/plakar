@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/PlakarKorp/go-plakar-sdk/pkg/importer"
 	"google.golang.org/grpc"
@@ -29,18 +31,18 @@ func main() {
 	fmt.Printf("Importer origin: %v\n", info.Origin)
 	fmt.Printf("Importer root: %v\n", info.Root)
 
-	// scanStream, err := client.Scan(context.Background(), &importer.ScanRequest{})
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// for {
-	// 	resp, err := scanStream.Recv()
-	// 	if err != nil {
-	// 		if errors.Is(err, io.EOF) {
-	// 			break
-	// 		}
-	// 		panic(err)
-	// 	}
-	// 	fmt.Printf("stream=%v\n", resp)
-	// }
+	scanStream, err := client.Scan(context.Background(), &importer.ScanRequest{})
+	if err != nil {
+		panic(err)
+	}
+	for {
+		resp, err := scanStream.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			panic(err)
+		}
+		fmt.Printf("stream=%v\n", resp)
+	}
 }

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package importer;
+
+service Importer {
+  rpc Type (TypeRequest) returns (TypeResponse);
+  rpc Origin (OriginRequest) returns (OriginResponse);
+  rpc Root(RootRequest) returns (RootResponse);
+  rpc Scan (ScanRequest) returns (stream ScanResponse);
+  rpc Read (ReadRequest) returns (stream ReadResponse);
+}
+
+message TypeRequest {
+}
+
+message TypeResponse {
+  string type = 1;
+}
+
+message OriginRequest {
+}
+
+message OriginResponse {
+  string origin = 1;
+}
+
+message RootRequest {
+}
+
+message RootResponse {
+  string root = 1;
+}
+
+message ScanRequest {
+}
+
+message ScanResponse {
+  string name = 1;
+  uint32 mode = 2;
+  int64 size = 3;
+}
+
+message ReadRequest {
+  string pathname = 1;
+}
+
+message ReadResponse {
+  bytes data = 1;
+}

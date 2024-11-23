@@ -444,7 +444,7 @@ func info_object(repo *repository.Repository, objectID string) error {
 	var byteArray [32]byte
 	copy(byteArray[:], b)
 
-	rd, _, err := repo.GetObject(byteArray)
+	rd, _, err := repo.GetBlob(packfile.TYPE_OBJECT, byteArray)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -2,6 +2,8 @@ package state
 
 import (
 	"testing"
+
+	"github.com/PlakarKorp/plakar/packfile"
 )
 
 func TestNew(t *testing.T) {
@@ -31,8 +33,8 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		Length: 400,
 	}
 
-	st.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
-	st.SetPackfileForObject(checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
+	st.SetPackfileForBlob(packfile.TYPE_OBJECT, checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
 
 	serialized, err := st.Serialize()
 	if err != nil {
@@ -82,68 +84,6 @@ func TestNewFromBytesError(t *testing.T) {
 	}
 }
 
-func TestSetAndGetPackfileForChunk(t *testing.T) {
-	st := New()
-
-	packfileChecksum := [32]byte{1, 1, 1}
-	chunkChecksum := [32]byte{2, 2, 2}
-	offset := uint32(500)
-	length := uint32(1000)
-
-	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
-
-	pf, exists := st.GetPackfileForChunk(chunkChecksum)
-	if !exists {
-		t.Fatalf("Expected packfile for chunk %v to exist", chunkChecksum)
-	}
-	if pf != packfileChecksum {
-		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
-	}
-
-	exists = st.ChunkExists(chunkChecksum)
-	if !exists {
-		t.Errorf("Expected ChunkExists to return true for %v", chunkChecksum)
-	}
-
-	// Test non-existing chunk
-	nonExisting := [32]byte{3, 3, 3}
-	exists = st.ChunkExists(nonExisting)
-	if exists {
-		t.Errorf("Expected ChunkExists to return false for %v", nonExisting)
-	}
-}
-
-func TestSetAndGetPackfileForObject(t *testing.T) {
-	st := New()
-
-	packfileChecksum := [32]byte{4, 4, 4}
-	objectChecksum := [32]byte{5, 5, 5}
-	offset := uint32(1500)
-	length := uint32(2000)
-
-	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
-
-	pf, exists := st.GetPackfileForObject(objectChecksum)
-	if !exists {
-		t.Fatalf("Expected packfile for object %v to exist", objectChecksum)
-	}
-	if pf != packfileChecksum {
-		t.Errorf("Expected packfile checksum %v, got %v", packfileChecksum, pf)
-	}
-
-	exists = st.ObjectExists(objectChecksum)
-	if !exists {
-		t.Errorf("Expected ObjectExists to return true for %v", objectChecksum)
-	}
-
-	// Test non-existing object
-	nonExisting := [32]byte{6, 6, 6}
-	exists = st.ObjectExists(nonExisting)
-	if exists {
-		t.Errorf("Expected ObjectExists to return false for %v", nonExisting)
-	}
-}
-
 func TestMerge(t *testing.T) {
 	st1 := New()
 	st2 := New()
@@ -152,12 +92,12 @@ func TestMerge(t *testing.T) {
 	checksumB := [32]byte{40, 50, 60}
 	stID := [32]byte{70, 80, 90}
 
-	st1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
-	st1.SetPackfileForObject(checksumA, checksumB, 300, 400)
+	st1.SetPackfileForBlob(packfile.TYPE_CHUNK, checksumA, checksumB, 100, 200)
+	st1.SetPackfileForBlob(packfile.TYPE_OBJECT, checksumA, checksumB, 300, 400)
 
 	newChecksum := [32]byte{11, 22, 33}
-	st2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
-	st2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
+	st2.SetPackfileForBlob(packfile.TYPE_CHUNK, checksumA, newChecksum, 500, 600)
+	st2.SetPackfileForBlob(packfile.TYPE_OBJECT, checksumA, newChecksum, 700, 800)
 
 	st1.Merge(stID, st2)
 
@@ -183,7 +123,7 @@ func TestIsDirtyAndResetDirty(t *testing.T) {
 	}
 
 	checksum := [32]byte{200, 201, 202}
-	st.SetPackfileForChunk(checksum, checksum, 300, 400)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum, checksum, 300, 400)
 
 	if !st.Dirty() {
 		t.Errorf("Expected IsDirty to be true after adding a checksum")
@@ -203,9 +143,9 @@ func TestGetSubpartForChunk(t *testing.T) {
 	offset := uint32(700)
 	length := uint32(800)
 
-	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, packfileChecksum, chunkChecksum, offset, length)
 
-	pf, off, len_, exists := st.GetSubpartForChunk(chunkChecksum)
+	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_CHUNK, chunkChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for chunk %v to exist", chunkChecksum)
 	}
@@ -221,7 +161,7 @@ func TestGetSubpartForChunk(t *testing.T) {
 
 	// Test non-existing chunk
 	nonExisting := [32]byte{7, 8, 9}
-	_, _, _, exists = st.GetSubpartForChunk(nonExisting)
+	_, _, _, exists = st.GetSubpartForBlob(packfile.TYPE_CHUNK, nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForChunk to return false for %v", nonExisting)
 	}
@@ -235,9 +175,9 @@ func TestGetSubpartForObject(t *testing.T) {
 	offset := uint32(900)
 	length := uint32(1000)
 
-	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
+	st.SetPackfileForBlob(packfile.TYPE_OBJECT, packfileChecksum, objectChecksum, offset, length)
 
-	pf, off, len_, exists := st.GetSubpartForObject(objectChecksum)
+	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_OBJECT, objectChecksum)
 	if !exists {
 		t.Fatalf("Expected subpart for object %v to exist", objectChecksum)
 	}
@@ -253,7 +193,7 @@ func TestGetSubpartForObject(t *testing.T) {
 
 	// Test non-existing object
 	nonExisting := [32]byte{16, 17, 18}
-	_, _, _, exists = st.GetSubpartForObject(nonExisting)
+	_, _, _, exists = st.GetSubpartForBlob(packfile.TYPE_OBJECT, nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForObject to return false for %v", nonExisting)
 	}

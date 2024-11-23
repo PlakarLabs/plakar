@@ -9,7 +9,7 @@ import (
 	"github.com/PlakarKorp/plakar/profiler"
 )
 
-func (snap *Snapshot) PutBlob(blobType packfile.BlobType, checksum [32]byte, data []byte) error {
+func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutBlob", time.Since(t0))
@@ -21,18 +21,18 @@ func (snap *Snapshot) PutBlob(blobType packfile.BlobType, checksum [32]byte, dat
 		return err
 	}
 
-	snap.packerChan <- &PackerMsg{Type: blobType, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	snap.packerChan <- &PackerMsg{Type: Type, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
 	return nil
 }
 
-func (snapshot *Snapshot) GetBlob(blobType packfile.BlobType, checksum [32]byte) ([]byte, error) {
+func (snapshot *Snapshot) GetBlob(Type packfile.Type, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.GetBlob", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%x: GetBlob(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	rd, _, err := snapshot.repository.GetBlob(blobType, checksum)
+	rd, _, err := snapshot.repository.GetBlob(Type, checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +45,12 @@ func (snapshot *Snapshot) GetBlob(blobType packfile.BlobType, checksum [32]byte)
 	return buffer, nil
 }
 
-func (snapshot *Snapshot) BlobExists(blobType packfile.BlobType, checksum [32]byte) bool {
+func (snapshot *Snapshot) BlobExists(Type packfile.Type, checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.CheckBlob", time.Since(t0))
 	}()
 	logger.Trace("snapshot", "%x: CheckBlob(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	return snapshot.repository.BlobExists(blobType, checksum)
+	return snapshot.repository.BlobExists(Type, checksum)
 }

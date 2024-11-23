@@ -14,28 +14,28 @@ import (
 
 const VERSION = 100
 
-type BlobType uint8
+type Type uint8
 
 const (
-	TYPE_SNAPSHOT  BlobType = 0
-	TYPE_CHUNK     BlobType = 1
-	TYPE_OBJECT    BlobType = 2
-	TYPE_FILE      BlobType = 3
-	TYPE_DIRECTORY BlobType = 4
-	TYPE_DATA      BlobType = 5
-	TYPE_SIGNATURE BlobType = 6
-	TYPE_ERROR     BlobType = 7
+	TYPE_SNAPSHOT  Type = 0
+	TYPE_CHUNK     Type = 1
+	TYPE_OBJECT    Type = 2
+	TYPE_FILE      Type = 3
+	TYPE_DIRECTORY Type = 4
+	TYPE_DATA      Type = 5
+	TYPE_SIGNATURE Type = 6
+	TYPE_ERROR     Type = 7
 )
 
 type Blob struct {
-	Type     BlobType
+	Type     Type
 	Checksum [32]byte
 	Offset   uint32
 	Length   uint32
 }
 
-func Types() []BlobType {
-	return []BlobType{TYPE_SNAPSHOT, TYPE_CHUNK, TYPE_OBJECT, TYPE_FILE, TYPE_DIRECTORY, TYPE_DATA, TYPE_SIGNATURE, TYPE_ERROR}
+func Types() []Type {
+	return []Type{TYPE_SNAPSHOT, TYPE_CHUNK, TYPE_OBJECT, TYPE_FILE, TYPE_DIRECTORY, TYPE_DATA, TYPE_SIGNATURE, TYPE_ERROR}
 }
 
 func (b Blob) TypeName() string {
@@ -139,7 +139,7 @@ func NewIndexFromBytes(serialized []byte) ([]Blob, error) {
 			return nil, err
 		}
 		index = append(index, Blob{
-			Type:     BlobType(dataType),
+			Type:     Type(dataType),
 			Checksum: checksum,
 			Offset:   chunkOffset,
 			Length:   chunkLength,
@@ -241,7 +241,7 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 			return nil, err
 		}
 		p.Index = append(p.Index, Blob{
-			Type:     BlobType(dataType),
+			Type:     Type(dataType),
 			Checksum: checksum,
 			Offset:   chunkOffset,
 			Length:   chunkLength,
@@ -428,7 +428,7 @@ func (p *PackFile) SerializeFooter() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (p *PackFile) AddBlob(dataType BlobType, checksum [32]byte, data []byte) {
+func (p *PackFile) AddBlob(dataType Type, checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("packfile.AddBlob", time.Since(t0))

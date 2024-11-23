@@ -185,9 +185,9 @@ func (st *State) Extends(stateID objects.Checksum) {
 	st.Metadata.Extends = append(st.Metadata.Extends, stateID)
 }
 
-func (st *State) mergeLocationMaps(blobType packfile.BlobType, deltaState *State) {
+func (st *State) mergeLocationMaps(Type packfile.Type, deltaState *State) {
 	var mapPtr *map[uint64]Location
-	switch blobType {
+	switch Type {
 	case packfile.TYPE_SNAPSHOT:
 		deltaState.muSnapshots.Lock()
 		defer deltaState.muSnapshots.Unlock()
@@ -227,7 +227,7 @@ func (st *State) mergeLocationMaps(blobType packfile.BlobType, deltaState *State
 	for deltaBlobChecksumID, subpart := range *mapPtr {
 		packfileChecksum := deltaState.IdToChecksum[subpart.Packfile]
 		deltaChunkChecksum := deltaState.IdToChecksum[deltaBlobChecksumID]
-		st.SetPackfileForBlob(blobType, packfileChecksum, deltaChunkChecksum,
+		st.SetPackfileForBlob(Type, packfileChecksum, deltaChunkChecksum,
 			subpart.Offset,
 			subpart.Length,
 		)
@@ -254,11 +254,11 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 	deltaState.muDeletedSnapshots.Unlock()
 }
 
-func (st *State) GetSubpartForBlob(blobType packfile.BlobType, blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
+func (st *State) GetSubpartForBlob(Type packfile.Type, blobChecksum objects.Checksum) (objects.Checksum, uint32, uint32, bool) {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	var mapPtr *map[uint64]Location
-	switch blobType {
+	switch Type {
 	case packfile.TYPE_SNAPSHOT:
 		st.muSnapshots.Lock()
 		defer st.muSnapshots.Unlock()
@@ -305,11 +305,11 @@ func (st *State) GetSubpartForBlob(blobType packfile.BlobType, blobChecksum obje
 	}
 }
 
-func (st *State) BlobExists(blobType packfile.BlobType, blobChecksum objects.Checksum) bool {
+func (st *State) BlobExists(Type packfile.Type, blobChecksum objects.Checksum) bool {
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	var mapPtr *map[uint64]Location
-	switch blobType {
+	switch Type {
 	case packfile.TYPE_SNAPSHOT:
 		st.muSnapshots.Lock()
 		defer st.muSnapshots.Unlock()
@@ -361,12 +361,12 @@ func (st *State) ResetDirty() {
 	atomic.StoreInt32(&st.dirty, 0)
 }
 
-func (st *State) SetPackfileForBlob(blobType packfile.BlobType, packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
+func (st *State) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
 	packfileID := st.getOrCreateIdForChecksum(packfileChecksum)
 	blobID := st.getOrCreateIdForChecksum(blobChecksum)
 
 	var mapPtr *map[uint64]Location
-	switch blobType {
+	switch Type {
 	case packfile.TYPE_SNAPSHOT:
 		st.muSnapshots.Lock()
 		defer st.muSnapshots.Unlock()
@@ -434,12 +434,12 @@ func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
 	return nil
 }
 
-func (st *State) ListBlobs(blobType packfile.BlobType) <-chan objects.Checksum {
+func (st *State) ListBlobs(Type packfile.Type) <-chan objects.Checksum {
 	ch := make(chan objects.Checksum)
 	go func() {
 		var mapPtr *map[uint64]Location
 		var mtx *sync.Mutex
-		switch blobType {
+		switch Type {
 		case packfile.TYPE_CHUNK:
 			mtx = &st.muChunks
 			mapPtr = &st.Chunks

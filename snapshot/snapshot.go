@@ -43,7 +43,7 @@ type Snapshot struct {
 
 type PackerMsg struct {
 	Timestamp time.Time
-	Type      packfile.BlobType
+	Type      packfile.Type
 	Checksum  [32]byte
 	Data      []byte
 }
@@ -282,15 +282,15 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	atomic.AddUint64(&snap.statistics.PackfilesTransferCount, 1)
 	atomic.AddUint64(&snap.statistics.PackfilesTransferSize, uint64(len(serializedPackfile)))
 
-	for _, blobType := range packer.BlobTypes() {
-		for blobChecksum := range packer.Blobs[blobType] {
+	for _, Type := range packer.Types() {
+		for blobChecksum := range packer.Blobs[Type] {
 			for idx, blob := range packer.Packfile.Index {
-				if blob.Checksum == blobChecksum && blob.Type == blobType {
-					snap.Repository().SetPackfileForBlob(blobType, checksum32,
+				if blob.Checksum == blobChecksum && blob.Type == Type {
+					snap.Repository().SetPackfileForBlob(Type, checksum32,
 						blobChecksum,
 						packer.Packfile.Index[idx].Offset,
 						packer.Packfile.Index[idx].Length)
-					snap.stateDelta.SetPackfileForBlob(blobType, checksum32,
+					snap.stateDelta.SetPackfileForBlob(Type, checksum32,
 						blobChecksum,
 						packer.Packfile.Index[idx].Offset,
 						packer.Packfile.Index[idx].Length)

@@ -450,14 +450,14 @@ func (r *Repository) DeletePackfile(checksum objects.Checksum) error {
 	return r.store.DeletePackfile(checksum)
 }
 
-func (r *Repository) GetBlob(blobType packfile.BlobType, checksum objects.Checksum) (io.Reader, uint64, error) {
+func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.GetBlob", time.Since(t0))
 		logger.Trace("repository", "GetBlob(%x): %s", checksum, time.Since(t0))
 	}()
 
-	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(blobType, checksum)
+	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(Type, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
 	}
@@ -470,14 +470,14 @@ func (r *Repository) GetBlob(blobType packfile.BlobType, checksum objects.Checks
 	return rd, uint64(len), nil
 }
 
-func (r *Repository) BlobExists(blobType packfile.BlobType, checksum objects.Checksum) bool {
+func (r *Repository) BlobExists(Type packfile.Type, checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.BlobExists", time.Since(t0))
 		logger.Trace("repository", "BlobExists(%x): %s", checksum, time.Since(t0))
 	}()
 
-	return r.state.BlobExists(blobType, checksum)
+	return r.state.BlobExists(Type, checksum)
 }
 
 func (r *Repository) ListSnapshots() <-chan objects.Checksum {
@@ -489,12 +489,12 @@ func (r *Repository) ListSnapshots() <-chan objects.Checksum {
 	return r.state.ListSnapshots()
 }
 
-func (r *Repository) SetPackfileForBlob(blobType packfile.BlobType, packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, offset uint32, length uint32) {
+func (r *Repository) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("repository.SetPackfileForBlob", time.Since(t0))
 		logger.Trace("repository", "SetPackfileForBlob(%x, %x, %d, %d): %s", packfileChecksum, chunkChecksum, offset, length, time.Since(t0))
 	}()
 
-	r.state.SetPackfileForBlob(blobType, packfileChecksum, chunkChecksum, offset, length)
+	r.state.SetPackfileForBlob(Type, packfileChecksum, chunkChecksum, offset, length)
 }

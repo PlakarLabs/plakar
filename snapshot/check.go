@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/PlakarKorp/plakar/events"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
@@ -59,7 +60,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 			for _, chunk := range object.Chunks {
 				snap.Event(events.ChunkEvent(snap.Header.SnapshotID, chunk.Checksum))
 				if opts.FastCheck {
-					exists := snap.CheckChunk(chunk.Checksum)
+					exists := snap.BlobExists(packfile.TYPE_CHUNK, chunk.Checksum)
 					if !exists {
 						snap.Event(events.ChunkMissingEvent(snap.Header.SnapshotID, chunk.Checksum))
 						complete = false
@@ -67,13 +68,13 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 					}
 					snap.Event(events.ChunkOKEvent(snap.Header.SnapshotID, chunk.Checksum))
 				} else {
-					exists := snap.CheckChunk(chunk.Checksum)
+					exists := snap.BlobExists(packfile.TYPE_CHUNK, chunk.Checksum)
 					if !exists {
 						snap.Event(events.ChunkMissingEvent(snap.Header.SnapshotID, chunk.Checksum))
 						complete = false
 						break
 					}
-					data, err := snap.GetChunk(chunk.Checksum)
+					data, err := snap.GetBlob(packfile.TYPE_CHUNK, chunk.Checksum)
 					if err != nil {
 						snap.Event(events.ChunkMissingEvent(snap.Header.SnapshotID, chunk.Checksum))
 						complete = false

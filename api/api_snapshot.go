@@ -11,6 +11,7 @@ import (
 
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gorilla/mux"
@@ -344,7 +345,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 			if sortKeysStr == "Name" {
 				iter := dirEntry.ErrorFirst
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
-					errorEntryBytes, err := snap.GetError(*iter)
+					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
@@ -369,7 +370,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 			} else if sortKeysStr == "-Name" {
 				iter := dirEntry.ErrorLast
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
-					errorEntryBytes, err := snap.GetError(*iter)
+					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {
 						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return

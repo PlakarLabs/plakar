@@ -413,38 +413,6 @@ func (st *State) SetPackfileForBlob(blobType packfile.BlobType, packfileChecksum
 	}
 }
 
-func (st *State) SetPackfileForChunk(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_CHUNK, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForObject(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_OBJECT, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForFile(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_FILE, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForDirectory(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_DIRECTORY, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForData(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_DATA, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForSignature(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_SIGNATURE, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForError(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_ERROR, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
-func (st *State) SetPackfileForSnapshot(packfileChecksum objects.Checksum, blobChecksum objects.Checksum, packfileOffset uint32, chunkLength uint32) {
-	st.SetPackfileForBlob(packfile.TYPE_SNAPSHOT, packfileChecksum, blobChecksum, packfileOffset, chunkLength)
-}
-
 func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
 	snapshotID := st.getOrCreateIdForChecksum(snapshotChecksum)
 
@@ -472,9 +440,6 @@ func (st *State) ListBlobs(blobType packfile.BlobType) <-chan objects.Checksum {
 		var mapPtr *map[uint64]Location
 		var mtx *sync.Mutex
 		switch blobType {
-		case packfile.TYPE_SNAPSHOT:
-			mtx = &st.muSnapshots
-			mapPtr = &st.Snapshots
 		case packfile.TYPE_CHUNK:
 			mtx = &st.muChunks
 			mapPtr = &st.Chunks
@@ -536,16 +501,4 @@ func (st *State) ListSnapshots() <-chan objects.Checksum {
 		close(ch)
 	}()
 	return ch
-}
-
-func (st *State) ListChunks() <-chan objects.Checksum {
-	return st.ListBlobs(packfile.TYPE_CHUNK)
-}
-
-func (st *State) ListObjects() <-chan objects.Checksum {
-	return st.ListBlobs(packfile.TYPE_OBJECT)
-}
-
-func (st *State) ListSignatures() <-chan objects.Checksum {
-	return st.ListBlobs(packfile.TYPE_SIGNATURE)
 }

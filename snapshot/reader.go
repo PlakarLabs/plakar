@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
@@ -40,7 +41,7 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 		}
 
 		// we have data to read from this chunk, fetch content
-		data, err := reader.snapshot.GetChunk(reader.object.Chunks[chunkOffset].Checksum)
+		data, err := reader.snapshot.GetBlob(packfile.TYPE_CHUNK, reader.object.Chunks[chunkOffset].Checksum)
 		if err != nil {
 			return -1, err
 		}

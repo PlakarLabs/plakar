@@ -33,8 +33,8 @@ func TestSerializeAndDeserialize(t *testing.T) {
 		Length: 400,
 	}
 
-	st.SetPackfileForChunk(checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
-	st.SetPackfileForObject(checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
+	st.SetPackfileForBlob(packfile.TYPE_OBJECT, checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
 
 	serialized, err := st.Serialize()
 	if err != nil {
@@ -92,12 +92,12 @@ func TestMerge(t *testing.T) {
 	checksumB := [32]byte{40, 50, 60}
 	stID := [32]byte{70, 80, 90}
 
-	st1.SetPackfileForChunk(checksumA, checksumB, 100, 200)
-	st1.SetPackfileForObject(checksumA, checksumB, 300, 400)
+	st1.SetPackfileForBlob(packfile.TYPE_CHUNK, checksumA, checksumB, 100, 200)
+	st1.SetPackfileForBlob(packfile.TYPE_OBJECT, checksumA, checksumB, 300, 400)
 
 	newChecksum := [32]byte{11, 22, 33}
-	st2.SetPackfileForChunk(checksumA, newChecksum, 500, 600)
-	st2.SetPackfileForObject(checksumA, newChecksum, 700, 800)
+	st2.SetPackfileForBlob(packfile.TYPE_CHUNK, checksumA, newChecksum, 500, 600)
+	st2.SetPackfileForBlob(packfile.TYPE_OBJECT, checksumA, newChecksum, 700, 800)
 
 	st1.Merge(stID, st2)
 
@@ -123,7 +123,7 @@ func TestIsDirtyAndResetDirty(t *testing.T) {
 	}
 
 	checksum := [32]byte{200, 201, 202}
-	st.SetPackfileForChunk(checksum, checksum, 300, 400)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum, checksum, 300, 400)
 
 	if !st.Dirty() {
 		t.Errorf("Expected IsDirty to be true after adding a checksum")
@@ -143,7 +143,7 @@ func TestGetSubpartForChunk(t *testing.T) {
 	offset := uint32(700)
 	length := uint32(800)
 
-	st.SetPackfileForChunk(packfileChecksum, chunkChecksum, offset, length)
+	st.SetPackfileForBlob(packfile.TYPE_CHUNK, packfileChecksum, chunkChecksum, offset, length)
 
 	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_CHUNK, chunkChecksum)
 	if !exists {
@@ -175,7 +175,7 @@ func TestGetSubpartForObject(t *testing.T) {
 	offset := uint32(900)
 	length := uint32(1000)
 
-	st.SetPackfileForObject(packfileChecksum, objectChecksum, offset, length)
+	st.SetPackfileForBlob(packfile.TYPE_OBJECT, packfileChecksum, objectChecksum, offset, length)
 
 	pf, off, len_, exists := st.GetSubpartForBlob(packfile.TYPE_OBJECT, objectChecksum)
 	if !exists {

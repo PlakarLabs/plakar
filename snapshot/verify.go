@@ -3,6 +3,7 @@ package snapshot
 import (
 	"crypto/ed25519"
 
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/google/uuid"
 )
 
@@ -11,7 +12,7 @@ func (snap *Snapshot) Verify() (bool, error) {
 		return false, nil
 	}
 
-	signature, err := snap.GetSignature(snap.Header.SnapshotID)
+	signature, err := snap.GetBlob(packfile.TYPE_SIGNATURE, snap.Header.SnapshotID)
 	if err != nil {
 		return false, err
 	}

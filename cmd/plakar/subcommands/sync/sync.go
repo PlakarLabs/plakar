@@ -28,6 +28,7 @@ import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/storage"
@@ -197,12 +198,12 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for chunkID := range c {
-		if !dstRepository.ChunkExists(chunkID) {
-			chunkData, err := srcSnapshot.GetChunk(chunkID)
+		if !dstRepository.BlobExists(packfile.TYPE_CHUNK, chunkID) {
+			chunkData, err := srcSnapshot.GetBlob(packfile.TYPE_CHUNK, chunkID)
 			if err != nil {
 				return err
 			}
-			dstSnapshot.PutChunk(chunkID, chunkData)
+			dstSnapshot.PutBlob(packfile.TYPE_CHUNK, chunkID, chunkData)
 		}
 	}
 
@@ -211,12 +212,12 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for objectID := range c {
-		if !dstRepository.ObjectExists(objectID) {
+		if !dstRepository.BlobExists(packfile.TYPE_OBJECT, objectID) {
 			objectData, err := srcSnapshot.GetObject(objectID)
 			if err != nil {
 				return err
 			}
-			dstSnapshot.PutObject(objectID, objectData)
+			dstSnapshot.PutBlob(packfile.TYPE_OBJECT, objectID, objectData)
 		}
 	}
 
@@ -225,12 +226,12 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for fileID := range c {
-		if !dstRepository.FileExists(fileID) {
-			fileData, err := srcSnapshot.GetFile(fileID)
+		if !dstRepository.BlobExists(packfile.TYPE_FILE, fileID) {
+			fileData, err := srcSnapshot.GetBlob(packfile.TYPE_FILE, fileID)
 			if err != nil {
 				return err
 			}
-			dstSnapshot.PutFile(fileID, fileData)
+			dstSnapshot.PutBlob(packfile.TYPE_FILE, fileID, fileData)
 		}
 	}
 
@@ -239,12 +240,12 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for directoryID := range c {
-		if !dstRepository.DirectoryExists(directoryID) {
-			directoryData, err := srcSnapshot.GetDirectory(directoryID)
+		if !dstRepository.BlobExists(packfile.TYPE_DIRECTORY, directoryID) {
+			directoryData, err := srcSnapshot.GetBlob(packfile.TYPE_DIRECTORY, directoryID)
 			if err != nil {
 				return err
 			}
-			dstSnapshot.PutDirectory(directoryID, directoryData)
+			dstSnapshot.PutBlob(packfile.TYPE_DIRECTORY, directoryID, directoryData)
 		}
 	}
 
@@ -253,12 +254,12 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 	for dataID := range c {
-		if !dstRepository.DataExists(dataID) {
-			dataData, err := srcSnapshot.GetData(dataID)
+		if !dstRepository.BlobExists(packfile.TYPE_DATA, dataID) {
+			dataData, err := srcSnapshot.GetBlob(packfile.TYPE_DATA, dataID)
 			if err != nil {
 				return err
 			}
-			dstSnapshot.PutData(dataID, dataData)
+			dstSnapshot.PutBlob(packfile.TYPE_DATA, dataID, dataData)
 		}
 	}
 

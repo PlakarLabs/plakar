@@ -415,7 +415,7 @@ func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Head
 	}()
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
 
-	rd, _, err := repo.GetSnapshot(snapshotID)
+	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, snapshotID)
 	if err != nil {
 		return nil, false, err
 	}
@@ -439,7 +439,7 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
 	}()
 
-	rd, _, err := repo.GetData(checksum)
+	rd, _, err := repo.GetBlob(packfile.TYPE_DATA, checksum)
 	if err != nil {
 		return nil, [32]byte{}, err
 	}
@@ -461,150 +461,24 @@ func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Meta
 	return md, verifyChecksum32, nil
 }
 
-func (snap *Snapshot) PutHeader(checksum [32]byte, data []byte) error {
+func (snap *Snapshot) PutBlob(blobType packfile.BlobType, checksum [32]byte, data []byte) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.PutHeader", time.Since(t0))
+		profiler.RecordEvent("snapshot.PutBlob", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%x: PutHeader(%064x)", snap.Header.GetIndexShortID(), checksum)
+	logger.Trace("snapshot", "%x: PutBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
 
 	encoded, err := snap.repository.Encode(data)
 	if err != nil {
 		return err
 	}
 
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_SNAPSHOT, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutSignature(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutSignature", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutSignature(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_SIGNATURE, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutError(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutError", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutError(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_ERROR, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutChunk(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutChunk", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutChunk(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	atomic.AddUint64(&snap.statistics.ChunksTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.ChunksTransferSize, uint64(len(data)))
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_CHUNK, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutData(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutData", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutData(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	atomic.AddUint64(&snap.statistics.DataTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.DataTransferSize, uint64(len(encoded)))
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_DATA, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
+	snap.packerChan <- &PackerMsg{Type: blobType, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
 	return nil
 }
 
 func (snapshot *Snapshot) Repository() *repository.Repository {
 	return snapshot.repository
-}
-
-func (snap *Snapshot) PutObject(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutObject", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutObject(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-	atomic.AddUint64(&snap.statistics.ObjectsTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.ObjectsTransferSize, uint64(len(encoded)))
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_OBJECT, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutFile(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutFile", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutFile(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	atomic.AddUint64(&snap.statistics.VFSFilesTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.VFSFilesTransferSize, uint64(len(encoded)))
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_FILE, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
-}
-
-func (snap *Snapshot) PutDirectory(checksum [32]byte, data []byte) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutDirectory", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: PutDirectory(%064x)", snap.Header.GetIndexShortID(), checksum)
-
-	encoded, err := snap.repository.Encode(data)
-	if err != nil {
-		return err
-	}
-
-	atomic.AddUint64(&snap.statistics.VFSDirectoriesTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.VFSDirectoriesTransferSize, uint64(len(encoded)))
-
-	snap.packerChan <- &PackerMsg{Type: packfile.TYPE_DIRECTORY, Timestamp: time.Now(), Checksum: checksum, Data: encoded}
-	return nil
 }
 
 func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, signatures [][32]byte, errors [][32]byte, snapshots [][32]byte) error {
@@ -668,11 +542,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, chunkChecksum := range chunks {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == chunkChecksum && blob.Type == packfile.TYPE_CHUNK {
-				snap.Repository().SetPackfileForChunk(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_CHUNK, checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForChunk(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum32,
 					chunkChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -684,11 +558,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, objectChecksum := range objects {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == objectChecksum && blob.Type == packfile.TYPE_OBJECT {
-				snap.Repository().SetPackfileForObject(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_OBJECT, checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForObject(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_OBJECT, checksum32,
 					objectChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -700,11 +574,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, fileChecksum := range files {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == fileChecksum && blob.Type == packfile.TYPE_FILE {
-				snap.Repository().SetPackfileForFile(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_FILE, checksum32,
 					fileChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForFile(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_FILE, checksum32,
 					fileChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -716,11 +590,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, directoryChecksum := range directories {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == directoryChecksum && blob.Type == packfile.TYPE_DIRECTORY {
-				snap.Repository().SetPackfileForDirectory(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_DIRECTORY, checksum32,
 					directoryChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForDirectory(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_DIRECTORY, checksum32,
 					directoryChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -732,11 +606,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, dataChecksum := range datas {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DATA {
-				snap.Repository().SetPackfileForData(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_DATA, checksum32,
 					dataChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForData(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_DATA, checksum32,
 					dataChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -748,11 +622,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, signatureChecksum := range signatures {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == signatureChecksum && blob.Type == packfile.TYPE_SIGNATURE {
-				snap.Repository().SetPackfileForSignature(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_SIGNATURE, checksum32,
 					signatureChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForSignature(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_SIGNATURE, checksum32,
 					signatureChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -764,11 +638,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, errorChecksum := range errors {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == errorChecksum && blob.Type == packfile.TYPE_ERROR {
-				snap.Repository().SetPackfileForError(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_ERROR, checksum32,
 					errorChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForError(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_ERROR, checksum32,
 					errorChecksum,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -780,11 +654,11 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	for _, snapshotID := range snapshots {
 		for idx, blob := range pack.Index {
 			if blob.Checksum == snapshotID && blob.Type == packfile.TYPE_SNAPSHOT {
-				snap.Repository().SetPackfileForSnapshot(checksum32,
+				snap.Repository().SetPackfileForBlob(packfile.TYPE_SNAPSHOT, checksum32,
 					snapshotID,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForSnapshot(checksum32,
+				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_SNAPSHOT, checksum32,
 					snapshotID,
 					pack.Index[idx].Offset,
 					pack.Index[idx].Length)
@@ -795,14 +669,14 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	return nil
 }
 
-func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
+func (snapshot *Snapshot) GetBlob(blobType packfile.BlobType, checksum [32]byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.GetChunk", time.Since(t0))
+		profiler.RecordEvent("snapshot.GetBlob", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%x: GetChunk(%x)", snapshot.Header.GetIndexShortID(), checksum)
+	logger.Trace("snapshot", "%x: GetBlob(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	rd, _, err := snapshot.repository.GetChunk(checksum)
+	rd, _, err := snapshot.repository.GetBlob(blobType, checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -815,95 +689,14 @@ func (snapshot *Snapshot) GetChunk(checksum [32]byte) ([]byte, error) {
 	return buffer, nil
 }
 
-func (snapshot *Snapshot) GetFile(checksum [32]byte) ([]byte, error) {
+func (snapshot *Snapshot) BlobExists(blobType packfile.BlobType, checksum [32]byte) bool {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.GetFile", time.Since(t0))
+		profiler.RecordEvent("snapshot.CheckBlob", time.Since(t0))
 	}()
-	logger.Trace("snapshot", "%x: GetFile(%x)", snapshot.Header.GetIndexShortID(), checksum)
+	logger.Trace("snapshot", "%x: CheckBlob(%064x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	rd, _, err := snapshot.repository.GetFile(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
-}
-
-func (snapshot *Snapshot) GetDirectory(checksum [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetDirectory", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: GetDirectory(%x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	rd, _, err := snapshot.repository.GetDirectory(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
-}
-
-func (snapshot *Snapshot) GetError(checksum [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetError", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: GetError(%x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	rd, _, err := snapshot.repository.GetError(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
-}
-
-func (snapshot *Snapshot) CheckFile(checksum [32]byte) bool {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.CheckFile", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: CheckFile(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	return snapshot.Repository().FileExists(checksum)
-}
-
-func (snapshot *Snapshot) CheckDirectory(checksum [32]byte) bool {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.CheckDirectory", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: CheckDirectory(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	return snapshot.Repository().DirectoryExists(checksum)
-}
-
-func (snapshot *Snapshot) CheckChunk(checksum [32]byte) bool {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.CheckChunk", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: CheckChunk(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	return snapshot.Repository().ChunkExists(checksum)
-
+	return snapshot.Repository().BlobExists(blobType, checksum)
 }
 
 func (snapshot *Snapshot) GetObject(checksum [32]byte) ([]byte, error) {
@@ -913,7 +706,7 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) ([]byte, error) {
 	}()
 	logger.Trace("snapshot", "%x: GetObject(%x)", snapshot.Header.GetIndexShortID(), checksum)
 
-	rd, _, err := snapshot.repository.GetObject(checksum)
+	rd, _, err := snapshot.repository.GetBlob(packfile.TYPE_OBJECT, checksum)
 	if err != nil {
 		return nil, err
 	}
@@ -924,16 +717,6 @@ func (snapshot *Snapshot) GetObject(checksum [32]byte) ([]byte, error) {
 	}
 
 	return buffer, nil
-}
-
-func (snapshot *Snapshot) CheckObject(checksum [32]byte) bool {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.CheckObject", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: CheckObject(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	return snapshot.Repository().ObjectExists(checksum)
 }
 
 func (snapshot *Snapshot) Commit() error {
@@ -953,12 +736,12 @@ func (snapshot *Snapshot) Commit() error {
 	if kp := snapshot.repository.Context().GetKeypair(); kp != nil {
 		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
 		signature := kp.Sign(serializedHdrChecksum[:])
-		if err := snapshot.PutSignature(snapshot.Header.SnapshotID, signature); err != nil {
+		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.SnapshotID, signature); err != nil {
 			return err
 		}
 	}
 
-	if err := snapshot.PutHeader(snapshot.Header.SnapshotID, serializedHdr); err != nil {
+	if err := snapshot.PutBlob(packfile.TYPE_SNAPSHOT, snapshot.Header.SnapshotID, serializedHdr); err != nil {
 		return err
 	}
 
@@ -980,57 +763,6 @@ func (snapshot *Snapshot) Commit() error {
 
 	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
 	return nil
-}
-
-func (snapshot *Snapshot) CheckError(checksum [32]byte) bool {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.CheckError", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: CheckError(%064x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	return snapshot.Repository().ErrorExists(checksum)
-
-}
-
-func (snapshot *Snapshot) GetData(checksum [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetData", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: GetData(%x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	rd, _, err := snapshot.repository.GetData(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
-}
-
-func (snapshot *Snapshot) GetSignature(checksum [32]byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetSignature", time.Since(t0))
-	}()
-	logger.Trace("snapshot", "%x: GetSignature(%x)", snapshot.Header.GetIndexShortID(), checksum)
-
-	rd, _, err := snapshot.repository.GetSignature(checksum)
-	if err != nil {
-		return nil, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
 }
 
 func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {

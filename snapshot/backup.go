@@ -15,6 +15,7 @@ import (
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/cache"
 	"github.com/PlakarKorp/plakar/snapshot/errorslog"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -587,7 +588,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 			// Chunkify the file if it is a regular file and we don't have a cached object
 			if record.FileInfo.Mode().IsRegular() {
-				if object == nil || !snap.CheckObject(object.Checksum) {
+				if object == nil || !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
 					object, err = snap.chunkify(imp, record)
 					if err != nil {
 						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
@@ -602,7 +603,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			}
 
 			if object != nil {
-				if !snap.CheckObject(object.Checksum) {
+				if !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
 					data, err := object.Serialize()
 					if err != nil {
 						sc.RecordError(record.Pathname, err)
@@ -610,7 +611,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					}
 					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
 					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
-					err = snap.PutObject(object.Checksum, data)
+					err = snap.PutBlob(packfile.TYPE_OBJECT, object.Checksum, data)
 					if err != nil {
 						sc.RecordError(record.Pathname, err)
 						return
@@ -621,7 +622,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 			var fileEntryChecksum [32]byte
 			var fileEntrySize uint64
-			if fileEntry != nil && snap.CheckFile(cachedFileEntryChecksum) {
+			if fileEntry != nil && snap.BlobExists(packfile.TYPE_FILE, cachedFileEntryChecksum) {
 				fileEntryChecksum = cachedFileEntryChecksum
 				fileEntrySize = cachedFileEntrySize
 			} else {
@@ -639,7 +640,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 				fileEntryChecksum = snap.repository.Checksum(serialized)
 				fileEntrySize = uint64(len(serialized))
-				err = snap.PutFile(fileEntryChecksum, serialized)
+				err = snap.PutBlob(packfile.TYPE_FILE, fileEntryChecksum, serialized)
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
 					return
@@ -910,14 +911,14 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					lastEntry.Successor = &currentChecksum
 					updatedLastSerialized, err := lastEntry.ToBytes()
 					if err == nil {
-						if !snap.CheckError(*predecessorChecksum) {
-							snap.PutError(*predecessorChecksum, updatedLastSerialized) // Save the updated last entry
+						if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorChecksum) {
+							snap.PutBlob(packfile.TYPE_ERROR, *predecessorChecksum, updatedLastSerialized) // Save the updated last entry
 						}
 					}
 				}
 
 				// Save the current entry
-				snap.PutError(currentChecksum, errorEntrySerialized)
+				snap.PutBlob(packfile.TYPE_ERROR, currentChecksum, errorEntrySerialized)
 
 				// Update the state for the next iteration
 				predecessorChecksum = &currentChecksum
@@ -929,8 +930,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				lastEntry.Successor = nil // Explicitly set no successor
 				finalSerialized, err := lastEntry.ToBytes()
 				if err == nil {
-					if !snap.CheckError(*predecessorChecksum) {
-						snap.PutError(*predecessorChecksum, finalSerialized)
+					if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorChecksum) {
+						snap.PutBlob(packfile.TYPE_ERROR, *predecessorChecksum, finalSerialized)
 					}
 				}
 			}
@@ -947,8 +948,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		dirEntryChecksum := snap.repository.Checksum(serialized)
 		dirEntrySize := uint64(len(serialized))
 
-		if !snap.CheckDirectory(dirEntryChecksum) {
-			err = snap.PutDirectory(dirEntryChecksum, serialized)
+		if !snap.BlobExists(packfile.TYPE_DIRECTORY, dirEntryChecksum) {
+			err = snap.PutBlob(packfile.TYPE_DIRECTORY, dirEntryChecksum, serialized)
 			if err != nil {
 				sc.RecordError(record.Pathname, err)
 				return err
@@ -985,7 +986,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	}
 	metadataChecksum := snap.repository.Checksum(metadata)
-	err = snap.PutData(metadataChecksum, metadata)
+	err = snap.PutBlob(packfile.TYPE_DATA, metadataChecksum, metadata)
 	if err != nil {
 		return err
 	}
@@ -995,7 +996,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	}
 	statisticsChecksum := snap.repository.Checksum(statistics)
-	err = snap.PutData(statisticsChecksum, statistics)
+	err = snap.PutBlob(packfile.TYPE_DATA, statisticsChecksum, statistics)
 	if err != nil {
 		return err
 	}
@@ -1014,7 +1015,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	}
 	errorsLogChecksum := snap.repository.Checksum(errorsLogData)
-	err = snap.PutData(errorsLogChecksum, errorsLogData)
+	err = snap.PutBlob(packfile.TYPE_DATA, errorsLogChecksum, errorsLogData)
 	if err != nil {
 		return err
 	}
@@ -1132,10 +1133,10 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		totalEntropy += chunk.Entropy * float64(len(data))
 		totalDataSize += uint64(len(data))
 
-		if !snap.CheckChunk(chunk.Checksum) {
+		if !snap.BlobExists(packfile.TYPE_CHUNK, chunk.Checksum) {
 			atomic.AddUint64(&snap.statistics.ChunksCount, 1)
 			atomic.AddUint64(&snap.statistics.ChunksSize, uint64(len(data)))
-			return snap.PutChunk(chunk.Checksum, data)
+			return snap.PutBlob(packfile.TYPE_CHUNK, chunk.Checksum, data)
 		}
 		return nil
 	}

@@ -102,6 +102,10 @@ func (reader *Reader) Close() error {
 	return nil
 }
 
+func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
+	return NewReader(snapshot, pathname)
+}
+
 func NewReader(snap *Snapshot, pathname string) (*Reader, error) {
 	pathname = path.Clean(pathname)
 

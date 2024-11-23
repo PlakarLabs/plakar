@@ -34,6 +34,10 @@ type Blob struct {
 	Length   uint32
 }
 
+func Types() []BlobType {
+	return []BlobType{TYPE_SNAPSHOT, TYPE_CHUNK, TYPE_OBJECT, TYPE_FILE, TYPE_DIRECTORY, TYPE_DATA, TYPE_SIGNATURE, TYPE_ERROR}
+}
+
 func (b Blob) TypeName() string {
 	switch b.Type {
 	case TYPE_SNAPSHOT:

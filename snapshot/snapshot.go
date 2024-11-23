@@ -48,13 +48,56 @@ type PackerMsg struct {
 	Data      []byte
 }
 
+func packerJob(snap *Snapshot) {
+	wg := sync.WaitGroup{}
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var packer *Packer
+
+			for msg := range snap.packerChan {
+				if packer == nil {
+					packer = NewPacker()
+				}
+
+				if msg, ok := msg.(*PackerMsg); !ok {
+					panic("received data with unexpected type")
+				} else {
+					logger.Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snap.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
+					packer.AddBlob(msg.Type, msg.Checksum, msg.Data)
+				}
+
+				if packer.Size() > uint32(snap.repository.Configuration().Packfile.MaxSize) {
+					err := snap.PutPackfile(packer)
+					if err != nil {
+						panic(err)
+					}
+					packer = nil
+				}
+			}
+
+			if packer != nil {
+				err := snap.PutPackfile(packer)
+				if err != nil {
+					panic(err)
+				}
+				packer = nil
+			}
+		}()
+	}
+	wg.Wait()
+	snap.packerChanDone <- true
+	close(snap.packerChanDone)
+}
+
 func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.Create", time.Since(t0))
 	}()
 
-	snapshot := &Snapshot{
+	snap := &Snapshot{
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
 
@@ -66,152 +109,10 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
+	go packerJob(snap)
 
-	go func() {
-		wg := sync.WaitGroup{}
-		for i := 0; i < runtime.NumCPU(); i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				var pack *packfile.PackFile
-				var snapshotHeaders map[[32]byte]struct{}
-				var chunks map[[32]byte]struct{}
-				var objects map[[32]byte]struct{}
-				var files map[[32]byte]struct{}
-				var directories map[[32]byte]struct{}
-				var datas map[[32]byte]struct{}
-				var signatures map[[32]byte]struct{}
-				var errors map[[32]byte]struct{}
-
-				for msg := range snapshot.packerChan {
-					if pack == nil {
-						pack = packfile.New()
-						snapshotHeaders = make(map[[32]byte]struct{})
-						chunks = make(map[[32]byte]struct{})
-						objects = make(map[[32]byte]struct{})
-						files = make(map[[32]byte]struct{})
-						directories = make(map[[32]byte]struct{})
-						datas = make(map[[32]byte]struct{})
-						signatures = make(map[[32]byte]struct{})
-						errors = make(map[[32]byte]struct{})
-					}
-
-					if msg, ok := msg.(*PackerMsg); !ok {
-						panic("received data with unexpected type")
-					} else {
-						logger.Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snapshot.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
-						pack.AddBlob(msg.Type, msg.Checksum, msg.Data)
-						switch msg.Type {
-						case packfile.TYPE_SNAPSHOT:
-							snapshotHeaders[msg.Checksum] = struct{}{}
-						case packfile.TYPE_CHUNK:
-							chunks[msg.Checksum] = struct{}{}
-						case packfile.TYPE_OBJECT:
-							objects[msg.Checksum] = struct{}{}
-						case packfile.TYPE_FILE:
-							files[msg.Checksum] = struct{}{}
-						case packfile.TYPE_DIRECTORY:
-							directories[msg.Checksum] = struct{}{}
-						case packfile.TYPE_DATA:
-							datas[msg.Checksum] = struct{}{}
-						case packfile.TYPE_SIGNATURE:
-							signatures[msg.Checksum] = struct{}{}
-						case packfile.TYPE_ERROR:
-							errors[msg.Checksum] = struct{}{}
-						default:
-							panic("received msg with unexpected blob type")
-						}
-					}
-
-					if pack.Size() > uint32(repo.Configuration().Packfile.MaxSize) {
-						snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
-						for snapshotID := range snapshotHeaders {
-							snapshotHeadersList = append(snapshotHeadersList, snapshotID)
-						}
-						objectsList := make([][32]byte, len(objects))
-						for objectChecksum := range objects {
-							objectsList = append(objectsList, objectChecksum)
-						}
-						chunksList := make([][32]byte, len(chunks))
-						for chunkChecksum := range chunks {
-							chunksList = append(chunksList, chunkChecksum)
-						}
-						filesList := make([][32]byte, len(files))
-						for fileChecksum := range files {
-							filesList = append(filesList, fileChecksum)
-						}
-						directoriesList := make([][32]byte, len(directories))
-						for directoryChecksum := range directories {
-							directoriesList = append(directoriesList, directoryChecksum)
-						}
-						datasList := make([][32]byte, len(datas))
-						for dataChecksum := range datas {
-							datasList = append(datasList, dataChecksum)
-						}
-						signaturesList := make([][32]byte, len(signatures))
-						for signatureChecksum := range signatures {
-							signaturesList = append(signaturesList, signatureChecksum)
-						}
-						errorsList := make([][32]byte, len(errors))
-						for errorChecksum := range errors {
-							errorsList = append(errorsList, errorChecksum)
-						}
-						err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
-						if err != nil {
-							panic(err)
-						}
-						pack = nil
-					}
-				}
-
-				if pack != nil {
-					snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
-					for snapshotID := range snapshotHeaders {
-						snapshotHeadersList = append(snapshotHeadersList, snapshotID)
-					}
-					objectsList := make([][32]byte, len(objects))
-					for objectChecksum := range objects {
-						objectsList = append(objectsList, objectChecksum)
-					}
-					chunksList := make([][32]byte, len(chunks))
-					for chunkChecksum := range chunks {
-						chunksList = append(chunksList, chunkChecksum)
-					}
-					filesList := make([][32]byte, len(files))
-					for fileChecksum := range files {
-						filesList = append(filesList, fileChecksum)
-					}
-					directoriesList := make([][32]byte, len(directories))
-					for fileChecksum := range directories {
-						directoriesList = append(directoriesList, fileChecksum)
-					}
-					datasList := make([][32]byte, len(datas))
-					for dataChecksum := range datas {
-						datasList = append(datasList, dataChecksum)
-					}
-					signaturesList := make([][32]byte, len(signatures))
-					for signatureChecksum := range signatures {
-						signaturesList = append(signaturesList, signatureChecksum)
-					}
-					errorsList := make([][32]byte, len(errors))
-					for errorChecksum := range errors {
-						errorsList = append(errorsList, errorChecksum)
-					}
-					err := snapshot.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
-					if err != nil {
-						panic(err)
-					}
-					pack = nil
-				}
-			}()
-		}
-		wg.Wait()
-		snapshot.packerChanDone <- true
-		close(snapshot.packerChanDone)
-	}()
-
-	logger.Trace("snapshot", "%x: New()", snapshot.Header.GetIndexShortID())
-	return snapshot, nil
+	logger.Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
+	return snap, nil
 }
 
 func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
@@ -256,149 +157,7 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	snap.Header.SnapshotID = repo.Checksum(uuidBytes[:])
 	snap.packerChan = make(chan interface{}, runtime.NumCPU()*2+1)
 	snap.packerChanDone = make(chan bool)
-
-	go func() {
-		wg := sync.WaitGroup{}
-		for i := 0; i < runtime.NumCPU(); i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				var pack *packfile.PackFile
-				var snapshotHeaders map[[32]byte]struct{}
-				var chunks map[[32]byte]struct{}
-				var objects map[[32]byte]struct{}
-				var files map[[32]byte]struct{}
-				var directories map[[32]byte]struct{}
-				var datas map[[32]byte]struct{}
-				var signatures map[[32]byte]struct{}
-				var errors map[[32]byte]struct{}
-
-				for msg := range snap.packerChan {
-					if pack == nil {
-						pack = packfile.New()
-						snapshotHeaders = make(map[[32]byte]struct{})
-						chunks = make(map[[32]byte]struct{})
-						objects = make(map[[32]byte]struct{})
-						files = make(map[[32]byte]struct{})
-						directories = make(map[[32]byte]struct{})
-						datas = make(map[[32]byte]struct{})
-						signatures = make(map[[32]byte]struct{})
-						errors = make(map[[32]byte]struct{})
-					}
-
-					if msg, ok := msg.(*PackerMsg); !ok {
-						panic("received data with unexpected type")
-					} else {
-						logger.Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snap.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
-						pack.AddBlob(msg.Type, msg.Checksum, msg.Data)
-						switch msg.Type {
-						case packfile.TYPE_SNAPSHOT:
-							snapshotHeaders[msg.Checksum] = struct{}{}
-						case packfile.TYPE_CHUNK:
-							chunks[msg.Checksum] = struct{}{}
-						case packfile.TYPE_OBJECT:
-							objects[msg.Checksum] = struct{}{}
-						case packfile.TYPE_FILE:
-							files[msg.Checksum] = struct{}{}
-						case packfile.TYPE_DIRECTORY:
-							directories[msg.Checksum] = struct{}{}
-						case packfile.TYPE_DATA:
-							datas[msg.Checksum] = struct{}{}
-						case packfile.TYPE_SIGNATURE:
-							signatures[msg.Checksum] = struct{}{}
-						case packfile.TYPE_ERROR:
-							errors[msg.Checksum] = struct{}{}
-						default:
-							panic("received msg with unexpected blob type")
-						}
-					}
-
-					if pack.Size() > uint32(repo.Configuration().Packfile.MaxSize) {
-						snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
-						for snapshotID := range snapshotHeaders {
-							snapshotHeadersList = append(snapshotHeadersList, snapshotID)
-						}
-						objectsList := make([][32]byte, len(objects))
-						for objectChecksum := range objects {
-							objectsList = append(objectsList, objectChecksum)
-						}
-						chunksList := make([][32]byte, len(chunks))
-						for chunkChecksum := range chunks {
-							chunksList = append(chunksList, chunkChecksum)
-						}
-						filesList := make([][32]byte, len(files))
-						for fileChecksum := range files {
-							filesList = append(filesList, fileChecksum)
-						}
-						directoriesList := make([][32]byte, len(directories))
-						for directoryChecksum := range directories {
-							directoriesList = append(directoriesList, directoryChecksum)
-						}
-						datasList := make([][32]byte, len(datas))
-						for dataChecksum := range datas {
-							datasList = append(datasList, dataChecksum)
-						}
-						signaturesList := make([][32]byte, len(signatures))
-						for signatureChecksum := range signatures {
-							signaturesList = append(signaturesList, signatureChecksum)
-						}
-						errorsList := make([][32]byte, len(errors))
-						for errorChecksum := range errors {
-							errorsList = append(errorsList, errorChecksum)
-						}
-						err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
-						if err != nil {
-							panic(err)
-						}
-						pack = nil
-					}
-				}
-
-				if pack != nil {
-					snapshotHeadersList := make([][32]byte, len(snapshotHeaders))
-					for snapshotID := range snapshotHeaders {
-						snapshotHeadersList = append(snapshotHeadersList, snapshotID)
-					}
-					objectsList := make([][32]byte, len(objects))
-					for objectChecksum := range objects {
-						objectsList = append(objectsList, objectChecksum)
-					}
-					chunksList := make([][32]byte, len(chunks))
-					for chunkChecksum := range chunks {
-						chunksList = append(chunksList, chunkChecksum)
-					}
-					filesList := make([][32]byte, len(files))
-					for fileChecksum := range files {
-						filesList = append(filesList, fileChecksum)
-					}
-					directoriesList := make([][32]byte, len(directories))
-					for fileChecksum := range directories {
-						directoriesList = append(directoriesList, fileChecksum)
-					}
-					datasList := make([][32]byte, len(datas))
-					for dataChecksum := range datas {
-						datasList = append(datasList, dataChecksum)
-					}
-					signaturesList := make([][32]byte, len(signatures))
-					for signatureChecksum := range signatures {
-						signaturesList = append(signaturesList, signatureChecksum)
-					}
-					errorsList := make([][32]byte, len(errors))
-					for errorChecksum := range errors {
-						errorsList = append(errorsList, errorChecksum)
-					}
-					err := snap.PutPackfile(pack, objectsList, chunksList, filesList, directoriesList, datasList, signaturesList, errorsList, snapshotHeadersList)
-					if err != nil {
-						panic(err)
-					}
-					pack = nil
-				}
-			}()
-		}
-		wg.Wait()
-		snap.packerChanDone <- true
-		close(snap.packerChanDone)
-	}()
+	go packerJob(snap)
 
 	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.SnapshotID, snap.Header.GetIndexShortID())
 	return snap, nil
@@ -465,7 +224,7 @@ func (snapshot *Snapshot) Repository() *repository.Repository {
 	return snapshot.repository
 }
 
-func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, chunks [][32]byte, files [][32]byte, directories [][32]byte, datas [][32]byte, signatures [][32]byte, errors [][32]byte, snapshots [][32]byte) error {
+func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	t0 := time.Now()
 	defer func() {
 		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
@@ -473,15 +232,15 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 
 	repo := snap.repository
 
-	serializedData, err := pack.SerializeData()
+	serializedData, err := packer.Packfile.SerializeData()
 	if err != nil {
 		panic("could not serialize pack file data" + err.Error())
 	}
-	serializedIndex, err := pack.SerializeIndex()
+	serializedIndex, err := packer.Packfile.SerializeIndex()
 	if err != nil {
 		panic("could not serialize pack file index" + err.Error())
 	}
-	serializedFooter, err := pack.SerializeFooter()
+	serializedFooter, err := packer.Packfile.SerializeFooter()
 	if err != nil {
 		panic("could not serialize pack file footer" + err.Error())
 	}
@@ -499,7 +258,7 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	encryptedFooterLength := uint8(len(encryptedFooter))
 
 	versionBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(versionBytes, pack.Footer.Version)
+	binary.LittleEndian.PutUint32(versionBytes, packer.Packfile.Footer.Version)
 
 	serializedPackfile := append(serializedData, encryptedIndex...)
 	serializedPackfile = append(serializedPackfile, encryptedFooter...)
@@ -523,133 +282,24 @@ func (snap *Snapshot) PutPackfile(pack *packfile.PackFile, objects [][32]byte, c
 	atomic.AddUint64(&snap.statistics.PackfilesTransferCount, 1)
 	atomic.AddUint64(&snap.statistics.PackfilesTransferSize, uint64(len(serializedPackfile)))
 
-	for _, chunkChecksum := range chunks {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == chunkChecksum && blob.Type == packfile.TYPE_CHUNK {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_CHUNK, checksum32,
-					chunkChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum32,
-					chunkChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
+	for _, blobType := range packer.BlobTypes() {
+		for blobChecksum := range packer.Blobs[blobType] {
+			for idx, blob := range packer.Packfile.Index {
+				if blob.Checksum == blobChecksum && blob.Type == blobType {
+					snap.Repository().SetPackfileForBlob(blobType, checksum32,
+						blobChecksum,
+						packer.Packfile.Index[idx].Offset,
+						packer.Packfile.Index[idx].Length)
+					snap.stateDelta.SetPackfileForBlob(blobType, checksum32,
+						blobChecksum,
+						packer.Packfile.Index[idx].Offset,
+						packer.Packfile.Index[idx].Length)
+					break
+				}
 			}
 		}
 	}
 
-	for _, objectChecksum := range objects {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == objectChecksum && blob.Type == packfile.TYPE_OBJECT {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_OBJECT, checksum32,
-					objectChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_OBJECT, checksum32,
-					objectChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, fileChecksum := range files {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == fileChecksum && blob.Type == packfile.TYPE_FILE {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_FILE, checksum32,
-					fileChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_FILE, checksum32,
-					fileChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, directoryChecksum := range directories {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == directoryChecksum && blob.Type == packfile.TYPE_DIRECTORY {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_DIRECTORY, checksum32,
-					directoryChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_DIRECTORY, checksum32,
-					directoryChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, dataChecksum := range datas {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == dataChecksum && blob.Type == packfile.TYPE_DATA {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_DATA, checksum32,
-					dataChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_DATA, checksum32,
-					dataChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, signatureChecksum := range signatures {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == signatureChecksum && blob.Type == packfile.TYPE_SIGNATURE {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_SIGNATURE, checksum32,
-					signatureChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_SIGNATURE, checksum32,
-					signatureChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, errorChecksum := range errors {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == errorChecksum && blob.Type == packfile.TYPE_ERROR {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_ERROR, checksum32,
-					errorChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_ERROR, checksum32,
-					errorChecksum,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
-
-	for _, snapshotID := range snapshots {
-		for idx, blob := range pack.Index {
-			if blob.Checksum == snapshotID && blob.Type == packfile.TYPE_SNAPSHOT {
-				snap.Repository().SetPackfileForBlob(packfile.TYPE_SNAPSHOT, checksum32,
-					snapshotID,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				snap.stateDelta.SetPackfileForBlob(packfile.TYPE_SNAPSHOT, checksum32,
-					snapshotID,
-					pack.Index[idx].Offset,
-					pack.Index[idx].Length)
-				break
-			}
-		}
-	}
 	return nil
 }
 
@@ -697,10 +347,6 @@ func (snapshot *Snapshot) Commit() error {
 
 	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
 	return nil
-}
-
-func (snapshot *Snapshot) NewReader(pathname string) (*Reader, error) {
-	return NewReader(snapshot, pathname)
 }
 
 func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, error) {

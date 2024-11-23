@@ -213,7 +213,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 	}
 	for objectID := range c {
 		if !dstRepository.BlobExists(packfile.TYPE_OBJECT, objectID) {
-			objectData, err := srcSnapshot.GetObject(objectID)
+			objectData, err := srcSnapshot.GetBlob(packfile.TYPE_OBJECT, objectID)
 			if err != nil {
 				return err
 			}

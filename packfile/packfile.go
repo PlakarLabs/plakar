@@ -25,6 +25,7 @@ const (
 	TYPE_DATA      Type = 5
 	TYPE_SIGNATURE Type = 6
 	TYPE_ERROR     Type = 7
+	TYPE_INDEX     Type = 8
 )
 
 type Blob struct {
@@ -56,6 +57,8 @@ func (b Blob) TypeName() string {
 		return "signature"
 	case TYPE_ERROR:
 		return "error"
+	case TYPE_INDEX:
+		return "index"
 	default:
 		return "unknown"
 	}

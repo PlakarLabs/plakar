@@ -74,6 +74,9 @@ type State struct {
 	muErrors sync.Mutex
 	Errors   map[uint64]Location
 
+	muIndexes sync.Mutex
+	Indexes   map[uint64]Location
+
 	muDeletedSnapshots sync.Mutex
 	DeletedSnapshots   map[uint64]time.Time
 
@@ -94,6 +97,7 @@ func New() *State {
 		Snapshots:        make(map[uint64]Location),
 		Signatures:       make(map[uint64]Location),
 		Errors:           make(map[uint64]Location),
+		Indexes:          make(map[uint64]Location),
 		DeletedSnapshots: make(map[uint64]time.Time),
 		Metadata: Metadata{
 			Version:      VERSION,
@@ -220,6 +224,10 @@ func (st *State) mergeLocationMaps(Type packfile.Type, deltaState *State) {
 		deltaState.muErrors.Lock()
 		defer deltaState.muErrors.Unlock()
 		mapPtr = &deltaState.Errors
+	case packfile.TYPE_INDEX:
+		deltaState.muIndexes.Lock()
+		defer deltaState.muIndexes.Unlock()
+		mapPtr = &deltaState.Indexes
 	default:
 		panic("invalid blob type")
 	}
@@ -244,6 +252,7 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 	st.mergeLocationMaps(packfile.TYPE_SNAPSHOT, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_SIGNATURE, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_ERROR, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_INDEX, deltaState)
 
 	deltaState.muDeletedSnapshots.Lock()
 	for originalSnapshotID, tm := range deltaState.DeletedSnapshots {
@@ -291,6 +300,10 @@ func (st *State) GetSubpartForBlob(Type packfile.Type, blobChecksum objects.Chec
 		st.muErrors.Lock()
 		defer st.muErrors.Unlock()
 		mapPtr = &st.Errors
+	case packfile.TYPE_INDEX:
+		st.muIndexes.Lock()
+		defer st.muIndexes.Unlock()
+		mapPtr = &st.Indexes
 	default:
 		panic("invalid blob type")
 	}
@@ -342,6 +355,10 @@ func (st *State) BlobExists(Type packfile.Type, blobChecksum objects.Checksum) b
 		st.muErrors.Lock()
 		defer st.muErrors.Unlock()
 		mapPtr = &st.Errors
+	case packfile.TYPE_INDEX:
+		st.muIndexes.Lock()
+		defer st.muIndexes.Unlock()
+		mapPtr = &st.Indexes
 	default:
 		panic("invalid blob type")
 	}
@@ -399,6 +416,10 @@ func (st *State) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects
 		st.muErrors.Lock()
 		defer st.muErrors.Unlock()
 		mapPtr = &st.Errors
+	case packfile.TYPE_INDEX:
+		st.muIndexes.Lock()
+		defer st.muIndexes.Unlock()
+		mapPtr = &st.Indexes
 	default:
 		panic("invalid blob type")
 	}
@@ -461,6 +482,9 @@ func (st *State) ListBlobs(Type packfile.Type) <-chan objects.Checksum {
 		case packfile.TYPE_ERROR:
 			mtx = &st.muErrors
 			mapPtr = &st.Errors
+		case packfile.TYPE_INDEX:
+			mtx = &st.muIndexes
+			mapPtr = &st.Indexes
 		default:
 			panic("invalid blob type")
 		}

@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"path/filepath"
 	"sort"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -105,6 +106,21 @@ func (f *FileEntry) Stat() *objects.FileInfo {
 	return &f.FileInfo
 }
 
+func (f *FileEntry) Name() string {
+	return f.Stat().Name()
+}
+
+func (f *FileEntry) Path() string {
+	return filepath.Join(f.ParentPath, f.Name())
+}
+
 func (f *FileEntry) Size() int64 {
 	return f.Stat().Size()
+}
+
+func (f *FileEntry) ContentType() string {
+	if f.Object == nil {
+		return ""
+	}
+	return f.Object.ContentType
 }

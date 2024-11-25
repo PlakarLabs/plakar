@@ -2,9 +2,7 @@ package snapshot
 
 import (
 	"fmt"
-	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -12,180 +10,222 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
-func (snap *Snapshot) searchFilename(fs *vfs.Filesystem, q search.Query) ([]search.Result, error) {
-	//fmt.Println(q)
-	value := q.Left.Value
+func (snap *Snapshot) matchFilename(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
 	}
 
-	ret := make([]search.Result, 0)
-	for f := range fs.Files() {
-		var include bool
-		switch strings.ToLower(q.Left.Operator) {
-		case ":", "=":
-			if filepath.Base(f) == value {
-				include = true
-			}
-		case "<>", "!=":
-			if filepath.Base(f) != value {
-				include = true
-			}
-		case "<":
-			if filepath.Base(f) < value {
-				include = true
-			}
-		case "<=":
-			if filepath.Base(f) <= value {
-				include = true
-			}
-		case ">":
-			if filepath.Base(f) > value {
-				include = true
-			}
-		case ">=":
-			if filepath.Base(f) >= value {
-				include = true
-			}
-		case "~":
-		case "~=":
-			matched, err := regexp.MatchString(value, filepath.Base(f))
-			if err == nil && matched {
-				include = true
-			}
+	var err error
+	matched := false
+	switch strings.ToLower(f.Operator) {
+	case ":", "=":
+		if fileEntry.Name() == value {
+			matched = true
 		}
-
-		if include {
-			ret = append(ret, search.Filename{
-				Repository: snap.Repository().Location(),
-				Snapshot:   snap.Header.SnapshotID,
-				Path:       f,
-			})
+	case "<>", "!=":
+		if fileEntry.Name() != value {
+			matched = true
+		}
+	case "<":
+		if fileEntry.Name() < value {
+			matched = true
+		}
+	case "<=":
+		if fileEntry.Name() <= value {
+			matched = true
+		}
+	case ">":
+		if fileEntry.Name() > value {
+			matched = true
+		}
+	case ">=":
+		if fileEntry.Name() >= value {
+			matched = true
+		}
+	case "~=":
+		matched, err = regexp.MatchString(value, fileEntry.Name())
+		if err != nil {
+			return false, err
 		}
 	}
-	return ret, nil
+
+	return matched, nil
 }
 
-func (snap *Snapshot) searchSize(fs *vfs.Filesystem, q search.Query) ([]search.Result, error) {
-	value := q.Left.Value
+func (snap *Snapshot) matchContentType(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+	value := f.Value
+	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+		value = value[1 : len(value)-1]
+	}
+
+	var err error
+	matched := false
+	switch strings.ToLower(f.Operator) {
+	case ":", "=":
+		if fileEntry.ContentType() == value {
+			matched = true
+		}
+	case "<>", "!=":
+		if fileEntry.ContentType() != value {
+			matched = true
+		}
+	case "<":
+		if fileEntry.ContentType() < value {
+			matched = true
+		}
+	case "<=":
+		if fileEntry.ContentType() <= value {
+			matched = true
+		}
+	case ">":
+		if fileEntry.ContentType() > value {
+			matched = true
+		}
+	case ">=":
+		if fileEntry.ContentType() >= value {
+			matched = true
+		}
+	case "~=":
+		matched, err = regexp.MatchString(value, fileEntry.ContentType())
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return matched, nil
+}
+
+func (snap *Snapshot) matchSize(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
 	}
 
 	cmpValue, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	ret := make([]search.Result, 0)
-	for f := range fs.Pathnames() {
-		fi, err := fs.Stat(f)
-		if err != nil {
-			return nil, err
+	matched := false
+	switch strings.ToLower(f.Operator) {
+	case ":", "=":
+		if fileEntry.Size() == cmpValue {
+			matched = true
 		}
-
-		var include bool
-		switch strings.ToLower(q.Left.Operator) {
-		case ":", "=":
-			if fi.Size() == cmpValue {
-				include = true
-			}
-		case "<>", "!=":
-			if fi.Size() != cmpValue {
-				include = true
-			}
-		case "<":
-			if fi.Size() < cmpValue {
-				include = true
-			}
-		case "<=":
-			if fi.Size() <= cmpValue {
-				include = true
-			}
-		case ">":
-			if fi.Size() > cmpValue {
-				include = true
-			}
-		case ">=":
-			if fi.Size() >= cmpValue {
-				include = true
-			}
+	case "<>", "!=":
+		if fileEntry.Size() != cmpValue {
+			matched = true
 		}
-		if include {
-			ret = append(ret, search.Filename{
-				Repository: snap.Repository().Location(),
-				Snapshot:   snap.Header.SnapshotID,
-				Path:       f,
-			})
+	case "<":
+		if fileEntry.Size() < cmpValue {
+			matched = true
+		}
+	case "<=":
+		if fileEntry.Size() <= cmpValue {
+			matched = true
+		}
+	case ">":
+		if fileEntry.Size() > cmpValue {
+			matched = true
+		}
+	case ">=":
+		if fileEntry.Size() >= cmpValue {
+			matched = true
 		}
 	}
-	return ret, nil
+
+	return matched, nil
 }
 
-func (snap *Snapshot) search(fs *vfs.Filesystem, q search.Query) ([]search.Result, error) {
-	if q.Left == nil {
-		return nil, nil
-	}
-
+func (snap *Snapshot) searchMatch(fileEntry *vfs.FileEntry, q search.Query) (bool, error) {
 	var err error
-	var leftResults []search.Result
-	var rightResults []search.Result
+	leftMatch := false
+	rightMatch := false
 
-	switch q.Left.Field {
+	switch strings.ToLower(q.Left.Field) {
 	case "filename":
-		leftResults, err = snap.searchFilename(fs, q)
+
+		leftMatch, err = snap.matchFilename(fileEntry, *q.Left)
 		if err != nil {
-			return nil, err
+			return false, err
+		}
+	case "contenttype":
+		leftMatch, err = snap.matchContentType(fileEntry, *q.Left)
+		if err != nil {
+			return false, err
 		}
 	case "size":
-		leftResults, err = snap.searchSize(fs, q)
+		leftMatch, err = snap.matchSize(fileEntry, *q.Left)
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 	default:
-		return []search.Result{}, nil
+		return false, fmt.Errorf("unsupported field: %s", q.Left.Field)
 	}
 
 	if q.Operator == nil {
-		return leftResults, nil
+		return leftMatch, nil
+	}
+
+	if *q.Operator == "AND" && !leftMatch {
+		return false, nil
 	}
 
 	if q.Right != nil {
-		rightResults, err = snap.search(fs, *q.Right)
+		rightMatch, err = snap.searchMatch(fileEntry, *q.Right)
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 	}
 
 	if *q.Operator == "AND" {
-		intersection := []search.Result{}
-		resultMap := make(map[string]struct{})
-
-		for _, result := range leftResults {
-			key := result.Pathname()
-			resultMap[key] = struct{}{}
-		}
-
-		for _, result := range rightResults {
-			key := result.Pathname()
-			if _, exists := resultMap[key]; exists {
-				intersection = append(intersection, result)
-			}
-		}
-		return intersection, nil
+		return leftMatch && rightMatch, nil
 	} else if *q.Operator == "OR" {
-		return append(leftResults, rightResults...), nil
+		return leftMatch || rightMatch, nil
 	} else {
-		return nil, fmt.Errorf("unsupported operator: %s", *q.Operator)
+		return false, fmt.Errorf("unsupported operator: %s", *q.Operator)
 	}
-
-	return rightResults, nil
 }
 
-func (snap *Snapshot) Search(query string) ([]search.Result, error) {
+func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query) ([]search.Result, error) {
+	var resultSet []search.Result
+
+	for f := range fs.Pathnames() {
+		if !strings.HasPrefix(f, prefix) {
+			continue
+		}
+
+		fi, err := fs.Stat(f)
+		if err != nil {
+			return nil, err
+		}
+		if fileEntry, isFile := fi.(*vfs.FileEntry); !isFile {
+			continue
+		} else {
+			if match, err := snap.searchMatch(fileEntry, q); err != nil {
+				return nil, err
+			} else if match {
+				resultSet = append(resultSet, search.FileEntry{
+					Repository: snap.Repository().Location(),
+					Snapshot:   snap.Header.SnapshotID,
+					FileEntry:  *fileEntry,
+				})
+			}
+		}
+	}
+
+	return resultSet, nil
+}
+
+func (snap *Snapshot) Search(prefix string, query string) ([]search.Result, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
+	}
+
+	if !strings.HasSuffix(prefix, "/") {
+		prefix = prefix + "/"
 	}
 
 	q, err := search.Parse(query)
@@ -193,13 +233,10 @@ func (snap *Snapshot) Search(query string) ([]search.Result, error) {
 		return nil, err
 	}
 
-	resultSet, err := snap.search(fs, *q)
+	resultSet, err := snap.search(fs, prefix, *q)
 	if err != nil {
 		return nil, err
 	}
 
-	sort.Slice(resultSet, func(i, j int) bool {
-		return resultSet[i].Pathname() < resultSet[j].Pathname()
-	})
 	return resultSet, nil
 }

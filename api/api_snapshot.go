@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bufio"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
@@ -14,6 +16,9 @@ import (
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
+	"github.com/alecthomas/chroma/formatters"
+	"github.com/alecthomas/chroma/lexers"
+	"github.com/alecthomas/chroma/styles"
 	"github.com/gorilla/mux"
 )
 
@@ -47,6 +52,19 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
+	do_highlight := false
+	do_download := false
+
+	download := r.URL.Query().Get("download")
+	if download == "true" {
+		do_download = true
+	}
+
+	render := r.URL.Query().Get("render")
+	if render == "highlight" {
+		do_highlight = true
+	}
+
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -71,18 +89,64 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rd.GetContentType() != "" {
-		w.Header().Set("Content-Type", rd.GetContentType())
+	if do_download {
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(path)))
 	}
 
-	_, err = io.Copy(w, rd)
-	if err != nil {
-		// Connection closed by client
-		if errors.Is(err, syscall.EPIPE) {
+	if do_highlight {
+		lexer := lexers.Match(path)
+		if lexer == nil {
+			lexer = lexers.Get(rd.GetContentType())
+		}
+		if lexer == nil {
+			lexer = lexers.Fallback // Fallback if no lexer is found
+		}
+		formatter := formatters.Get("html")
+		style := styles.Get("dracula")
+
+		w.Header().Set("Content-Type", "text/html")
+
+		reader := bufio.NewReader(rd)
+		buffer := make([]byte, 4096) // Fixed-size buffer for chunked reading
+		for {
+			n, err := reader.Read(buffer) // Read up to the size of the buffer
+			if n > 0 {
+				chunk := string(buffer[:n])
+
+				// Tokenize the chunk and apply syntax highlighting
+				iterator, errTokenize := lexer.Tokenise(nil, chunk)
+				if errTokenize != nil {
+					break
+				}
+
+				errFormat := formatter.Format(w, style, iterator)
+				if errFormat != nil {
+					break
+				}
+			}
+
+			// Check for end of file (EOF)
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				break
+			}
+		}
+	} else {
+
+		if rd.GetContentType() != "" {
+			w.Header().Set("Content-Type", rd.GetContentType())
+		}
+
+		_, err = io.Copy(w, rd)
+		if err != nil {
+			// Connection closed by client
+			if errors.Is(err, syscall.EPIPE) {
+				return
+			}
+			logger.Error("Failed to copy data: %s", err)
 			return
 		}
-		logger.Error("Failed to copy data: %s", err)
-		return
 	}
 }
 

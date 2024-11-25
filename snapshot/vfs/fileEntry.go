@@ -124,3 +124,10 @@ func (f *FileEntry) ContentType() string {
 	}
 	return f.Object.ContentType
 }
+
+func (f *FileEntry) Entropy() float64 {
+	if f.Object == nil {
+		return 0
+	}
+	return f.Object.Entropy
+}

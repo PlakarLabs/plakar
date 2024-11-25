@@ -138,6 +138,48 @@ func (snap *Snapshot) matchSize(fileEntry *vfs.FileEntry, f search.Filter) (bool
 	return matched, nil
 }
 
+func (snap *Snapshot) matchEntropy(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+	value := f.Value
+	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+		value = value[1 : len(value)-1]
+	}
+
+	cmpValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return false, err
+	}
+
+	matched := false
+	switch strings.ToLower(f.Operator) {
+	case ":", "=":
+		if fileEntry.Entropy() == cmpValue {
+			matched = true
+		}
+	case "<>", "!=":
+		if fileEntry.Entropy() != cmpValue {
+			matched = true
+		}
+	case "<":
+		if fileEntry.Entropy() < cmpValue {
+			matched = true
+		}
+	case "<=":
+		if fileEntry.Entropy() <= cmpValue {
+			matched = true
+		}
+	case ">":
+		if fileEntry.Entropy() > cmpValue {
+			matched = true
+		}
+	case ">=":
+		if fileEntry.Entropy() >= cmpValue {
+			matched = true
+		}
+	}
+
+	return matched, nil
+}
+
 func (snap *Snapshot) searchMatch(fileEntry *vfs.FileEntry, q search.Query) (bool, error) {
 	var err error
 	leftMatch := false
@@ -145,13 +187,17 @@ func (snap *Snapshot) searchMatch(fileEntry *vfs.FileEntry, q search.Query) (boo
 
 	switch strings.ToLower(q.Left.Field) {
 	case "filename":
-
 		leftMatch, err = snap.matchFilename(fileEntry, *q.Left)
 		if err != nil {
 			return false, err
 		}
 	case "contenttype":
 		leftMatch, err = snap.matchContentType(fileEntry, *q.Left)
+		if err != nil {
+			return false, err
+		}
+	case "entropy":
+		leftMatch, err = snap.matchEntropy(fileEntry, *q.Left)
 		if err != nil {
 			return false, err
 		}

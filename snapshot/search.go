@@ -188,9 +188,7 @@ func (snap *Snapshot) searchMatch(fileEntry *vfs.FileEntry, q search.Query) (boo
 	}
 }
 
-func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query) ([]search.Result, error) {
-	var resultSet []search.Result
-
+func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query, c chan search.Result) error {
 	for f := range fs.Pathnames() {
 		if !strings.HasPrefix(f, prefix) {
 			continue
@@ -198,45 +196,53 @@ func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query) 
 
 		fi, err := fs.Stat(f)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if fileEntry, isFile := fi.(*vfs.FileEntry); !isFile {
 			continue
 		} else {
 			if match, err := snap.searchMatch(fileEntry, q); err != nil {
-				return nil, err
+				return err
 			} else if match {
-				resultSet = append(resultSet, search.FileEntry{
+				c <- search.FileEntry{
 					Repository: snap.Repository().Location(),
 					Snapshot:   snap.Header.SnapshotID,
 					FileEntry:  *fileEntry,
-				})
+				}
 			}
 		}
 	}
-
-	return resultSet, nil
+	return nil
 }
 
-func (snap *Snapshot) Search(prefix string, query string) ([]search.Result, error) {
-	fs, err := snap.Filesystem()
-	if err != nil {
-		return nil, err
-	}
+func (snap *Snapshot) Search(prefix string, query string) (chan search.Result, error) {
+	c := make(chan search.Result)
 
-	if !strings.HasSuffix(prefix, "/") {
-		prefix = prefix + "/"
-	}
+	go func() {
+		defer close(c)
+		fs, err := snap.Filesystem()
+		if err != nil {
+			c <- search.Error{Message: err.Error()}
+			return
+		}
 
-	q, err := search.Parse(query)
-	if err != nil {
-		return nil, err
-	}
+		if !strings.HasSuffix(prefix, "/") {
+			prefix = prefix + "/"
+		}
 
-	resultSet, err := snap.search(fs, prefix, *q)
-	if err != nil {
-		return nil, err
-	}
+		q, err := search.Parse(query)
+		if err != nil {
+			c <- search.Error{Message: err.Error()}
+			return
+		}
 
-	return resultSet, nil
+		err = snap.search(fs, prefix, *q, c)
+		if err != nil {
+			c <- search.Error{Message: err.Error()}
+			return
+		}
+
+	}()
+
+	return c, nil
 }

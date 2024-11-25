@@ -54,7 +54,7 @@ func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) 
 		log.Fatalf("failed to search: %v", err)
 	}
 
-	for _, result := range results {
+	for result := range results {
 		if entry, isFilename := result.(search.FileEntry); isFilename {
 			fmt.Printf("%s %s %s %x:%s\n",
 				entry.FileEntry.Stat().ModTime().UTC().Format(time.RFC3339),

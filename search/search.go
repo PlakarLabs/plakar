@@ -35,6 +35,12 @@ type FileEntry struct {
 
 func (FileEntry) isSearchResult() {}
 
+type Error struct {
+	Message string `json:"message"`
+}
+
+func (Error) isSearchResult() {}
+
 // / Query represents the full query structure.
 type Query struct {
 	Left     *Filter `@@`                            // Left-hand side of the query

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
@@ -52,6 +53,13 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	do_highlight := false
+	do_download := false
+
+	download := r.URL.Query().Get("download")
+	if download == "true" {
+		do_download = true
+	}
+
 	render := r.URL.Query().Get("render")
 	if render == "highlight" {
 		do_highlight = true
@@ -79,6 +87,10 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	if do_download {
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(path)))
 	}
 
 	if do_highlight {

@@ -12,6 +12,7 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
+	"github.com/PlakarKorp/plakar/search"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gorilla/mux"
@@ -394,4 +395,85 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(items)
 	}
+}
+
+func snapshotSearch(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	snapshotIDstr := vars["snapshot"]
+	path := vars["path"]
+
+	var err error
+	var offset int64
+	var limit int64
+
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+	queryStr := r.URL.Query().Get("q")
+
+	if offsetStr != "" {
+		offset, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if offset < 0 {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+	if limitStr != "" {
+		limit, err = strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
+
+	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(snapshotID) != 32 {
+		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		return
+	}
+	snapshotID32 := [32]byte{}
+	copy(snapshotID32[:], snapshotID)
+
+	snap, err := snapshot.Load(lrepository, snapshotID32)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	results, err := snap.Search(path, queryStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	items := Items{
+		Total: 0,
+		Items: make([]interface{}, 0),
+	}
+	i := int64(0)
+	for result := range results {
+		if i >= offset {
+			if limit != 0 {
+				if i >= limit+offset {
+					break
+				}
+			}
+			if entry, isFilename := result.(search.FileEntry); isFilename {
+				items.Total += 1
+				items.Items = append(items.Items, entry)
+			}
+		}
+		i++
+	}
+
+	json.NewEncoder(w).Encode(items)
 }

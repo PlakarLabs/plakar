@@ -8,10 +8,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type FSEntry interface {
-	fsEntry()
-}
-
 type FileEntry struct {
 	Version    uint32              `msgpack:"version"`
 	ParentPath string              `msgpack:"parentPath"`
@@ -107,4 +103,8 @@ func (f *FileEntry) Serialize() ([]byte, error) {
 
 func (f *FileEntry) Stat() *objects.FileInfo {
 	return &f.FileInfo
+}
+
+func (f *FileEntry) Size() int64 {
+	return f.Stat().Size()
 }

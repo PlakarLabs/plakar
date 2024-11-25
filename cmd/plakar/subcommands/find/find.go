@@ -20,22 +20,48 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"path/filepath"
-	"sort"
-	"strings"
-	"time"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
-	"github.com/PlakarKorp/plakar/snapshot"
+	"github.com/PlakarKorp/plakar/search"
 )
 
 func init() {
 	subcommands.Register("find", cmd_find)
 }
 
+func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) int {
+	flags := flag.NewFlagSet("find", flag.ExitOnError)
+	flags.Parse(args)
+
+	if flags.NArg() < 2 {
+		log.Fatalf("%s: need at least a chunk prefix to search", flag.CommandLine.Name())
+	}
+
+	snap, err := utils.OpenSnapshotByPrefix(repo, flags.Arg(0))
+	if err != nil {
+		log.Fatalf("failed to open snapshot: %v", err)
+	}
+
+	results, err := snap.Search(flags.Arg(1))
+	if err != nil {
+		log.Fatalf("failed to search: %v", err)
+	}
+
+	for _, result := range results {
+		if entry, isFilename := result.(search.Filename); isFilename {
+			fmt.Printf("%s %x %s\n", entry.Repository, entry.Snapshot, entry.Path)
+		} else {
+			fmt.Printf("%+v\n", result)
+		}
+	}
+
+	return 0
+}
+
+/*
 func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) int {
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	flags.Parse(args)
@@ -113,3 +139,4 @@ func cmd_find(ctx *context.Context, repo *repository.Repository, args []string) 
 
 	return 0
 }
+*/

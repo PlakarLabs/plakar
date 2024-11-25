@@ -129,3 +129,7 @@ func (d *DirEntry) Serialize() ([]byte, error) {
 func (d *DirEntry) Stat() *objects.FileInfo {
 	return &d.FileInfo
 }
+
+func (d *DirEntry) Size() int64 {
+	return d.Stat().Size()
+}

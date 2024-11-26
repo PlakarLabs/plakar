@@ -18,11 +18,14 @@ package identity
 
 import (
 	"bufio"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"net/mail"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
@@ -30,6 +33,7 @@ import (
 	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/PlakarKorp/plakar/identity"
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -59,6 +63,9 @@ func cmd_identity(ctx *context.Context, _ *repository.Repository, args []string)
 
 	case "info":
 		return identity_info(ctx, flags.Args()[1:])
+
+	case "list", "ls":
+		return identity_list(ctx)
 
 	default:
 		flags.Usage()
@@ -172,5 +179,27 @@ func identity_info(ctx *context.Context, args []string) int {
 	}
 
 	fmt.Println("Identifier:", id.Identifier)
+	return 0
+}
+
+func identity_list(ctx *context.Context) int {
+	files, err := os.ReadDir(ctx.GetKeyringDir())
+	if err != nil {
+		fmt.Println("Error reading keyring directory:", err)
+		return 1
+	}
+
+	for _, file := range files {
+		si, err := identity.Load(ctx.GetKeyringDir(), uuid.MustParse(file.Name()))
+		if err != nil {
+			fmt.Println("Error loading identity:", err)
+			return 1
+		}
+		fmt.Printf("%s keyId=%s public=%s address=%s\n",
+			si.Timestamp.UTC().Format(time.RFC3339),
+			strings.Split(si.Identifier.String(), "-")[0],
+			base64.RawStdEncoding.EncodeToString(si.PublicKey),
+			si.Address)
+	}
 	return 0
 }

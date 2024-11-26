@@ -131,7 +131,7 @@ func entryPoint() int {
 			return 1
 		}
 		ctx.SetIdentity(id.Identifier)
-		ctx.SetKeypair(&id.Keypair)
+		ctx.SetKeypair(&id.KeyPair)
 	}
 
 	cacheDir, err := utils.GetCacheDir("plakar")

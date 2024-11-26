@@ -29,6 +29,7 @@ import (
 	"runtime"
 
 	"github.com/PlakarKorp/plakar/api"
+	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/gorilla/handlers"
 )
@@ -96,7 +97,6 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 			url = fmt.Sprintf("http://%s?authkey=%s", addr, opts.AuthKey)
 		}
 	}
-	fmt.Println("lauching browser UI pointing at", url)
 	var err error
 	if !opts.NoSpawn {
 		switch runtime.GOOS {
@@ -108,8 +108,12 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 			err = exec.Command("xdg-open", url).Start()
 		}
 		if err != nil {
+			logger.Printf("failed to launch browser: %s", err)
+			logger.Printf("you can access the webUI at %s", url)
 			return err
 		}
+	} else {
+		fmt.Println("lauching webUI at", url)
 	}
 
 	if opts.Cors {

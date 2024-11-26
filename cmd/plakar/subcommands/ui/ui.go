@@ -51,11 +51,11 @@ func cmd_ui(ctx *context.Context, repo *repository.Repository, args []string) in
 	ui_opts := v2.UiOptions{
 		NoSpawn: opt_nospawn,
 		Cors:    opt_cors,
-		AuthKey: "",
+		Token:   "",
 	}
 
 	if !opt_noauth {
-		ui_opts.AuthKey = uuid.NewString()
+		ui_opts.Token = uuid.NewString()
 	}
 
 	err := v2.Ui(repo, opt_addr, &ui_opts)

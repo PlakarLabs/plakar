@@ -38,14 +38,14 @@ type UiOptions struct {
 	MaxConcurrency uint64
 	NoSpawn        bool
 	Cors           bool
-	AuthKey        string
+	Token          string
 }
 
 //go:embed frontend/*
 var content embed.FS
 
 func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
-	r := api.NewRouter(repo, opts.AuthKey)
+	r := api.NewRouter(repo, opts.Token)
 
 	// Serve files from the ./frontend directory
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,10 +91,10 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 	}
 
 	var url string
-	if opts.AuthKey == "" {
+	if opts.Token == "" {
 		url = fmt.Sprintf("http://%s", addr)
 	} else {
-		url = fmt.Sprintf("http://%s?authkey=%s", addr, opts.AuthKey)
+		url = fmt.Sprintf("http://%s?token=%s", addr, opts.Token)
 	}
 
 	var err error

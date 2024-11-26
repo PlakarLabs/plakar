@@ -33,11 +33,18 @@ import (
 	"github.com/gorilla/handlers"
 )
 
+type UiOptions struct {
+	MaxConcurrency uint64
+	NoSpawn        bool
+	Cors           bool
+	AuthKey        string
+}
+
 //go:embed frontend/*
 var content embed.FS
 
-func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
-	r := api.NewRouter(repo)
+func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
+	r := api.NewRouter(repo, opts.AuthKey)
 
 	// Serve files from the ./frontend directory
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -83,11 +90,15 @@ func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 			}
 		}
 		addr = fmt.Sprintf("localhost:%d", port)
-		url = fmt.Sprintf("http://%s", addr)
+		if opts.AuthKey == "" {
+			url = fmt.Sprintf("http://%s", addr)
+		} else {
+			url = fmt.Sprintf("http://%s?authkey=%s", addr, opts.AuthKey)
+		}
 	}
 	fmt.Println("lauching browser UI pointing at", url)
 	var err error
-	if spawn {
+	if !opts.NoSpawn {
 		switch runtime.GOOS {
 		case "windows":
 			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
@@ -101,7 +112,7 @@ func Ui(repo *repository.Repository, addr string, spawn bool, cors bool) error {
 		}
 	}
 
-	if cors {
+	if opts.Cors {
 		return http.ListenAndServe(addr, handlers.CORS()(r))
 	}
 	return http.ListenAndServe(addr, r)

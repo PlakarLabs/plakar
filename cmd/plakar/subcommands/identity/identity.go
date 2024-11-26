@@ -24,7 +24,6 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
@@ -197,7 +196,7 @@ func identity_list(ctx *context.Context) int {
 		}
 		fmt.Printf("%s keyId=%s public=%s address=%s\n",
 			si.Timestamp.UTC().Format(time.RFC3339),
-			strings.Split(si.Identifier.String(), "-")[0],
+			si.Identifier.String(),
 			base64.RawStdEncoding.EncodeToString(si.PublicKey),
 			si.Address)
 	}

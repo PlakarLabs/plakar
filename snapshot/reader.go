@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
@@ -17,38 +18,43 @@ type Reader struct {
 	object   *objects.Object
 	obuf     *bytes.Buffer
 
+	modTime time.Time
+
 	chunksLengths []uint32
 	offset        int64
 	size          int64
 }
 
-func (reader *Reader) GetContentType() string {
-	return reader.object.ContentType
+func (rd *Reader) ContentType() string {
+	return rd.object.ContentType
+}
+func (rd *Reader) ModTime() time.Time {
+	return rd.modTime
 }
 
-func (reader *Reader) Read(buf []byte) (int, error) {
-	if reader.offset == reader.size {
+func (rd *Reader) Read(buf []byte) (int, error) {
+	if rd.offset == rd.size {
 		return 0, io.EOF
 	}
 
 	readSize := uint(len(buf))
 	chunkStart := int64(0)
-	for chunkOffset, chunkLength := range reader.chunksLengths {
+	for chunkOffset, chunkLength := range rd.chunksLengths {
 		// reader offset is past this chunk, skip
-		if reader.offset > chunkStart+int64(chunkLength) {
+		if rd.offset > chunkStart+int64(chunkLength) {
 			chunkStart += int64(chunkLength)
 			continue
 		}
 
 		// we have data to read from this chunk, fetch content
-		data, err := reader.snapshot.GetBlob(packfile.TYPE_CHUNK, reader.object.Chunks[chunkOffset].Checksum)
+		data, err := rd.snapshot.GetBlob(packfile.TYPE_CHUNK, rd.object.Chunks[chunkOffset].Checksum)
 		if err != nil {
 			return -1, err
 		}
 
 		// compute how much we can read from this one
 		endOffset := chunkStart + int64(chunkLength)
-		available := endOffset - int64(reader.offset)
+		available := endOffset - int64(rd.offset)
 		chunkStart += int64(chunkLength)
 
 		// find beginning and ending offsets in current chunk
@@ -61,20 +67,20 @@ func (reader *Reader) Read(buf []byte) (int, error) {
 			end = int64(len(data))
 		}
 
-		nbytes, err := reader.obuf.Write(data[beg:end])
+		nbytes, err := rd.obuf.Write(data[beg:end])
 		if err != nil {
 			return -1, err
 		}
 
 		// update offset and remaining buffer capacity, possibly exiting loop
-		reader.offset += int64(nbytes)
+		rd.offset += int64(nbytes)
 		readSize -= uint(nbytes)
-		if reader.offset == reader.size || readSize == 0 {
+		if rd.offset == rd.size || readSize == 0 {
 			break
 		}
 	}
 
-	return reader.obuf.Read(buf)
+	return rd.obuf.Read(buf)
 }
 
 func (reader *Reader) Seek(offset int64, whence int) (int64, error) {
@@ -132,7 +138,8 @@ func NewReader(snap *Snapshot, pathname string) (*Reader, error) {
 			chunksLengths = append(chunksLengths, chunk.Length)
 			size += int64(chunk.Length)
 		}
-		return &Reader{snapshot: snap, object: object, chunksLengths: chunksLengths, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size}, nil
+
+		return &Reader{snapshot: snap, object: object, chunksLengths: chunksLengths, obuf: bytes.NewBuffer([]byte("")), offset: 0, size: size, modTime: st.FileInfo.ModTime()}, nil
 	}
 	return nil, os.ErrNotExist
 }

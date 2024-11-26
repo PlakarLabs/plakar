@@ -4,14 +4,11 @@ import (
 	"bufio"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -96,7 +93,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 	if do_highlight {
 		lexer := lexers.Match(path)
 		if lexer == nil {
-			lexer = lexers.Get(rd.GetContentType())
+			lexer = lexers.Get(rd.ContentType())
 		}
 		if lexer == nil {
 			lexer = lexers.Fallback // Fallback if no lexer is found
@@ -133,20 +130,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-
-		if rd.GetContentType() != "" {
-			w.Header().Set("Content-Type", rd.GetContentType())
-		}
-
-		_, err = io.Copy(w, rd)
-		if err != nil {
-			// Connection closed by client
-			if errors.Is(err, syscall.EPIPE) {
-				return
-			}
-			logger.Error("Failed to copy data: %s", err)
-			return
-		}
+		http.ServeContent(w, r, filepath.Base(path), rd.ModTime(), rd)
 	}
 }
 

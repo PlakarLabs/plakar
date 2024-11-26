@@ -77,7 +77,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		var outRd io.ReadCloser = rd
 
 		if !opt_nodecompress {
-			if rd.GetContentType() == "application/gzip" && !opt_nodecompress {
+			if rd.ContentType() == "application/gzip" && !opt_nodecompress {
 				gzRd, err := gzip.NewReader(outRd)
 				if err != nil {
 					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
@@ -91,7 +91,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		if opt_highlight {
 			lexer := lexers.Match(pathname)
 			if lexer == nil {
-				lexer = lexers.Get(rd.GetContentType())
+				lexer = lexers.Get(rd.ContentType())
 			}
 			if lexer == nil {
 				lexer = lexers.Fallback // Fallback if no lexer is found

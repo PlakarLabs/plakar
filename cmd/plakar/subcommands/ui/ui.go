@@ -28,6 +28,7 @@ import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
 	v2 "github.com/PlakarKorp/plakar/ui/v2"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -35,17 +36,29 @@ func init() {
 }
 
 func cmd_ui(ctx *context.Context, repo *repository.Repository, args []string) int {
-	var opt_nospawn bool
 	var opt_addr string
 	var opt_cors bool
+	var opt_noauth bool
+	var opt_nospawn bool
 
 	flags := flag.NewFlagSet("ui", flag.ExitOnError)
-	flags.BoolVar(&opt_cors, "cors", false, "enable CORS")
-	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.StringVar(&opt_addr, "addr", "", "address to listen on")
+	flags.BoolVar(&opt_cors, "cors", false, "enable CORS")
+	flags.BoolVar(&opt_noauth, "no-auth", false, "don't use authentication")
+	flags.BoolVar(&opt_nospawn, "no-spawn", false, "don't spawn browser")
 	flags.Parse(args)
 
-	err := v2.Ui(repo, opt_addr, !opt_nospawn, opt_cors)
+	ui_opts := v2.UiOptions{
+		NoSpawn: opt_nospawn,
+		Cors:    opt_cors,
+		AuthKey: "",
+	}
+
+	if !opt_noauth {
+		ui_opts.AuthKey = uuid.NewString()
+	}
+
+	err := v2.Ui(repo, opt_addr, &ui_opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 		return 1

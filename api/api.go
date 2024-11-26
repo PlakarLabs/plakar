@@ -20,8 +20,8 @@ type Items struct {
 	Items []interface{} `json:"items"`
 }
 
-// AuthMiddleware is a middleware that checks for the authkey in the request.
-func AuthMiddleware(authkey string) func(http.Handler) http.Handler {
+// AuthMiddleware is a middleware that checks for the token in the request.
+func AuthMiddleware(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := r.Header.Get("Authorization")
@@ -30,8 +30,8 @@ func AuthMiddleware(authkey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			if key != authkey {
-				http.Error(w, "Unauthorized: invalid authkey", http.StatusUnauthorized)
+			if key != token {
+				http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
 				return
 			}
 
@@ -40,15 +40,15 @@ func AuthMiddleware(authkey string) func(http.Handler) http.Handler {
 	}
 }
 
-func NewRouter(repo *repository.Repository, authkey string) *mux.Router {
+func NewRouter(repo *repository.Repository, token string) *mux.Router {
 	lstore = repo.Store()
 	lrepository = repo
 
 	r := mux.NewRouter()
 
 	apiRouter := r.PathPrefix("/api").Subrouter()
-	if authkey != "" {
-		apiRouter.Use(AuthMiddleware(authkey))
+	if token != "" {
+		apiRouter.Use(AuthMiddleware(token))
 	}
 
 	apiRouter.HandleFunc("/storage/configuration", storageConfiguration).Methods("GET")

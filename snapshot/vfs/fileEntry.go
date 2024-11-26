@@ -36,7 +36,7 @@ func (*FileEntry) fsEntry() {}
 
 func NewFileEntry(parentPath string, record *importer.ScanRecord) *FileEntry {
 	target := ""
-	if record.Type == importer.RecordTypeSymlink {
+	if record.Target != "" {
 		target = record.Target
 	}
 

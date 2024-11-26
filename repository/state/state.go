@@ -26,7 +26,6 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -139,7 +138,6 @@ func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 func NewFromBytes(serialized []byte) (*State, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("state.NewFromBytes", time.Since(t0))
 		logger.Trace("state", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -166,7 +164,6 @@ func NewFromBytes(serialized []byte) (*State, error) {
 func (st *State) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("state.Serialize", time.Since(t0))
 		logger.Trace("state", "Serialize(): %s", time.Since(t0))
 	}()
 

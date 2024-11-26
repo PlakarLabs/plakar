@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/PlakarKorp/plakar/logger"
-	"github.com/PlakarKorp/plakar/profiler"
 )
 
 const VERSION = 100
@@ -88,7 +87,6 @@ func DefaultConfiguration() *Configuration {
 func NewFooterFromBytes(serialized []byte) (PackFileFooter, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.NewFooterFromBytes", time.Since(t0))
 		logger.Trace("packfile", "NewFooterFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -109,13 +107,13 @@ func NewFooterFromBytes(serialized []byte) (PackFileFooter, error) {
 	if err := binary.Read(reader, binary.LittleEndian, &footer.IndexChecksum); err != nil {
 		return footer, err
 	}
+	logger.Trace("packfile", "NewFooterFromBytes(...): %s", time.Since(t0))
 	return footer, nil
 }
 
 func NewIndexFromBytes(serialized []byte) ([]Blob, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.NewIndexFromBytes", time.Since(t0))
 		logger.Trace("packfile", "NewIndexFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -163,7 +161,6 @@ func New() *PackFile {
 func NewFromBytes(serialized []byte) (*PackFile, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.NewFromBytes", time.Since(t0))
 		logger.Trace("packfile", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -259,7 +256,6 @@ func NewFromBytes(serialized []byte) (*PackFile, error) {
 func (p *PackFile) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.Serialize", time.Since(t0))
 		logger.Trace("packfile", "Serialize(): %s", time.Since(t0))
 	}()
 
@@ -320,7 +316,6 @@ func (p *PackFile) Serialize() ([]byte, error) {
 func (p *PackFile) SerializeData() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.SerializeData", time.Since(t0))
 		logger.Trace("packfile", "SerializeData(): %s", time.Since(t0))
 	}()
 
@@ -334,7 +329,6 @@ func (p *PackFile) SerializeData() ([]byte, error) {
 func (p *PackFile) SerializeIndex() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.SerializeIndex", time.Since(t0))
 		logger.Trace("packfile", "SerializeIndex(): %s", time.Since(t0))
 	}()
 
@@ -373,7 +367,6 @@ func (p *PackFile) SerializeIndex() ([]byte, error) {
 func (p *PackFile) SerializeFooter() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.SerializeFooter", time.Since(t0))
 		logger.Trace("packfile", "SerializeFooter(): %s", time.Since(t0))
 	}()
 
@@ -431,7 +424,6 @@ func (p *PackFile) SerializeFooter() ([]byte, error) {
 func (p *PackFile) AddBlob(dataType Type, checksum [32]byte, data []byte) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.AddBlob", time.Since(t0))
 		logger.Trace("packfile", "AddBlob(...): %s", time.Since(t0))
 	}()
 	p.Index = append(p.Index, Blob{dataType, checksum, uint32(len(p.Blobs)), uint32(len(data))})
@@ -443,7 +435,6 @@ func (p *PackFile) AddBlob(dataType Type, checksum [32]byte, data []byte) {
 func (p *PackFile) GetBlob(checksum [32]byte) ([]byte, bool) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("packfile.GetBlob", time.Since(t0))
 		logger.Trace("packfile", "GetBlob(...): %s", time.Since(t0))
 	}()
 

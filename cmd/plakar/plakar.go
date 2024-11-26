@@ -19,7 +19,6 @@ import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/logger"
-	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
@@ -398,10 +397,6 @@ func entryPoint() int {
 	err = store.Close()
 	if err != nil {
 		logger.Warn("could not close repository: %s", err)
-	}
-
-	if opt_profiling {
-		profiler.Display()
 	}
 
 	ctx.Close()

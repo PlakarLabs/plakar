@@ -9,7 +9,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
-	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
@@ -81,7 +80,6 @@ func NewHeader(indexID [32]byte) *Header {
 func NewFromBytes(serialized []byte) (*Header, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("header.NewIndexFromBytes", time.Since(t0))
 		logger.Trace("header", "NewMetadataFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -96,7 +94,6 @@ func NewFromBytes(serialized []byte) (*Header, error) {
 func (h *Header) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("header.Serialize", time.Since(t0))
 		logger.Trace("header", "Serialize(): %s", time.Since(t0))
 	}()
 

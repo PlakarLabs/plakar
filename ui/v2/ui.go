@@ -79,10 +79,7 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 		http.FileServer(http.FS(statics)).ServeHTTP(w, r)
 	})
 
-	var url string
-	if addr != "" {
-		url = fmt.Sprintf("http://%s", addr)
-	} else {
+	if addr == "" {
 		var port uint16
 		for {
 			port = uint16(rand.Uint32() % 0xffff)
@@ -91,12 +88,15 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 			}
 		}
 		addr = fmt.Sprintf("localhost:%d", port)
-		if opts.AuthKey == "" {
-			url = fmt.Sprintf("http://%s", addr)
-		} else {
-			url = fmt.Sprintf("http://%s?authkey=%s", addr, opts.AuthKey)
-		}
 	}
+
+	var url string
+	if opts.AuthKey == "" {
+		url = fmt.Sprintf("http://%s", addr)
+	} else {
+		url = fmt.Sprintf("http://%s?authkey=%s", addr, opts.AuthKey)
+	}
+
 	var err error
 	if !opts.NoSpawn {
 		switch runtime.GOOS {

@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/PlakarLabs/go-cdc-chunkers v0.0.7
 	github.com/alecthomas/chroma v0.10.0
+	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/anacrolix/fuse v0.4.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.0.0

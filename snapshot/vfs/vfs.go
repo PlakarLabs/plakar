@@ -12,6 +12,11 @@ import (
 
 const VERSION = 001
 
+type FSEntry interface {
+	fsEntry()
+	Size() int64
+}
+
 type ExtendedAttribute struct {
 	Name  string `msgpack:"name"`
 	Value []byte `msgpack:"value"`

@@ -66,6 +66,7 @@ func NewRouter(repo *repository.Repository, authkey string) *mux.Router {
 
 	apiRouter.HandleFunc("/snapshot/{snapshot}", snapshotHeader).Methods("GET")
 	apiRouter.HandleFunc("/snapshot/reader/{snapshot}:{path:.+}", snapshotReader).Methods("GET")
+	apiRouter.HandleFunc("/snapshot/search/{snapshot}:{path:.+}", snapshotSearch).Methods("GET")
 
 	apiRouter.HandleFunc("/snapshot/vfs/{snapshot}:/", snapshotVFSBrowse).Methods("GET")
 	apiRouter.HandleFunc("/snapshot/vfs/{snapshot}:{path:.+}/", snapshotVFSBrowse).Methods("GET")

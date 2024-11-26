@@ -1,16 +1,13 @@
 package vfs
 
 import (
+	"path/filepath"
 	"sort"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/vmihailenco/msgpack/v5"
 )
-
-type FSEntry interface {
-	fsEntry()
-}
 
 type FileEntry struct {
 	Version    uint32              `msgpack:"version"`
@@ -107,4 +104,30 @@ func (f *FileEntry) Serialize() ([]byte, error) {
 
 func (f *FileEntry) Stat() *objects.FileInfo {
 	return &f.FileInfo
+}
+
+func (f *FileEntry) Name() string {
+	return f.Stat().Name()
+}
+
+func (f *FileEntry) Path() string {
+	return filepath.Join(f.ParentPath, f.Name())
+}
+
+func (f *FileEntry) Size() int64 {
+	return f.Stat().Size()
+}
+
+func (f *FileEntry) ContentType() string {
+	if f.Object == nil {
+		return ""
+	}
+	return f.Object.ContentType
+}
+
+func (f *FileEntry) Entropy() float64 {
+	if f.Object == nil {
+		return 0
+	}
+	return f.Object.Entropy
 }

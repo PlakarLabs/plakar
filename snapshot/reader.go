@@ -86,12 +86,12 @@ func (rd *Reader) Read(buf []byte) (int, error) {
 func (reader *Reader) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
 	case io.SeekStart:
-		if offset >= reader.size {
+		if offset > reader.size {
 			return 0, io.EOF
 		}
 		reader.offset = offset
 	case io.SeekCurrent:
-		if reader.offset+offset >= reader.size {
+		if reader.offset+offset > reader.size {
 			return 0, io.EOF
 		}
 		reader.offset += offset

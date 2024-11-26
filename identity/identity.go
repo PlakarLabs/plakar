@@ -17,11 +17,50 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
+type SealedIdentity struct {
+	Identifier uuid.UUID
+	Timestamp  time.Time
+	Address    string
+	PublicKey  []byte
+	PrivateKey []byte
+}
+
 type Identity struct {
 	Identifier uuid.UUID
 	Timestamp  time.Time
 	Address    string
-	Keypair    keypair.KeyPair
+	KeyPair    keypair.KeyPair
+}
+
+func New(address string, keypair keypair.KeyPair) (*Identity, error) {
+	if _, err := mail.ParseAddress(address); err != nil {
+		return nil, err
+	}
+
+	if identifier, err := uuid.NewRandom(); err != nil {
+		return nil, err
+	} else {
+		return &Identity{
+			Identifier: identifier,
+			Timestamp:  time.Now(),
+			Address:    address,
+			KeyPair:    keypair,
+		}, nil
+	}
+}
+
+func Load(keyringDir string, identifier uuid.UUID) (*SealedIdentity, error) {
+	data, err := os.ReadFile(filepath.Join(keyringDir, identifier.String()))
+	if err != nil {
+		return nil, err
+	}
+
+	var si SealedIdentity
+	if err := msgpack.Unmarshal(data, &si); err != nil {
+		return nil, err
+	}
+
+	return &si, nil
 }
 
 func UnsealIdentity(keyringDir string, identifier uuid.UUID) (*Identity, error) {
@@ -49,40 +88,13 @@ func UnsealIdentity(keyringDir string, identifier uuid.UUID) (*Identity, error) 
 	return nil, err
 }
 
-func New(address string, keypair keypair.KeyPair) (*Identity, error) {
-	if _, err := mail.ParseAddress(address); err != nil {
-		return nil, err
-	}
-
-	if identifier, err := uuid.NewRandom(); err != nil {
-		return nil, err
-	} else {
-		return &Identity{
-			Identifier: identifier,
-			Timestamp:  time.Now(),
-			Address:    address,
-			Keypair:    keypair,
-		}, nil
-	}
-}
-
-func FromBytes(data []byte) (*Identity, error) {
-	var i Identity
-	if err := msgpack.Unmarshal(data, &i); err != nil {
-		return nil, err
-	}
-	return &i, nil
-}
-
-func (i *Identity) ToBytes() ([]byte, error) {
-	if data, err := msgpack.Marshal(i); err != nil {
-		return nil, err
-	} else {
-		return data, nil
-	}
-}
-
 func Unseal(data []byte, passphrase []byte) (*Identity, error) {
+	var si SealedIdentity
+	if err := msgpack.Unmarshal(data, &si); err != nil {
+		return nil, err
+	}
+
+	data = si.PrivateKey
 	salt := data[:32]
 	dk, err := scrypt.Key(passphrase, salt, 1<<15, 8, 1, 32)
 	if err != nil {
@@ -99,7 +111,16 @@ func Unseal(data []byte, passphrase []byte) (*Identity, error) {
 		return nil, err
 	}
 
-	return FromBytes(buf)
+	i := &Identity{
+		Identifier: si.Identifier,
+		Timestamp:  si.Timestamp,
+		Address:    si.Address,
+		KeyPair: keypair.KeyPair{
+			PublicKey:  si.PublicKey,
+			PrivateKey: buf,
+		},
+	}
+	return i, nil
 }
 
 func (i *Identity) Seal(passphrase []byte) ([]byte, error) {
@@ -111,30 +132,37 @@ func (i *Identity) Seal(passphrase []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	serialized, err := i.ToBytes()
+
+	si := SealedIdentity{
+		Identifier: i.Identifier,
+		Timestamp:  i.Timestamp,
+		Address:    i.Address,
+		PublicKey:  i.KeyPair.PublicKey,
+	}
+	rd, err := encryption.EncryptStream(dk, bytes.NewReader(i.KeyPair.PrivateKey))
 	if err != nil {
 		return nil, err
 	}
-
-	rd, err := encryption.EncryptStream(dk, bytes.NewReader(serialized))
-	if err != nil {
-		return nil, err
-	}
-
 	buf, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, err
 	}
 
-	return append(salt, buf...), nil
+	si.PrivateKey = append(salt, buf...)
+
+	if data, err := msgpack.Marshal(si); err != nil {
+		return nil, err
+	} else {
+		return data, nil
+	}
 }
 
 func (i *Identity) Sign(data []byte) []byte {
-	return i.Keypair.Sign(data)
+	return i.KeyPair.Sign(data)
 }
 
 func (i *Identity) Verify(data []byte, signature []byte) bool {
-	return i.Keypair.Verify(data, signature)
+	return i.KeyPair.Verify(data, signature)
 }
 
 func (i *Identity) GetIdentifier() uuid.UUID {
@@ -150,13 +178,13 @@ func (i *Identity) GetAddress() string {
 }
 
 func (i *Identity) GetPublicKey() []byte {
-	return i.Keypair.PublicKey
+	return i.KeyPair.PublicKey
 }
 
 func (i *Identity) GetPrivateKey() []byte {
-	return i.Keypair.PrivateKey
+	return i.KeyPair.PrivateKey
 }
 
 func (i *Identity) GetKeypair() keypair.KeyPair {
-	return i.Keypair
+	return i.KeyPair
 }

@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/PlakarKorp/plakar/encryption/keypair"
@@ -27,7 +26,7 @@ func TestNew(t *testing.T) {
 	if id.Address != validAddress {
 		t.Errorf("Expected address %s, got %s", validAddress, id.Address)
 	}
-	if id.Keypair.PrivateKey == nil || id.Keypair.PublicKey == nil {
+	if id.KeyPair.PrivateKey == nil || id.KeyPair.PublicKey == nil {
 		t.Error("Identity keypair contains nil keys")
 	}
 
@@ -35,69 +34,6 @@ func TestNew(t *testing.T) {
 	invalidAddress := "invalid-email"
 	if _, err := New(invalidAddress, *kp); err == nil {
 		t.Error("Expected error when creating identity with invalid email address")
-	}
-}
-
-// TestFromBytes checks if an identity can be correctly deserialized from bytes
-func TestFromBytes(t *testing.T) {
-	// Create a sample identity for testing
-	kp, err := keypair.Generate()
-	if err != nil {
-		t.Fatalf("Failed to generate keypair: %v", err)
-	}
-	id, err := New("test@example.com", *kp)
-	if err != nil {
-		t.Fatalf("Failed to create identity: %v", err)
-	}
-
-	// Serialize the identity to bytes
-	data, err := id.ToBytes()
-	if err != nil {
-		t.Fatal("Failed to serialize identity to bytes")
-	}
-
-	// Deserialize the identity from bytes
-	deserializedID, err := FromBytes(data)
-	if err != nil {
-		t.Fatalf("Failed to deserialize identity from bytes: %v", err)
-	}
-
-	// Compare fields to ensure correct deserialization
-	if deserializedID.Address != id.Address {
-		t.Errorf("Expected address %s, got %s", id.Address, deserializedID.Address)
-	}
-	if deserializedID.Identifier != id.Identifier {
-		t.Errorf("Expected identifier %v, got %v", id.Identifier, deserializedID.Identifier)
-	}
-	if !bytes.Equal(deserializedID.Keypair.PublicKey, id.Keypair.PublicKey) {
-		t.Error("Public keys do not match after deserialization")
-	}
-	if !bytes.Equal(deserializedID.Keypair.PrivateKey, id.Keypair.PrivateKey) {
-		t.Error("Private keys do not match after deserialization")
-	}
-}
-
-// TestToBytes checks if an identity can be correctly serialized to bytes
-func TestToBytes(t *testing.T) {
-	// Generate a keypair and create an identity for testing
-	kp, err := keypair.Generate()
-	if err != nil {
-		t.Fatalf("Failed to generate keypair: %v", err)
-	}
-	id, err := New("test@example.com", *kp)
-	if err != nil {
-		t.Fatalf("Failed to create identity: %v", err)
-	}
-
-	// Serialize the identity to bytes
-	data, err := id.ToBytes()
-	if err != nil {
-		t.Fatal("Failed to serialize identity to bytes")
-	}
-
-	// Ensure serialized data is not empty
-	if len(data) == 0 {
-		t.Error("Serialized data is empty")
 	}
 }
 

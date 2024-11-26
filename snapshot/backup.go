@@ -697,92 +697,19 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 		dirEntry.NumChildren = uint64(len(record.Children))
 
-		dirEntropy := 0.0
-		dirSize := uint64(0)
-		nFiles := 0
 		for _, child := range record.Children {
 			childpath := filepath.Join(record.Pathname, child.Name())
 			value, err := sc.GetChecksum(childpath)
 			if err != nil {
-				//sc.RecordError(childpath, err.Error())
 				continue
 			}
 
 			if child.IsDir() {
-				childStatistics := &vfs.Summary{}
-				dirEntry.Summary.Directory.Directories++
-				dirEntry.Summary.Below.Directories++
-
 				childStatistics, err := sc.GetStatistics(childpath)
 				if err != nil {
-					//					sc.RecordError(childpath, err.Error())
 					continue
 				}
-
-				dirEntry.Summary.Below.Files += childStatistics.Below.Files + childStatistics.Directory.Files
-				dirEntry.Summary.Below.Directories += childStatistics.Below.Directories + childStatistics.Directory.Directories
-				dirEntry.Summary.Below.Symlinks += childStatistics.Below.Symlinks + childStatistics.Directory.Symlinks
-				dirEntry.Summary.Below.Devices += childStatistics.Below.Devices + childStatistics.Directory.Devices
-				dirEntry.Summary.Below.Pipes += childStatistics.Below.Pipes + childStatistics.Directory.Pipes
-				dirEntry.Summary.Below.Sockets += childStatistics.Below.Sockets + childStatistics.Directory.Sockets
-
-				dirEntry.Summary.Below.Setuid += childStatistics.Below.Setuid + childStatistics.Directory.Setuid
-				dirEntry.Summary.Below.Setgid += childStatistics.Below.Setgid + childStatistics.Directory.Setgid
-				dirEntry.Summary.Below.Sticky += childStatistics.Below.Sticky + childStatistics.Directory.Sticky
-
-				dirEntry.Summary.Below.Objects += childStatistics.Below.Objects + childStatistics.Directory.Objects
-				dirEntry.Summary.Below.Chunks += childStatistics.Below.Chunks + childStatistics.Directory.Chunks
-
-				if dirEntry.Summary.Below.MinSize == 0 || childStatistics.Below.MinSize < dirEntry.Summary.Below.MinSize {
-					dirEntry.Summary.Below.MinSize = childStatistics.Below.MinSize
-				}
-				if dirEntry.Summary.Below.MinSize == 0 || childStatistics.Directory.MinSize < dirEntry.Summary.Below.MinSize {
-					dirEntry.Summary.Below.MinSize = childStatistics.Directory.MinSize
-				}
-				if dirEntry.Summary.Below.MaxSize == 0 || childStatistics.Below.MaxSize > dirEntry.Summary.Below.MaxSize {
-					dirEntry.Summary.Below.MaxSize = childStatistics.Below.MaxSize
-				}
-				if dirEntry.Summary.Below.MaxSize == 0 || childStatistics.Directory.MaxSize > dirEntry.Summary.Below.MaxSize {
-					dirEntry.Summary.Below.MaxSize = childStatistics.Directory.MaxSize
-				}
-				dirEntry.Summary.Below.Size += childStatistics.Below.Size + childStatistics.Directory.Size
-
-				if dirEntry.Summary.Below.MinModTime == 0 || childStatistics.Below.MinModTime < dirEntry.Summary.Below.MinModTime {
-					dirEntry.Summary.Below.MinModTime = childStatistics.Below.MinModTime
-				}
-				if dirEntry.Summary.Below.MinModTime == 0 || childStatistics.Directory.MinModTime < dirEntry.Summary.Below.MinModTime {
-					dirEntry.Summary.Below.MinModTime = childStatistics.Directory.MinModTime
-				}
-				if dirEntry.Summary.Below.MaxModTime == 0 || childStatistics.Below.MaxModTime > dirEntry.Summary.Below.MaxModTime {
-					dirEntry.Summary.Below.MaxModTime = childStatistics.Below.MaxModTime
-				}
-				if dirEntry.Summary.Below.MaxModTime == 0 || childStatistics.Directory.MaxModTime > dirEntry.Summary.Below.MaxModTime {
-					dirEntry.Summary.Below.MaxModTime = childStatistics.Directory.MaxModTime
-				}
-
-				if dirEntry.Summary.Below.MinEntropy == 0 || childStatistics.Below.MinEntropy < dirEntry.Summary.Below.MinEntropy {
-					dirEntry.Summary.Below.MinEntropy = childStatistics.Below.MinEntropy
-				}
-				if dirEntry.Summary.Below.MinEntropy == 0 || childStatistics.Directory.MinEntropy < dirEntry.Summary.Below.MinEntropy {
-					dirEntry.Summary.Below.MinEntropy = childStatistics.Directory.MinEntropy
-				}
-				if dirEntry.Summary.Below.MaxEntropy == 0 || childStatistics.Below.MaxEntropy > dirEntry.Summary.Below.MaxEntropy {
-					dirEntry.Summary.Below.MaxEntropy = childStatistics.Below.MaxEntropy
-				}
-				if dirEntry.Summary.Below.MaxEntropy == 0 || childStatistics.Directory.MaxEntropy > dirEntry.Summary.Below.MaxEntropy {
-					dirEntry.Summary.Below.MaxEntropy = childStatistics.Directory.MaxEntropy
-				}
-				dirEntry.Summary.Below.HiEntropy += childStatistics.Below.HiEntropy + childStatistics.Directory.HiEntropy
-				dirEntry.Summary.Below.LoEntropy += childStatistics.Below.LoEntropy + childStatistics.Directory.LoEntropy
-
-				dirEntry.Summary.Below.MIMEAudio += childStatistics.Directory.MIMEAudio + childStatistics.Below.MIMEAudio
-				dirEntry.Summary.Below.MIMEVideo += childStatistics.Directory.MIMEVideo + childStatistics.Below.MIMEVideo
-				dirEntry.Summary.Below.MIMEImage += childStatistics.Directory.MIMEImage + childStatistics.Below.MIMEImage
-				dirEntry.Summary.Below.MIMEText += childStatistics.Directory.MIMEText + childStatistics.Below.MIMEText
-				dirEntry.Summary.Below.MIMEApplication += childStatistics.Directory.MIMEApplication + childStatistics.Below.MIMEApplication
-				dirEntry.Summary.Below.MIMEOther += childStatistics.Directory.MIMEOther + childStatistics.Below.MIMEOther
-				dirEntry.Summary.Below.Errors += childStatistics.Directory.Errors + childStatistics.Below.Errors
-
+				dirEntry.Summary.UpdateBelow(childStatistics)
 				dirEntry.AddDirectoryChild(value, child, childStatistics)
 
 			} else {
@@ -791,92 +718,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					//sc.RecordError(childpath, err.Error())
 					continue
 				}
-
-				switch fileSummary.Type {
-				case importer.RecordTypeFile:
-					dirEntry.Summary.Directory.Files++
-				case importer.RecordTypeDirectory:
-					dirEntry.Summary.Directory.Directories++
-				case importer.RecordTypeSymlink:
-					dirEntry.Summary.Directory.Symlinks++
-				case importer.RecordTypeDevice:
-					dirEntry.Summary.Directory.Devices++
-				case importer.RecordTypePipe:
-					dirEntry.Summary.Directory.Pipes++
-				case importer.RecordTypeSocket:
-					dirEntry.Summary.Directory.Sockets++
-				default:
-					panic("unexpected record type")
-				}
-
-				if fileSummary.Mode&os.ModeSetuid != 0 {
-					dirEntry.Summary.Directory.Setuid++
-				}
-				if fileSummary.Mode&os.ModeSetgid != 0 {
-					dirEntry.Summary.Directory.Setgid++
-				}
-				if fileSummary.Mode&os.ModeSticky != 0 {
-					dirEntry.Summary.Directory.Sticky++
-				}
-
-				if fileSummary.Objects > 0 {
-					dirEntry.Summary.Directory.Objects += fileSummary.Objects
-					dirEntry.Summary.Directory.Chunks += fileSummary.Chunks
-				}
-
-				if fileSummary.ModTime < dirEntry.Summary.Directory.MinModTime || dirEntry.Summary.Directory.MinModTime == 0 {
-					dirEntry.Summary.Directory.MinModTime = fileSummary.ModTime
-				}
-				if fileSummary.ModTime > dirEntry.Summary.Directory.MaxModTime || dirEntry.Summary.Directory.MaxModTime == 0 {
-					dirEntry.Summary.Directory.MaxModTime = fileSummary.ModTime
-				}
-
-				if fileSummary.Size < dirEntry.Summary.Directory.MinSize || dirEntry.Summary.Directory.MinSize == 0 {
-					dirEntry.Summary.Directory.MinSize = fileSummary.Size
-				}
-				if fileSummary.Size > dirEntry.Summary.Directory.MaxSize || dirEntry.Summary.Directory.MaxSize == 0 {
-					dirEntry.Summary.Directory.MaxSize = fileSummary.Size
-				}
-
-				if fileSummary.Entropy < dirEntry.Summary.Directory.MinEntropy || dirEntry.Summary.Directory.MinEntropy == 0 {
-					dirEntry.Summary.Directory.MinEntropy = fileSummary.Entropy
-				}
-				if fileSummary.Entropy > dirEntry.Summary.Directory.MaxEntropy || dirEntry.Summary.Directory.MaxEntropy == 0 {
-					dirEntry.Summary.Directory.MaxEntropy = fileSummary.Entropy
-				}
-
-				if fileSummary.Entropy <= 2.0 {
-					dirEntry.Summary.Directory.LoEntropy++
-				} else if fileSummary.Entropy >= 7.0 {
-					dirEntry.Summary.Directory.HiEntropy++
-				}
-				dirEntropy += fileSummary.Entropy
-				nFiles++
-
-				if fileSummary.ContentType != "" {
-					if strings.HasPrefix(fileSummary.ContentType, "text/") {
-						dirEntry.Summary.Directory.MIMEText++
-					} else if strings.HasPrefix(fileSummary.ContentType, "image/") {
-						dirEntry.Summary.Directory.MIMEImage++
-					} else if strings.HasPrefix(fileSummary.ContentType, "audio/") {
-						dirEntry.Summary.Directory.MIMEAudio++
-					} else if strings.HasPrefix(fileSummary.ContentType, "video/") {
-						dirEntry.Summary.Directory.MIMEVideo++
-					} else if strings.HasPrefix(fileSummary.ContentType, "application/") {
-						dirEntry.Summary.Directory.MIMEApplication++
-					} else {
-						dirEntry.Summary.Directory.MIMEOther++
-					}
-				}
-
-				dirEntry.Summary.Directory.Size += fileSummary.Size
+				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
 				dirEntry.AddFileChild(value, child)
 			}
 		}
-		if nFiles > 0 {
-			dirEntry.Summary.Directory.AvgEntropy = dirEntropy / float64(nFiles)
-			dirEntry.Summary.Directory.AvgSize = dirSize / uint64(nFiles)
-		}
+		dirEntry.Summary.UpdateAverages()
 
 		var firstErrorChecksum *objects.Checksum
 		var lastErrorChecksum *objects.Checksum

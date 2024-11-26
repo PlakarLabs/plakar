@@ -112,6 +112,7 @@ func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInf
 		LfileInfo: fileInfo,
 		Lsummary:  summary,
 	})
+	d.Summary.Directory.Directories++
 }
 
 func (d *DirEntry) AddTags(tags []string) {

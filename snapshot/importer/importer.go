@@ -27,7 +27,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
-	"github.com/PlakarKorp/plakar/profiler"
 )
 
 type ScanResult interface {
@@ -154,7 +153,6 @@ func NewImporter(location string) (*Importer, error) {
 func (importer *Importer) Origin() string {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.Origin", time.Since(t0))
 		logger.Trace("importer", "importer.Origin(): %s", time.Since(t0))
 	}()
 
@@ -164,7 +162,6 @@ func (importer *Importer) Origin() string {
 func (importer *Importer) Type() string {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.Type", time.Since(t0))
 		logger.Trace("importer", "importer.Type(): %s", time.Since(t0))
 	}()
 
@@ -174,7 +171,6 @@ func (importer *Importer) Type() string {
 func (importer *Importer) Root() string {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.Root", time.Since(t0))
 		logger.Trace("importer", "importer.Root(): %s", time.Since(t0))
 	}()
 
@@ -184,7 +180,6 @@ func (importer *Importer) Root() string {
 func (importer *Importer) Scan() (<-chan ScanResult, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.Scan", time.Since(t0))
 		logger.Trace("importer", "importer.Scan(): %s", time.Since(t0))
 	}()
 
@@ -194,7 +189,6 @@ func (importer *Importer) Scan() (<-chan ScanResult, error) {
 func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.NewReader", time.Since(t0))
 		logger.Trace("importer", "importer.NewReader(%s): %s", pathname, time.Since(t0))
 	}()
 
@@ -204,7 +198,6 @@ func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 func (importer *Importer) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("snapshot.importer.Close", time.Since(t0))
 		logger.Trace("importer", "importer.Close(): %s", time.Since(t0))
 	}()
 

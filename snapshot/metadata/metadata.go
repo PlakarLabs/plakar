@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarKorp/plakar/profiler"
-
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -46,7 +44,6 @@ func New() *Metadata {
 func NewFromBytes(serialized []byte) (*Metadata, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("md.NewFromBytes", time.Since(t0))
 		logger.Trace("metadata", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
@@ -97,7 +94,6 @@ func NewFromBytes(serialized []byte) (*Metadata, error) {
 func (md *Metadata) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("md.Serialize", time.Since(t0))
 		logger.Trace("metadata", "Serialize(): %s", time.Since(t0))
 	}()
 

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/PlakarKorp/plakar/logger"
-	"github.com/PlakarKorp/plakar/profiler"
 )
 
 type SharedLock struct {
@@ -41,23 +40,15 @@ func NewSharedLock(name string, capacity int) *SharedLock {
 
 func (lock *SharedLock) Lock() {
 	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("locking.Lock", time.Since(t0))
-		logger.Trace("locking", "Lock(%s): refcount=%d, capacity=%d, wait=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(t0))
-	}()
 	lock.capacity <- true
 	lock.timestamp = time.Now()
+	logger.Trace("locking", "Lock(%s): refcount=%d, capacity=%d, wait=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(t0))
 }
 
 func (lock *SharedLock) Unlock() {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("locking.Unlock", time.Since(t0))
-		logger.Trace("locking", "Unlock(%s): refcount=%d, capacity=%d, held=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(lock.timestamp))
-	}()
-
 	if len(lock.capacity) == 0 {
 		panic("unlocking unlocked lock")
 	}
 	<-lock.capacity
+	logger.Trace("locking", "Unlock(%s): refcount=%d, capacity=%d, held=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(lock.timestamp))
 }

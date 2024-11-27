@@ -12,12 +12,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func repositoryConfiguration(w http.ResponseWriter, r *http.Request) {
+func repositoryConfiguration(w http.ResponseWriter, r *http.Request) error {
 	configuration := lrepository.Configuration()
-	json.NewEncoder(w).Encode(configuration)
+	return json.NewEncoder(w).Encode(configuration)
 }
 
-func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
+func repositorySnapshots(w http.ResponseWriter, r *http.Request) error {
 	var err error
 	var sortKeys []string
 	var offset int64
@@ -33,28 +33,23 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 
 	sortKeys, err = header.ParseSortKeys(sortKeysStr)
 	if err != nil {
-		paramError(w, "sort", InvalidArgument, err)
-		return
+		return parameterError("sort", InvalidArgument, err)
 	}
 
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
-			paramError(w, "offset", BadNumber, err)
-			return
+			return parameterError("offset", BadNumber, err)
 		} else if offset < 0 {
-			paramError(w, "offset", BadNumber, ErrNegativeNumber)
-			return
+			return parameterError("offset", BadNumber, ErrNegativeNumber)
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
 		if err != nil {
-			paramError(w, "limit", BadNumber, err)
-			return
+			return parameterError("limit", BadNumber, err)
 		} else if limit < 0 {
-			paramError(w, "limit", BadNumber, ErrNegativeNumber)
-			return
+			return parameterError("limit", BadNumber, ErrNegativeNumber)
 		}
 	}
 
@@ -62,16 +57,14 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 
 	snapshotIDs, err := lrepository.GetSnapshots()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	headers := make([]header.Header, 0, len(snapshotIDs))
 	for _, snapshotID := range snapshotIDs {
 		snap, err := snapshot.Load(lrepository, snapshotID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 		headers = append(headers, *snap.Header)
 	}
@@ -97,21 +90,16 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 		items.Items[i] = header
 	}
 
-	err = json.NewEncoder(w).Encode(items)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	return json.NewEncoder(w).Encode(items)
 }
 
-func repositoryStates(w http.ResponseWriter, r *http.Request) {
+func repositoryStates(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	_ = vars
 
 	states, err := lrepository.GetStates()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	items := Items{
@@ -122,21 +110,19 @@ func repositoryStates(w http.ResponseWriter, r *http.Request) {
 		items.Items[i] = state
 	}
 
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }
 
-func repositoryState(w http.ResponseWriter, r *http.Request) {
+func repositoryState(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	stateID := vars["state"]
 
 	stateBytes, err := hex.DecodeString(stateID)
 	if err != nil {
-		paramError(w, "state", InvalidArgument, err)
-		return
+		return parameterError("state", InvalidArgument, err)
 	}
 	if len(stateBytes) != 32 {
-		paramError(w, "state", InvalidArgument, ErrInvalidID)
-		return
+		return parameterError("state", InvalidArgument, ErrInvalidID)
 	}
 
 	stateBytes32 := [32]byte{}
@@ -144,21 +130,20 @@ func repositoryState(w http.ResponseWriter, r *http.Request) {
 
 	buffer, _, err := lrepository.GetState(stateBytes32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	w.Write(buffer)
+	_, err = w.Write(buffer)
+	return err
 }
 
-func repositoryPackfiles(w http.ResponseWriter, r *http.Request) {
+func repositoryPackfiles(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	_ = vars
 
 	packfiles, err := lrepository.GetPackfiles()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	items := Items{
@@ -169,10 +154,10 @@ func repositoryPackfiles(w http.ResponseWriter, r *http.Request) {
 		items.Items[i] = packfile
 	}
 
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }
 
-func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
+func repositoryPackfile(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	packfileIDStr := vars["packfile"]
 	offsetStr, offsetExists := vars["offset"]
@@ -180,12 +165,10 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
 
 	packfileBytes, err := hex.DecodeString(packfileIDStr)
 	if err != nil {
-		paramError(w, "packfile", InvalidArgument, err)
-		return
+		return parameterError("packfile", InvalidArgument, err)
 	}
 	if len(packfileBytes) != 32 {
-		paramError(w, "packfile", InvalidArgument, ErrInvalidID)
-		return
+		return parameterError("packfile", InvalidArgument, ErrInvalidID)
 	}
 
 	if (offsetExists && !lengthExists) || (!offsetExists && lengthExists) {
@@ -193,8 +176,7 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
 		if !offsetExists {
 			param = "length"
 		}
-		paramError(w, param, MissingArgument, ErrMissingField)
-		return
+		return parameterError(param, MissingArgument, ErrMissingField)
 	}
 
 	packfileBytes32 := [32]byte{}
@@ -204,25 +186,22 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
 	if offsetExists && lengthExists {
 		offset, err := strconv.ParseUint(offsetStr, 10, 32)
 		if err != nil {
-			paramError(w, "offset", InvalidArgument, err)
-			return
+			return parameterError("offset", InvalidArgument, err)
 		}
 		length, err := strconv.ParseUint(lengthStr, 10, 32)
 		if err != nil {
-			paramError(w, "length", InvalidArgument, err)
-			return
+			return parameterError("length", InvalidArgument, err)
 		}
 		rd, _, err = lrepository.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	} else {
 		rd, _, err = lrepository.GetPackfile(packfileBytes32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
-	io.Copy(w, rd)
+	_, err = io.Copy(w, rd)
+	return err
 }

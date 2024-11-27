@@ -1,32 +1,8 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-)
-
-type ParameterError struct {
-	Code    ParamErrorType `json:"code"`
-	Message string         `json:"message"`
-}
-
-type ApiError struct {
-	Code    string                    `json:"code"`
-	Message string                    `json:"message"`
-	Params  map[string]ParameterError `json:"params,omitempty"`
-}
-
-type ApiErrorRes struct {
-	Error ApiError `json:"error"`
-}
-
-type ParamErrorType string
-
-const (
-	InvalidArgument ParamErrorType = "invalid_argument"
-	BadNumber                      = "bad_number"
-	MissingArgument                = "missing_argument"
 )
 
 var (
@@ -36,34 +12,48 @@ var (
 	ErrInvalidSortKey = errors.New("Invalid sort key")
 )
 
-func authError(w http.ResponseWriter, reason string) {
-	h := w.Header()
-	h.Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
+type ParamErrorType string
 
-	err := ApiError{
-		Code:    "bad_auth",
-		Message: reason,
-	}
+const (
+	InvalidArgument ParamErrorType = "invalid_argument"
+	BadNumber                      = "bad_number"
+	MissingArgument                = "missing_argument"
+)
 
-	json.NewEncoder(w).Encode(ApiErrorRes{err})
+type ParameterError struct {
+	Code    ParamErrorType `json:"code"`
+	Message string         `json:"message"`
 }
 
-func paramError(w http.ResponseWriter, field string, code ParamErrorType, e error) {
-	h := w.Header()
-	h.Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
+type ApiError struct {
+	HttpCode int                       `json:"-"`
+	ErrCode  string                    `json:"code"`
+	Message  string                    `json:"message"`
+	Params   map[string]ParameterError `json:"params,omitempty"`
+}
 
-	err := ApiError{
-		Code:    "invalid_params",
-		Message: "The request is malformed",
+func (a *ApiError) Error() string {
+	return a.ErrCode + ": " + a.Message
+}
+
+func parameterError(field string, code ParamErrorType, message error) *ApiError {
+	return &ApiError{
+		HttpCode: http.StatusBadRequest,
+		ErrCode:  "invalid_params",
+		Message:  "Invalid parameter",
 		Params: map[string]ParameterError{
 			field: {
 				Code:    code,
-				Message: e.Error(),
+				Message: message.Error(),
 			},
 		},
 	}
+}
 
-	json.NewEncoder(w).Encode(ApiErrorRes{err})
+func authError(reason string) *ApiError {
+	return &ApiError{
+		HttpCode: http.StatusUnauthorized,
+		ErrCode:  "bad_auth",
+		Message:  reason,
+	}
 }

@@ -223,7 +223,7 @@ func entryPoint() int {
 	}
 
 	// these commands need to be ran before the repository is opened
-	if command == "create" || command == "version" || command == "stdio" || command == "help" || command == "identity" {
+	if command == "create" || command == "version" || command == "stdio" || command == "help" || command == "id" {
 		retval, err := subcommands.Execute(ctx, nil, command, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)

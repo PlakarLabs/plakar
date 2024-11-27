@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package identity
+package id
 
 import (
 	"bufio"
@@ -36,13 +36,13 @@ import (
 )
 
 func init() {
-	subcommands.Register("identity", cmd_identity)
+	subcommands.Register("id", cmd_id)
 }
 
-func cmd_identity(ctx *context.Context, _ *repository.Repository, args []string) int {
-	flags := flag.NewFlagSet("identity", flag.ExitOnError)
+func cmd_id(ctx *context.Context, _ *repository.Repository, args []string) int {
+	flags := flag.NewFlagSet("id", flag.ExitOnError)
 	flags.Usage = func() {
-		fmt.Println("usage: plakar identity")
+		fmt.Println("usage: plakar id [create|info|list]")
 		flags.PrintDefaults()
 	}
 	flags.Parse(args)

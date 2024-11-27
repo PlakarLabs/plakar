@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
@@ -30,7 +31,7 @@ func AuthMiddleware(token string) func(http.Handler) http.Handler {
 				return
 			}
 
-			if key != token {
+			if strings.Compare(key, "Bearer "+token) != 0 {
 				http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
 				return
 			}

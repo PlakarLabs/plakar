@@ -24,10 +24,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PlakarKorp/plakar/compression"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -48,11 +46,6 @@ func NewRepository() storage.Backend {
 }
 
 func (repository *Repository) Create(location string, config storage.Configuration) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Profile("Create(%s): %s", location, time.Since(t0))
-	}()
-
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}

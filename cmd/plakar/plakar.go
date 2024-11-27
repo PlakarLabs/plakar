@@ -93,7 +93,6 @@ func entryPoint() int {
 	var opt_time bool
 	var opt_trace string
 	var opt_quiet bool
-	var opt_profiling bool
 	var opt_keyfile string
 	var opt_keyring string
 	var opt_stats int
@@ -107,7 +106,6 @@ func entryPoint() int {
 	flag.BoolVar(&opt_time, "time", false, "display command execution time")
 	flag.StringVar(&opt_trace, "trace", "", "display trace logs")
 	flag.BoolVar(&opt_quiet, "quiet", false, "no output except errors")
-	flag.BoolVar(&opt_profiling, "profiling", false, "display profiling logs")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.StringVar(&opt_keyring, "keyring", "", "path to directory holding the keyring")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
@@ -205,10 +203,6 @@ func entryPoint() int {
 	if opt_trace != "" {
 		logger.EnableTrace(opt_trace)
 	}
-	if opt_profiling {
-		logger.EnableProfiling()
-	}
-	//	loggerWait := logger.Start()
 
 	command, args := flag.Args()[0], flag.Args()[1:]
 

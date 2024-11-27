@@ -7,8 +7,8 @@ import (
 )
 
 type ParameterError struct {
-	Code    ApiErrorKind `json:"code"`
-	Message string       `json:"message"`
+	Code    ParamErrorType `json:"code"`
+	Message string         `json:"message"`
 }
 
 type ApiError struct {
@@ -17,12 +17,16 @@ type ApiError struct {
 	Params  map[string]ParameterError `json:"params,omitempty"`
 }
 
-type ApiErrorKind string
+type ApiErrorRes struct {
+	Error ApiError `json:"error"`
+}
+
+type ParamErrorType string
 
 const (
-	InvalidArgument ApiErrorKind = "invalid_argument"
-	BadNumber                    = "bad_number"
-	MissingArgument              = "missing_argument"
+	InvalidArgument ParamErrorType = "invalid_argument"
+	BadNumber                      = "bad_number"
+	MissingArgument                = "missing_argument"
 )
 
 var (
@@ -32,7 +36,7 @@ var (
 	ErrInvalidSortKey = errors.New("Invalid sort key")
 )
 
-func paramError(w http.ResponseWriter, field string, code ApiErrorKind, e error) {
+func paramError(w http.ResponseWriter, field string, code ParamErrorType, e error) {
 	h := w.Header()
 	h.Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
@@ -48,5 +52,5 @@ func paramError(w http.ResponseWriter, field string, code ApiErrorKind, e error)
 		},
 	}
 
-	json.NewEncoder(w).Encode(&err)
+	json.NewEncoder(w).Encode(ApiErrorRes{err})
 }

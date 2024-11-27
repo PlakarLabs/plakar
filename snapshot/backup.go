@@ -617,7 +617,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 						return
 					}
 				}
-				snap.Metadata.AddMetadata(object.ContentType, object.Checksum) // XXX
 			}
 
 			var fileEntryChecksum [32]byte
@@ -826,17 +825,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)
 
-	// preparing commit
-	metadata, err := snap.Metadata.Serialize()
-	if err != nil {
-		return err
-	}
-	metadataChecksum := snap.repository.Checksum(metadata)
-	err = snap.PutBlob(packfile.TYPE_DATA, metadataChecksum, metadata)
-	if err != nil {
-		return err
-	}
-
 	statistics, err := snap.statistics.Serialize()
 	if err != nil {
 		return err
@@ -872,7 +860,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 
 	snap.Header.Root = value
-	snap.Header.Metadata = metadataChecksum
+	//snap.Header.Metadata = metadataChecksum
 	snap.Header.Statistics = statisticsChecksum
 	snap.Header.Errors = errorsLogChecksum
 	snap.Header.CreationDuration = time.Since(snap.statistics.ImporterStart)

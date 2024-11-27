@@ -39,7 +39,7 @@ var (
 func authError(w http.ResponseWriter, reason string) {
 	h := w.Header()
 	h.Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
+	w.WriteHeader(http.StatusUnauthorized)
 
 	err := ApiError{
 		Code:    "bad_auth",

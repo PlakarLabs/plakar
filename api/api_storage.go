@@ -42,11 +42,11 @@ func storageState(w http.ResponseWriter, r *http.Request) {
 
 	stateBytes, err := hex.DecodeString(stateID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "state", InvalidArgument, err)
 		return
 	}
 	if len(stateBytes) != 32 {
-		http.Error(w, "Invalid state ID", http.StatusBadRequest)
+		paramError(w, "state", InvalidArgument, ErrInvalidID)
 		return
 	}
 
@@ -91,16 +91,20 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) {
 
 	packfileBytes, err := hex.DecodeString(packfileIDStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "packfile", InvalidArgument, err)
 		return
 	}
 	if len(packfileBytes) != 32 {
-		http.Error(w, "Invalid packfile ID", http.StatusBadRequest)
+		paramError(w, "packfile", InvalidArgument, ErrInvalidID)
 		return
 	}
 
 	if (offsetExists && !lengthExists) || (!offsetExists && lengthExists) {
-		http.Error(w, "Invalid packfile range", http.StatusBadRequest)
+		param := "offset"
+		if !offsetExists {
+			param = "length"
+		}
+		paramError(w, param, MissingArgument, ErrMissingField)
 		return
 	}
 
@@ -111,12 +115,12 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) {
 	if offsetExists && lengthExists {
 		offset, err := strconv.ParseUint(offsetStr, 10, 32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", InvalidArgument, err)
 			return
 		}
 		length, err := strconv.ParseUint(lengthStr, 10, 32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "length", InvalidArgument, err)
 			return
 		}
 		rd, _, err = lstore.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))

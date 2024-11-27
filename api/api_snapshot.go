@@ -26,11 +26,12 @@ func snapshotHeader(w http.ResponseWriter, r *http.Request) {
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
+		paramError(w, "snapshot", InvalidArgument, err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}
@@ -65,11 +66,11 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, err)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}
@@ -142,11 +143,11 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, err)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}
@@ -205,38 +206,38 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 
 	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "sort", InvalidArgument, err)
 		return
 	}
 
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, err)
 			return
 		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, err)
 			return
 		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, err)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}
@@ -278,7 +279,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 			limit = int64(len(dirEntry.Children))
 		}
 		if err := objects.SortFileInfos(fileInfos, sortKeys); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "sort", InvalidArgument, err)
 			return
 		}
 
@@ -323,38 +324,38 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 		sortKeysStr = "Name"
 	}
 	if sortKeysStr != "Name" && sortKeysStr != "-Name" {
-		http.Error(w, "Invalid sort key", http.StatusBadRequest)
+		paramError(w, "sort", InvalidArgument, ErrInvalidSortKey)
 		return
 	}
 
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, err)
 			return
 		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, err)
 			return
 		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, err)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}
@@ -461,31 +462,31 @@ func snapshotSearch(w http.ResponseWriter, r *http.Request) {
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, err)
 			return
 		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, err)
 			return
 		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 
 	snapshotID, err := hex.DecodeString(snapshotIDstr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, err)
 		return
 	}
 	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
+		paramError(w, "snapshot", InvalidArgument, ErrInvalidID)
 		return
 	}
 	snapshotID32 := [32]byte{}

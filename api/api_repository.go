@@ -33,27 +33,27 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) {
 
 	sortKeys, err = header.ParseSortKeys(sortKeysStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "sort", InvalidArgument, err)
 		return
 	}
 
 	if offsetStr != "" {
 		offset, err = strconv.ParseInt(offsetStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, err)
 			return
 		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			paramError(w, "offset", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
 	if limitStr != "" {
 		limit, err = strconv.ParseInt(limitStr, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, err)
 			return
 		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			paramError(w, "limit", BadNumber, ErrNegativeNumber)
 			return
 		}
 	}
@@ -131,11 +131,11 @@ func repositoryState(w http.ResponseWriter, r *http.Request) {
 
 	stateBytes, err := hex.DecodeString(stateID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "state", InvalidArgument, err)
 		return
 	}
 	if len(stateBytes) != 32 {
-		http.Error(w, "Invalid state ID", http.StatusBadRequest)
+		paramError(w, "state", InvalidArgument, ErrInvalidID)
 		return
 	}
 
@@ -180,16 +180,20 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
 
 	packfileBytes, err := hex.DecodeString(packfileIDStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		paramError(w, "packfile", InvalidArgument, err)
 		return
 	}
 	if len(packfileBytes) != 32 {
-		http.Error(w, "Invalid packfile ID", http.StatusBadRequest)
+		paramError(w, "packfile", InvalidArgument, ErrInvalidID)
 		return
 	}
 
 	if (offsetExists && !lengthExists) || (!offsetExists && lengthExists) {
-		http.Error(w, "Invalid packfile range", http.StatusBadRequest)
+		param := "offset"
+		if !offsetExists {
+			param = "length"
+		}
+		paramError(w, param, MissingArgument, ErrMissingField)
 		return
 	}
 
@@ -200,12 +204,12 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) {
 	if offsetExists && lengthExists {
 		offset, err := strconv.ParseUint(offsetStr, 10, 32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "offset", InvalidArgument, err)
 			return
 		}
 		length, err := strconv.ParseUint(lengthStr, 10, 32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			paramError(w, "length", InvalidArgument, err)
 			return
 		}
 		rd, _, err = lrepository.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))

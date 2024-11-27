@@ -2,7 +2,6 @@ package api
 
 import (
 	"bufio"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -157,39 +156,19 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	path := vars["path"]
 
-	var err error
-	var sortKeys []string
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
-
-	sortKeysStr := r.URL.Query().Get("sort")
-	if sortKeysStr == "" {
-		sortKeysStr = "Name"
-	}
-
-	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)
+	offset, _, err := QueryParamToInt64(r, "offset")
 	if err != nil {
-		return parameterError("sort", InvalidArgument, err)
+		return err
 	}
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return parameterError("offset", BadNumber, err)
-		} else if offset < 0 {
-			return parameterError("offset", BadNumber, ErrNegativeNumber)
-		}
+	limit, _, err := QueryParamToInt64(r, "limit")
+	if err != nil {
+		return err
 	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return parameterError("limit", BadNumber, err)
-		} else if limit < 0 {
-			return parameterError("limit", BadNumber, ErrNegativeNumber)
-		}
+
+	sortKeys, err := QueryParamToSortKeys(r, "sort", "Name")
+	if err != nil {
+		return err
 	}
 
 	snapshotID32, err := PathParamToID(r, "snapshot")
@@ -259,15 +238,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 
 func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
-
-	var err error
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
 
 	sortKeysStr := r.URL.Query().Get("sort")
 	if sortKeysStr == "" {
@@ -277,32 +248,20 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 		return parameterError("sort", InvalidArgument, ErrInvalidSortKey)
 	}
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return parameterError("offset", BadNumber, err)
-		} else if offset < 0 {
-			return parameterError("offset", BadNumber, ErrNegativeNumber)
-		}
-	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return parameterError("limit", BadNumber, err)
-		} else if limit < 0 {
-			return parameterError("limit", BadNumber, ErrNegativeNumber)
-		}
+	offset, _, err := QueryParamToInt64(r, "offset")
+	if err != nil {
+		return err
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	limit, _, err := QueryParamToInt64(r, "limit")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
 	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
@@ -331,7 +290,6 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 			Items: make([]interface{}, 0),
 		}
 		if dirEntry.ErrorFirst != nil {
-
 			if sortKeysStr == "Name" {
 				iter := dirEntry.ErrorFirst
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
@@ -384,43 +342,24 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 
 func snapshotSearch(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
-	var err error
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
 	queryStr := r.URL.Query().Get("q")
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return parameterError("offset", BadNumber, err)
-		} else if offset < 0 {
-			return parameterError("offset", BadNumber, ErrNegativeNumber)
-		}
-	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return parameterError("limit", BadNumber, err)
-		} else if limit < 0 {
-			return parameterError("limit", BadNumber, ErrNegativeNumber)
-		}
+	offset, _, err := QueryParamToInt64(r, "offset")
+	if err != nil {
+		return err
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	limit, _, err := QueryParamToInt64(r, "limit")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
 	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {

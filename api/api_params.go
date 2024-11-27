@@ -53,6 +53,21 @@ func QueryParamToUint32(r *http.Request, param string) (uint32, bool, error) {
 	return uint32(n), true, nil
 }
 
+func QueryParamToInt64(r *http.Request, param string) (int64, bool, error) {
+	str := r.URL.Query().Get(param)
+	if str == "" {
+		return 0, false, nil
+	}
+
+	n, err := strconv.ParseInt(str, 10, 32)
+	if err != nil {
+		return 0, true, err
+	}
+
+	return n, true, nil
+}
+
+
 func QueryParamToSortKeys(r *http.Request, param, def string) ([]string, error) {
 	str := r.URL.Query().Get(param)
 	if str == "" {

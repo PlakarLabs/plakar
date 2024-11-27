@@ -27,12 +27,12 @@ func AuthMiddleware(token string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := r.Header.Get("Authorization")
 			if key == "" {
-				http.Error(w, "Unauthorized: missing Authorization header", http.StatusUnauthorized)
+				authError(w, "missing Authorization header")
 				return
 			}
 
 			if strings.Compare(key, "Bearer "+token) != 0 {
-				http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
+				authError(w, "invalid token")
 				return
 			}
 

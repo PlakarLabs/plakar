@@ -36,6 +36,19 @@ var (
 	ErrInvalidSortKey = errors.New("Invalid sort key")
 )
 
+func authError(w http.ResponseWriter, reason string) {
+	h := w.Header()
+	h.Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+
+	err := ApiError{
+		Code:    "bad_auth",
+		Message: reason,
+	}
+
+	json.NewEncoder(w).Encode(ApiErrorRes{err})
+}
+
 func paramError(w http.ResponseWriter, field string, code ParamErrorType, e error) {
 	h := w.Header()
 	h.Set("Content-Type", "application/json")

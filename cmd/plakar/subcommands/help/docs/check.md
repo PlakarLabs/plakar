@@ -9,6 +9,7 @@ PLAKAR(CHECK) - CHECK (1)
 **plakar check**
 \[**-concurrency**&nbsp;*number*]
 \[**-fast**]
+\[**-no-verify**]
 \[**-quiet**]
 \[*snapshotID&nbsp;...*]
 
@@ -36,6 +37,12 @@ integrity check.
 > Enable a faster check that skips checksum verification.
 > This option performs only structural validation without confirming
 > data integrity.
+
+**-no-verify**
+
+> Disable signature verification.
+> This option allows to proceed with checking snapshot integrity
+> regardless of an invalid snapshot signature.
 
 **-quiet**
 

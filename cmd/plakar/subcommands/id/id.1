@@ -1,0 +1,79 @@
+.Dd November 27, 2024
+.Dt PLAKAR ID 1
+.Os
+.Sh NAME
+.Nm plakar id
+.Nd manage identities for Plakar repositories
+.Sh SYNOPSIS
+.Nm
+.Op Fl <option>
+.Op Ar subcommand
+.Op Ar arguments
+.Sh DESCRIPTION
+The
+.Nm
+command is used to manage identities in the Plakar system. Identities are associated with email addresses, passphrases, and cryptographic key pairs to enable secure operations in repositories.
+
+This command provides subcommands to create new identities, retrieve information about an identity, and list all identities available in the keyring directory.
+
+.Bl -tag -width Ds
+.It Fl create
+Creates a new identity by prompting the user for an email address and passphrase. Generates a key pair for secure operations.
+
+.It Fl info
+Retrieves and displays information about a specific identity using its identifier.
+
+.It Fl list , Fl ls
+Lists all available identities in the keyring directory, displaying their metadata.
+.El
+
+.Sh ARGUMENTS
+.Bl -tag -width Ds
+.It Ar subcommand
+Specifies the action to perform. Available subcommands are:
+.Bl -tag -width Ds
+.It create
+Prompts the user to create a new identity.
+.It info
+Displays information about a specific identity. Requires an identity identifier as an argument.
+.It list , ls
+Lists all stored identities.
+.El
+
+.It Ar arguments
+Additional arguments specific to the chosen subcommand. For example, the identifier of an identity for the
+.Cm info
+subcommand.
+.El
+
+.Sh EXAMPLES
+To illustrate usage:
+
+.Bl -tag -width Ds
+.It Create a new identity:
+.Bd -literal -offset indent
+plakar id create
+.Ed
+
+.It Display information about a specific identity:
+.Bd -literal -offset indent
+plakar id info <identity_id>
+.Ed
+
+.It List all identities:
+.Bd -literal -offset indent
+plakar id list
+.Ed
+.El
+
+.Sh DIAGNOSTICS
+.Ex -std
+.Bl -tag -width Ds
+.It 0
+Command completed successfully.
+.It >0
+General failure occurred. Detailed error messages are displayed when failures occur.
+.El
+
+.Sh SEE ALSO
+.Xr plakar 1

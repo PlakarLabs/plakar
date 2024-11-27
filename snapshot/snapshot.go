@@ -13,7 +13,6 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/snapshot/header"
@@ -92,11 +91,6 @@ func packerJob(snap *Snapshot) {
 }
 
 func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.Create", time.Since(t0))
-	}()
-
 	snap := &Snapshot{
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
@@ -116,11 +110,6 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 }
 
 func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.Load", time.Since(t0))
-	}()
-
 	hdr, _, err := GetSnapshot(repo, snapshotID)
 	if err != nil {
 		return nil, err
@@ -135,11 +124,6 @@ func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 }
 
 func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.Fork", time.Since(t0))
-	}()
-
 	snap, err := Load(repo, snapshotID)
 	if err != nil {
 		return nil, err
@@ -168,10 +152,6 @@ func (snap *Snapshot) Event(evt events.Event) {
 }
 
 func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Header, bool, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetSnapshot", time.Since(t0))
-	}()
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, snapshotID)
@@ -193,10 +173,6 @@ func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Head
 }
 
 func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.GetMetadata", time.Since(t0))
-	}()
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_DATA, checksum)
 	if err != nil {
@@ -225,10 +201,6 @@ func (snapshot *Snapshot) Repository() *repository.Repository {
 }
 
 func (snap *Snapshot) PutPackfile(packer *Packer) error {
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.PutPackfile", time.Since(t0))
-	}()
 
 	repo := snap.repository
 
@@ -306,11 +278,6 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 func (snapshot *Snapshot) Commit() error {
 
 	repo := snapshot.repository
-
-	t0 := time.Now()
-	defer func() {
-		profiler.RecordEvent("snapshot.Commit", time.Since(t0))
-	}()
 
 	serializedHdr, err := snapshot.Header.Serialize()
 	if err != nil {

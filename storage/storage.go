@@ -39,7 +39,6 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/PlakarKorp/plakar/profiler"
 	"github.com/google/uuid"
 )
 
@@ -191,7 +190,6 @@ func Open(ctx *context.Context, location string) (*Store, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.Open", time.Since(t0))
 		logger.Trace("store", "Open(%s): %s", location, time.Since(t0))
 	}()
 
@@ -211,7 +209,6 @@ func Create(ctx *context.Context, location string, configuration Configuration) 
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.Create", time.Since(t0))
 		logger.Trace("store", "Create(%s): %s", location, time.Since(t0))
 	}()
 
@@ -249,7 +246,6 @@ func (store *Store) GetPackfiles() ([]objects.Checksum, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetPackfiles", time.Since(t0))
 		logger.Trace("store", "GetPackfiles(): %s", time.Since(t0))
 	}()
 
@@ -267,7 +263,6 @@ func (store *Store) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, e
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetPackfile", time.Since(t0))
 		logger.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
@@ -285,7 +280,6 @@ func (store *Store) GetPackfileBlob(checksum objects.Checksum, offset uint32, le
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetPackfileBlob", time.Since(t0))
 		logger.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
@@ -303,7 +297,6 @@ func (store *Store) PutPackfile(checksum objects.Checksum, rd io.Reader, size ui
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.PutPackfile", time.Since(t0))
 		logger.Trace("store", "PutPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
@@ -320,7 +313,6 @@ func (store *Store) DeletePackfile(checksum objects.Checksum) error {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.DeletePackfile", time.Since(t0))
 		logger.Trace("store", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeletePackfile(checksum)
@@ -333,7 +325,6 @@ func (store *Store) GetStates() ([]objects.Checksum, error) {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetStates", time.Since(t0))
 		logger.Trace("store", "GetStates(): %s", time.Since(t0))
 	}()
 
@@ -351,7 +342,6 @@ func (store *Store) PutState(checksum objects.Checksum, rd io.Reader, size uint6
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.PutState", time.Since(t0))
 		logger.Trace("store", "PutState(%016x): %s", checksum, time.Since(t0))
 	}()
 
@@ -368,7 +358,6 @@ func (store *Store) GetState(checksum objects.Checksum) (io.Reader, uint64, erro
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.GetState", time.Since(t0))
 		logger.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
 	}()
 
@@ -385,7 +374,6 @@ func (store *Store) DeleteState(checksum objects.Checksum) error {
 
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.DeleteState", time.Since(t0))
 		logger.Trace("store", "DeleteState(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeleteState(checksum)
@@ -394,7 +382,6 @@ func (store *Store) DeleteState(checksum objects.Checksum) error {
 func (store *Store) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("store.Close", time.Since(t0))
 		logger.Trace("store", "Close(): %s", time.Since(t0))
 	}()
 	return store.backend.Close()

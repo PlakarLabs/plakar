@@ -191,7 +191,6 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 	}
 
 	dstSnapshot.Header = srcSnapshot.Header
-	dstSnapshot.Metadata = srcSnapshot.Metadata
 
 	c, err := srcSnapshot.ListChunks()
 	if err != nil {

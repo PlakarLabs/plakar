@@ -16,7 +16,6 @@ import (
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/snapshot/header"
-	"github.com/PlakarKorp/plakar/snapshot/metadata"
 	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
@@ -31,8 +30,6 @@ type Snapshot struct {
 	SkipDirs []string
 
 	Header *header.Header
-
-	Metadata *metadata.Metadata
 
 	statistics *statistics.Statistics
 
@@ -95,8 +92,7 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
 
-		Header:   header.NewHeader(snapshotID),
-		Metadata: metadata.New(),
+		Header: header.NewHeader(snapshotID),
 
 		statistics: statistics.New(),
 
@@ -170,30 +166,6 @@ func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Head
 	}
 
 	return hdr, false, nil
-}
-
-func GetMetadata(repo *repository.Repository, checksum [32]byte) (*metadata.Metadata, [32]byte, error) {
-
-	rd, _, err := repo.GetBlob(packfile.TYPE_DATA, checksum)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	md, err := metadata.NewFromBytes(buffer)
-	if err != nil {
-		return nil, [32]byte{}, err
-	}
-
-	verifyChecksum := repo.Checksum(buffer)
-	verifyChecksum32 := [32]byte{}
-	copy(verifyChecksum32[:], verifyChecksum[:])
-
-	return md, verifyChecksum32, nil
 }
 
 func (snapshot *Snapshot) Repository() *repository.Repository {

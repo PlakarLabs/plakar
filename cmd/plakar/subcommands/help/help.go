@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-package version
+package help
 
 import (
 	"embed"
@@ -33,12 +33,12 @@ import (
 var docs embed.FS
 
 func init() {
-	subcommands.Register("man", cmd_man)
+	subcommands.Register("help", cmd_help)
 }
 
-func cmd_man(ctx *context.Context, _ *repository.Repository, args []string) int {
+func cmd_help(ctx *context.Context, _ *repository.Repository, args []string) int {
 	var opt_style string
-	flags := flag.NewFlagSet("man", flag.ExitOnError)
+	flags := flag.NewFlagSet("help", flag.ExitOnError)
 	flags.StringVar(&opt_style, "style", "dracula", "style to use")
 	flags.Parse(args)
 

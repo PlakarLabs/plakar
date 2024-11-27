@@ -141,7 +141,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		snap.Header.Identity.PublicKey = ctx.GetKeypair().PublicKey
 	} else {
 		logger.Warn("no identity set, snapshot will not be signed")
-		logger.Warn("consider using 'plakar identity' to create an identity")
+		logger.Warn("consider using 'plakar id' to create an identity")
 	}
 
 	snap.Header.SetContext("Hostname", ctx.GetHostname())

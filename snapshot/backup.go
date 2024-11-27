@@ -654,7 +654,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 
 				fileSummary := &vfs.FileSummary{
-					Type:    importer.RecordTypeFile,
+					Type:    record.Type,
 					Size:    uint64(record.FileInfo.Size()),
 					Mode:    record.FileInfo.Mode(),
 					ModTime: record.FileInfo.ModTime().Unix(),

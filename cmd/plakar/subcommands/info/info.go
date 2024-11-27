@@ -605,10 +605,12 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		}
 		fmt.Printf("CustomMetadata: %s\n", fileEntry.CustomMetadata)
 		fmt.Printf("Tags: %s\n", fileEntry.Tags)
-		fmt.Printf("Checksum: %x\n", fileEntry.Object.Checksum)
-		for offset, chunk := range fileEntry.Object.Chunks {
-			fmt.Printf("Chunk[%d].Checksum: %x\n", offset, chunk.Checksum)
-			fmt.Printf("Chunk[%d].Length: %d\n", offset, chunk.Length)
+		if fileEntry.Object != nil {
+			fmt.Printf("Checksum: %x\n", fileEntry.Object.Checksum)
+			for offset, chunk := range fileEntry.Object.Chunks {
+				fmt.Printf("Chunk[%d].Checksum: %x\n", offset, chunk.Checksum)
+				fmt.Printf("Chunk[%d].Length: %d\n", offset, chunk.Length)
+			}
 		}
 	}
 	return nil

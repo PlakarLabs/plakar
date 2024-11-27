@@ -11,7 +11,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
-	"github.com/PlakarKorp/plakar/profiler"
 )
 
 type ExporterBackend interface {
@@ -88,7 +87,6 @@ func NewExporter(location string) (*Exporter, error) {
 func (exporter *Exporter) Root() string {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.Root", time.Since(t0))
 		logger.Trace("vfs", "exporter.Root(): %s", time.Since(t0))
 	}()
 
@@ -98,7 +96,6 @@ func (exporter *Exporter) Root() string {
 func (exporter *Exporter) CreateDirectory(pathname string) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.CreateDirectory", time.Since(t0))
 		logger.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
 	}()
 
@@ -108,7 +105,6 @@ func (exporter *Exporter) CreateDirectory(pathname string) error {
 func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.StoreFile", time.Since(t0))
 		logger.Trace("vfs", "exporter.StoreFile(%s): %s", pathname, time.Since(t0))
 	}()
 
@@ -118,7 +114,6 @@ func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
 func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.SetPermissions", time.Since(t0))
 		logger.Trace("vfs", "exporter.SetPermissions(%s): %s", pathname, time.Since(t0))
 	}()
 
@@ -128,7 +123,6 @@ func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.File
 func (exporter *Exporter) Close() error {
 	t0 := time.Now()
 	defer func() {
-		profiler.RecordEvent("vfs.exporter.Close", time.Since(t0))
 		logger.Trace("vfs", "exporter.Close(): %s", time.Since(t0))
 	}()
 	return exporter.backend.Close()

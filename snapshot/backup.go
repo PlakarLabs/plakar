@@ -475,24 +475,13 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *PushOptions
 
 				case importer.ScanRecord:
 					snap.Event(events.PathEvent(snap.Header.SnapshotID, record.Pathname))
-					if record.FileInfo.Mode().IsDir() {
-						if err := backupCtx.sc.RecordPathname(record); err != nil {
-							backupCtx.sc.RecordError(record.Pathname, err)
-							return
-						}
-					} else {
+					if err := backupCtx.sc.RecordPathname(record); err != nil {
+						backupCtx.sc.RecordError(record.Pathname, err)
+						return
+					}
+					if !record.FileInfo.Mode().IsDir() {
 						filesChannel <- record
 					}
-					//extension := strings.ToLower(filepath.Ext(record.Pathname))
-					//if extension == "" {
-					//	extension = "none"
-					//}
-					//					mu.Lock()
-					//					if _, exists := snap.Header.FileExtension[extension]; !exists {
-					//						snap.Header.FileExtension[extension] = 0
-					//					}
-					//					snap.Header.FileExtension[extension]++
-					//					mu.Unlock()
 				}
 			}(_record)
 		}
@@ -694,32 +683,37 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	for record := range directories {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
-		dirEntry.NumChildren = uint64(len(record.Children))
 
-		for _, child := range record.Children {
-			childpath := filepath.Join(record.Pathname, child.Name())
-			value, err := sc.GetChecksum(childpath)
+		childrenChan, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
+		if err != nil {
+			return err
+		}
+
+		for child := range childrenChan {
+			fmt.Println("child: ", child.Pathname)
+			value, err := sc.GetChecksum(child.Pathname)
 			if err != nil {
 				continue
 			}
 
-			if child.IsDir() {
-				childStatistics, err := sc.GetStatistics(childpath)
+			if child.FileInfo.Mode().IsDir() {
+				childStatistics, err := sc.GetStatistics(child.Pathname)
 				if err != nil {
 					continue
 				}
 				dirEntry.Summary.UpdateBelow(childStatistics)
-				dirEntry.AddDirectoryChild(value, child, childStatistics)
-
+				dirEntry.AddDirectoryChild(value, child.FileInfo, childStatistics)
 			} else {
-				fileSummary, _, _, err := cacheInstance.LookupFileSummary(imp.Origin(), childpath)
+
+				fileSummary, _, _, err := cacheInstance.LookupFileSummary(imp.Origin(), child.Pathname)
 				if err != nil {
 					//sc.RecordError(childpath, err.Error())
 					continue
 				}
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
-				dirEntry.AddFileChild(value, child)
+				dirEntry.AddFileChild(value, child.FileInfo)
 			}
+			dirEntry.NumChildren++
 		}
 		dirEntry.Summary.UpdateAverages()
 

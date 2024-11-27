@@ -103,38 +103,7 @@ func (p *FTPImporter) ftpWalker_worker(jobs <-chan string, results chan<- import
 		}
 		fileinfo := objects.FileInfoFromStat(info)
 
-		if fileinfo.Mode().IsDir() {
-			entries, err := p.client.ReadDir(path)
-			if err != nil {
-				results <- importer.ScanError{Pathname: path, Err: err}
-				continue
-			}
-
-			var children []objects.FileInfo
-			prefix := p.rootDir
-			for _, child := range entries {
-				fullpath := filepath.Join(path, child.Name())
-				if !child.IsDir() {
-					if !strings.HasPrefix(fullpath, prefix) {
-						continue
-					}
-				} else {
-					if len(fullpath) < len(prefix) {
-						if !strings.HasPrefix(prefix, fullpath) {
-							continue
-						}
-					} else {
-						if !strings.HasPrefix(fullpath, prefix) {
-							continue
-						}
-					}
-				}
-				children = append(children, objects.FileInfoFromStat(child))
-			}
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), FileInfo: fileinfo, Children: children}
-		} else {
-			results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), FileInfo: fileinfo}
-		}
+		results <- importer.ScanRecord{Type: recordType, Pathname: filepath.ToSlash(path), FileInfo: fileinfo}
 
 		// Handle symlinks separately
 		if fileinfo.Mode()&os.ModeSymlink != 0 {

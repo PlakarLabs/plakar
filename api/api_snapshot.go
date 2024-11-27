@@ -21,18 +21,10 @@ import (
 )
 
 func snapshotHeader(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
-
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
@@ -44,7 +36,6 @@ func snapshotHeader(w http.ResponseWriter, r *http.Request) error {
 
 func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
 	do_highlight := false
@@ -60,15 +51,10 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 		do_highlight = true
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
@@ -132,18 +118,12 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 
 func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
@@ -175,7 +155,6 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) error {
 
 func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
 	var err error
@@ -213,15 +192,10 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		return parameterError("snapshot", InvalidArgument, err)
+		return err
 	}
-	if len(snapshotID) != 32 {
-		return parameterError("snapshot", InvalidArgument, ErrInvalidID)
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {

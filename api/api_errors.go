@@ -6,10 +6,11 @@ import (
 )
 
 var (
-	ErrNegativeNumber = errors.New("Expected positive number")
-	ErrMissingField   = errors.New("Missing field")
-	ErrInvalidID      = errors.New("Invalid ID")
-	ErrInvalidSortKey = errors.New("Invalid sort key")
+	ErrNegativeNumber   = errors.New("Expected positive number")
+	ErrNumberOutOfRange = errors.New("Number out of range")
+	ErrMissingField     = errors.New("Missing field")
+	ErrInvalidID        = errors.New("Invalid ID")
+	ErrInvalidSortKey   = errors.New("Invalid sort key")
 )
 
 type ParamErrorType string

@@ -1,11 +1,9 @@
 package api
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -36,19 +34,10 @@ func storageStates(w http.ResponseWriter, r *http.Request) error {
 }
 
 func storageState(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
-	stateID := vars["state"]
-
-	stateBytes, err := hex.DecodeString(stateID)
+	stateBytes32, err := PathParamToID(r, "state")
 	if err != nil {
 		return err
 	}
-	if len(stateBytes) != 32 {
-		return parameterError("state", InvalidArgument, ErrInvalidID)
-	}
-
-	stateBytes32 := [32]byte{}
-	copy(stateBytes32[:], stateBytes)
 
 	rd, _, err := lstore.GetState(stateBytes32)
 	if err != nil {
@@ -60,9 +49,6 @@ func storageState(w http.ResponseWriter, r *http.Request) error {
 }
 
 func storagePackfiles(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
-	_ = vars
-
 	packfiles, err := lstore.GetPackfiles()
 	if err != nil {
 		return err
@@ -80,17 +66,18 @@ func storagePackfiles(w http.ResponseWriter, r *http.Request) error {
 }
 
 func storagePackfile(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
-	packfileIDStr := vars["packfile"]
-	offsetStr, offsetExists := vars["offset"]
-	lengthStr, lengthExists := vars["length"]
-
-	packfileBytes, err := hex.DecodeString(packfileIDStr)
+	packfileBytes32, err := PathParamToID(r, "packfile")
 	if err != nil {
-		return parameterError("packfile", InvalidArgument, err)
+		return err
 	}
-	if len(packfileBytes) != 32 {
-		return parameterError("packfile", InvalidArgument, ErrInvalidID)
+
+	offset, offsetExists, err := QueryParamToUint32(r, "offset")
+	if err != nil {
+		return err
+	}
+	length, lengthExists, err := QueryParamToUint32(r, "length")
+	if err != nil {
+		return err
 	}
 
 	if (offsetExists && !lengthExists) || (!offsetExists && lengthExists) {
@@ -101,19 +88,8 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) error {
 		return parameterError(param, MissingArgument, ErrMissingField)
 	}
 
-	packfileBytes32 := [32]byte{}
-	copy(packfileBytes32[:], packfileBytes)
-
 	var rd io.Reader
 	if offsetExists && lengthExists {
-		offset, err := strconv.ParseUint(offsetStr, 10, 32)
-		if err != nil {
-			return parameterError("offset", InvalidArgument, err)
-		}
-		length, err := strconv.ParseUint(lengthStr, 10, 32)
-		if err != nil {
-			return parameterError("length", InvalidArgument, err)
-		}
 		rd, _, err = lstore.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))
 		if err != nil {
 			return err

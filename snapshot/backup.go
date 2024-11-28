@@ -219,7 +219,7 @@ func (cache *scanCache) GetPathname(pathname string) (importer.ScanRecord, error
 	return record, nil
 }
 
-func (cache *scanCache) RecordChecksum(pathname string, checksum [32]byte) error {
+func (cache *scanCache) RecordChecksum(pathname string, checksum objects.Checksum) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
@@ -240,17 +240,17 @@ func (cache *scanCache) RecordStatistics(pathname string, statistics *vfs.Summar
 	return cache.db.Put([]byte(fmt.Sprintf("__statistics__:%s", pathname)), buffer, nil)
 }
 
-func (cache *scanCache) GetChecksum(pathname string) ([32]byte, error) {
+func (cache *scanCache) GetChecksum(pathname string) (objects.Checksum, error) {
 	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
 	if err != nil {
-		return [32]byte{}, err
+		return objects.Checksum{}, err
 	}
 
 	if len(data) != 32 {
-		return [32]byte{}, fmt.Errorf("invalid checksum length: %d", len(data))
+		return objects.Checksum{}, fmt.Errorf("invalid checksum length: %d", len(data))
 	}
 
-	ret := [32]byte{}
+	ret := objects.Checksum{}
 	copy(ret[:], data)
 	return ret, nil
 }
@@ -519,8 +519,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	snap.Header.Importer.Origin = imp.Origin()
 	snap.Header.Importer.Type = imp.Type()
 
-	//t0 := time.Now()
-
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)
 		if err != nil {
@@ -689,38 +687,88 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			return err
 		}
 
+		/* children */
+		var firstChecksum objects.Checksum
+		var lastChecksum objects.Checksum
+		var lastListEntry *objects.ListEntry
+
 		for child := range childrenChan {
-			fmt.Println("child: ", child.Pathname)
-			value, err := sc.GetChecksum(child.Pathname)
+			childChecksum, err := sc.GetChecksum(child.Pathname)
 			if err != nil {
 				continue
 			}
-
+			childEntry := &vfs.ChildEntry{
+				Lchecksum: childChecksum,
+				LfileInfo: child.FileInfo,
+			}
 			if child.FileInfo.Mode().IsDir() {
-				childStatistics, err := sc.GetStatistics(child.Pathname)
+				childSummary, err := sc.GetStatistics(child.Pathname)
 				if err != nil {
 					continue
 				}
-				dirEntry.Summary.UpdateBelow(childStatistics)
-				dirEntry.AddDirectoryChild(value, child.FileInfo, childStatistics)
+				dirEntry.Summary.UpdateBelow(childSummary)
+				childEntry.Lsummary = childSummary
 			} else {
-
 				fileSummary, _, _, err := cacheInstance.LookupFileSummary(imp.Origin(), child.Pathname)
 				if err != nil {
-					//sc.RecordError(childpath, err.Error())
 					continue
 				}
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
-				dirEntry.AddFileChild(value, child.FileInfo)
 			}
-			dirEntry.NumChildren++
+
+			serializedChildEntry, err := childEntry.ToBytes()
+			if err != nil {
+				continue
+			}
+			childEntryChecksum := snap.repository.Checksum(serializedChildEntry)
+			if !snap.BlobExists(packfile.TYPE_CHILD, childEntryChecksum) {
+				if err := snap.PutBlob(packfile.TYPE_CHILD, childEntryChecksum, serializedChildEntry); err != nil {
+					continue
+				}
+			}
+
+			// handle linked list\
+			if lastListEntry == nil {
+				firstChecksum = childEntryChecksum
+			} else if lastListEntry != nil {
+				lastListEntry.Successor = &childEntryChecksum
+				lastEntrySerialized, err := lastListEntry.ToBytes()
+				if err == nil {
+					if !snap.BlobExists(packfile.TYPE_DATA, lastChecksum) {
+						snap.PutBlob(packfile.TYPE_DATA, lastChecksum, lastEntrySerialized) // Save the updated last entry
+					}
+				}
+			}
+
+			lastListEntry = &objects.ListEntry{
+				Predecessor: &lastChecksum,
+				Successor:   nil,
+			}
+			lastChecksum = childEntryChecksum
+
+			dirEntry.Children.Count++
 		}
+		if lastListEntry == nil {
+			firstChecksum = lastChecksum
+		} else if lastListEntry != nil {
+			lastEntrySerialized, err := lastListEntry.ToBytes()
+			if err == nil {
+				if !snap.BlobExists(packfile.TYPE_DATA, lastChecksum) {
+					snap.PutBlob(packfile.TYPE_DATA, lastChecksum, lastEntrySerialized) // Save the updated last entry
+				}
+			}
+		}
+
+		dirEntry.Children.Head = &firstChecksum
+		dirEntry.Children.Tail = &lastChecksum
+
 		dirEntry.Summary.UpdateAverages()
 
+		/* errors */
 		var firstErrorChecksum *objects.Checksum
 		var lastErrorChecksum *objects.Checksum
-		var predecessorChecksum *objects.Checksum
-		var lastEntry *vfs.ErrorEntry
+		var predecessorErrorChecksum *objects.Checksum
+		var lastErrorEntry *vfs.ErrorEntry
 
 		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname); err == nil {
 			for entry := range errc {
@@ -735,8 +783,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				currentChecksum := snap.repository.Checksum(errorEntrySerialized)
 
 				// Set predecessor for the current entry
-				if predecessorChecksum != nil {
-					errorEntry.Predecessor = predecessorChecksum
+				if predecessorErrorChecksum != nil {
+					errorEntry.Predecessor = predecessorErrorChecksum
 				}
 
 				// Update first and last error checksums
@@ -746,12 +794,12 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				lastErrorChecksum = &currentChecksum
 
 				// Set the Successor for the previous entry
-				if lastEntry != nil {
-					lastEntry.Successor = &currentChecksum
-					updatedLastSerialized, err := lastEntry.ToBytes()
+				if lastErrorEntry != nil {
+					lastErrorEntry.Successor = &currentChecksum
+					updatedLastSerialized, err := lastErrorEntry.ToBytes()
 					if err == nil {
-						if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorChecksum) {
-							snap.PutBlob(packfile.TYPE_ERROR, *predecessorChecksum, updatedLastSerialized) // Save the updated last entry
+						if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorErrorChecksum) {
+							snap.PutBlob(packfile.TYPE_ERROR, *predecessorErrorChecksum, updatedLastSerialized) // Save the updated last entry
 						}
 					}
 				}
@@ -760,24 +808,25 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				snap.PutBlob(packfile.TYPE_ERROR, currentChecksum, errorEntrySerialized)
 
 				// Update the state for the next iteration
-				predecessorChecksum = &currentChecksum
-				lastEntry = errorEntry // Update lastEntry to the current entry
+				predecessorErrorChecksum = &currentChecksum
+				lastErrorEntry = errorEntry // Update lastEntry to the current entry
 			}
 
 			// Handle the last entry after the loop (it has no successor)
-			if lastEntry != nil {
-				lastEntry.Successor = nil // Explicitly set no successor
-				finalSerialized, err := lastEntry.ToBytes()
+			if lastErrorEntry != nil {
+				lastErrorEntry.Successor = nil // Explicitly set no successor
+				finalSerialized, err := lastErrorEntry.ToBytes()
 				if err == nil {
-					if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorChecksum) {
-						snap.PutBlob(packfile.TYPE_ERROR, *predecessorChecksum, finalSerialized)
+					if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorErrorChecksum) {
+						snap.PutBlob(packfile.TYPE_ERROR, *predecessorErrorChecksum, finalSerialized)
 					}
 				}
 			}
 
 			// Set first and last error checksums in the directory entry
-			dirEntry.ErrorFirst = firstErrorChecksum
-			dirEntry.ErrorLast = lastErrorChecksum
+			dirEntry.Errors.Count = dirEntry.Summary.Directory.Errors
+			dirEntry.Errors.Head = firstErrorChecksum
+			dirEntry.Errors.Tail = lastErrorChecksum
 		}
 
 		serialized, err := dirEntry.Serialize()

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/search"
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -191,7 +190,6 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 	path := vars["path"]
 
 	var err error
-	var sortKeys []string
 	var offset int64
 	var limit int64
 
@@ -201,12 +199,6 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 	sortKeysStr := r.URL.Query().Get("sort")
 	if sortKeysStr == "" {
 		sortKeysStr = "Name"
-	}
-
-	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
 	}
 
 	if offsetStr != "" {
@@ -267,40 +259,28 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not a directory", http.StatusBadRequest)
 		return
 	} else {
-		fileInfos := make([]objects.FileInfo, 0, len(dirEntry.Children))
-		children := make(map[string]vfs.ChildEntry)
-		for _, child := range dirEntry.Children {
-			fileInfos = append(fileInfos, child.Stat())
-			children[child.Stat().Name()] = child
+		items := Items{
+			Total: 0,
+			Items: make([]interface{}, 0),
 		}
-
-		if limit == 0 {
-			limit = int64(len(dirEntry.Children))
-		}
-		if err := objects.SortFileInfos(fileInfos, sortKeys); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		childrenList, err := fs.ChildrenIter(dirEntry)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		if offset > int64(len(dirEntry.Children)) {
-			fileInfos = []objects.FileInfo{}
-		} else if offset+limit > int64(len(dirEntry.Children)) {
-			fileInfos = fileInfos[offset:]
-		} else {
-			fileInfos = fileInfos[offset : offset+limit]
-		}
-
-		childEntries := make([]vfs.ChildEntry, 0, len(fileInfos))
-		for _, fileInfo := range fileInfos {
-			childEntries = append(childEntries, children[fileInfo.Name()])
-		}
-
-		items := Items{
-			Total: len(dirEntry.Children),
-			Items: make([]interface{}, len(childEntries)),
-		}
-		for i, child := range childEntries {
-			items.Items[i] = child
+		i := int64(0)
+		for child := range childrenList {
+			if child == nil {
+				break
+			}
+			if i < offset {
+				continue
+			}
+			if i >= limit+offset {
+				break
+			}
+			items.Total += 1
+			items.Items = append(items.Items, child)
 		}
 		json.NewEncoder(w).Encode(items)
 	}
@@ -389,10 +369,10 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 			Total: 0,
 			Items: make([]interface{}, 0),
 		}
-		if dirEntry.ErrorFirst != nil {
+		if dirEntry.Errors.Head != nil {
 
 			if sortKeysStr == "Name" {
-				iter := dirEntry.ErrorFirst
+				iter := dirEntry.Errors.Head
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
 					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {
@@ -417,7 +397,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 					items.Items = append(items.Items, errorEntry)
 				}
 			} else if sortKeysStr == "-Name" {
-				iter := dirEntry.ErrorLast
+				iter := dirEntry.Errors.Tail
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
 					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {

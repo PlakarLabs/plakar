@@ -288,7 +288,7 @@ func (snapshot *Snapshot) Commit() error {
 	return nil
 }
 
-func (snapshot *Snapshot) LookupObject(checksum [32]byte) (*objects.Object, error) {
+func (snapshot *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Object, error) {
 	buffer, err := snapshot.GetBlob(packfile.TYPE_OBJECT, checksum)
 	if err != nil {
 		return nil, err

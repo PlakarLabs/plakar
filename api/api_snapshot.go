@@ -166,9 +166,13 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	sortKeys, err := QueryParamToSortKeys(r, "sort", "Name")
+	sortKeysStr := r.URL.Query().Get("sort")
+	if sortKeysStr == "" {
+		sortKeysStr = "Name"
+	}
+	sortKeys, err := objects.ParseFileInfoSortKeys(sortKeysStr)
 	if err != nil {
-		return err
+		return parameterError("sort", InvalidArgument, err)
 	}
 
 	snapshotID32, err := PathParamToID(r, "snapshot")

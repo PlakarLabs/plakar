@@ -82,8 +82,19 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 		apiRouter.Use(AuthMiddleware(token))
 	}
 
+	urlSigner := NewSnapshotReaderURLSigner(token)
+
+	readerRouter := r.PathPrefix("/api").Subrouter()
+	if token != "" {
+		readerRouter.Use(urlSigner.VerifyMiddleware)
+	}
+
 	handle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
 		return apiRouter.Handle(path, Handler(handler))
+	}
+
+	readerHandle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
+		return readerRouter.Handle(path, Handler(handler))
 	}
 
 	handle("/storage/configuration", storageConfiguration).Methods("GET")
@@ -100,7 +111,8 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 	handle("/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
 
 	handle("/snapshot/{snapshot}", snapshotHeader).Methods("GET")
-	handle("/snapshot/reader/{snapshot}:{path:.+}", snapshotReader).Methods("GET")
+	readerHandle("/snapshot/reader/{snapshot}:{path:.+}", snapshotReader).Methods("GET")
+	handle("/snapshot/reader-sign-url/{snapshot}:{path:.+}", urlSigner.Sign).Methods("POST")
 	handle("/snapshot/search/{snapshot}:{path:.+}", snapshotSearch).Methods("GET")
 
 	handle("/snapshot/vfs/{snapshot}:/", snapshotVFSBrowse).Methods("GET")

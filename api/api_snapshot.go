@@ -2,7 +2,6 @@ package api
 
 import (
 	"bufio"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -20,34 +19,22 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func snapshotHeader(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
-
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+func snapshotHeader(w http.ResponseWriter, r *http.Request) error {
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	json.NewEncoder(w).Encode(Item{Item: snap.Header})
+	return json.NewEncoder(w).Encode(Item{Item: snap.Header})
 }
 
-func snapshotReader(w http.ResponseWriter, r *http.Request) {
+func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
 	do_highlight := false
@@ -63,28 +50,19 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 		do_highlight = true
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	rd, err := snap.NewReader(path)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if do_download {
@@ -133,35 +111,27 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.ServeContent(w, r, filepath.Base(path), rd.ModTime(), rd)
 	}
+
+	return nil
 }
 
-func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
+func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	snapshotID32, err := PathParamToID(r, "snapshot")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
-	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	fs, err := snap.Filesystem()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if path == "" {
@@ -169,89 +139,51 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	fsinfo, err := fs.Stat(path)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
-		json.NewEncoder(w).Encode(Item{Item: dirEntry})
-		return
+		return json.NewEncoder(w).Encode(Item{Item: dirEntry})
 	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
-		json.NewEncoder(w).Encode(Item{Item: fileEntry})
-		return
+		return json.NewEncoder(w).Encode(Item{Item: fileEntry})
 	} else {
 		http.Error(w, "", http.StatusInternalServerError)
-		return
+		return nil
 	}
 }
 
-func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
+func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
-	var err error
-	var sortKeys []string
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
-
-	sortKeysStr := r.URL.Query().Get("sort")
-	if sortKeysStr == "" {
-		sortKeysStr = "Name"
-	}
-
-	sortKeys, err = objects.ParseFileInfoSortKeys(sortKeysStr)
+	offset, _, err := QueryParamToInt64(r, "offset")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
-			return
-		}
-	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
-			return
-		}
-	}
-
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	limit, _, err := QueryParamToInt64(r, "limit")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
+
+	sortKeys, err := QueryParamToSortKeys(r, "sort", "Name")
+	if err != nil {
+		return err
 	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
+	}
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	fs, err := snap.Filesystem()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if path == "" {
@@ -259,13 +191,12 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 	}
 	fsinfo, err := fs.Stat(path)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
 		http.Error(w, "not a directory", http.StatusBadRequest)
-		return
+		return nil
 	} else {
 		fileInfos := make([]objects.FileInfo, 0, len(dirEntry.Children))
 		children := make(map[string]vfs.ChildEntry)
@@ -278,8 +209,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 			limit = int64(len(dirEntry.Children))
 		}
 		if err := objects.SortFileInfos(fileInfos, sortKeys); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return parameterError("sort", InvalidArgument, err)
 		}
 
 		if offset > int64(len(dirEntry.Children)) {
@@ -302,74 +232,45 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) {
 		for i, child := range childEntries {
 			items.Items[i] = child
 		}
-		json.NewEncoder(w).Encode(items)
+		return json.NewEncoder(w).Encode(items)
 	}
 }
 
-func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
+func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
-
-	var err error
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
 
 	sortKeysStr := r.URL.Query().Get("sort")
 	if sortKeysStr == "" {
 		sortKeysStr = "Name"
 	}
 	if sortKeysStr != "Name" && sortKeysStr != "-Name" {
-		http.Error(w, "Invalid sort key", http.StatusBadRequest)
-		return
+		return parameterError("sort", InvalidArgument, ErrInvalidSortKey)
 	}
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
-			return
-		}
-	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
-			return
-		}
-	}
-
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	offset, _, err := QueryParamToInt64(r, "offset")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
+
+	limit, _, err := QueryParamToInt64(r, "limit")
+	if err != nil {
+		return err
 	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
+	}
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	fs, err := snap.Filesystem()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if path == "" {
@@ -377,33 +278,29 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 	}
 	fsinfo, err := fs.Stat(path)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
 		http.Error(w, "not a directory", http.StatusBadRequest)
-		return
+		return nil
 	} else {
 		items := Items{
 			Total: 0,
 			Items: make([]interface{}, 0),
 		}
 		if dirEntry.ErrorFirst != nil {
-
 			if sortKeysStr == "Name" {
 				iter := dirEntry.ErrorFirst
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
 					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
+						return err
 					}
 
 					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
 					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
+						return err
 					}
 					iter = errorEntry.Successor
 
@@ -421,14 +318,12 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 				for i := int64(0); i < limit+offset && iter != nil; i++ {
 					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
 					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
+						return err
 					}
 
 					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
 					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
+						return err
 					}
 					iter = errorEntry.Predecessor
 					if i < offset {
@@ -441,66 +336,39 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		json.NewEncoder(w).Encode(items)
+		return json.NewEncoder(w).Encode(items)
 	}
 }
 
-func snapshotSearch(w http.ResponseWriter, r *http.Request) {
+func snapshotSearch(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
-	snapshotIDstr := vars["snapshot"]
 	path := vars["path"]
 
-	var err error
-	var offset int64
-	var limit int64
-
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
 	queryStr := r.URL.Query().Get("q")
 
-	if offsetStr != "" {
-		offset, err = strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if offset < 0 {
-			http.Error(w, "Invalid offset", http.StatusBadRequest)
-			return
-		}
-	}
-	if limitStr != "" {
-		limit, err = strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		} else if limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
-			return
-		}
+	offset, _, err := QueryParamToInt64(r, "offset")
+	if err != nil {
+		return err
 	}
 
-	snapshotID, err := hex.DecodeString(snapshotIDstr)
+	limit, _, err := QueryParamToInt64(r, "limit")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(snapshotID) != 32 {
-		http.Error(w, "Invalid snapshot ID", http.StatusBadRequest)
-		return
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
 	}
-	snapshotID32 := [32]byte{}
-	copy(snapshotID32[:], snapshotID)
 
 	snap, err := snapshot.Load(lrepository, snapshotID32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	results, err := snap.Search(path, queryStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
 
 	items := Items{
@@ -523,5 +391,5 @@ func snapshotSearch(w http.ResponseWriter, r *http.Request) {
 		i++
 	}
 
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }

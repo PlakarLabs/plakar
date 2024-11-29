@@ -25,7 +25,7 @@ func repositorySnapshots(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	sortKeys, err := QueryParamToSortKeys(r, "sort", "CreationTime")
+	sortKeys, err := QueryParamToSortKeys(r, "sort", "Timestamp")
 	if err != nil {
 		return err
 	}

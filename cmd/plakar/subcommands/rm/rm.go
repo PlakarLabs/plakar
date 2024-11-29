@@ -136,7 +136,7 @@ func cmd_rm(ctx *context.Context, repo *repository.Repository, args []string) in
 	errors := 0
 	wg := sync.WaitGroup{}
 	for _, snap := range snapshots {
-		if opt_older != "" && snap.Header.CreationTime.After(beforeDate) {
+		if opt_older != "" && snap.Header.Timestamp.After(beforeDate) {
 			continue
 		}
 		if opt_tag != "" {

@@ -59,9 +59,9 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 		a.Mode = os.ModeDir | 0o700
 		a.Uid = uint32(os.Geteuid())
 		a.Gid = uint32(os.Getgid())
-		a.Ctime = snap.Header.CreationTime
-		a.Mtime = snap.Header.CreationTime
-		a.Atime = snap.Header.CreationTime
+		a.Ctime = snap.Header.Timestamp
+		a.Mtime = snap.Header.Timestamp
+		a.Atime = snap.Header.Timestamp
 		a.Size = snap.Header.Summary.Directory.Size + snap.Header.Summary.Below.Size
 	} else {
 		d.snap = d.parent.snap

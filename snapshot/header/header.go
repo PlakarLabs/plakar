@@ -32,15 +32,18 @@ type KeyValue struct {
 }
 
 type Header struct {
-	SnapshotID       objects.Checksum
-	Version          string
-	CreationTime     time.Time
-	CreationDuration time.Duration
+	Identifier objects.Checksum
+	Version    string
+	Timestamp  time.Time
+	Duration   time.Duration
 
 	Identity Identity
 
-	Category string
-	Tags     []string
+	Name        string
+	Category    string
+	Environment string
+	Perimeter   string
+	Tags        []string
 
 	Context []KeyValue
 
@@ -50,18 +53,20 @@ type Header struct {
 	Index      objects.Checksum
 	Metadata   objects.Checksum
 	Statistics objects.Checksum
-	Errors     objects.Checksum
 
 	Summary vfs.Summary
 }
 
-func NewHeader(indexID [32]byte) *Header {
+func NewHeader(name string, indexID [32]byte) *Header {
 	return &Header{
-		SnapshotID:   indexID,
-		CreationTime: time.Now(),
-		Version:      storage.VERSION,
-		Category:     "default",
-		Tags:         []string{},
+		Identifier:  indexID,
+		Timestamp:   time.Now(),
+		Version:     storage.VERSION,
+		Name:        name,
+		Category:    "default",
+		Environment: "default",
+		Perimeter:   "default",
+		Tags:        []string{},
 
 		Identity: Identity{},
 
@@ -73,7 +78,6 @@ func NewHeader(indexID [32]byte) *Header {
 		Index:      [32]byte{},
 		Metadata:   [32]byte{},
 		Statistics: [32]byte{},
-		Errors:     [32]byte{},
 	}
 }
 
@@ -118,11 +122,11 @@ func (h *Header) GetContext(key string) string {
 }
 
 func (h *Header) GetIndexID() [32]byte {
-	return h.SnapshotID
+	return h.Identifier
 }
 
 func (h *Header) GetIndexShortID() []byte {
-	return h.SnapshotID[:4]
+	return h.Identifier[:4]
 }
 
 func (h *Header) GetRoot() [32]byte {
@@ -164,24 +168,24 @@ func SortHeaders(headers []Header, sortKeys []string) error {
 	sort.Slice(headers, func(i, j int) bool {
 		for _, key := range sortKeys {
 			switch key {
-			case "CreationTime":
-				if !headers[i].CreationTime.Equal(headers[j].CreationTime) {
-					return headers[i].CreationTime.Before(headers[j].CreationTime)
+			case "Timestamp":
+				if !headers[i].Timestamp.Equal(headers[j].Timestamp) {
+					return headers[i].Timestamp.Before(headers[j].Timestamp)
 				}
-			case "-CreationTime":
-				if !headers[i].CreationTime.Equal(headers[j].CreationTime) {
-					return headers[i].CreationTime.After(headers[j].CreationTime)
+			case "-Timestamp":
+				if !headers[i].Timestamp.Equal(headers[j].Timestamp) {
+					return headers[i].Timestamp.After(headers[j].Timestamp)
 				}
-			case "SnapshotID":
-				for k := 0; k < len(headers[i].SnapshotID); k++ {
-					if headers[i].SnapshotID[k] != headers[j].SnapshotID[k] {
-						return headers[i].SnapshotID[k] < headers[j].SnapshotID[k]
+			case "Identifier":
+				for k := 0; k < len(headers[i].Identifier); k++ {
+					if headers[i].Identifier[k] != headers[j].Identifier[k] {
+						return headers[i].Identifier[k] < headers[j].Identifier[k]
 					}
 				}
-			case "-SnapshotID":
-				for k := 0; k < len(headers[i].SnapshotID); k++ {
-					if headers[i].SnapshotID[k] != headers[j].SnapshotID[k] {
-						return headers[i].SnapshotID[k] > headers[j].SnapshotID[k]
+			case "-Identifier":
+				for k := 0; k < len(headers[i].Identifier); k++ {
+					if headers[i].Identifier[k] != headers[j].Identifier[k] {
+						return headers[i].Identifier[k] > headers[j].Identifier[k]
 					}
 				}
 			case "Version":

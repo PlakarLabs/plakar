@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
+	"github.com/sethvargo/go-diceware/diceware"
 )
 
 type Snapshot struct {
@@ -87,12 +89,18 @@ func packerJob(snap *Snapshot) {
 	close(snap.packerChanDone)
 }
 
-func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
+func New(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+	words, err := diceware.Generate(4)
+	if err != nil {
+		return nil, err
+	}
+	name := strings.Join(words, "-")
+
 	snap := &Snapshot{
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
 
-		Header: header.NewHeader(snapshotID),
+		Header: header.NewHeader(name, Identifier),
 
 		statistics: statistics.New(),
 
@@ -105,8 +113,8 @@ func New(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	return snap, nil
 }
 
-func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
-	hdr, _, err := GetSnapshot(repo, snapshotID)
+func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+	hdr, _, err := GetSnapshot(repo, Identifier)
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +127,12 @@ func Load(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
-	snap, err := Load(repo, snapshotID)
+func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+	snap, err := Load(repo, Identifier)
 	if err != nil {
 		return nil, err
 	}
-	snap.Header.CreationTime = time.Now()
+	snap.Header.Timestamp = time.Now()
 
 	uuidBytes, err := uuid.Must(uuid.NewRandom()).MarshalBinary()
 	if err != nil {
@@ -134,12 +142,12 @@ func Fork(repo *repository.Repository, snapshotID [32]byte) (*Snapshot, error) {
 	snap.stateDelta = state.New()
 	snap.statistics = statistics.New()
 
-	snap.Header.SnapshotID = repo.Checksum(uuidBytes[:])
+	snap.Header.Identifier = repo.Checksum(uuidBytes[:])
 	snap.packerChan = make(chan interface{}, runtime.NumCPU()*2+1)
 	snap.packerChanDone = make(chan bool)
 	go packerJob(snap)
 
-	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.SnapshotID, snap.Header.GetIndexShortID())
+	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -147,10 +155,10 @@ func (snap *Snapshot) Event(evt events.Event) {
 	snap.Repository().Context().Events().Send(evt)
 }
 
-func GetSnapshot(repo *repository.Repository, snapshotID [32]byte) (*header.Header, bool, error) {
-	logger.Trace("snapshot", "repository.GetSnapshot(%x)", snapshotID)
+func GetSnapshot(repo *repository.Repository, Identifier [32]byte) (*header.Header, bool, error) {
+	logger.Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
 
-	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, snapshotID)
+	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
 	if err != nil {
 		return nil, false, err
 	}
@@ -259,12 +267,12 @@ func (snapshot *Snapshot) Commit() error {
 	if kp := snapshot.repository.Context().GetKeypair(); kp != nil {
 		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
 		signature := kp.Sign(serializedHdrChecksum[:])
-		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.SnapshotID, signature); err != nil {
+		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.Identifier, signature); err != nil {
 			return err
 		}
 	}
 
-	if err := snapshot.PutBlob(packfile.TYPE_SNAPSHOT, snapshot.Header.SnapshotID, serializedHdr); err != nil {
+	if err := snapshot.PutBlob(packfile.TYPE_SNAPSHOT, snapshot.Header.Identifier, serializedHdr); err != nil {
 		return err
 	}
 

@@ -124,7 +124,7 @@ func GetHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 		}
 		wg.Wait()
 		sort.Slice(result, func(i, j int) bool {
-			return result[i].CreationTime.Before(result[j].CreationTime)
+			return result[i].Timestamp.Before(result[j].Timestamp)
 		})
 		return result, nil
 	}
@@ -140,10 +140,10 @@ func GetHeaders(repo *repository.Repository, prefixes []string) ([]*header.Heade
 		for _, tag := range hdr.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
 				tags[tag] = snapshotID
-				tagsTimestamp[tag] = hdr.CreationTime
-			} else if recordTime.Before(hdr.CreationTime) {
+				tagsTimestamp[tag] = hdr.Timestamp
+			} else if recordTime.Before(hdr.Timestamp) {
 				tags[tag] = snapshotID
-				tagsTimestamp[tag] = hdr.CreationTime
+				tagsTimestamp[tag] = hdr.Timestamp
 			}
 		}
 	}
@@ -219,10 +219,10 @@ func GetSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 		for _, tag := range metadata.Tags {
 			if recordTime, exists := tagsTimestamp[tag]; !exists {
 				tags[tag] = snapshotID
-				tagsTimestamp[tag] = metadata.CreationTime
-			} else if recordTime.Before(metadata.CreationTime) {
+				tagsTimestamp[tag] = metadata.Timestamp
+			} else if recordTime.Before(metadata.Timestamp) {
 				tags[tag] = snapshotID
-				tagsTimestamp[tag] = metadata.CreationTime
+				tagsTimestamp[tag] = metadata.Timestamp
 			}
 		}
 	}
@@ -260,7 +260,7 @@ func GetSnapshots(repo *repository.Repository, prefixes []string) ([]*snapshot.S
 
 func sortSnapshotsByDate(snapshots []*snapshot.Snapshot) []*snapshot.Snapshot {
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].Header.CreationTime.Before(snapshots[j].Header.CreationTime)
+		return snapshots[i].Header.Timestamp.Before(snapshots[j].Header.Timestamp)
 	})
 	return snapshots
 }

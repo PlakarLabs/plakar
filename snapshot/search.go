@@ -252,7 +252,7 @@ func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query, 
 			} else if match {
 				c <- search.FileEntry{
 					Repository: snap.Repository().Location(),
-					Snapshot:   snap.Header.SnapshotID,
+					Snapshot:   snap.Header.Identifier,
 					FileEntry:  *fileEntry,
 				}
 			}

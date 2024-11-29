@@ -115,7 +115,7 @@ func info_repository(repo *repository.Repository) int {
 	}
 
 	fmt.Println("Version:", repo.Configuration().Version)
-	fmt.Println("CreationTime:", repo.Configuration().CreationTime)
+	fmt.Println("Timestamp:", repo.Configuration().Timestamp)
 	fmt.Println("RepositoryID:", repo.Configuration().RepositoryID)
 
 	fmt.Println("Packfile:")
@@ -170,9 +170,12 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	indexID := header.GetIndexID()
 	fmt.Printf("Version: %s\n", repo.Configuration().Version)
 	fmt.Printf("SnapshotID: %s\n", hex.EncodeToString(indexID[:]))
-	fmt.Printf("CreationTime: %s\n", header.CreationTime)
-	fmt.Printf("CreationDuration: %s\n", header.CreationDuration)
+	fmt.Printf("Timestamp: %s\n", header.Timestamp)
+	fmt.Printf("Duration: %s\n", header.Duration)
 
+	fmt.Printf("Name: %s\n", header.Name)
+	fmt.Printf("Environment: %s\n", header.Environment)
+	fmt.Printf("Perimeter: %s\n", header.Perimeter)
 	fmt.Printf("Category: %s\n", header.Category)
 	if len(header.Tags) > 0 {
 		fmt.Printf("Tags: %s\n", strings.Join(header.Tags, ", "))
@@ -188,7 +191,6 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf("Index: %x\n", header.Index)
 	fmt.Printf("Metadata: %x\n", header.Metadata)
 	fmt.Printf("Statistics: %x\n", header.Statistics)
-	fmt.Printf("Errors: %x\n", header.Errors)
 
 	fmt.Println("Importer:")
 	fmt.Printf(" - Type: %s\n", header.Importer.Type)
@@ -277,7 +279,7 @@ func info_state(repo *repository.Repository, args []string) error {
 			}
 
 			fmt.Printf("Version: %d.%d.%d\n", st.Metadata.Version/100, (st.Metadata.Version/10)%10, st.Metadata.Version%10)
-			fmt.Printf("Creation: %s\n", st.Metadata.CreationTime)
+			fmt.Printf("Creation: %s\n", st.Metadata.Timestamp)
 			if len(st.Metadata.Extends) > 0 {
 				fmt.Printf("Extends:\n")
 				for _, stateID := range st.Metadata.Extends {

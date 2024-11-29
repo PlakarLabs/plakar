@@ -202,6 +202,6 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		snap.Header.GetIndexShortID(),
 		base64.RawStdEncoding.EncodeToString(snap.Header.Root[:]),
 		humanize.Bytes(snap.Header.Summary.Directory.Size+snap.Header.Summary.Below.Size),
-		snap.Header.CreationDuration)
+		snap.Header.Duration)
 	return 0
 }

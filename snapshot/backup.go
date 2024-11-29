@@ -17,7 +17,6 @@ import (
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/cache"
-	"github.com/PlakarKorp/plakar/snapshot/errorslog"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gabriel-vasile/mimetype"
@@ -471,10 +470,10 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *PushOptions
 						return
 					}
 					backupCtx.sc.RecordError(record.Pathname, record.Err)
-					snap.Event(events.PathErrorEvent(snap.Header.SnapshotID, record.Pathname, record.Err.Error()))
+					snap.Event(events.PathErrorEvent(snap.Header.Identifier, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
-					snap.Event(events.PathEvent(snap.Header.SnapshotID, record.Pathname))
+					snap.Event(events.PathEvent(snap.Header.Identifier, record.Pathname))
 					if err := backupCtx.sc.RecordPathname(record); err != nil {
 						backupCtx.sc.RecordError(record.Pathname, err)
 						return
@@ -554,7 +553,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				scannerWg.Done()
 			}()
 
-			snap.Event(events.FileEvent(snap.Header.SnapshotID, _record.Pathname))
+			snap.Event(events.FileEvent(snap.Header.Identifier, _record.Pathname))
 
 			var fileEntry *vfs.FileEntry
 			var object *objects.Object
@@ -668,7 +667,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				return
 			}
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.FileInfo.Size()))
-			snap.Event(events.FileOKEvent(snap.Header.SnapshotID, record.Pathname))
+			snap.Event(events.FileOKEvent(snap.Header.Identifier, record.Pathname))
 		}(_record)
 	}
 	scannerWg.Wait()
@@ -842,7 +841,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
 		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
-		snap.Event(events.DirectoryOKEvent(snap.Header.SnapshotID, record.Pathname))
+		snap.Event(events.DirectoryOKEvent(snap.Header.Identifier, record.Pathname))
 		if record.Pathname == "/" {
 			rootSummary = &dirEntry.Summary
 		}
@@ -864,25 +863,6 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		return err
 	}
 
-	errorsLog := errorslog.NewErrorsLog()
-	errc, err := sc.EnumerateErrorsWithPrefixRecursive("/")
-	if err != nil {
-		return err
-	}
-	for entry := range errc {
-		errorsLog.Append(entry.Pathname, entry.Error)
-	}
-
-	errorsLogData, err := errorsLog.Serialize()
-	if err != nil {
-		return err
-	}
-	errorsLogChecksum := snap.repository.Checksum(errorsLogData)
-	err = snap.PutBlob(packfile.TYPE_DATA, errorsLogChecksum, errorsLogData)
-	if err != nil {
-		return err
-	}
-
 	value, err := sc.GetChecksum("/")
 	if err != nil {
 		return err
@@ -891,8 +871,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	snap.Header.Root = value
 	//snap.Header.Metadata = metadataChecksum
 	snap.Header.Statistics = statisticsChecksum
-	snap.Header.Errors = errorsLogChecksum
-	snap.Header.CreationDuration = time.Since(snap.statistics.ImporterStart)
+	snap.Header.Duration = time.Since(snap.statistics.ImporterStart)
 	snap.Header.Summary = *rootSummary
 
 	/*

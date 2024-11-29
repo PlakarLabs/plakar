@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -21,18 +22,47 @@ type Items struct {
 	Items []interface{} `json:"items"`
 }
 
+type Handler func(http.ResponseWriter, *http.Request) error
+
+type ApiErrorRes struct {
+	Error *ApiError `json:"error"`
+}
+
+func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := fn(w, r)
+	if err == nil {
+		return
+	}
+
+	handleError(w, err)
+}
+
+func handleError(w http.ResponseWriter, err error) {
+	apierr, ok := err.(*ApiError)
+	if !ok {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h := w.Header()
+	h.Set("Content-Type", "application/json")
+	w.WriteHeader(apierr.HttpCode)
+
+	json.NewEncoder(w).Encode(&ApiErrorRes{apierr})
+}
+
 // AuthMiddleware is a middleware that checks for the token in the request.
 func AuthMiddleware(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := r.Header.Get("Authorization")
 			if key == "" {
-				http.Error(w, "Unauthorized: missing Authorization header", http.StatusUnauthorized)
+				handleError(w, authError("missing Authorization header"))
 				return
 			}
 
 			if strings.Compare(key, "Bearer "+token) != 0 {
-				http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
+				handleError(w, authError("invalid token"))
 				return
 			}
 
@@ -52,34 +82,50 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 		apiRouter.Use(AuthMiddleware(token))
 	}
 
-	apiRouter.HandleFunc("/storage/configuration", storageConfiguration).Methods("GET")
-	apiRouter.HandleFunc("/storage/states", storageStates).Methods("GET")
-	apiRouter.HandleFunc("/storage/state/{state}", storageState).Methods("GET")
-	apiRouter.HandleFunc("/storage/packfiles", storagePackfiles).Methods("GET")
-	apiRouter.HandleFunc("/storage/packfile/{packfile}", storagePackfile).Methods("GET")
+	urlSigner := NewSnapshotReaderURLSigner(token)
 
-	apiRouter.HandleFunc("/repository/configuration", repositoryConfiguration).Methods("GET")
-	apiRouter.HandleFunc("/repository/snapshots", repositorySnapshots).Methods("GET")
-	apiRouter.HandleFunc("/repository/states", repositoryStates).Methods("GET")
-	apiRouter.HandleFunc("/repository/state/{state}", repositoryState).Methods("GET")
-	apiRouter.HandleFunc("/repository/packfiles", repositoryPackfiles).Methods("GET")
-	apiRouter.HandleFunc("/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
+	readerRouter := r.PathPrefix("/api").Subrouter()
+	if token != "" {
+		readerRouter.Use(urlSigner.VerifyMiddleware)
+	}
 
-	apiRouter.HandleFunc("/snapshot/{snapshot}", snapshotHeader).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/reader/{snapshot}:{path:.+}", snapshotReader).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/search/{snapshot}:{path:.+}", snapshotSearch).Methods("GET")
+	handle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
+		return apiRouter.Handle(path, Handler(handler))
+	}
 
-	apiRouter.HandleFunc("/snapshot/vfs/{snapshot}:/", snapshotVFSBrowse).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/{snapshot}:{path:.+}/", snapshotVFSBrowse).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/{snapshot}:{path:.+}", snapshotVFSBrowse).Methods("GET")
+	readerHandle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
+		return readerRouter.Handle(path, Handler(handler))
+	}
 
-	apiRouter.HandleFunc("/snapshot/vfs/children/{snapshot}:/", snapshotVFSChildren).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/children/{snapshot}:{path:.+}/", snapshotVFSChildren).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/children/{snapshot}:{path:.+}", snapshotVFSChildren).Methods("GET")
+	handle("/storage/configuration", storageConfiguration).Methods("GET")
+	handle("/storage/states", storageStates).Methods("GET")
+	handle("/storage/state/{state}", storageState).Methods("GET")
+	handle("/storage/packfiles", storagePackfiles).Methods("GET")
+	handle("/storage/packfile/{packfile}", storagePackfile).Methods("GET")
 
-	apiRouter.HandleFunc("/snapshot/vfs/errors/{snapshot}:/", snapshotVFSErrors).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/errors/{snapshot}:{path:.+}/", snapshotVFSErrors).Methods("GET")
-	apiRouter.HandleFunc("/snapshot/vfs/errors/{snapshot}:{path:.+}", snapshotVFSErrors).Methods("GET")
+	handle("/repository/configuration", repositoryConfiguration).Methods("GET")
+	handle("/repository/snapshots", repositorySnapshots).Methods("GET")
+	handle("/repository/states", repositoryStates).Methods("GET")
+	handle("/repository/state/{state}", repositoryState).Methods("GET")
+	handle("/repository/packfiles", repositoryPackfiles).Methods("GET")
+	handle("/repository/packfile/{packfile}", repositoryPackfile).Methods("GET")
+
+	handle("/snapshot/{snapshot}", snapshotHeader).Methods("GET")
+	readerHandle("/snapshot/reader/{snapshot}:{path:.+}", snapshotReader).Methods("GET")
+	handle("/snapshot/reader-sign-url/{snapshot}:{path:.+}", urlSigner.Sign).Methods("POST")
+	handle("/snapshot/search/{snapshot}:{path:.+}", snapshotSearch).Methods("GET")
+
+	handle("/snapshot/vfs/{snapshot}:/", snapshotVFSBrowse).Methods("GET")
+	handle("/snapshot/vfs/{snapshot}:{path:.+}/", snapshotVFSBrowse).Methods("GET")
+	handle("/snapshot/vfs/{snapshot}:{path:.+}", snapshotVFSBrowse).Methods("GET")
+
+	handle("/snapshot/vfs/children/{snapshot}:/", snapshotVFSChildren).Methods("GET")
+	handle("/snapshot/vfs/children/{snapshot}:{path:.+}/", snapshotVFSChildren).Methods("GET")
+	handle("/snapshot/vfs/children/{snapshot}:{path:.+}", snapshotVFSChildren).Methods("GET")
+
+	handle("/snapshot/vfs/errors/{snapshot}:/", snapshotVFSErrors).Methods("GET")
+	handle("/snapshot/vfs/errors/{snapshot}:{path:.+}/", snapshotVFSErrors).Methods("GET")
+	handle("/snapshot/vfs/errors/{snapshot}:{path:.+}", snapshotVFSErrors).Methods("GET")
 
 	return r
 }

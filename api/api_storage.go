@@ -1,28 +1,25 @@
 package api
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
-func storageConfiguration(w http.ResponseWriter, r *http.Request) {
+func storageConfiguration(w http.ResponseWriter, r *http.Request) error {
 	configuration := lstore.Configuration()
-	json.NewEncoder(w).Encode(configuration)
+	return json.NewEncoder(w).Encode(configuration)
 }
 
-func storageStates(w http.ResponseWriter, r *http.Request) {
+func storageStates(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	_ = vars
 
 	states, err := lstore.GetStates()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	items := Items{
@@ -33,43 +30,28 @@ func storageStates(w http.ResponseWriter, r *http.Request) {
 		items.Items[i] = state
 	}
 
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }
 
-func storageState(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	stateID := vars["state"]
-
-	stateBytes, err := hex.DecodeString(stateID)
+func storageState(w http.ResponseWriter, r *http.Request) error {
+	stateBytes32, err := PathParamToID(r, "state")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(stateBytes) != 32 {
-		http.Error(w, "Invalid state ID", http.StatusBadRequest)
-		return
-	}
-
-	stateBytes32 := [32]byte{}
-	copy(stateBytes32[:], stateBytes)
 
 	rd, _, err := lstore.GetState(stateBytes32)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	io.Copy(w, rd)
+	_, err = io.Copy(w, rd)
+	return err
 }
 
-func storagePackfiles(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	_ = vars
-
+func storagePackfiles(w http.ResponseWriter, r *http.Request) error {
 	packfiles, err := lstore.GetPackfiles()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	items := Items{
@@ -80,56 +62,44 @@ func storagePackfiles(w http.ResponseWriter, r *http.Request) {
 		items.Items[i] = packfile
 	}
 
-	json.NewEncoder(w).Encode(items)
+	return json.NewEncoder(w).Encode(items)
 }
 
-func storagePackfile(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	packfileIDStr := vars["packfile"]
-	offsetStr, offsetExists := vars["offset"]
-	lengthStr, lengthExists := vars["length"]
-
-	packfileBytes, err := hex.DecodeString(packfileIDStr)
+func storagePackfile(w http.ResponseWriter, r *http.Request) error {
+	packfileBytes32, err := PathParamToID(r, "packfile")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	if len(packfileBytes) != 32 {
-		http.Error(w, "Invalid packfile ID", http.StatusBadRequest)
-		return
+
+	offset, offsetExists, err := QueryParamToUint32(r, "offset")
+	if err != nil {
+		return err
+	}
+	length, lengthExists, err := QueryParamToUint32(r, "length")
+	if err != nil {
+		return err
 	}
 
 	if (offsetExists && !lengthExists) || (!offsetExists && lengthExists) {
-		http.Error(w, "Invalid packfile range", http.StatusBadRequest)
-		return
+		param := "offset"
+		if !offsetExists {
+			param = "length"
+		}
+		return parameterError(param, MissingArgument, ErrMissingField)
 	}
-
-	packfileBytes32 := [32]byte{}
-	copy(packfileBytes32[:], packfileBytes)
 
 	var rd io.Reader
 	if offsetExists && lengthExists {
-		offset, err := strconv.ParseUint(offsetStr, 10, 32)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		length, err := strconv.ParseUint(lengthStr, 10, 32)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
 		rd, _, err = lstore.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	} else {
 		rd, _, err = lstore.GetPackfile(packfileBytes32)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
-	io.Copy(w, rd)
+	_, err = io.Copy(w, rd)
+	return err
 }

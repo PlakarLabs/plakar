@@ -643,8 +643,12 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 }
 
 func info_errors(repo *repository.Repository, snapshotID string) error {
+	prefix, pathname := utils.ParseSnapshotID(snapshotID)
+	if !strings.HasSuffix(pathname, "/") {
+		pathname = pathname + "/"
+	}
 
-	snap, err := utils.OpenSnapshotByPrefix(repo, snapshotID)
+	snap, err := utils.OpenSnapshotByPrefix(repo, prefix)
 	if err != nil {
 		return err
 	}
@@ -655,6 +659,12 @@ func info_errors(repo *repository.Repository, snapshotID string) error {
 	}
 
 	for dir := range fs.Directories() {
+		if !strings.HasSuffix(dir, "/") {
+			dir = dir + "/"
+		}
+		if !strings.HasPrefix(dir, pathname) {
+			continue
+		}
 		fi, err := fs.Stat(dir)
 		if err != nil {
 			logger.Warn("%s", err)

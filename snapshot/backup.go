@@ -89,7 +89,87 @@ func (cache *scanCache) RecordError(pathname string, err error) error {
 	return cache.db.Put([]byte(key), []byte(err.Error()), nil)
 }
 
-func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string) (<-chan ErrorEntry, error) {
+func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string, reverse bool) (<-chan ErrorEntry, error) {
+	// Ensure directory ends with a trailing slash for consistency
+	if !strings.HasSuffix(directory, "/") {
+		directory += "/"
+	}
+
+	// Create a channel to return the keys
+	keyChan := make(chan ErrorEntry)
+
+	// Start a goroutine to perform the iteration
+	go func() {
+		defer close(keyChan) // Ensure the channel is closed when the function exits
+
+		iter := cache.db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		// Create the directory prefix to match keys
+		directoryKeyPrefix := "__error__:" + directory
+
+		if reverse {
+			// Reverse iteration: manually position to the last key within the prefix range
+			iter.Seek([]byte(directoryKeyPrefix)) // Start at the prefix
+			if iter.Valid() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
+				// Move to the last key in the range
+				for iter.Next() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
+				}
+				iter.Prev() // Step back to the last valid key
+			}
+		} else {
+			// Forward iteration: start at the beginning of the range
+			iter.Seek([]byte(directoryKeyPrefix))
+		}
+
+		for iter.Valid() {
+			key := string(iter.Key())
+			if key == directoryKeyPrefix {
+				// Skip the directory key itself
+				if reverse {
+					iter.Prev()
+				} else {
+					iter.Next()
+				}
+				continue
+			}
+
+			// Check if the key starts with the directory prefix
+			if strings.HasPrefix(key, directoryKeyPrefix) {
+				// Remove the prefix and the directory to isolate the remaining part of the path
+				remainingPath := key[len(directoryKeyPrefix):]
+
+				// Determine if this is an immediate child
+				slashCount := strings.Count(remainingPath, "/")
+
+				// Immediate child should either:
+				// - Have no slash (a file)
+				// - Have exactly one slash at the end (a directory)
+				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
+					// Retrieve the value for the current key
+					path := strings.TrimPrefix(key, "__error__:")
+					value := iter.Value()
+					keyChan <- ErrorEntry{Pathname: path, Error: string(value)}
+				}
+			} else {
+				// Stop if the key is no longer within the expected prefix
+				break
+			}
+
+			// Advance or reverse the iterator
+			if reverse {
+				iter.Prev()
+			} else {
+				iter.Next()
+			}
+		}
+	}()
+
+	// Return the channel for the caller to consume
+	return keyChan, nil
+}
+
+func (cache *scanCache) EnumerateErrorsWithinDirectory2(directory string) (<-chan ErrorEntry, error) {
 	// Ensure directory ends with a trailing slash for consistency
 	if !strings.HasSuffix(directory, "/") {
 		directory += "/"
@@ -135,43 +215,6 @@ func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string) (<-chan
 				// Stop if the key is no longer within the expected prefix
 				break
 			}
-		}
-
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
-}
-
-func (cache *scanCache) EnumerateErrorsWithPrefixRecursive(directory string) (<-chan ErrorEntry, error) {
-	// Ensure directory ends with a trailing slash for consistency
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	// Create a channel to return the keys
-	keyChan := make(chan ErrorEntry)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Create the directory prefix to match keys
-		directoryKeyPrefix := "__error__:" + directory
-
-		// Iterate over keys in LevelDB
-		for iter.Seek([]byte(directoryKeyPrefix)); iter.Valid(); iter.Next() {
-			key := string(iter.Key())
-			if key == directoryKeyPrefix || !strings.HasPrefix(key, directoryKeyPrefix) {
-				continue
-			}
-			remainingPath := key[len(directoryKeyPrefix)-1:]
-			value := iter.Value()
-
-			keyChan <- ErrorEntry{Pathname: remainingPath, Error: string(value)}
 		}
 
 	}()
@@ -318,7 +361,7 @@ func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirector
 	return keyChan, nil
 }
 
-func (cache *scanCache) EnumerateImmediateChildPathnames(directory string) (<-chan importer.ScanRecord, error) {
+func (cache *scanCache) EnumerateImmediateChildPathnames2(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
 	// Ensure directory ends with a trailing slash for consistency
 	if !strings.HasSuffix(directory, "/") {
 		directory += "/"
@@ -372,6 +415,99 @@ func (cache *scanCache) EnumerateImmediateChildPathnames(directory string) (<-ch
 			} else {
 				// Stop if the key is no longer within the expected prefix
 				break
+			}
+		}
+	}()
+
+	// Return the channel for the caller to consume
+	return keyChan, nil
+}
+
+func (cache *scanCache) EnumerateImmediateChildPathnames(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
+	// Ensure directory ends with a trailing slash for consistency
+	if !strings.HasSuffix(directory, "/") {
+		directory += "/"
+	}
+
+	// Create a channel to return the keys
+	keyChan := make(chan importer.ScanRecord)
+
+	// Start a goroutine to perform the iteration
+	go func() {
+		defer close(keyChan) // Ensure the channel is closed when the function exits
+
+		iter := cache.db.NewIterator(nil, nil)
+		defer iter.Release()
+
+		// Create the directory prefix to match keys
+		directoryKeyPrefix := "__pathname__:" + directory
+
+		if reverse {
+			// Reverse iteration: manually position to the last key within the prefix range
+			iter.Seek([]byte(directoryKeyPrefix)) // Start at the prefix
+			if iter.Valid() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
+				// Move to the last key in the range
+				for iter.Next() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
+				}
+				iter.Prev() // Step back to the last valid key
+			}
+		} else {
+			// Forward iteration: start at the beginning of the range
+			iter.Seek([]byte(directoryKeyPrefix))
+		}
+
+		for iter.Valid() {
+			key := string(iter.Key())
+			if key == directoryKeyPrefix {
+				// Skip the directory key itself
+				if reverse {
+					iter.Prev()
+				} else {
+					iter.Next()
+				}
+				continue
+			}
+
+			// Check if the key starts with the directory prefix
+			if strings.HasPrefix(key, directoryKeyPrefix) {
+				// Remove the prefix and the directory to isolate the remaining part of the path
+				remainingPath := key[len(directoryKeyPrefix):]
+
+				// Determine if this is an immediate child
+				slashCount := strings.Count(remainingPath, "/")
+
+				// Immediate child should either:
+				// - Have no slash (a file)
+				// - Have exactly one slash at the end (a directory)
+				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
+					// Retrieve the value for the current key
+					value := iter.Value()
+
+					var record importer.ScanRecord
+					err := msgpack.Unmarshal(value, &record)
+					if err != nil {
+						fmt.Printf("Error unmarshaling value: %v\n", err)
+						if reverse {
+							iter.Prev()
+						} else {
+							iter.Next()
+						}
+						continue
+					}
+
+					// Send the immediate child key through the channel
+					keyChan <- record
+				}
+			} else {
+				// Stop if the key is no longer within the expected prefix
+				break
+			}
+
+			// Advance or reverse the iterator
+			if reverse {
+				iter.Prev()
+			} else {
+				iter.Next()
 			}
 		}
 	}()
@@ -681,16 +817,13 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	for record := range directories {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
-		childrenChan, err := sc.EnumerateImmediateChildPathnames(record.Pathname)
+		childrenChan, err := sc.EnumerateImmediateChildPathnames(record.Pathname, true)
 		if err != nil {
 			return err
 		}
 
 		/* children */
-		var firstChildChecksum objects.Checksum
-		var lastChildChecksum objects.Checksum
-		var lastListEntry *objects.ListEntry
-
+		var lastChecksum *objects.Checksum
 		for child := range childrenChan {
 			childChecksum, err := sc.GetChecksum(child.Pathname)
 			if err != nil {
@@ -715,103 +848,51 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
 			}
 
+			if lastChecksum != nil {
+				childEntry.Successor = lastChecksum
+			}
 			childEntrySerialized, err := childEntry.ToBytes()
 			if err != nil {
 				continue
 			}
 			childEntryChecksum := snap.repository.Checksum(childEntrySerialized)
+			lastChecksum = &childEntryChecksum
+
 			if !snap.BlobExists(packfile.TYPE_CHILD, childEntryChecksum) {
 				if err := snap.PutBlob(packfile.TYPE_CHILD, childEntryChecksum, childEntrySerialized); err != nil {
 					continue
 				}
 			}
-
-			if lastListEntry == nil {
-				firstChildChecksum = childEntryChecksum
-			} else if lastListEntry != nil {
-				lastListEntry.Successor = &childEntryChecksum
-				lastEntrySerialized, err := lastListEntry.ToBytes()
-				if err == nil {
-					if !snap.BlobExists(packfile.TYPE_LIST, lastChildChecksum) {
-						snap.PutBlob(packfile.TYPE_LIST, lastChildChecksum, lastEntrySerialized) // Save the updated last entry
-					}
-				}
-			}
-
-			lastListEntry = &objects.ListEntry{
-				Predecessor: &lastChildChecksum,
-				Successor:   nil,
-			}
-			lastChildChecksum = childEntryChecksum
-
 			dirEntry.Children.Count++
 		}
-		if lastListEntry == nil {
-			firstChildChecksum = lastChildChecksum
-		} else {
-			lastEntrySerialized, err := lastListEntry.ToBytes()
-			if err == nil {
-				if !snap.BlobExists(packfile.TYPE_LIST, lastChildChecksum) {
-					snap.PutBlob(packfile.TYPE_LIST, lastChildChecksum, lastEntrySerialized) // Save the updated last entry
-				}
-			}
-		}
-		dirEntry.Children.Head = &firstChildChecksum
-		dirEntry.Children.Tail = &lastChildChecksum
+		dirEntry.Children.Head = lastChecksum
 		dirEntry.Summary.UpdateAverages()
 
 		/* errors */
-		var firstErrorChecksum objects.Checksum
-		var lastErrorChecksum objects.Checksum
-		lastListEntry = nil
-		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname); err == nil {
+		lastChecksum = nil
+		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname, true); err == nil {
 			for entry := range errc {
 				errorEntry := &vfs.ErrorEntry{Name: filepath.Base(entry.Pathname), Error: entry.Error}
+
+				if lastChecksum != nil {
+					errorEntry.Successor = lastChecksum
+				}
 				errorEntrySerialized, err := errorEntry.ToBytes()
 				if err != nil {
 					continue
 				}
 				errorEntryChecksum := snap.repository.Checksum(errorEntrySerialized)
-				if !snap.BlobExists(packfile.TYPE_CHILD, errorEntryChecksum) {
+				lastChecksum = &errorEntryChecksum
+				if !snap.BlobExists(packfile.TYPE_ERROR, errorEntryChecksum) {
 					if err := snap.PutBlob(packfile.TYPE_ERROR, errorEntryChecksum, errorEntrySerialized); err != nil {
 						continue
 					}
 				}
-
-				if lastListEntry == nil {
-					firstErrorChecksum = errorEntryChecksum
-				} else if lastListEntry != nil {
-					lastListEntry.Successor = &errorEntryChecksum
-					lastEntrySerialized, err := lastListEntry.ToBytes()
-					if err == nil {
-						if !snap.BlobExists(packfile.TYPE_LIST, lastErrorChecksum) {
-							snap.PutBlob(packfile.TYPE_LIST, lastErrorChecksum, lastEntrySerialized) // Save the updated last entry
-						}
-					}
-				}
-
-				lastListEntry = &objects.ListEntry{
-					Predecessor: &lastErrorChecksum,
-					Successor:   nil,
-				}
-				lastErrorChecksum = errorEntryChecksum
-
 				dirEntry.Summary.Directory.Errors++
-			}
-			if lastListEntry == nil {
-				firstErrorChecksum = lastErrorChecksum
-			} else {
-				lastEntrySerialized, err := lastListEntry.ToBytes()
-				if err == nil {
-					if !snap.BlobExists(packfile.TYPE_LIST, lastErrorChecksum) {
-						snap.PutBlob(packfile.TYPE_LIST, lastErrorChecksum, lastEntrySerialized) // Save the updated last entry
-					}
-				}
 			}
 			// Set first and last error checksums in the directory entry
 			dirEntry.Errors.Count = dirEntry.Summary.Directory.Errors
-			dirEntry.Errors.Head = &firstErrorChecksum
-			dirEntry.Errors.Tail = &lastErrorChecksum
+			dirEntry.Errors.Head = lastChecksum
 		}
 
 		serialized, err := dirEntry.Serialize()

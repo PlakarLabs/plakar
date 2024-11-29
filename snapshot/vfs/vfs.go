@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 )
@@ -447,22 +446,7 @@ func (fsc *Filesystem) ChildrenIter(dir *DirEntry) (<-chan *ChildEntry, error) {
 
 			c <- child
 
-			rd, _, err = fsc.repo.GetBlob(packfile.TYPE_LIST, *iter)
-			if err != nil {
-				return
-			}
-
-			leBytes, err := io.ReadAll(rd)
-			if err != nil {
-				return
-			}
-
-			le, err := objects.ListEntryFromBytes(leBytes)
-			if err != nil {
-				return
-			}
-
-			iter = le.Successor
+			iter = child.Successor
 		}
 	}()
 
@@ -475,7 +459,7 @@ func (fsc *Filesystem) ErrorIter(dir *DirEntry) (<-chan *ErrorEntry, error) {
 	go func() {
 		defer close(c)
 
-		iter := dir.Children.Head
+		iter := dir.Errors.Head
 		for iter != nil {
 
 			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_ERROR, *iter)
@@ -495,22 +479,7 @@ func (fsc *Filesystem) ErrorIter(dir *DirEntry) (<-chan *ErrorEntry, error) {
 
 			c <- errEntry
 
-			rd, _, err = fsc.repo.GetBlob(packfile.TYPE_LIST, *iter)
-			if err != nil {
-				return
-			}
-
-			leBytes, err := io.ReadAll(rd)
-			if err != nil {
-				return
-			}
-
-			le, err := objects.ListEntryFromBytes(leBytes)
-			if err != nil {
-				return
-			}
-
-			iter = le.Successor
+			iter = errEntry.Successor
 		}
 	}()
 

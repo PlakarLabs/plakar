@@ -251,7 +251,6 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 	st.mergeLocationMaps(packfile.TYPE_CHUNK, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_OBJECT, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
-	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_DIRECTORY, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_CHILD, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_DATA, deltaState)

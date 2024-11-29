@@ -688,8 +688,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 		}
 
 		/* children */
-		var firstChecksum objects.Checksum
-		var lastChecksum objects.Checksum
+		var firstChildChecksum objects.Checksum
+		var lastChildChecksum objects.Checksum
 		var lastListEntry *objects.ListEntry
 
 		for child := range childrenChan {
@@ -716,115 +716,103 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
 			}
 
-			serializedChildEntry, err := childEntry.ToBytes()
+			childEntrySerialized, err := childEntry.ToBytes()
 			if err != nil {
 				continue
 			}
-			childEntryChecksum := snap.repository.Checksum(serializedChildEntry)
+			childEntryChecksum := snap.repository.Checksum(childEntrySerialized)
 			if !snap.BlobExists(packfile.TYPE_CHILD, childEntryChecksum) {
-				if err := snap.PutBlob(packfile.TYPE_CHILD, childEntryChecksum, serializedChildEntry); err != nil {
+				if err := snap.PutBlob(packfile.TYPE_CHILD, childEntryChecksum, childEntrySerialized); err != nil {
 					continue
 				}
 			}
 
-			// handle linked list\
 			if lastListEntry == nil {
-				firstChecksum = childEntryChecksum
+				firstChildChecksum = childEntryChecksum
 			} else if lastListEntry != nil {
 				lastListEntry.Successor = &childEntryChecksum
 				lastEntrySerialized, err := lastListEntry.ToBytes()
 				if err == nil {
-					if !snap.BlobExists(packfile.TYPE_DATA, lastChecksum) {
-						snap.PutBlob(packfile.TYPE_DATA, lastChecksum, lastEntrySerialized) // Save the updated last entry
+					if !snap.BlobExists(packfile.TYPE_LIST, lastChildChecksum) {
+						snap.PutBlob(packfile.TYPE_LIST, lastChildChecksum, lastEntrySerialized) // Save the updated last entry
 					}
 				}
 			}
 
 			lastListEntry = &objects.ListEntry{
-				Predecessor: &lastChecksum,
+				Predecessor: &lastChildChecksum,
 				Successor:   nil,
 			}
-			lastChecksum = childEntryChecksum
+			lastChildChecksum = childEntryChecksum
 
 			dirEntry.Children.Count++
 		}
 		if lastListEntry == nil {
-			firstChecksum = lastChecksum
-		} else if lastListEntry != nil {
+			firstChildChecksum = lastChildChecksum
+		} else {
 			lastEntrySerialized, err := lastListEntry.ToBytes()
 			if err == nil {
-				if !snap.BlobExists(packfile.TYPE_DATA, lastChecksum) {
-					snap.PutBlob(packfile.TYPE_DATA, lastChecksum, lastEntrySerialized) // Save the updated last entry
+				if !snap.BlobExists(packfile.TYPE_LIST, lastChildChecksum) {
+					snap.PutBlob(packfile.TYPE_LIST, lastChildChecksum, lastEntrySerialized) // Save the updated last entry
 				}
 			}
 		}
-		dirEntry.Children.Head = &firstChecksum
-		dirEntry.Children.Tail = &lastChecksum
+		dirEntry.Children.Head = &firstChildChecksum
+		dirEntry.Children.Tail = &lastChildChecksum
 		dirEntry.Summary.UpdateAverages()
 
 		/* errors */
-		var firstErrorChecksum *objects.Checksum
-		var lastErrorChecksum *objects.Checksum
-		var predecessorErrorChecksum *objects.Checksum
-		var lastErrorEntry *vfs.ErrorEntry
-
+		var firstErrorChecksum objects.Checksum
+		var lastErrorChecksum objects.Checksum
+		lastListEntry = nil
 		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname); err == nil {
 			for entry := range errc {
-				dirEntry.Summary.Directory.Errors++
-
 				errorEntry := &vfs.ErrorEntry{Name: filepath.Base(entry.Pathname), Error: entry.Error}
 				errorEntrySerialized, err := errorEntry.ToBytes()
 				if err != nil {
 					continue
 				}
-
-				currentChecksum := snap.repository.Checksum(errorEntrySerialized)
-
-				// Set predecessor for the current entry
-				if predecessorErrorChecksum != nil {
-					errorEntry.Predecessor = predecessorErrorChecksum
+				errorEntryChecksum := snap.repository.Checksum(errorEntrySerialized)
+				if !snap.BlobExists(packfile.TYPE_CHILD, errorEntryChecksum) {
+					if err := snap.PutBlob(packfile.TYPE_ERROR, errorEntryChecksum, errorEntrySerialized); err != nil {
+						continue
+					}
 				}
 
-				// Update first and last error checksums
-				if firstErrorChecksum == nil {
-					firstErrorChecksum = &currentChecksum
-				}
-				lastErrorChecksum = &currentChecksum
-
-				// Set the Successor for the previous entry
-				if lastErrorEntry != nil {
-					lastErrorEntry.Successor = &currentChecksum
-					updatedLastSerialized, err := lastErrorEntry.ToBytes()
+				if lastListEntry == nil {
+					firstErrorChecksum = errorEntryChecksum
+				} else if lastListEntry != nil {
+					lastListEntry.Successor = &errorEntryChecksum
+					lastEntrySerialized, err := lastListEntry.ToBytes()
 					if err == nil {
-						if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorErrorChecksum) {
-							snap.PutBlob(packfile.TYPE_ERROR, *predecessorErrorChecksum, updatedLastSerialized) // Save the updated last entry
+						if !snap.BlobExists(packfile.TYPE_LIST, lastErrorChecksum) {
+							snap.PutBlob(packfile.TYPE_LIST, lastErrorChecksum, lastEntrySerialized) // Save the updated last entry
 						}
 					}
 				}
 
-				// Save the current entry
-				snap.PutBlob(packfile.TYPE_ERROR, currentChecksum, errorEntrySerialized)
+				lastListEntry = &objects.ListEntry{
+					Predecessor: &lastErrorChecksum,
+					Successor:   nil,
+				}
+				lastErrorChecksum = errorEntryChecksum
 
-				// Update the state for the next iteration
-				predecessorErrorChecksum = &currentChecksum
-				lastErrorEntry = errorEntry // Update lastEntry to the current entry
+				dirEntry.Summary.Directory.Errors++
 			}
-
-			// Handle the last entry after the loop (it has no successor)
-			if lastErrorEntry != nil {
-				lastErrorEntry.Successor = nil // Explicitly set no successor
-				finalSerialized, err := lastErrorEntry.ToBytes()
+			if lastListEntry == nil {
+				firstErrorChecksum = lastErrorChecksum
+			} else {
+				lastEntrySerialized, err := lastListEntry.ToBytes()
 				if err == nil {
-					if !snap.BlobExists(packfile.TYPE_ERROR, *predecessorErrorChecksum) {
-						snap.PutBlob(packfile.TYPE_ERROR, *predecessorErrorChecksum, finalSerialized)
+					if !snap.BlobExists(packfile.TYPE_LIST, lastErrorChecksum) {
+						snap.PutBlob(packfile.TYPE_LIST, lastErrorChecksum, lastEntrySerialized) // Save the updated last entry
 					}
 				}
 			}
-
 			// Set first and last error checksums in the directory entry
 			dirEntry.Errors.Count = dirEntry.Summary.Directory.Errors
-			dirEntry.Errors.Head = firstErrorChecksum
-			dirEntry.Errors.Tail = lastErrorChecksum
+			dirEntry.Errors.Head = &firstErrorChecksum
+			dirEntry.Errors.Tail = &lastErrorChecksum
 		}
 
 		serialized, err := dirEntry.Serialize()

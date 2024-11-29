@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/search"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -369,57 +368,25 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) {
 			Total: 0,
 			Items: make([]interface{}, 0),
 		}
-		if dirEntry.Errors.Head != nil {
+		errorsList, err := fs.ErrorIter(dirEntry)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-			if sortKeysStr == "Name" {
-				iter := dirEntry.Errors.Head
-				for i := int64(0); i < limit+offset && iter != nil; i++ {
-					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-
-					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					iter = errorEntry.Successor
-
-					if i < offset {
-						continue
-					}
-
-					items.Total += 1
-					errorEntry.Predecessor = nil
-					errorEntry.Successor = nil
-					items.Items = append(items.Items, errorEntry)
-				}
-			} else if sortKeysStr == "-Name" {
-				iter := dirEntry.Errors.Tail
-				for i := int64(0); i < limit+offset && iter != nil; i++ {
-					errorEntryBytes, err := snap.GetBlob(packfile.TYPE_ERROR, *iter)
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-
-					errorEntry, err := vfs.ErrorEntryFromBytes(errorEntryBytes)
-					if err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					iter = errorEntry.Predecessor
-					if i < offset {
-						continue
-					}
-					items.Total += 1
-					errorEntry.Predecessor = nil
-					errorEntry.Successor = nil
-					items.Items = append(items.Items, errorEntry)
-				}
+		i := int64(0)
+		for errorEntry := range errorsList {
+			if errorEntry == nil {
+				break
 			}
+			if i < offset {
+				continue
+			}
+			if i >= limit+offset {
+				break
+			}
+			items.Total += 1
+			items.Items = append(items.Items, errorEntry)
 		}
 		json.NewEncoder(w).Encode(items)
 	}

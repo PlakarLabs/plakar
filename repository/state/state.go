@@ -32,10 +32,10 @@ import (
 const VERSION = 100
 
 type Metadata struct {
-	Version      uint32
-	CreationTime time.Time
-	Aggregate    bool
-	Extends      []objects.Checksum
+	Version   uint32
+	Timestamp time.Time
+	Aggregate bool
+	Extends   []objects.Checksum
 }
 
 type Location struct {
@@ -95,10 +95,10 @@ func New() *State {
 		Errors:           make(map[uint64]Location),
 		DeletedSnapshots: make(map[uint64]time.Time),
 		Metadata: Metadata{
-			Version:      VERSION,
-			CreationTime: time.Now(),
-			Aggregate:    false,
-			Extends:      []objects.Checksum{},
+			Version:   VERSION,
+			Timestamp: time.Now(),
+			Aggregate: false,
+			Extends:   []objects.Checksum{},
 		},
 	}
 }

@@ -115,7 +115,7 @@ func info_repository(repo *repository.Repository) int {
 	}
 
 	fmt.Println("Version:", repo.Configuration().Version)
-	fmt.Println("CreationTime:", repo.Configuration().CreationTime)
+	fmt.Println("Timestamp:", repo.Configuration().Timestamp)
 	fmt.Println("RepositoryID:", repo.Configuration().RepositoryID)
 
 	fmt.Println("Packfile:")
@@ -279,7 +279,7 @@ func info_state(repo *repository.Repository, args []string) error {
 			}
 
 			fmt.Printf("Version: %d.%d.%d\n", st.Metadata.Version/100, (st.Metadata.Version/10)%10, st.Metadata.Version%10)
-			fmt.Printf("Creation: %s\n", st.Metadata.CreationTime)
+			fmt.Printf("Creation: %s\n", st.Metadata.Timestamp)
 			if len(st.Metadata.Extends) > 0 {
 				fmt.Printf("Extends:\n")
 				for _, stateID := range st.Metadata.Extends {

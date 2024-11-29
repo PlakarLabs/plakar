@@ -46,7 +46,7 @@ const VERSION string = "0.6.0"
 
 type Configuration struct {
 	Version      string
-	CreationTime time.Time
+	Timestamp    time.Time
 	RepositoryID uuid.UUID
 
 	Packfile    packfile.Configuration
@@ -59,7 +59,7 @@ type Configuration struct {
 func NewConfiguration() *Configuration {
 	return &Configuration{
 		Version:      VERSION,
-		CreationTime: time.Now(),
+		Timestamp:    time.Now(),
 		RepositoryID: uuid.Must(uuid.NewRandom()),
 
 		Packfile: *packfile.DefaultConfiguration(),

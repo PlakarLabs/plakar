@@ -22,7 +22,7 @@ func TestSortHeaders(t *testing.T) {
 	// Test 1: Sort by CreationTime, ascending
 	headers := resetHeaders()
 	expected1 := []Header{headers[1], headers[0], headers[2]}
-	if err := SortHeaders(headers, []string{"CreationTime"}); err != nil {
+	if err := SortHeaders(headers, []string{"Timestamp"}); err != nil {
 		t.Fatalf("Test 1 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected1) {
@@ -32,7 +32,7 @@ func TestSortHeaders(t *testing.T) {
 	// Test 2: Sort by CreationTime, descending
 	headers = resetHeaders()
 	expected2 := []Header{headers[2], headers[0], headers[1]}
-	if err := SortHeaders(headers, []string{"-CreationTime"}); err != nil {
+	if err := SortHeaders(headers, []string{"-Timestamp"}); err != nil {
 		t.Fatalf("Test 2 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected2) {
@@ -42,7 +42,7 @@ func TestSortHeaders(t *testing.T) {
 	// Test 3: Sort by SnapshotID, ascending (lexicographical comparison of [32]byte)
 	headers = resetHeaders()
 	expected3 := []Header{headers[0], headers[2], headers[1]}
-	if err := SortHeaders(headers, []string{"SnapshotID"}); err != nil {
+	if err := SortHeaders(headers, []string{"Identifier"}); err != nil {
 		t.Fatalf("Test 3 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected3) {
@@ -52,7 +52,7 @@ func TestSortHeaders(t *testing.T) {
 	// Test 4: Sort by SnapshotID, descending
 	headers = resetHeaders()
 	expected4 := []Header{headers[1], headers[2], headers[0]}
-	if err := SortHeaders(headers, []string{"-SnapshotID"}); err != nil {
+	if err := SortHeaders(headers, []string{"-Identifier"}); err != nil {
 		t.Fatalf("Test 4 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected4) {
@@ -69,7 +69,7 @@ func TestSortHeaders(t *testing.T) {
 	// Multi-key test: Sort by FilesCount ascending, then CreationTime ascending
 	headers = resetHeaders()
 	expected10 := []Header{headers[0], headers[2], headers[1]} // FilesCount orders, then CreationTime as tie-breaker
-	if err := SortHeaders(headers, []string{"SnapshotID", "CreationTime"}); err != nil {
+	if err := SortHeaders(headers, []string{"Identifier", "Timestamp"}); err != nil {
 		t.Fatalf("Test 10 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected10) {
@@ -79,7 +79,7 @@ func TestSortHeaders(t *testing.T) {
 	// Multi-key test: Sort by FilesCount, then CreationTime descending
 	headers = resetHeaders()
 	expected11 := []Header{headers[1], headers[2], headers[0]} // FilesCount orders, then CreationTime as tie-breaker
-	if err := SortHeaders(headers, []string{"-SnapshotID", "-CreationTime"}); err != nil {
+	if err := SortHeaders(headers, []string{"-Identifier", "-Timestamp"}); err != nil {
 		t.Fatalf("Test 10 failed: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(headers, expected11) {

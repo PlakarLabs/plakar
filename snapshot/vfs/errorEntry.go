@@ -1,12 +1,14 @@
 package vfs
 
 import (
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 type ErrorEntry struct {
-	Name  string `msgpack:"name" json:"name"`
-	Error string `msgpack:"error" json:"error"`
+	Successor *objects.Checksum `msgpack:"successor,omitempty" json:"Successor,omitempty"`
+	Name      string            `msgpack:"name" json:"name"`
+	Error     string            `msgpack:"error" json:"error"`
 }
 
 func ErrorEntryFromBytes(data []byte) (*ErrorEntry, error) {

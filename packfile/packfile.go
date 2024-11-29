@@ -25,6 +25,7 @@ const (
 	TYPE_DATA      Type = 6
 	TYPE_SIGNATURE Type = 7
 	TYPE_ERROR     Type = 8
+	TYPE_LIST      Type = 9
 )
 
 type Blob struct {
@@ -35,7 +36,7 @@ type Blob struct {
 }
 
 func Types() []Type {
-	return []Type{TYPE_SNAPSHOT, TYPE_CHUNK, TYPE_OBJECT, TYPE_FILE, TYPE_DIRECTORY, TYPE_DATA, TYPE_SIGNATURE, TYPE_ERROR}
+	return []Type{TYPE_SNAPSHOT, TYPE_CHUNK, TYPE_OBJECT, TYPE_FILE, TYPE_DIRECTORY, TYPE_CHILD, TYPE_DATA, TYPE_SIGNATURE, TYPE_ERROR, TYPE_LIST}
 }
 
 func (b Blob) TypeName() string {
@@ -58,6 +59,8 @@ func (b Blob) TypeName() string {
 		return "signature"
 	case TYPE_ERROR:
 		return "error"
+	case TYPE_LIST:
+		return "list"
 	default:
 		return "unknown"
 	}

@@ -758,10 +758,8 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				}
 			}
 		}
-
 		dirEntry.Children.Head = &firstChecksum
 		dirEntry.Children.Tail = &lastChecksum
-
 		dirEntry.Summary.UpdateAverages()
 
 		/* errors */

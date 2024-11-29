@@ -67,6 +67,16 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 			return 1
 		}
 
+	case "errors":
+		if len(flags.Args()) < 2 {
+			logger.Error("usage: %s errors snapshotID", flags.Name())
+			return 1
+		}
+		if err := info_errors(repo, flags.Args()[1]); err != nil {
+			logger.Error("error: %s", err)
+			return 1
+		}
+
 	case "state":
 		if err := info_state(repo, flags.Args()[1:]); err != nil {
 			logger.Error("error: %s", err)
@@ -629,5 +639,39 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			}
 		}
 	}
+	return nil
+}
+
+func info_errors(repo *repository.Repository, snapshotID string) error {
+
+	snap, err := utils.OpenSnapshotByPrefix(repo, snapshotID)
+	if err != nil {
+		return err
+	}
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return err
+	}
+
+	for dir := range fs.Directories() {
+		fi, err := fs.Stat(dir)
+		if err != nil {
+			logger.Warn("%s", err)
+			continue
+		}
+		dirEntry := fi.(*vfs.DirEntry)
+		errors, err := fs.ErrorIter(dirEntry)
+		if err != nil {
+			logger.Warn("%s", err)
+			continue
+		}
+
+		for err := range errors {
+			fmt.Printf("%s: %s\n", filepath.Join(dirEntry.ParentPath, dirEntry.Stat().Name(), err.Name), err.Error)
+		}
+
+	}
+
 	return nil
 }

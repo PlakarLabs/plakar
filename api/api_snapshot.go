@@ -3,10 +3,13 @@ package api
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
@@ -16,6 +19,7 @@ import (
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
@@ -116,6 +120,104 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return nil
+}
+
+type SnapshotReaderURLSigner struct {
+	token string
+}
+
+func NewSnapshotReaderURLSigner(token string) SnapshotReaderURLSigner {
+	return SnapshotReaderURLSigner{token}
+}
+
+type SnapshotSignedURLClaims struct {
+	SnapshotID string `json:"snapshot_id"`
+	Path       string `json:"path"`
+	jwt.RegisteredClaims
+}
+
+func (signer SnapshotReaderURLSigner) Sign(w http.ResponseWriter, r *http.Request) error {
+	vars := mux.Vars(r)
+	path := vars["path"]
+
+	_, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, SnapshotSignedURLClaims{
+		SnapshotID: vars["snapshot"],
+		Path:       path,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(2 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "plakar-api",
+		},
+	})
+
+	signature, err := jwtToken.SignedString([]byte(signer.token))
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(w).Encode(Item{
+		struct {
+			Signature string `json:"signature"`
+		}{signature},
+	})
+}
+
+// VerifyMiddleware is a middleware that checks if the request to read the file
+// content is authorized. It checks if the ?signature query parameter is valid.
+// If it is not valid, it falls back to the Authorization header.
+func (signer SnapshotReaderURLSigner) VerifyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		signature := r.URL.Query().Get("signature")
+
+		// No signature provided, fall back to Authorization header
+		if signature == "" {
+			AuthMiddleware(signer.token)(next).ServeHTTP(w, r)
+			return
+		}
+
+		// Parse signature
+		vars := mux.Vars(r)
+		path := vars["path"]
+		snapshotId := vars["snapshot"]
+
+		jwtToken, err := jwt.ParseWithClaims(signature, &SnapshotSignedURLClaims{}, func(jwtToken *jwt.Token) (interface{}, error) {
+			if _, ok := jwtToken.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, authError(fmt.Sprintf("unexpected signing method: %v", jwtToken.Header["alg"]))
+			}
+			return []byte(signer.token), nil
+		})
+
+		if err != nil {
+			if errors.Is(err, jwt.ErrTokenExpired) {
+				handleError(w, authError("token expired"))
+				return
+			}
+			handleError(w, authError(fmt.Sprintf("unable to parse JWT token: %v", err)))
+			return
+		}
+
+		if claims, ok := jwtToken.Claims.(*SnapshotSignedURLClaims); ok {
+			if claims.Path != path {
+				handleError(w, authError("invalid URL path"))
+				return
+			}
+			if claims.SnapshotID != snapshotId {
+				handleError(w, authError("invalid URL snapshot"))
+				return
+			}
+		} else {
+			handleError(w, authError("invalid URL signature"))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) error {

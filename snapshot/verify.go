@@ -12,7 +12,7 @@ func (snap *Snapshot) Verify() (bool, error) {
 		return false, nil
 	}
 
-	signature, err := snap.GetBlob(packfile.TYPE_SIGNATURE, snap.Header.SnapshotID)
+	signature, err := snap.GetBlob(packfile.TYPE_SIGNATURE, snap.Header.Identifier)
 	if err != nil {
 		return false, err
 	}

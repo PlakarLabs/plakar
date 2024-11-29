@@ -170,9 +170,12 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	indexID := header.GetIndexID()
 	fmt.Printf("Version: %s\n", repo.Configuration().Version)
 	fmt.Printf("SnapshotID: %s\n", hex.EncodeToString(indexID[:]))
-	fmt.Printf("CreationTime: %s\n", header.CreationTime)
-	fmt.Printf("CreationDuration: %s\n", header.CreationDuration)
+	fmt.Printf("Timestamp: %s\n", header.Timestamp)
+	fmt.Printf("Duration: %s\n", header.Duration)
 
+	fmt.Printf("Name: %s\n", header.Name)
+	fmt.Printf("Environment: %s\n", header.Environment)
+	fmt.Printf("Perimeter: %s\n", header.Perimeter)
 	fmt.Printf("Category: %s\n", header.Category)
 	if len(header.Tags) > 0 {
 		fmt.Printf("Tags: %s\n", strings.Join(header.Tags, ", "))
@@ -188,7 +191,6 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 	fmt.Printf("Index: %x\n", header.Index)
 	fmt.Printf("Metadata: %x\n", header.Metadata)
 	fmt.Printf("Statistics: %x\n", header.Statistics)
-	fmt.Printf("Errors: %x\n", header.Errors)
 
 	fmt.Println("Importer:")
 	fmt.Printf(" - Type: %s\n", header.Importer.Type)

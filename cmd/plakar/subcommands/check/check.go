@@ -75,10 +75,10 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 			if ok, err := snap.Verify(); err != nil {
 				logger.Warn("%s", err)
 			} else if !ok {
-				logger.Info("snapshot %x signature verification failed", snap.Header.SnapshotID)
+				logger.Info("snapshot %x signature verification failed", snap.Header.Identifier)
 				failures = true
 			} else {
-				logger.Info("snapshot %x signature verification succeeded", snap.Header.SnapshotID)
+				logger.Info("snapshot %x signature verification succeeded", snap.Header.Identifier)
 			}
 		}
 

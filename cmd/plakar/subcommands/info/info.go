@@ -575,8 +575,7 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("Directory.MIMEApplication: %d\n", dirEntry.Summary.Directory.MIMEApplication)
 		fmt.Printf("Directory.MIMEOther: %d\n", dirEntry.Summary.Directory.MIMEOther)
 		fmt.Printf("Directory.Errors: %d\n", dirEntry.Summary.Directory.Errors)
-
-		fmt.Printf("Children.Count: %d\n", dirEntry.Children.Count)
+		fmt.Printf("Directory.Children: %d\n", dirEntry.Summary.Directory.Children)
 		children, err := fs.ChildrenIter(dirEntry)
 		if err != nil {
 			return err
@@ -602,7 +601,6 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			return err
 		}
 		offset = 0
-		fmt.Printf("Errors.Count: %d\n", dirEntry.Errors.Count)
 		for err := range errors {
 			fmt.Printf("Error[%d]: %s: %s\n", offset, err.Name, err.Error)
 			offset++

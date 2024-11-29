@@ -863,9 +863,9 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 					continue
 				}
 			}
-			dirEntry.Children.Count++
+			dirEntry.Summary.Directory.Children++
 		}
-		dirEntry.Children.Head = lastChecksum
+		dirEntry.Children = lastChecksum
 		dirEntry.Summary.UpdateAverages()
 
 		/* errors */
@@ -891,8 +891,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				dirEntry.Summary.Directory.Errors++
 			}
 			// Set first and last error checksums in the directory entry
-			dirEntry.Errors.Count = dirEntry.Summary.Directory.Errors
-			dirEntry.Errors.Head = lastChecksum
+			dirEntry.Errors = lastChecksum
 		}
 
 		serialized, err := dirEntry.Serialize()

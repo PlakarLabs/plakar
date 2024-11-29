@@ -15,8 +15,8 @@ type DirEntry struct {
 	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
 
 	/* Directory specific fields */
-	Children objects.List `msgpack:"children,omitempty"`
-	Summary  Summary      `msgpack:"summary"`
+	Children *objects.Checksum `msgpack:"children,omitempty"`
+	Summary  Summary           `msgpack:"summary"`
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
@@ -31,7 +31,7 @@ type DirEntry struct {
 	Tags           []string         `msgpack:"tags,omitempty"`
 
 	/* Errors */
-	Errors objects.List `msgpack:"errors,omitempty"`
+	Errors *objects.Checksum `msgpack:"errors,omitempty"`
 }
 
 func (*DirEntry) fsEntry() {}

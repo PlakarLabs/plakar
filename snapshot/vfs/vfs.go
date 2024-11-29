@@ -426,7 +426,7 @@ func (fsc *Filesystem) ChildrenIter(dir *DirEntry) (<-chan *ChildEntry, error) {
 	go func() {
 		defer close(c)
 
-		iter := dir.Children.Head
+		iter := dir.Children
 		for iter != nil {
 
 			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_CHILD, *iter)
@@ -459,7 +459,7 @@ func (fsc *Filesystem) ErrorIter(dir *DirEntry) (<-chan *ErrorEntry, error) {
 	go func() {
 		defer close(c)
 
-		iter := dir.Errors.Head
+		iter := dir.Errors
 		for iter != nil {
 
 			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_ERROR, *iter)

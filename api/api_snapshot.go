@@ -81,6 +81,9 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 		style := styles.Get("dracula")
 
 		w.Header().Set("Content-Type", "text/html")
+		if _, err := w.Write([]byte("<!DOCTYPE html>")); err != nil {
+			return err
+		}
 
 		reader := bufio.NewReader(rd)
 		buffer := make([]byte, 4096) // Fixed-size buffer for chunked reading

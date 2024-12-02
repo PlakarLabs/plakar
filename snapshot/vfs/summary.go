@@ -20,89 +20,89 @@ type FileSummary struct {
 }
 
 type Directory struct {
-	Directories uint64 `msgpack:"directories,omitempty" json:"directories,omitempty"`
-	Files       uint64 `msgpack:"files,omitempty" json:"files,omitempty"`
-	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks,omitempty"`
-	Devices     uint64 `msgpack:"devices,omitempty" json:"devices,omitempty"`
-	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes,omitempty"`
-	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets,omitempty"`
+	Directories uint64 `msgpack:"directories,omitempty" json:"directories"`
+	Files       uint64 `msgpack:"files,omitempty" json:"files"`
+	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks"`
+	Devices     uint64 `msgpack:"devices,omitempty" json:"devices"`
+	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes"`
+	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets"`
 
-	Children uint64 `msgpack:"children,omitempty" json:"children,omitempty"`
+	Children uint64 `msgpack:"children,omitempty" json:"children"`
 
-	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid,omitempty"`
-	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid,omitempty"`
-	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky,omitempty"`
+	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid"`
+	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid"`
+	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky"`
 
-	Objects uint64 `msgpack:"objects,omitempty" json:"objects,omitempty"`
-	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks,omitempty"`
+	Objects uint64 `msgpack:"objects,omitempty" json:"objects"`
+	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks"`
 
-	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size,omitempty"`
-	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size,omitempty"`
-	AvgSize uint64 `msgpack:"avg_size,omitempty" json:"avg_size,omitempty"`
-	Size    uint64 `msgpack:"size,omitempty" json:"size,omitempty"`
+	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size"`
+	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size"`
+	AvgSize uint64 `msgpack:"avg_size,omitempty" json:"avg_size"`
+	Size    uint64 `msgpack:"size,omitempty" json:"size"`
 
-	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time,omitempty"`
-	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"max_mod_time,omitempty"`
+	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time"`
+	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"max_mod_time"`
 
-	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy,omitempty"`
-	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy,omitempty"`
-	SumEntropy float64 `msgpack:"sum_entropy,omitempty" json:"sum_entropy,omitempty"`
-	AvgEntropy float64 `msgpack:"avg_entropy,omitempty" json:"avg_entropy,omitempty"`
-	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy,omitempty"`
-	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy,omitempty"`
+	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy"`
+	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy"`
+	SumEntropy float64 `msgpack:"sum_entropy,omitempty" json:"sum_entropy"`
+	AvgEntropy float64 `msgpack:"avg_entropy,omitempty" json:"avg_entropy"`
+	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
+	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio,omitempty"`
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo,omitempty"`
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage,omitempty"`
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText,omitempty"`
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication,omitempty"`
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther,omitempty"`
+	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio"`
+	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo"`
+	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage"`
+	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText"`
+	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication"`
+	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther"`
 
-	Errors uint64 `msgpack:"errors,omitempty" json:"errors,omitempty"`
+	Errors uint64 `msgpack:"errors,omitempty" json:"errors"`
 }
 
 type Below struct {
-	Directories uint64 `msgpack:"directories,omitempty" json:"directories,omitempty"`
-	Files       uint64 `msgpack:"files,omitempty" json:"files,omitempty"`
-	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks,omitempty"`
-	Devices     uint64 `msgpack:"devices,omitempty" json:"devices,omitempty"`
-	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes,omitempty"`
-	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets,omitempty"`
+	Directories uint64 `msgpack:"directories,omitempty" json:"directories"`
+	Files       uint64 `msgpack:"files,omitempty" json:"files"`
+	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks"`
+	Devices     uint64 `msgpack:"devices,omitempty" json:"devices"`
+	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes"`
+	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets"`
 
-	Children uint64 `msgpack:"children,omitempty" json:"children,omitempty"`
+	Children uint64 `msgpack:"children,omitempty" json:"children"`
 
-	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid,omitempty"`
-	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid,omitempty"`
-	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky,omitempty"`
+	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid"`
+	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid"`
+	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky"`
 
-	Objects uint64 `msgpack:"objects,omitempty" json:"objects,omitempty"`
-	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks,omitempty"`
+	Objects uint64 `msgpack:"objects,omitempty" json:"objects"`
+	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks"`
 
-	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size,omitempty"`
-	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size,omitempty"`
-	Size    uint64 `msgpack:"size,omitempty" json:"size,omitempty"`
+	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size"`
+	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size"`
+	Size    uint64 `msgpack:"size,omitempty" json:"size"`
 
-	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time,omitempty"`
-	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"man_mod_time,omitempty"`
+	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time"`
+	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"man_mod_time"`
 
-	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy,omitempty"`
-	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy,omitempty"`
-	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy,omitempty"`
-	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy,omitempty"`
+	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy"`
+	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy"`
+	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
+	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio,omitempty"`
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo,omitempty"`
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage,omitempty"`
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText,omitempty"`
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication,omitempty"`
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther,omitempty"`
+	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio"`
+	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo"`
+	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage"`
+	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText"`
+	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication"`
+	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther"`
 
-	Errors uint64 `msgpack:"errors,omitempty"`
+	Errors uint64 `msgpack:"errors"`
 }
 
 type Summary struct {
-	Directory Directory `msgpack:"directory,omitempty" json:"directory,omitempty"`
-	Below     Below     `msgpack:"below,omitempty" json:"below,omitempty"`
+	Directory Directory `msgpack:"directory,omitempty" json:"directory"`
+	Below     Below     `msgpack:"below,omitempty" json:"below"`
 }
 
 func (s *Summary) UpdateBelow(below *Summary) {

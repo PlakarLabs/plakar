@@ -19,16 +19,16 @@ type DirEntry struct {
 	Summary  Summary           `msgpack:"summary" json:"summary"`
 
 	/* Windows specific fields */
-	AlternateDataStreams []AlternateDataStream `msgpack:"alternate_data_streams,omitempty" json:"alternate_data_streams,omitempty"`
-	SecurityDescriptor   []byte                `msgpack:"security_descriptor,omitempty" json:"security_descriptor,omitempty"`
-	FileAttributes       uint32                `msgpack:"file_attributes,omitempty" json:"file_attributes,omitempty"`
+	AlternateDataStreams []AlternateDataStream `msgpack:"alternate_data_streams,omitempty" json:"alternate_data_streams"`
+	SecurityDescriptor   []byte                `msgpack:"security_descriptor,omitempty" json:"security_descriptor"`
+	FileAttributes       uint32                `msgpack:"file_attributes,omitempty" json:"file_attributes"`
 
 	/* Unix fields */
-	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes,omitempty"`
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes"`
 
 	/* Custom metadata and tags */
-	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata,omitempty"`
-	Tags           []string         `msgpack:"tags,omitempty" json:"tags,omitempty"`
+	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags           []string         `msgpack:"tags,omitempty" json:"tags"`
 
 	/* Errors */
 	Errors *objects.Checksum `msgpack:"errors,omitempty" json:"errors,omitempty"`

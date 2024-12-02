@@ -16,20 +16,20 @@ type FileEntry struct {
 	FileInfo   objects.FileInfo    `msgpack:"file_info" json:"file_info"`
 
 	/* File specific fields */
-	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty" json:"symlinkTarget,omitempty"`
+	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty" json:"symlinkTarget"`
 	Object        *objects.Object `msgpack:"object,omitempty" json:"object,omitempty"` // nil for !regular files
 
 	/* Windows specific fields */
-	AlternateDataStreams []AlternateDataStream `msgpack:"alternate_data_streams,omitempty" json:"alternate_data_streams,omitempty"`
-	SecurityDescriptor   []byte                `msgpack:"security_descriptor,omitempty" json:"security_descriptor,omitempty"`
-	FileAttributes       uint32                `msgpack:"file_attributes,omitempty" json:"file_attributes,omitempty"`
+	AlternateDataStreams []AlternateDataStream `msgpack:"alternate_data_streams,omitempty" json:"alternate_data_streams"`
+	SecurityDescriptor   []byte                `msgpack:"security_descriptor,omitempty" json:"security_descriptor"`
+	FileAttributes       uint32                `msgpack:"file_attributes,omitempty" json:"file_attributes"`
 
 	/* Unix fields */
-	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes,omitempty"`
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes"`
 
 	/* Custom metadata and tags */
-	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata,omitempty"`
-	Tags           []string         `msgpack:"tags,omitempty" json:"tags,omitempty"`
+	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags           []string         `msgpack:"tags,omitempty" json:"tags"`
 }
 
 func (*FileEntry) fsEntry() {}

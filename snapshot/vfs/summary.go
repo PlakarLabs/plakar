@@ -83,7 +83,7 @@ type Below struct {
 	Size    uint64 `msgpack:"size,omitempty" json:"size"`
 
 	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time"`
-	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"man_mod_time"`
+	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"max_mod_time"`
 
 	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy"`
 	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy"`

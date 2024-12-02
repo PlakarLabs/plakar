@@ -1,14 +1,19 @@
 package api
 
 import (
+	"archive/tar"
+	"archive/zip"
 	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -453,4 +458,228 @@ func snapshotSearch(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return json.NewEncoder(w).Encode(items)
+}
+
+type DownloadItem struct {
+	Pathname string `json:"pathname"`
+}
+type DownloadQuery struct {
+	Name   string         `json:"name"`
+	Format string         `json:"format"`
+	Items  []DownloadItem `json:"items"`
+	Rebase string         `json:"rebase,omitempty"`
+}
+
+func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
+	vars := mux.Vars(r)
+	_ = vars
+
+	snapshotID32, err := PathParamToID(r, "snapshot")
+	if err != nil {
+		return err
+	}
+
+	var query DownloadQuery
+	if err := json.NewDecoder(r.Body).Decode(&query); err != nil {
+		return parameterError("BODY", InvalidArgument, err)
+	}
+
+	snap, err := snapshot.Load(lrepository, snapshotID32)
+	if err != nil {
+		return err
+	}
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return err
+	}
+
+	out := w
+
+	name := query.Name
+	if name == "" {
+		name = fmt.Sprintf("snapshot-%x-%s", snapshotID32[:4], time.Now().Format("2006-01-02-15-04-05"))
+	}
+
+	var ext string
+	if query.Format == "zip" {
+		ext = ".zip"
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		if err := archiveZip(snap, out, fs, query.Items, query.Rebase, name); err != nil {
+			log.Fatal(err)
+		}
+	} else if query.Format == "tar" {
+		ext = ".tar"
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		if err := archiveTarball(snap, out, fs, query.Items, query.Rebase, name); err != nil {
+			log.Fatal(err)
+		}
+	} else if query.Format == "tarball" || query.Format == "" {
+		ext = ".tar.gz"
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		gzipWriter := gzip.NewWriter(out)
+		defer gzipWriter.Close()
+		if err := archiveTarball(snap, gzipWriter, fs, query.Items, query.Rebase, name); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		return parameterError("format", InvalidArgument, ErrInvalidFormat)
+	}
+
+	return nil
+}
+
+func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []DownloadItem, rebase string, prefix string) error {
+	tarWriter := tar.NewWriter(out)
+	defer tarWriter.Close()
+
+	addFile := func(pathname string, fi vfs.FSEntry) error {
+		header := &tar.Header{
+			Name:     prefix + "/" + strings.TrimPrefix(strings.TrimPrefix(pathname, rebase), "/"),
+			Typeflag: tar.TypeReg,
+
+			Size:    fi.Stat().Size(),
+			Mode:    int64(fi.Stat().Mode()),
+			ModTime: fi.Stat().ModTime(),
+		}
+		if fi.Stat().Mode().IsRegular() {
+			rd, err := snap.NewReader(pathname)
+			if err != nil {
+				return err
+			}
+			defer rd.Close()
+
+			if err := tarWriter.WriteHeader(header); err != nil {
+				return err
+			}
+
+			if _, err := io.Copy(tarWriter, rd); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	for _, path := range dl {
+		pathname := path.Pathname
+
+		fi, err := fs.Stat(pathname)
+		if err != nil {
+			return err
+		}
+
+		filepath := pathname
+		if rebase != "" {
+			filepath = strings.TrimPrefix(filepath, rebase)
+		}
+
+		if fi.Stat().IsDir() {
+			tarWriter.WriteHeader(&tar.Header{
+				Name:     prefix + "/" + strings.TrimPrefix(filepath, "/"),
+				Typeflag: tar.TypeDir,
+				//				Size:    fi.Size(),
+				Mode:    int64(fi.Stat().Mode()),
+				ModTime: fi.Stat().ModTime(),
+			})
+			c, err := fs.PathnamesFrom(pathname)
+			if err != nil {
+				return err
+			}
+			for childpath := range c {
+				subfi, err := fs.Stat(childpath)
+				if err != nil {
+					return err
+				}
+				if subfi.Stat().IsDir() {
+					tarWriter.WriteHeader(&tar.Header{
+						Name:     prefix + "/" + strings.TrimPrefix(strings.TrimPrefix(childpath, rebase), "/"),
+						Typeflag: tar.TypeDir,
+						//Size:    subfi.Size(),
+						Mode:    int64(subfi.Stat().Mode()),
+						ModTime: subfi.Stat().ModTime(),
+					})
+				} else {
+					if err := addFile(childpath, subfi); err != nil {
+						return err
+					}
+				}
+			}
+		} else {
+			if err := addFile(pathname, fi); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []DownloadItem, rebase string, prefix string) error {
+	zipWriter := zip.NewWriter(out)
+	defer zipWriter.Close()
+
+	addFile := func(pathname string, fi vfs.FSEntry) error {
+		header, err := zip.FileInfoHeader(fi.Stat())
+		if err != nil {
+			log.Printf("could not create header for file %s: %s", pathname, err)
+			return err
+		}
+		header.Name = prefix + "/" + strings.TrimPrefix(strings.TrimLeft(pathname, "/"), rebase)
+		header.Method = zip.Deflate
+
+		if fi.Stat().Mode().IsRegular() {
+			rd, err := snap.NewReader(pathname)
+			if err != nil {
+				return err
+			}
+			defer rd.Close()
+
+			writer, err := zipWriter.CreateHeader(header)
+			if err != nil {
+				log.Printf("could not create zip entry for file %s: %s", pathname, err)
+				rd.Close()
+				return err
+			}
+
+			if _, err := io.Copy(writer, rd); err != nil {
+				rd.Close()
+				return err
+			}
+			rd.Close()
+		}
+		return nil
+	}
+
+	for _, path := range dl {
+		pathname := path.Pathname
+
+		fi, err := fs.Stat(pathname)
+		if err != nil {
+			return err
+		}
+
+		if fi.Stat().IsDir() {
+			c, err := fs.PathnamesFrom(pathname)
+			if err != nil {
+				return err
+			}
+			for childpath := range c {
+				subfi, err := fs.Stat(childpath)
+				if err != nil {
+					return err
+				}
+				if !subfi.Stat().IsDir() {
+					if err := addFile(childpath, subfi); err != nil {
+						return err
+					}
+				}
+			}
+		} else {
+			if err := addFile(pathname, fi); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

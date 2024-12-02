@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 )
@@ -14,6 +15,7 @@ const VERSION = 001
 
 type FSEntry interface {
 	fsEntry()
+	Stat() *objects.FileInfo
 	Size() int64
 }
 
@@ -160,7 +162,7 @@ func (fsc *Filesystem) Files() <-chan string {
 	return ch
 }
 
-func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
+func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string, root string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
@@ -180,7 +182,9 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 		}
 	}
 	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
-	out <- baseDir
+	if strings.HasPrefix(baseDir, root) {
+		out <- baseDir
+	}
 
 	children, err := fsc.ChildrenIter(currentEntry)
 	if err != nil {
@@ -192,9 +196,11 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 			if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
 				return
 			}
-			fsc.pathnamesRecursive(child.Checksum(), out)
+			fsc.pathnamesRecursive(child.Checksum(), out, root)
 		} else {
-			out <- filepath.Join(baseDir, child.Stat().Name())
+			if strings.HasPrefix(baseDir, root) {
+				out <- filepath.Join(baseDir, child.Stat().Name())
+			}
 		}
 	}
 }
@@ -202,10 +208,22 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 func (fsc *Filesystem) Pathnames() <-chan string {
 	ch := make(chan string)
 	go func() {
-		fsc.pathnamesRecursive(fsc.root, ch)
+		fsc.pathnamesRecursive(fsc.root, ch, "/")
 		close(ch)
 	}()
 	return ch
+}
+
+func (fsc *Filesystem) PathnamesFrom(parent string) (<-chan string, error) {
+	if !strings.HasSuffix(parent, "/") {
+		parent = parent + "/"
+	}
+	ch := make(chan string)
+	go func() {
+		fsc.pathnamesRecursive(fsc.root, ch, parent)
+		close(ch)
+	}()
+	return ch, nil
 }
 
 // Helper function to recursively traverse directories and find the path

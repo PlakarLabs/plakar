@@ -1,6 +1,7 @@
 package vfs
 
 import (
+	"path/filepath"
 	"sort"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -27,8 +28,9 @@ type DirEntry struct {
 	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes"`
 
 	/* Custom metadata and tags */
-	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
-	Tags           []string         `msgpack:"tags,omitempty" json:"tags"`
+	Classifications []Classification `msgpack:"classifications,omitempty" json:"classifications"`
+	CustomMetadata  []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
 
 	/* Errors */
 	Errors *objects.Checksum `msgpack:"errors,omitempty" json:"errors,omitempty"`
@@ -99,4 +101,19 @@ func (d *DirEntry) Stat() *objects.FileInfo {
 
 func (d *DirEntry) Size() int64 {
 	return d.Stat().Size()
+}
+
+func (d *DirEntry) Name() string {
+	return d.Stat().Name()
+}
+
+func (d *DirEntry) Path() string {
+	return filepath.Join(d.ParentPath, d.Name())
+}
+
+func (d *DirEntry) AddClassification(analyzer string, classes []string) {
+	d.Classifications = append(d.Classifications, Classification{
+		Analyzer: analyzer,
+		Classes:  classes,
+	})
 }

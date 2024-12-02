@@ -17,19 +17,24 @@ type FSEntry interface {
 	Size() int64
 }
 
+type Classification struct {
+	Analyzer string   `msgpack:"analyzer" json:"analyzer"`
+	Classes  []string `msgpack:"classes" json:"classes"`
+}
+
 type ExtendedAttribute struct {
-	Name  string `msgpack:"name"`
-	Value []byte `msgpack:"value"`
+	Name  string `msgpack:"name" json:"name"`
+	Value []byte `msgpack:"value" json:"value"`
 }
 
 type CustomMetadata struct {
-	Key   string `msgpack:"key"`
-	Value []byte `msgpack:"value"`
+	Key   string `msgpack:"key" json:"key"`
+	Value []byte `msgpack:"value" json:"value"`
 }
 
 type AlternateDataStream struct {
-	Name    string `msgpack:"name"`
-	Content []byte `msgpack:"content"`
+	Name    string `msgpack:"name" json:"name"`
+	Content []byte `msgpack:"content" json:"content"`
 }
 
 type Filesystem struct {

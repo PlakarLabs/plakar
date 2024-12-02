@@ -518,6 +518,13 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("Groupname: %s\n", dirEntry.Stat().Groupname())
 		fmt.Printf("NumLinks: %d\n", dirEntry.Stat().Nlink())
 		fmt.Printf("ExtendedAttributes: %s\n", dirEntry.ExtendedAttributes)
+		fmt.Printf("Classification:\n")
+		for _, classification := range dirEntry.Classifications {
+			fmt.Printf(" - %s:\n", classification.Analyzer)
+			for _, class := range classification.Classes {
+				fmt.Printf("   - %s\n", class)
+			}
+		}
 		fmt.Printf("CustomMetadata: %s\n", dirEntry.CustomMetadata)
 		fmt.Printf("Tags: %s\n", dirEntry.Tags)
 		fmt.Printf("Below.Directories: %d\n", dirEntry.Summary.Below.Directories)
@@ -627,6 +634,15 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		if fileEntry.SymlinkTarget != "" {
 			fmt.Printf("SymlinkTarget: %s\n", fileEntry.SymlinkTarget)
 		}
+
+		fmt.Printf("Classification:\n")
+		for _, classification := range fileEntry.Classifications {
+			fmt.Printf(" - %s:\n", classification.Analyzer)
+			for _, class := range classification.Classes {
+				fmt.Printf("   - %s\n", class)
+			}
+		}
+
 		fmt.Printf("CustomMetadata: %s\n", fileEntry.CustomMetadata)
 		fmt.Printf("Tags: %s\n", fileEntry.Tags)
 		if fileEntry.Object != nil {

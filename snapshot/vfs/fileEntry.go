@@ -28,8 +28,9 @@ type FileEntry struct {
 	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes"`
 
 	/* Custom metadata and tags */
-	CustomMetadata []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
-	Tags           []string         `msgpack:"tags,omitempty" json:"tags"`
+	Classifications []Classification `msgpack:"classifications,omitempty" json:"classifications"`
+	CustomMetadata  []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
 }
 
 func (*FileEntry) fsEntry() {}
@@ -130,4 +131,11 @@ func (f *FileEntry) Entropy() float64 {
 		return 0
 	}
 	return f.Object.Entropy
+}
+
+func (f *FileEntry) AddClassification(analyzer string, classes []string) {
+	f.Classifications = append(f.Classifications, Classification{
+		Analyzer: analyzer,
+		Classes:  classes,
+	})
 }

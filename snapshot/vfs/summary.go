@@ -9,100 +9,100 @@ import (
 )
 
 type FileSummary struct {
-	Type        importer.RecordType `msgpack:"type"`
-	Size        uint64              `msgpack:"size"`
-	Objects     uint64              `msgpack:"objects"`
-	Chunks      uint64              `msgpack:"chunks"`
-	Mode        fs.FileMode         `msgpack:"mode"`
-	ModTime     int64               `msgpack:"modTime"`
-	ContentType string              `msgpack:"contentType"`
-	Entropy     float64             `msgpack:"entropy"`
+	Type        importer.RecordType `msgpack:"type" json:"type"`
+	Size        uint64              `msgpack:"size" json:"size"`
+	Objects     uint64              `msgpack:"objects" json:"objects"`
+	Chunks      uint64              `msgpack:"chunks" json:"chunks"`
+	Mode        fs.FileMode         `msgpack:"mode" json:"mode"`
+	ModTime     int64               `msgpack:"mod_time" json:"mod_time"`
+	ContentType string              `msgpack:"content_type" json:"content_type"`
+	Entropy     float64             `msgpack:"entropy" json:"entropy"`
 }
 
 type Directory struct {
-	Directories uint64 `msgpack:"directories,omitempty"`
-	Files       uint64 `msgpack:"files,omitempty"`
-	Symlinks    uint64 `msgpack:"symlinks,omitempty"` // Total number of symlinks in the directory
-	Devices     uint64 `msgpack:"devices,omitempty"`  // Total number of devices in the directory
-	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
-	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
+	Directories uint64 `msgpack:"directories,omitempty" json:"directories"`
+	Files       uint64 `msgpack:"files,omitempty" json:"files"`
+	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks"`
+	Devices     uint64 `msgpack:"devices,omitempty" json:"devices"`
+	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes"`
+	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets"`
 
-	Children uint64 `msgpack:"children,omitempty"` // Total number of children in the directory
+	Children uint64 `msgpack:"children,omitempty" json:"children"`
 
-	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
-	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
-	Sticky uint64 `msgpack:"sticky,omitempty"` // Total number of sticky files in the directory
+	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid"`
+	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid"`
+	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky"`
 
-	Objects uint64 `msgpack:"objects,omitempty"` // Total number of objects in the directory
-	Chunks  uint64 `msgpack:"chunks,omitempty"`  // Total number of chunks across all files
+	Objects uint64 `msgpack:"objects,omitempty" json:"objects"`
+	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks"`
 
-	MinSize uint64 `msgpack:"minSize,omitempty"` // Smallest file in the directory
-	MaxSize uint64 `msgpack:"maxSize,omitempty"` // Largest file in the directory
-	AvgSize uint64 `msgpack:"avgSize,omitempty"` // Average size of the directory
-	Size    uint64 `msgpack:"size,omitempty"`    // Total size of all files in the directory
+	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size"`
+	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size"`
+	AvgSize uint64 `msgpack:"avg_size,omitempty" json:"avg_size"`
+	Size    uint64 `msgpack:"size,omitempty" json:"size"`
 
-	MinModTime int64 `msgpack:"minModTime,omitempty"` // Oldest modification time of the directory
-	MaxModTime int64 `msgpack:"maxModTime,omitempty"` // Last modification time of the directory
+	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time"`
+	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"max_mod_time"`
 
-	MinEntropy float64 `msgpack:"minEntropy,omitempty"` // Minimum entropy of the directory
-	MaxEntropy float64 `msgpack:"maxEntropy,omitempty"` // Maximum entropy of the directory
-	SumEntropy float64 `msgpack:"sumEntropy,omitempty"` // Sum of entropy of the directory
-	AvgEntropy float64 `msgpack:"avgEntropy,omitempty"` // Average entropy of the directory
-	HiEntropy  uint64  `msgpack:"HiEntropy,omitempty"`  // Total number of files with high entropy
-	LoEntropy  uint64  `msgpack:"LoEntropy,omitempty"`  // Total number of files with low entropy
+	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy"`
+	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy"`
+	SumEntropy float64 `msgpack:"sum_entropy,omitempty" json:"sum_entropy"`
+	AvgEntropy float64 `msgpack:"avg_entropy,omitempty" json:"avg_entropy"`
+	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
+	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty"`       // Total number of audio files in the directory
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty"`       // Total number of video files in the directory
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty"`       // Total number of image files in the directory
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+	MIMEAudio       uint64 `msgpack:"MIME_audio,omitempty" json:"MIME_audio"`
+	MIMEVideo       uint64 `msgpack:"MIME_video,omitempty" json:"MIME_video"`
+	MIMEImage       uint64 `msgpack:"MIME_image,omitempty" json:"MIME_image"`
+	MIMEText        uint64 `msgpack:"MIME_text,omitempty" json:"MIME_text"`
+	MIMEApplication uint64 `msgpack:"MIME_application,omitempty" json:"MIME_application"`
+	MIMEOther       uint64 `msgpack:"MIME_other,omitempty" json:"MIME_other"`
 
-	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
+	Errors uint64 `msgpack:"errors,omitempty" json:"errors"`
 }
 
 type Below struct {
-	Directories uint64 `msgpack:"directories,omitempty"`
-	Files       uint64 `msgpack:"files,omitempty"`
-	Symlinks    uint64 `msgpack:"symlinks,omitempty"` // Total number of symlinks in the directory
-	Devices     uint64 `msgpack:"devices,omitempty"`  // Total number of devices in the directory
-	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
-	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
+	Directories uint64 `msgpack:"directories,omitempty" json:"directories"`
+	Files       uint64 `msgpack:"files,omitempty" json:"files"`
+	Symlinks    uint64 `msgpack:"symlinks,omitempty" json:"symlinks"`
+	Devices     uint64 `msgpack:"devices,omitempty" json:"devices"`
+	Pipes       uint64 `msgpack:"pipes,omitempty" json:"pipes"`
+	Sockets     uint64 `msgpack:"sockets,omitempty" json:"sockets"`
 
-	Children uint64 `msgpack:"children,omitempty"` // Total number of children in the directory
+	Children uint64 `msgpack:"children,omitempty" json:"children"`
 
-	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
-	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
-	Sticky uint64 `msgpack:"sticky,omitempty"` // Total number of sticky files in the directory
+	Setuid uint64 `msgpack:"setuid,omitempty" json:"setuid"`
+	Setgid uint64 `msgpack:"setgid,omitempty" json:"setgid"`
+	Sticky uint64 `msgpack:"sticky,omitempty" json:"sticky"`
 
-	Objects uint64 `msgpack:"objects,omitempty"` // Total number of objects in the directory
-	Chunks  uint64 `msgpack:"chunks,omitempty"`  // Total number of chunks across all files
+	Objects uint64 `msgpack:"objects,omitempty" json:"objects"`
+	Chunks  uint64 `msgpack:"chunks,omitempty" json:"chunks"`
 
-	MinSize uint64 `msgpack:"minSize,omitempty"` // Smallest file in the directory
-	MaxSize uint64 `msgpack:"maxSize,omitempty"` // Largest file in the directory
-	Size    uint64 `msgpack:"size,omitempty"`    // Total size of all files in the directory
+	MinSize uint64 `msgpack:"min_size,omitempty" json:"min_size"`
+	MaxSize uint64 `msgpack:"max_size,omitempty" json:"max_size"`
+	Size    uint64 `msgpack:"size,omitempty" json:"size"`
 
-	MinModTime int64 `msgpack:"minModTime,omitempty"` // Oldest modification time of the directory
-	MaxModTime int64 `msgpack:"maxModTime,omitempty"` // Last modification time of the directory
+	MinModTime int64 `msgpack:"min_mod_time,omitempty" json:"min_mod_time"`
+	MaxModTime int64 `msgpack:"max_mod_time,omitempty" json:"max_mod_time"`
 
-	MinEntropy float64 `msgpack:"minEntropy,omitempty"` // Minimum entropy of the directory
-	MaxEntropy float64 `msgpack:"maxEntropy,omitempty"` // Maximum entropy of the directory
-	HiEntropy  uint64  `msgpack:"HiEntropy,omitempty"`  // Total number of files with high entropy
-	LoEntropy  uint64  `msgpack:"LoEntropy,omitempty"`  // Total number of files with low entropy
+	MinEntropy float64 `msgpack:"min_entropy,omitempty" json:"min_entropy"`
+	MaxEntropy float64 `msgpack:"max_entropy,omitempty" json:"max_entropy"`
+	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
+	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty"`       // Total number of audio files in the directory
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty"`       // Total number of video files in the directory
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty"`       // Total number of image files in the directory
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty"`        // Total number of text files in the directory
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty"` // Total number of text files in the directory
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty"`       // Total number of other files in the directory
+	MIMEAudio       uint64 `msgpack:"MIME_audio,omitempty" json:"MIME_audio"`
+	MIMEVideo       uint64 `msgpack:"MIME_video,omitempty" json:"MIME_video"`
+	MIMEImage       uint64 `msgpack:"MIME_image,omitempty" json:"MIME_image"`
+	MIMEText        uint64 `msgpack:"MIME_text,omitempty" json:"MIME_text"`
+	MIMEApplication uint64 `msgpack:"MIME_application,omitempty" json:"MIME_application"`
+	MIMEOther       uint64 `msgpack:"MIME_other,omitempty" json:"MIME_other"`
 
-	Errors uint64 `msgpack:"errors,omitempty"` // Total number of errors in the directory
+	Errors uint64 `msgpack:"errors" json:"errors"`
 }
 
 type Summary struct {
-	Directory Directory `msgpack:"directory,omitempty"` // Directory statistics
-	Below     Below     `msgpack:"under,omitempty"`     // Under statistics
+	Directory Directory `msgpack:"directory,omitempty" json:"directory"`
+	Below     Below     `msgpack:"below,omitempty" json:"below"`
 }
 
 func (s *Summary) UpdateBelow(below *Summary) {

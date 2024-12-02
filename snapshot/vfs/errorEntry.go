@@ -6,7 +6,7 @@ import (
 )
 
 type ErrorEntry struct {
-	Successor *objects.Checksum `msgpack:"successor,omitempty" json:"Successor,omitempty"`
+	Successor *objects.Checksum `msgpack:"successor,omitempty" json:"successor,omitempty"`
 	Name      string            `msgpack:"name" json:"name"`
 	Error     string            `msgpack:"error" json:"error"`
 }

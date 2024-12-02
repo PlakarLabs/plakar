@@ -26,6 +26,17 @@ type Identity struct {
 	PublicKey  []byte
 }
 
+type Class struct {
+	Name        string
+	Probability float64
+}
+
+type Classifier struct {
+	Name     string
+	Category string
+	Classes  []Class
+}
+
 type KeyValue struct {
 	Key   string
 	Value string
@@ -43,6 +54,8 @@ type Header struct {
 	Category    string
 	Environment string
 	Perimeter   string
+
+	Classifiers []Classifier
 	Tags        []string
 
 	Context []KeyValue
@@ -66,6 +79,7 @@ func NewHeader(name string, indexID [32]byte) *Header {
 		Category:    "default",
 		Environment: "default",
 		Perimeter:   "default",
+		Classifiers: []Classifier{},
 		Tags:        []string{},
 
 		Identity: Identity{},

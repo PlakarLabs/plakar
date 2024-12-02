@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarKorp/plakar/classifier"
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
@@ -651,6 +652,12 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	defer imp.Close()
 
+	cf, err := classifier.NewClassifier(snap.repository.Context())
+	if err != nil {
+		return err
+	}
+	defer cf.Close()
+
 	snap.Header.Importer.Origin = imp.Origin()
 	snap.Header.Importer.Type = imp.Type()
 
@@ -711,7 +718,7 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			// Chunkify the file if it is a regular file and we don't have a cached object
 			if record.FileInfo.Mode().IsRegular() {
 				if object == nil || !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
-					object, err = snap.chunkify(imp, record)
+					object, err = snap.chunkify(imp, cf, record)
 					if err != nil {
 						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
 						sc.RecordError(record.Pathname, err)
@@ -750,6 +757,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 				fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 				if object != nil {
 					fileEntry.Object = object
+				}
+
+				classifications := cf.Processor(record.Pathname).File(fileEntry)
+				for _, result := range classifications {
+					fileEntry.AddClassification(result.Analyzer, result.Classes)
 				}
 
 				// Serialize the FileEntry and store it in the repository
@@ -894,6 +906,11 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 			dirEntry.Errors = lastChecksum
 		}
 
+		classifications := cf.Processor(record.Pathname).Directory(dirEntry)
+		for _, result := range classifications {
+			dirEntry.AddClassification(result.Analyzer, result.Classes)
+		}
+
 		serialized, err := dirEntry.Serialize()
 		if err != nil {
 			return err
@@ -1009,7 +1026,7 @@ func entropy(data []byte) float64 {
 	return entropy
 }
 
-func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecord) (*objects.Object, error) {
+func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier, record importer.ScanRecord) (*objects.Object, error) {
 	atomic.AddUint64(&snap.statistics.ChunkerFiles, 1)
 
 	rd, err := imp.NewReader(record.Pathname)
@@ -1017,6 +1034,8 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 		return nil, err
 	}
 	defer rd.Close()
+
+	cprocessor := cf.Processor(record.Pathname)
 
 	object := objects.NewObject()
 	object.ContentType = mime.TypeByExtension(filepath.Ext(record.Pathname))
@@ -1043,6 +1062,7 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 			firstChunk = false
 		}
 		objectHasher.Write(data)
+		cprocessor.Write(data)
 
 		chunkHasher.Reset()
 		chunkHasher.Write(data)
@@ -1110,5 +1130,11 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, record importer.ScanRecor
 
 	copy(object_t32[:], objectHasher.Sum(nil))
 	object.Checksum = object_t32
+
+	classifications := cprocessor.Finalize()
+	for _, result := range classifications {
+		object.AddClassification(result.Analyzer, result.Classes)
+	}
+
 	return object, nil
 }

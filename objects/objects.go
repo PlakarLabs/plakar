@@ -13,18 +13,24 @@ func (m Checksum) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fmt.Sprintf("%0x", m[:]))
 }
 
+type Classification struct {
+	Analyzer string   `msgpack:"analyzer" json:"analyzer"`
+	Classes  []string `msgpack:"classes" json:"classes"`
+}
+
 type CustomMetadata struct {
-	Key   string `msgpack:"key"`
-	Value []byte `msgpack:"value"`
+	Key   string `msgpack:"key" json:"key"`
+	Value []byte `msgpack:"value" json:"value"`
 }
 
 type Object struct {
-	Checksum       Checksum         `msgpack:"checksum"`
-	Chunks         []Chunk          `msgpack:"chunks"`
-	ContentType    string           `msgpack:"contentType,omitempty"`
-	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
-	Tags           []string         `msgpack:"tags,omitempty"`
-	Entropy        float64          `msgpack:"entropy,omitempty"`
+	Checksum        Checksum         `msgpack:"checksum" json:"checksum"`
+	Chunks          []Chunk          `msgpack:"chunks" json:"chunks"`
+	ContentType     string           `msgpack:"content_type,omitempty" json:"content_type"`
+	Classifications []Classification `msgpack:"classifications,omitempty" json:"classifications"`
+	CustomMetadata  []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
+	Entropy         float64          `msgpack:"entropy,omitempty" json:"entropy"`
 }
 
 func NewObject() *Object {
@@ -55,8 +61,15 @@ func (o *Object) Serialize() ([]byte, error) {
 	return serialized, nil
 }
 
+func (o *Object) AddClassification(analyzer string, classes []string) {
+	o.Classifications = append(o.Classifications, Classification{
+		Analyzer: analyzer,
+		Classes:  classes,
+	})
+}
+
 type Chunk struct {
-	Checksum Checksum `msgpack:"checksum"`
-	Length   uint32   `msgpack:"length"`
-	Entropy  float64  `msgpack:"entropy"`
+	Checksum Checksum `msgpack:"checksum" json:"checksum"`
+	Length   uint32   `msgpack:"length" json:"length"`
+	Entropy  float64  `msgpack:"entropy" json:"entropy"`
 }

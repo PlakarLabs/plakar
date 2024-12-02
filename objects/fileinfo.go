@@ -14,17 +14,17 @@ import (
 )
 
 type FileInfo struct {
-	Lname      string      `json:"Name" msgpack:"name"`
-	Lsize      int64       `json:"Size" msgpack:"size"`
-	Lmode      fs.FileMode `json:"Mode" msgpack:"mode"`
-	LmodTime   time.Time   `json:"ModTime" msgpack:"modTime"`
-	Ldev       uint64      `json:"Dev" msgpack:"dev"`
-	Lino       uint64      `json:"Ino" msgpack:"ino"`
-	Luid       uint64      `json:"Uid" msgpack:"uid"`
-	Lgid       uint64      `json:"Gid" msgpack:"gid"`
-	Lnlink     uint16      `json:"Nlink" msgpack:"nlink"`
-	Lusername  string      `json:"Username" msgpack:"username"`
-	Lgroupname string      `json:"Groupname" msgpack:"groupname"`
+	Lname      string      `json:"name" msgpack:"name"`
+	Lsize      int64       `json:"size" msgpack:"size"`
+	Lmode      fs.FileMode `json:"mode" msgpack:"mode"`
+	LmodTime   time.Time   `json:"mod_time" msgpack:"mod_time"`
+	Ldev       uint64      `json:"dev" msgpack:"dev"`
+	Lino       uint64      `json:"ino" msgpack:"ino"`
+	Luid       uint64      `json:"uid" msgpack:"uid"`
+	Lgid       uint64      `json:"gid" msgpack:"gid"`
+	Lnlink     uint16      `json:"nlink" msgpack:"nlink"`
+	Lusername  string      `json:"username" msgpack:"username"`
+	Lgroupname string      `json:"groupname" msgpack:"groupname"`
 }
 
 func (f FileInfo) Name() string {

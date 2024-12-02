@@ -19,7 +19,6 @@ package classifier
 import (
 	"fmt"
 	"log"
-	"sort"
 	"sync"
 
 	"github.com/PlakarKorp/plakar/context"
@@ -28,36 +27,47 @@ import (
 
 const VERSION string = "0.6.0"
 
-type Result struct {
-	Name        string
-	Probability float64
+type Classification struct {
+	Analyzer string
+	Classes  []string
 }
 
 type Backend interface {
-	Directory(dirEntry *vfs.DirEntry) (*Result, error)
-	File(fileEntry *vfs.FileEntry) (*Result, error)
+	Processor(backend Backend, pathname string) ProcessorBackend
+	Close() error
+}
+
+type ProcessorBackend interface {
+	Name() string
+	File(fileEntry *vfs.FileEntry) []string
+	Directory(dirEntry *vfs.DirEntry) []string
+	Write(buf []byte) bool
+	Finalize() []string
 }
 
 var muBackends sync.Mutex
 var backends map[string]func() Backend = make(map[string]func() Backend)
 
 type Classifier struct {
-	backend Backend
+	backend []Backend
 	context *context.Context
 }
 
-func NewClassifier(ctx *context.Context, name string) (*Classifier, error) {
+func NewClassifier(ctx *context.Context) (*Classifier, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
-	if backend, exists := backends[name]; !exists {
-		return nil, fmt.Errorf("backend '%s' does not exist", name)
-	} else {
-		cf := &Classifier{}
-		cf.context = ctx
-		cf.backend = backend()
-		return cf, nil
+	cf := &Classifier{}
+	cf.context = ctx
+
+	for name, backend := range backends {
+		if inst := backend(); inst == nil {
+			return nil, fmt.Errorf("backend '%s' failed to initialize", name)
+		} else {
+			cf.backend = append(cf.backend, inst)
+		}
 	}
+	return cf, nil
 }
 
 func Register(name string, backend func() Backend) {
@@ -70,28 +80,88 @@ func Register(name string, backend func() Backend) {
 	backends[name] = backend
 }
 
-func Backends() []string {
-	muBackends.Lock()
-	defer muBackends.Unlock()
-
-	ret := make([]string, 0)
-	for backendName := range backends {
-		ret = append(ret, backendName)
+func (cf *Classifier) Close() error {
+	for _, backend := range cf.backend {
+		if err := backend.Close(); err != nil {
+		}
 	}
-	sort.Slice(ret, func(i, j int) bool {
-		return ret[i] < ret[j]
-	})
+	return nil
+}
+
+func (cf *Classifier) Processor(pathname string) *Processor {
+	backends := make([]ProcessorBackend, 0)
+	for _, backend := range cf.backend {
+		backends = append(backends, backend.Processor(backend, pathname))
+	}
+	return &Processor{
+		cf:        cf,
+		backends:  backends,
+		writeDone: make(map[string]struct{}),
+	}
+}
+
+type Processor struct {
+	cf        *Classifier
+	backends  []ProcessorBackend
+	writeDone map[string]struct{}
+	Pathname  string
+}
+
+func (p *Processor) File(fileEntry *vfs.FileEntry) []Classification {
+	ret := []Classification{}
+	for _, backend := range p.backends {
+		result := Classification{
+			Analyzer: backend.Name(),
+		}
+		classes := backend.File(fileEntry)
+		result.Classes = append(result.Classes, classes...)
+		if len(result.Classes) > 0 {
+			ret = append(ret, result)
+		}
+	}
 	return ret
 }
 
-func (cf *Classifier) Directory(dirEntry *vfs.DirEntry) (*Result, error) {
-	return cf.backend.Directory(dirEntry)
+func (p *Processor) Directory(dirEntry *vfs.DirEntry) []Classification {
+	ret := []Classification{}
+	for _, backend := range p.backends {
+		result := Classification{
+			Analyzer: backend.Name(),
+		}
+		classes := backend.Directory(dirEntry)
+		result.Classes = append(result.Classes, classes...)
+		if len(result.Classes) > 0 {
+			ret = append(ret, result)
+		}
+	}
+
+	return ret
 }
 
-func (cf *Classifier) File(fileEntry *vfs.FileEntry) (*Result, error) {
-	return cf.backend.File(fileEntry)
+func (p *Processor) Write(buf []byte) {
+	for _, backend := range p.backends {
+		// if this backend has already returned false, don't call it again
+		if _, done := p.writeDone[backend.Name()]; done {
+			ok := backend.Write(buf)
+			if !ok {
+				// if the backend returns false, don't call it again
+				p.writeDone[backend.Name()] = struct{}{}
+			}
+		}
+	}
 }
 
-func (cf *Classifier) Close() error {
-	return nil
+func (p *Processor) Finalize() []Classification {
+	ret := []Classification{}
+	for _, backend := range p.backends {
+		result := Classification{
+			Analyzer: backend.Name(),
+		}
+		classes := backend.Finalize()
+		result.Classes = append(result.Classes, classes...)
+		if len(result.Classes) > 0 {
+			ret = append(ret, result)
+		}
+	}
+	return ret
 }

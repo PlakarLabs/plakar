@@ -6,10 +6,10 @@ import (
 )
 
 type ChildEntry struct {
-	Successor *objects.Checksum `msgpack:"successor" json:"Successor"`
-	Lchecksum objects.Checksum  `msgpack:"checksum" json:"Checksum"`
-	LfileInfo objects.FileInfo  `msgpack:"fileInfo" json:"FileInfo"`
-	Lsummary  *Summary          `msgpack:"summary,omitempty" json:"Summary,omitempty"`
+	Successor *objects.Checksum `msgpack:"successor,omitempty" json:"successor,omitempty"`
+	Lchecksum objects.Checksum  `msgpack:"checksum" json:"checksum"`
+	LfileInfo objects.FileInfo  `msgpack:"file_info" json:"file_info"`
+	Lsummary  *Summary          `msgpack:"summary,omitempty" json:"summary,omitempty"`
 }
 
 func (c *ChildEntry) Checksum() objects.Checksum {

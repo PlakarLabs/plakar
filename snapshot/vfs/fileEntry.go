@@ -10,26 +10,27 @@ import (
 )
 
 type FileEntry struct {
-	Version    uint32              `msgpack:"version"`
-	ParentPath string              `msgpack:"parentPath"`
-	Type       importer.RecordType `msgpack:"type"`
-	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
+	Version    uint32              `msgpack:"version" json:"version"`
+	ParentPath string              `msgpack:"parent_path" json:"parent_path"`
+	Type       importer.RecordType `msgpack:"type" json:"type"`
+	FileInfo   objects.FileInfo    `msgpack:"file_info" json:"file_info"`
 
 	/* File specific fields */
-	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty"`
-	Object        *objects.Object `msgpack:"object,omitempty" json:"Object,omitempty"` // nil for !regular files
+	SymlinkTarget string          `msgpack:"symlinkTarget,omitempty" json:"symlinkTarget"`
+	Object        *objects.Object `msgpack:"object,omitempty" json:"object,omitempty"` // nil for !regular files
 
 	/* Windows specific fields */
-	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
-	SecurityDescriptor   []byte                `msgpack:"securityDescriptor,omitempty"`
-	FileAttributes       uint32                `msgpack:"fileAttributes,omitempty"`
+	AlternateDataStreams []AlternateDataStream `msgpack:"alternate_data_streams,omitempty" json:"alternate_data_streams"`
+	SecurityDescriptor   []byte                `msgpack:"security_descriptor,omitempty" json:"security_descriptor"`
+	FileAttributes       uint32                `msgpack:"file_attributes,omitempty" json:"file_attributes"`
 
 	/* Unix fields */
-	ExtendedAttributes []ExtendedAttribute `msgpack:"extendedAttributes,omitempty"`
+	ExtendedAttributes []ExtendedAttribute `msgpack:"extended_attributes,omitempty" json:"extended_attributes"`
 
 	/* Custom metadata and tags */
-	CustomMetadata []CustomMetadata `msgpack:"customMetadata,omitempty"`
-	Tags           []string         `msgpack:"tags,omitempty"`
+	Classifications []Classification `msgpack:"classifications,omitempty" json:"classifications"`
+	CustomMetadata  []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
+	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
 }
 
 func (*FileEntry) fsEntry() {}
@@ -130,4 +131,11 @@ func (f *FileEntry) Entropy() float64 {
 		return 0
 	}
 	return f.Object.Entropy
+}
+
+func (f *FileEntry) AddClassification(analyzer string, classes []string) {
+	f.Classifications = append(f.Classifications, Classification{
+		Analyzer: analyzer,
+		Classes:  classes,
+	})
 }

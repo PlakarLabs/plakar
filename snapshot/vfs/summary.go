@@ -51,12 +51,12 @@ type Directory struct {
 	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
 	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio"`
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo"`
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage"`
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText"`
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication"`
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther"`
+	MIMEAudio       uint64 `msgpack:"MIME_audio,omitempty" json:"MIME_audio"`
+	MIMEVideo       uint64 `msgpack:"MIME_video,omitempty" json:"MIME_video"`
+	MIMEImage       uint64 `msgpack:"MIME_image,omitempty" json:"MIME_image"`
+	MIMEText        uint64 `msgpack:"MIME_text,omitempty" json:"MIME_text"`
+	MIMEApplication uint64 `msgpack:"MIME_application,omitempty" json:"MIME_application"`
+	MIMEOther       uint64 `msgpack:"MIME_other,omitempty" json:"MIME_other"`
 
 	Errors uint64 `msgpack:"errors,omitempty" json:"errors"`
 }
@@ -90,12 +90,12 @@ type Below struct {
 	HiEntropy  uint64  `msgpack:"hi_entropy,omitempty" json:"hi_entropy"`
 	LoEntropy  uint64  `msgpack:"lo_entropy,omitempty" json:"lo_entropy"`
 
-	MIMEAudio       uint64 `msgpack:"MIMEAudio,omitempty" json:"MIMEAudio"`
-	MIMEVideo       uint64 `msgpack:"MIMEVideo,omitempty" json:"MIMEVideo"`
-	MIMEImage       uint64 `msgpack:"MIMEImage,omitempty" json:"MIMEImage"`
-	MIMEText        uint64 `msgpack:"MIMEText,omitempty" json:"MIMEText"`
-	MIMEApplication uint64 `msgpack:"MIMEApplication,omitempty" json:"MIMEApplication"`
-	MIMEOther       uint64 `msgpack:"MIMEOther,omitempty" json:"MIMEOther"`
+	MIMEAudio       uint64 `msgpack:"MIME_audio,omitempty" json:"MIME_audio"`
+	MIMEVideo       uint64 `msgpack:"MIME_video,omitempty" json:"MIME_video"`
+	MIMEImage       uint64 `msgpack:"MIME_image,omitempty" json:"MIME_image"`
+	MIMEText        uint64 `msgpack:"MIME_text,omitempty" json:"MIME_text"`
+	MIMEApplication uint64 `msgpack:"MIME_application,omitempty" json:"MIME_application"`
+	MIMEOther       uint64 `msgpack:"MIME_other,omitempty" json:"MIME_other"`
 
 	Errors uint64 `msgpack:"errors"`
 }

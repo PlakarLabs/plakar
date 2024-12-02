@@ -31,10 +31,9 @@ type Class struct {
 	Probability float64
 }
 
-type Classifier struct {
-	Name     string
-	Category string
-	Classes  []Class
+type Classification struct {
+	Analyzer string
+	Classes  []string
 }
 
 type KeyValue struct {
@@ -43,37 +42,37 @@ type KeyValue struct {
 }
 
 type Header struct {
-	Identifier  objects.Checksum `msgpack:"identifier" json:"identifier"`
-	Version     string           `msgpack:"version" json:"version"`
-	Timestamp   time.Time        `msgpack:"timestamp" json:"timestamp"`
-	Duration    time.Duration    `msgpack:"duration" json:"duration"`
-	Identity    Identity         `msgpack:"identity" json:"identity"`
-	Name        string           `msgpack:"name" json:"name"`
-	Category    string           `msgpack:"category" json:"category"`
-	Environment string           `msgpack:"environment" json:"environment"`
-	Perimeter   string           `msgpack:"perimeter" json:"perimeter"`
-	Classifiers []Classifier     `msgpack:"classifiers" json:"classifiers"`
-	Tags        []string         `msgpack:"tags" json:"tags"`
-	Context     []KeyValue       `msgpack:"context" json:"context"`
-	Importer    Importer         `msgpack:"importer" json:"importer"`
-	Root        objects.Checksum `msgpack:"root" json:"root"`
-	Index       objects.Checksum `msgpack:"index" json:"index"`
-	Metadata    objects.Checksum `msgpack:"metadata" json:"metadata"`
-	Statistics  objects.Checksum `msgpack:"statistics" json:"statistics"`
-	Summary     vfs.Summary      `msgpack:"summary" json:"summary"`
+	Identifier      objects.Checksum `msgpack:"identifier" json:"identifier"`
+	Version         string           `msgpack:"version" json:"version"`
+	Timestamp       time.Time        `msgpack:"timestamp" json:"timestamp"`
+	Duration        time.Duration    `msgpack:"duration" json:"duration"`
+	Identity        Identity         `msgpack:"identity" json:"identity"`
+	Name            string           `msgpack:"name" json:"name"`
+	Category        string           `msgpack:"category" json:"category"`
+	Environment     string           `msgpack:"environment" json:"environment"`
+	Perimeter       string           `msgpack:"perimeter" json:"perimeter"`
+	Classifications []Classification `msgpack:"classifications" json:"classifications"`
+	Tags            []string         `msgpack:"tags" json:"tags"`
+	Context         []KeyValue       `msgpack:"context" json:"context"`
+	Importer        Importer         `msgpack:"importer" json:"importer"`
+	Root            objects.Checksum `msgpack:"root" json:"root"`
+	Index           objects.Checksum `msgpack:"index" json:"index"`
+	Metadata        objects.Checksum `msgpack:"metadata" json:"metadata"`
+	Statistics      objects.Checksum `msgpack:"statistics" json:"statistics"`
+	Summary         vfs.Summary      `msgpack:"summary" json:"summary"`
 }
 
 func NewHeader(name string, indexID [32]byte) *Header {
 	return &Header{
-		Identifier:  indexID,
-		Timestamp:   time.Now(),
-		Version:     storage.VERSION,
-		Name:        name,
-		Category:    "default",
-		Environment: "default",
-		Perimeter:   "default",
-		Classifiers: []Classifier{},
-		Tags:        []string{},
+		Identifier:      indexID,
+		Timestamp:       time.Now(),
+		Version:         storage.VERSION,
+		Name:            name,
+		Category:        "default",
+		Environment:     "default",
+		Perimeter:       "default",
+		Classifications: []Classification{},
+		Tags:            []string{},
 
 		Identity: Identity{},
 

@@ -8,19 +8,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type ChildEntry struct {
-	Lchecksum objects.Checksum `msgpack:"checksum" json:"Checksum"`
-	LfileInfo objects.FileInfo `msgpack:"fileInfo" json:"FileInfo"`
-	Lsummary  *Summary         `msgpack:"summary,omitempty" json:"Summary,omitempty"`
-}
-
-func (c *ChildEntry) Checksum() objects.Checksum {
-	return c.Lchecksum
-}
-func (c *ChildEntry) Stat() objects.FileInfo {
-	return c.LfileInfo
-}
-
 type DirEntry struct {
 	Version    uint32              `msgpack:"version"`
 	ParentPath string              `msgpack:"parentPath"`
@@ -28,9 +15,8 @@ type DirEntry struct {
 	FileInfo   objects.FileInfo    `msgpack:"fileInfo"`
 
 	/* Directory specific fields */
-	NumChildren uint64       `msgpack:"numChildren"`
-	Children    []ChildEntry `msgpack:"children,omitempty"`
-	Summary     Summary      `msgpack:"summary"`
+	Children *objects.Checksum `msgpack:"children,omitempty"`
+	Summary  Summary           `msgpack:"summary"`
 
 	/* Windows specific fields */
 	AlternateDataStreams []AlternateDataStream `msgpack:"alternateDataStreams,omitempty"`
@@ -45,8 +31,7 @@ type DirEntry struct {
 	Tags           []string         `msgpack:"tags,omitempty"`
 
 	/* Errors */
-	ErrorFirst *objects.Checksum `msgpack:"errorFirst,omitempty"`
-	ErrorLast  *objects.Checksum `msgpack:"errorLast,omitempty"`
+	Errors *objects.Checksum `msgpack:"errors,omitempty"`
 }
 
 func (*DirEntry) fsEntry() {}
@@ -78,9 +63,6 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 	if err := msgpack.Unmarshal(serialized, &d); err != nil {
 		return nil, err
 	}
-	if d.Children == nil {
-		d.Children = make([]ChildEntry, 0)
-	}
 	if d.AlternateDataStreams == nil {
 		d.AlternateDataStreams = make([]AlternateDataStream, 0)
 	}
@@ -97,22 +79,6 @@ func DirEntryFromBytes(serialized []byte) (*DirEntry, error) {
 		d.Tags = make([]string, 0)
 	}
 	return &d, nil
-}
-
-func (d *DirEntry) AddFileChild(checksum [32]byte, fileInfo objects.FileInfo) {
-	d.Children = append(d.Children, ChildEntry{
-		Lchecksum: checksum,
-		LfileInfo: fileInfo,
-	})
-}
-
-func (d *DirEntry) AddDirectoryChild(checksum [32]byte, fileInfo objects.FileInfo, summary *Summary) {
-	d.Children = append(d.Children, ChildEntry{
-		Lchecksum: checksum,
-		LfileInfo: fileInfo,
-		Lsummary:  summary,
-	})
-	d.Summary.Directory.Directories++
 }
 
 func (d *DirEntry) AddTags(tags []string) {

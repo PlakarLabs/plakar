@@ -67,6 +67,16 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 			return 1
 		}
 
+	case "errors":
+		if len(flags.Args()) < 2 {
+			logger.Error("usage: %s errors snapshotID", flags.Name())
+			return 1
+		}
+		if err := info_errors(repo, flags.Args()[1]); err != nil {
+			logger.Error("error: %s", err)
+			return 1
+		}
+
 	case "state":
 		if err := info_state(repo, flags.Args()[1:]); err != nil {
 			logger.Error("error: %s", err)
@@ -516,9 +526,9 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("Below.Devices: %d\n", dirEntry.Summary.Below.Devices)
 		fmt.Printf("Below.Pipes: %d\n", dirEntry.Summary.Below.Pipes)
 		fmt.Printf("Below.Sockets: %d\n", dirEntry.Summary.Below.Sockets)
-		fmt.Printf("Below.Setuid: %d", dirEntry.Summary.Below.Setuid)
-		fmt.Printf("Below.Setgid: %d", dirEntry.Summary.Below.Setgid)
-		fmt.Printf("Below.Sticky: %d", dirEntry.Summary.Below.Sticky)
+		fmt.Printf("Below.Setuid: %d\n", dirEntry.Summary.Below.Setuid)
+		fmt.Printf("Below.Setgid: %d\n", dirEntry.Summary.Below.Setgid)
+		fmt.Printf("Below.Sticky: %d\n", dirEntry.Summary.Below.Sticky)
 		fmt.Printf("Below.Objects: %d\n", dirEntry.Summary.Below.Objects)
 		fmt.Printf("Below.Chunks: %d\n", dirEntry.Summary.Below.Chunks)
 		fmt.Printf("Below.MinSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.Summary.Below.MinSize)), dirEntry.Summary.Below.MinSize)
@@ -543,9 +553,9 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("Directory.Devices: %d\n", dirEntry.Summary.Directory.Devices)
 		fmt.Printf("Directory.Pipes: %d\n", dirEntry.Summary.Directory.Pipes)
 		fmt.Printf("Directory.Sockets: %d\n", dirEntry.Summary.Directory.Sockets)
-		fmt.Printf("Directory.Setuid: %d", dirEntry.Summary.Directory.Setuid)
-		fmt.Printf("Directory.Setgid: %d", dirEntry.Summary.Directory.Setgid)
-		fmt.Printf("Directory.Sticky: %d", dirEntry.Summary.Directory.Sticky)
+		fmt.Printf("Directory.Setuid: %d\n", dirEntry.Summary.Directory.Setuid)
+		fmt.Printf("Directory.Setgid: %d\n", dirEntry.Summary.Directory.Setgid)
+		fmt.Printf("Directory.Sticky: %d\n", dirEntry.Summary.Directory.Sticky)
 		fmt.Printf("Directory.Objects: %d\n", dirEntry.Summary.Directory.Objects)
 		fmt.Printf("Directory.Chunks: %d\n", dirEntry.Summary.Directory.Chunks)
 		fmt.Printf("Directory.MinSize: %s (%d bytes)\n", humanize.Bytes(uint64(dirEntry.Summary.Directory.MinSize)), dirEntry.Summary.Directory.MinSize)
@@ -565,8 +575,13 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		fmt.Printf("Directory.MIMEApplication: %d\n", dirEntry.Summary.Directory.MIMEApplication)
 		fmt.Printf("Directory.MIMEOther: %d\n", dirEntry.Summary.Directory.MIMEOther)
 		fmt.Printf("Directory.Errors: %d\n", dirEntry.Summary.Directory.Errors)
-
-		for offset, child := range dirEntry.Children {
+		fmt.Printf("Directory.Children: %d\n", dirEntry.Summary.Directory.Children)
+		children, err := fs.ChildrenIter(dirEntry)
+		if err != nil {
+			return err
+		}
+		offset := 0
+		for child := range children {
 			fmt.Printf("Child[%d].Checksum: %x\n", offset, child.Checksum())
 			fmt.Printf("Child[%d].FileInfo.Name(): %s\n", offset, child.Stat().Name())
 			fmt.Printf("Child[%d].FileInfo.Size(): %d\n", offset, child.Stat().Size())
@@ -578,11 +593,18 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			fmt.Printf("Child[%d].FileInfo.Username(): %s\n", offset, child.Stat().Username())
 			fmt.Printf("Child[%d].FileInfo.Groupname(): %s\n", offset, child.Stat().Groupname())
 			fmt.Printf("Child[%d].FileInfo.Nlink(): %d\n", offset, child.Stat().Nlink())
+			offset++
 		}
 
-		//for offset, errentry := range dirEntry.Errors {
-		//	fmt.Printf("Error[%d]: %s: %s\n", offset, errentry.Name, errentry.Error)
-		//}
+		errors, err := fs.ErrorIter(dirEntry)
+		if err != nil {
+			return err
+		}
+		offset = 0
+		for err := range errors {
+			fmt.Printf("Error[%d]: %s: %s\n", offset, err.Name, err.Error)
+			offset++
+		}
 
 	} else if fileEntry, isFile := fsinfo.(*vfs.FileEntry); isFile {
 		fmt.Printf("[FileEntry]\n")
@@ -615,5 +637,49 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			}
 		}
 	}
+	return nil
+}
+
+func info_errors(repo *repository.Repository, snapshotID string) error {
+	prefix, pathname := utils.ParseSnapshotID(snapshotID)
+	if !strings.HasSuffix(pathname, "/") {
+		pathname = pathname + "/"
+	}
+
+	snap, err := utils.OpenSnapshotByPrefix(repo, prefix)
+	if err != nil {
+		return err
+	}
+
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return err
+	}
+
+	for dir := range fs.Directories() {
+		if !strings.HasSuffix(dir, "/") {
+			dir = dir + "/"
+		}
+		if !strings.HasPrefix(dir, pathname) {
+			continue
+		}
+		fi, err := fs.Stat(dir)
+		if err != nil {
+			logger.Warn("%s", err)
+			continue
+		}
+		dirEntry := fi.(*vfs.DirEntry)
+		errors, err := fs.ErrorIter(dirEntry)
+		if err != nil {
+			logger.Warn("%s", err)
+			continue
+		}
+
+		for err := range errors {
+			fmt.Printf("%s: %s\n", filepath.Join(dirEntry.ParentPath, dirEntry.Stat().Name(), err.Name), err.Error)
+		}
+
+	}
+
 	return nil
 }

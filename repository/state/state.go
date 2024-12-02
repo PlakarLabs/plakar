@@ -61,6 +61,9 @@ type State struct {
 	muDirectories sync.Mutex
 	Directories   map[uint64]Location
 
+	muChildren sync.Mutex
+	Children   map[uint64]Location
+
 	muDatas sync.Mutex
 	Datas   map[uint64]Location
 
@@ -72,6 +75,9 @@ type State struct {
 
 	muErrors sync.Mutex
 	Errors   map[uint64]Location
+
+	muList sync.Mutex
+	List   map[uint64]Location
 
 	muDeletedSnapshots sync.Mutex
 	DeletedSnapshots   map[uint64]time.Time
@@ -89,6 +95,7 @@ func New() *State {
 		Objects:          make(map[uint64]Location),
 		Files:            make(map[uint64]Location),
 		Directories:      make(map[uint64]Location),
+		Children:         make(map[uint64]Location),
 		Datas:            make(map[uint64]Location),
 		Snapshots:        make(map[uint64]Location),
 		Signatures:       make(map[uint64]Location),
@@ -205,6 +212,10 @@ func (st *State) mergeLocationMaps(Type packfile.Type, deltaState *State) {
 		deltaState.muDirectories.Lock()
 		defer deltaState.muDirectories.Unlock()
 		mapPtr = &deltaState.Directories
+	case packfile.TYPE_CHILD:
+		deltaState.muChildren.Lock()
+		defer deltaState.muChildren.Unlock()
+		mapPtr = &deltaState.Children
 	case packfile.TYPE_DATA:
 		deltaState.muDatas.Lock()
 		defer deltaState.muDatas.Unlock()
@@ -235,8 +246,8 @@ func (st *State) Merge(stateID objects.Checksum, deltaState *State) {
 	st.mergeLocationMaps(packfile.TYPE_CHUNK, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_OBJECT, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
-	st.mergeLocationMaps(packfile.TYPE_FILE, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_DIRECTORY, deltaState)
+	st.mergeLocationMaps(packfile.TYPE_CHILD, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_DATA, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_SNAPSHOT, deltaState)
 	st.mergeLocationMaps(packfile.TYPE_SIGNATURE, deltaState)
@@ -276,6 +287,10 @@ func (st *State) GetSubpartForBlob(Type packfile.Type, blobChecksum objects.Chec
 		st.muDirectories.Lock()
 		defer st.muDirectories.Unlock()
 		mapPtr = &st.Directories
+	case packfile.TYPE_CHILD:
+		st.muChildren.Lock()
+		defer st.muChildren.Unlock()
+		mapPtr = &st.Children
 	case packfile.TYPE_DATA:
 		st.muDatas.Lock()
 		defer st.muDatas.Unlock()
@@ -327,6 +342,10 @@ func (st *State) BlobExists(Type packfile.Type, blobChecksum objects.Checksum) b
 		st.muDirectories.Lock()
 		defer st.muDirectories.Unlock()
 		mapPtr = &st.Directories
+	case packfile.TYPE_CHILD:
+		st.muChildren.Lock()
+		defer st.muChildren.Unlock()
+		mapPtr = &st.Children
 	case packfile.TYPE_DATA:
 		st.muDatas.Lock()
 		defer st.muDatas.Unlock()
@@ -384,6 +403,10 @@ func (st *State) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects
 		st.muDirectories.Lock()
 		defer st.muDirectories.Unlock()
 		mapPtr = &st.Directories
+	case packfile.TYPE_CHILD:
+		st.muChildren.Lock()
+		defer st.muChildren.Unlock()
+		mapPtr = &st.Children
 	case packfile.TYPE_DATA:
 		st.muDatas.Lock()
 		defer st.muDatas.Unlock()
@@ -449,6 +472,9 @@ func (st *State) ListBlobs(Type packfile.Type) <-chan objects.Checksum {
 		case packfile.TYPE_DIRECTORY:
 			mtx = &st.muDirectories
 			mapPtr = &st.Directories
+		case packfile.TYPE_CHILD:
+			mtx = &st.muChildren
+			mapPtr = &st.Children
 		case packfile.TYPE_DATA:
 			mtx = &st.muDatas
 			mapPtr = &st.Datas

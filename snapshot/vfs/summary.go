@@ -27,6 +27,8 @@ type Directory struct {
 	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
 	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
 
+	Children uint64 `msgpack:"children,omitempty"` // Total number of children in the directory
+
 	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
 	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
 	Sticky uint64 `msgpack:"sticky,omitempty"` // Total number of sticky files in the directory
@@ -66,6 +68,8 @@ type Below struct {
 	Devices     uint64 `msgpack:"devices,omitempty"`  // Total number of devices in the directory
 	Pipes       uint64 `msgpack:"pipes,omitempty"`    // Total number of pipes in the directory
 	Sockets     uint64 `msgpack:"sockets,omitempty"`  // Total number of sockets in the directory
+
+	Children uint64 `msgpack:"children,omitempty"` // Total number of children in the directory
 
 	Setuid uint64 `msgpack:"setuid,omitempty"` // Total number of setuid files in the directory
 	Setgid uint64 `msgpack:"setgid,omitempty"` // Total number of setgid files in the directory
@@ -108,6 +112,8 @@ func (s *Summary) UpdateBelow(below *Summary) {
 	s.Below.Devices += below.Below.Devices + below.Directory.Devices
 	s.Below.Pipes += below.Below.Pipes + below.Directory.Pipes
 	s.Below.Sockets += below.Below.Sockets + below.Directory.Sockets
+
+	s.Below.Children += below.Below.Children + below.Directory.Children
 
 	s.Below.Setuid += below.Below.Setuid + below.Directory.Setuid
 	s.Below.Setgid += below.Below.Setgid + below.Directory.Setgid

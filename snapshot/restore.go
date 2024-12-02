@@ -51,8 +51,13 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 		complete := true
 
 		subwg := sync.WaitGroup{}
-		for _, child := range dirEntry.Children {
-			err := snapshotRestorePath(snap, fs, exp, target, base, filepath.Join(pathname, child.Stat().Name()), opts, restoreContext, &subwg)
+
+		children, err := fs.ChildrenIter(dirEntry)
+		if err != nil {
+			return err
+		}
+		for child := range children {
+			err = snapshotRestorePath(snap, fs, exp, target, base, filepath.Join(pathname, child.Stat().Name()), opts, restoreContext, &subwg)
 			if err != nil {
 				complete = false
 			}

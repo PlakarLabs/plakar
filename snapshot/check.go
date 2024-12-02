@@ -27,12 +27,18 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
 		snap.Event(events.DirectoryEvent(snap.Header.Identifier, pathname))
 		complete := true
-		for _, child := range dirEntry.Children {
+
+		children, err := fs.ChildrenIter(dirEntry)
+		if err != nil {
+			return false, err
+		}
+		for child := range children {
 			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.Stat().Name()), opts, concurrency, wg)
 			if err != nil || !ok {
 				complete = false
 			}
 		}
+
 		if !complete {
 			snap.Event(events.DirectoryCorruptedEvent(snap.Header.Identifier, pathname))
 		} else {

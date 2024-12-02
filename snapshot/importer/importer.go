@@ -52,17 +52,11 @@ type FileAttributes struct {
 	IsTemporary bool // Temporary file (Windows)
 }
 
-type ChildEntry struct {
-	Name string
-	Stat objects.FileInfo
-}
-
 type ScanRecord struct {
 	Type               RecordType
 	Pathname           string
 	Target             string
 	FileInfo           objects.FileInfo
-	Children           []objects.FileInfo
 	ExtendedAttributes map[string][]byte
 	FileAttributes     []string
 }

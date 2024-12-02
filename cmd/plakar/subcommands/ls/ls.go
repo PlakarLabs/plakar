@@ -103,7 +103,11 @@ func _list_snapshot(pvfs *vfs.Filesystem, pathname string, recursive bool) error
 
 	switch entry := entry.(type) {
 	case *vfs.DirEntry:
-		for _, child := range entry.Children {
+		children, err := pvfs.ChildrenIter(entry)
+		if err != nil {
+			return err
+		}
+		for child := range children {
 			fi := child.Stat()
 			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
 			username := fmt.Sprintf("%d", fi.Uid())

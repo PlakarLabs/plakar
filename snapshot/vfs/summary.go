@@ -97,7 +97,7 @@ type Below struct {
 	MIMEApplication uint64 `msgpack:"MIME_application,omitempty" json:"MIME_application"`
 	MIMEOther       uint64 `msgpack:"MIME_other,omitempty" json:"MIME_other"`
 
-	Errors uint64 `msgpack:"errors"`
+	Errors uint64 `msgpack:"errors" json:"errors"`
 }
 
 type Summary struct {

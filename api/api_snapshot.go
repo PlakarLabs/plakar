@@ -308,7 +308,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	} else {
 		items := Items{
-			Total: 0,
+			Total: int(dirEntry.Summary.Directory.Children),
 			Items: make([]interface{}, 0),
 		}
 		childrenList, err := fs.ChildrenIter(dirEntry)
@@ -333,7 +333,6 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 			if i >= limit+offset {
 				break
 			}
-			items.Total += 1
 			items.Items = append(items.Items, child)
 			i++
 		}
@@ -391,7 +390,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	} else {
 		items := Items{
-			Total: 0,
+			Total: int(dirEntry.Summary.Directory.Errors),
 			Items: make([]interface{}, 0),
 		}
 		errorsList, err := fs.ErrorIter(dirEntry)
@@ -416,7 +415,6 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 			if i >= limit+offset {
 				break
 			}
-			fmt.Println(errorEntry)
 			items.Items = append(items.Items, errorEntry)
 			i++
 		}

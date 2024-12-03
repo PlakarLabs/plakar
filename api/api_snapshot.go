@@ -313,7 +313,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	} else {
 		items := Items{
-			Total: 0,
+			Total: int(dirEntry.Summary.Directory.Children),
 			Items: make([]interface{}, 0),
 		}
 		childrenList, err := fs.ChildrenIter(dirEntry)
@@ -321,19 +321,25 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return nil
 		}
+
+		if limit == 0 {
+			limit = int64(dirEntry.Summary.Directory.Children)
+		}
+
 		i := int64(0)
 		for child := range childrenList {
 			if child == nil {
 				break
 			}
 			if i < offset {
+				i++
 				continue
 			}
 			if i >= limit+offset {
 				break
 			}
-			items.Total += 1
 			items.Items = append(items.Items, child)
+			i++
 		}
 		return json.NewEncoder(w).Encode(items)
 	}
@@ -389,7 +395,7 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	} else {
 		items := Items{
-			Total: 0,
+			Total: int(dirEntry.Summary.Directory.Errors),
 			Items: make([]interface{}, 0),
 		}
 		errorsList, err := fs.ErrorIter(dirEntry)
@@ -398,19 +404,24 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 			return nil
 		}
 
+		if limit == 0 {
+			limit = int64(dirEntry.Summary.Directory.Errors)
+		}
+
 		i := int64(0)
 		for errorEntry := range errorsList {
 			if errorEntry == nil {
 				break
 			}
 			if i < offset {
+				i++
 				continue
 			}
 			if i >= limit+offset {
 				break
 			}
-			items.Total += 1
 			items.Items = append(items.Items, errorEntry)
+			i++
 		}
 		return json.NewEncoder(w).Encode(items)
 	}

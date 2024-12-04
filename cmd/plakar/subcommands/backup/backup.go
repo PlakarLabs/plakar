@@ -136,7 +136,6 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	} else {
 		tags = []string{opt_tags}
 	}
-	snap.Header.Tags = tags
 
 	opts := &snapshot.BackupOptions{
 		MaxConcurrency: opt_concurrency,

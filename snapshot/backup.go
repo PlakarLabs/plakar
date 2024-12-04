@@ -660,12 +660,12 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	defer cf.Close()
 
-	snap.Header.Importer.Origin = scanDir + " @ " + imp.Origin()
+	snap.Header.Importer.Origin = imp.Origin()
 	snap.Header.Importer.Type = imp.Type()
 	snap.Header.Tags = append(snap.Header.Tags, options.Tags...)
 
 	if options.Name == "" {
-		snap.Header.Name = snap.Header.Importer.Origin
+		snap.Header.Name = scanDir + " @ " + snap.Header.Importer.Origin
 	} else {
 		snap.Header.Name = options.Name
 	}
@@ -762,7 +762,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				}
 			}
 
-			var fileEntryChecksum [32]byte
+			var fileEntryChecksum objects.Checksum
 			var fileEntrySize uint64
 			if fileEntry != nil && snap.BlobExists(packfile.TYPE_FILE, cachedFileEntryChecksum) {
 				fileEntryChecksum = cachedFileEntryChecksum
@@ -1058,14 +1058,14 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier
 
 	var firstChunk = true
 	var cdcOffset uint64
-	var object_t32 [32]byte
+	var object_t32 objects.Checksum
 
 	var totalEntropy float64
 	var totalDataSize uint64
 
 	// Helper function to process a chunk
 	processChunk := func(data []byte) error {
-		var chunk_t32 [32]byte
+		var chunk_t32 objects.Checksum
 		chunkHasher := snap.repository.Hasher()
 
 		atomic.AddUint64(&snap.statistics.ChunkerChunks, 1)

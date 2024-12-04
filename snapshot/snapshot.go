@@ -42,7 +42,7 @@ type Snapshot struct {
 type PackerMsg struct {
 	Timestamp time.Time
 	Type      packfile.Type
-	Checksum  [32]byte
+	Checksum  objects.Checksum
 	Data      []byte
 }
 
@@ -134,7 +134,7 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 	return snap, nil
 }
 
-func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Load(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
 	hdr, _, err := GetSnapshot(repo, Identifier)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Clone(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Clone(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
 	snap, err := Load(repo, Identifier)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func Clone(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) 
 	return snap, nil
 }
 
-func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
 	var identifier objects.Checksum
 
 	n, err := rand.Read(identifier[:])
@@ -198,7 +198,7 @@ func (snap *Snapshot) Event(evt events.Event) {
 	snap.Repository().Context().Events().Send(evt)
 }
 
-func GetSnapshot(repo *repository.Repository, Identifier [32]byte) (*header.Header, bool, error) {
+func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
@@ -262,7 +262,7 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 
 	checksum := snap.repository.Checksum(serializedPackfile)
 
-	var checksum32 [32]byte
+	var checksum32 objects.Checksum
 	copy(checksum32[:], checksum[:])
 
 	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
@@ -328,7 +328,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
-	indexChecksum32 := [32]byte{}
+	indexChecksum32 := objects.Checksum{}
 	copy(indexChecksum32[:], indexChecksum[:])
 	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
 	if err != nil {
@@ -347,12 +347,12 @@ func (snapshot *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Obje
 	return objects.NewObjectFromBytes(buffer)
 }
 
-func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListChunks() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
 			fsentry, err := fs.Stat(filename)
@@ -368,12 +368,12 @@ func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListObjects() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
 			fsentry, err := fs.Stat(filename)
@@ -387,12 +387,12 @@ func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListFiles() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListFiles() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for checksum := range fs.FileChecksums() {
 			c <- checksum
@@ -402,12 +402,12 @@ func (snap *Snapshot) ListFiles() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListDirectories() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListDirectories() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		c <- snap.Header.Root
 		for checksum := range fs.DirectoryChecksums() {
@@ -418,8 +418,8 @@ func (snap *Snapshot) ListDirectories() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListDatas() (<-chan [32]byte, error) {
-	c := make(chan [32]byte)
+func (snap *Snapshot) ListDatas() (<-chan objects.Checksum, error) {
+	c := make(chan objects.Checksum)
 
 	go func() {
 		c <- snap.Header.Metadata

@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"io"
+	"runtime"
 	"testing"
 
 	"github.com/PlakarKorp/plakar/context"
@@ -72,6 +73,7 @@ func (mb *MockBackend) Close() error {
 
 func TestNewStore(t *testing.T) {
 	ctx := context.NewContext()
+	ctx.SetMaxConcurrency(runtime.NumCPU()*8 + 1)
 
 	store, err := NewStore(ctx, "fs", "/test/location")
 	if err != nil {
@@ -85,6 +87,7 @@ func TestNewStore(t *testing.T) {
 
 func TestCreateStore(t *testing.T) {
 	ctx := context.NewContext()
+	ctx.SetMaxConcurrency(runtime.NumCPU()*8 + 1)
 
 	config := NewConfiguration()
 	store, err := Create(ctx, "/test/location", *config)
@@ -99,6 +102,7 @@ func TestCreateStore(t *testing.T) {
 
 func TestOpenStore(t *testing.T) {
 	ctx := context.NewContext()
+	ctx.SetMaxConcurrency(runtime.NumCPU()*8 + 1)
 
 	store, err := Open(ctx, "/test/location")
 	if err != nil {

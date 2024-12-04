@@ -2,10 +2,11 @@ package snapshot
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
-	"github.com/sethvargo/go-diceware/diceware"
 )
 
 type Snapshot struct {
@@ -89,24 +89,45 @@ func packerJob(snap *Snapshot) {
 	close(snap.packerChanDone)
 }
 
-func New(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
-	words, err := diceware.Generate(4)
+func New(repo *repository.Repository) (*Snapshot, error) {
+	var identifier objects.Checksum
+
+	n, err := rand.Read(identifier[:])
 	if err != nil {
 		return nil, err
 	}
-	name := strings.Join(words, "-")
+	if n != len(identifier) {
+		return nil, io.ErrShortWrite
+	}
 
 	snap := &Snapshot{
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
 
-		Header: header.NewHeader(name, Identifier),
+		Header: header.NewHeader("default", identifier),
 
 		statistics: statistics.New(),
 
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
+
+	if repo.Context().GetIdentity() != uuid.Nil {
+		snap.Header.Identity.Identifier = repo.Context().GetIdentity()
+		snap.Header.Identity.PublicKey = repo.Context().GetKeypair().PublicKey
+	}
+
+	snap.Header.SetContext("Hostname", repo.Context().GetHostname())
+	snap.Header.SetContext("Username", repo.Context().GetUsername())
+	snap.Header.SetContext("OperatingSystem", repo.Context().GetOperatingSystem())
+	snap.Header.SetContext("MachineID", repo.Context().GetMachineID())
+	snap.Header.SetContext("CommandLine", repo.Context().GetCommandLine())
+	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", repo.Context().GetProcessID()))
+	snap.Header.SetContext("Architecture", repo.Context().GetArchitecture())
+	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
+	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
+	snap.Header.SetContext("Client", repo.Context().GetPlakarClient())
+
 	go packerJob(snap)
 
 	logger.Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
@@ -127,7 +148,7 @@ func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Clone(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	snap, err := Load(repo, Identifier)
 	if err != nil {
 		return nil, err
@@ -146,6 +167,28 @@ func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	snap.packerChan = make(chan interface{}, runtime.NumCPU()*2+1)
 	snap.packerChanDone = make(chan bool)
 	go packerJob(snap)
+
+	logger.Trace("snapshot", "%x: Clone(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
+	return snap, nil
+}
+
+func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+	var identifier objects.Checksum
+
+	n, err := rand.Read(identifier[:])
+	if err != nil {
+		return nil, err
+	}
+	if n != len(identifier) {
+		return nil, io.ErrShortWrite
+	}
+
+	snap, err := Clone(repo, Identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	snap.Header.Identifier = identifier
 
 	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil

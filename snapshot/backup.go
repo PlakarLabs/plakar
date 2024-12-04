@@ -517,12 +517,14 @@ func (cache *scanCache) EnumerateImmediateChildPathnames(directory string, rever
 	return keyChan, nil
 }
 
-type PushOptions struct {
+type BackupOptions struct {
 	MaxConcurrency uint64
+	Name           string
+	Tags           []string
 	Excludes       []glob.Glob
 }
 
-func (snapshot *Snapshot) skipExcludedPathname(options *PushOptions, record importer.ScanResult) bool {
+func (snapshot *Snapshot) skipExcludedPathname(options *BackupOptions, record importer.ScanResult) bool {
 	var pathname string
 	switch record := record.(type) {
 	case importer.ScanError:
@@ -571,7 +573,7 @@ func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
 	}
 }
 
-func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *PushOptions) (chan importer.ScanRecord, error) {
+func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptions) (chan importer.ScanRecord, error) {
 	scanner, err := backupCtx.imp.Scan()
 	if err != nil {
 		return nil, err
@@ -629,7 +631,7 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *PushOptions
 	return filesChannel, nil
 }
 
-func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
+func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 
@@ -658,8 +660,15 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	defer cf.Close()
 
-	snap.Header.Importer.Origin = imp.Origin()
+	snap.Header.Importer.Origin = scanDir + " @ " + imp.Origin()
 	snap.Header.Importer.Type = imp.Type()
+	snap.Header.Tags = append(snap.Header.Tags, options.Tags...)
+
+	if options.Name == "" {
+		snap.Header.Name = snap.Header.Importer.Origin
+	} else {
+		snap.Header.Name = options.Name
+	}
 
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)
@@ -672,10 +681,15 @@ func (snap *Snapshot) Backup(scanDir string, options *PushOptions) error {
 	}
 	snap.Header.Importer.Directory = filepath.ToSlash(scanDir)
 
+	maxConcurrency := options.MaxConcurrency
+	if maxConcurrency == 0 {
+		maxConcurrency = uint64(snap.repository.Context().GetNumCPU())*8 + 1
+	}
+
 	backupCtx := &BackupContext{
 		imp:            imp,
 		sc:             sc,
-		maxConcurrency: make(chan bool, options.MaxConcurrency),
+		maxConcurrency: make(chan bool, maxConcurrency),
 	}
 
 	/* importer */

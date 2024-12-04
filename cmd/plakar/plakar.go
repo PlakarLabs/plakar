@@ -115,6 +115,8 @@ func entryPoint() int {
 	ctx := context.NewContext()
 	defer ctx.Close()
 
+	ctx.SetPlakarClient("plakar/" + utils.GetVersion())
+
 	ctx.SetCWD(cwd)
 
 	keyringDir := filepath.Join(opt_userDefault.HomeDir, ".plakar-keyring")

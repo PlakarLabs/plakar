@@ -62,9 +62,9 @@ type Header struct {
 	Summary         vfs.Summary      `msgpack:"summary" json:"summary"`
 }
 
-func NewHeader(name string, indexID [32]byte) *Header {
+func NewHeader(name string, identifier objects.Checksum) *Header {
 	return &Header{
-		Identifier:      indexID,
+		Identifier:      identifier,
 		Timestamp:       time.Now(),
 		Version:         storage.VERSION,
 		Name:            name,
@@ -80,10 +80,10 @@ func NewHeader(name string, indexID [32]byte) *Header {
 
 		Context: make([]KeyValue, 0),
 
-		Root:       [32]byte{},
-		Index:      [32]byte{},
-		Metadata:   [32]byte{},
-		Statistics: [32]byte{},
+		Root:       objects.Checksum{},
+		Index:      objects.Checksum{},
+		Metadata:   objects.Checksum{},
+		Statistics: objects.Checksum{},
 	}
 }
 

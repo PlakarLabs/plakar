@@ -127,10 +127,15 @@ func (snap *Snapshot) Check(pathname string, opts *CheckOptions) (bool, error) {
 		return false, err
 	}
 
-	maxConcurrency := make(chan bool, opts.MaxConcurrency)
+	maxConcurrency := opts.MaxConcurrency
+	if maxConcurrency == 0 {
+		maxConcurrency = uint64(snap.repository.Context().GetNumCPU())*8 + 1
+	}
+
+	maxConcurrencyChan := make(chan bool, maxConcurrency)
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
-	defer close(maxConcurrency)
+	defer close(maxConcurrencyChan)
 
-	return snapshotCheckPath(snap, fs, pathname, opts, maxConcurrency, &wg)
+	return snapshotCheckPath(snap, fs, pathname, opts, maxConcurrencyChan, &wg)
 }

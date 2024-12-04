@@ -42,7 +42,7 @@ func cmd_restore(ctx *context.Context, repo *repository.Repository, args []strin
 	var opt_quiet bool
 
 	flags := flag.NewFlagSet("restore", flag.ExitOnError)
-	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
+	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetMaxConcurrency()), "maximum number of parallel tasks")
 	flags.StringVar(&pullPath, "to", "", "base directory where pull will restore")
 	flags.BoolVar(&pullRebase, "rebase", false, "strip pathname when pulling")
 	flags.BoolVar(&opt_quiet, "quiet", false, "do not print progress")

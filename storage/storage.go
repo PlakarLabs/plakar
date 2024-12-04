@@ -23,7 +23,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -118,9 +117,9 @@ func NewStore(ctx *context.Context, name string, location string) (*Store, error
 		store.context = ctx
 		store.backend = backend()
 		store.location = location
-		store.writeSharedLock = locking.NewSharedLock("store.write", runtime.NumCPU()*8+1)
-		store.readSharedLock = locking.NewSharedLock("store.read", runtime.NumCPU()*8+1)
-		store.bufferedPackfiles = make(chan struct{}, runtime.NumCPU()*2+1)
+		store.writeSharedLock = locking.NewSharedLock("store.write", ctx.GetMaxConcurrency())
+		store.readSharedLock = locking.NewSharedLock("store.read", ctx.GetMaxConcurrency())
+		store.bufferedPackfiles = make(chan struct{}, ctx.GetMaxConcurrency()/4)
 		return store, nil
 	}
 }

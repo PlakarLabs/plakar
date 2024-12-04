@@ -27,6 +27,8 @@ type Context struct {
 
 	cwd string
 
+	maxConcurrency int
+
 	identity uuid.UUID
 	keypair  *keypair.KeyPair
 }
@@ -171,4 +173,12 @@ func (c *Context) SetPlakarClient(plakarClient string) {
 
 func (c *Context) GetPlakarClient() string {
 	return c.plakarClient
+}
+
+func (c *Context) SetMaxConcurrency(maxConcurrency int) {
+	c.maxConcurrency = maxConcurrency
+}
+
+func (c *Context) GetMaxConcurrency() int {
+	return c.maxConcurrency
 }

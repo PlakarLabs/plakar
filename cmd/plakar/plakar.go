@@ -187,6 +187,7 @@ func entryPoint() int {
 	ctx.SetKeyFromFile(secretFromKeyfile)
 	ctx.SetHomeDir(opt_userDefault.HomeDir)
 	ctx.SetProcessID(os.Getpid())
+	ctx.SetMaxConcurrency(ctx.GetNumCPU()*8 + 1)
 
 	if flag.NArg() == 0 {
 		fmt.Fprintf(os.Stderr, "%s: a subcommand must be provided\n", filepath.Base(flag.CommandLine.Name()))

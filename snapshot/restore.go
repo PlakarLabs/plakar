@@ -132,10 +132,15 @@ func (snap *Snapshot) Restore(exp *exporter.Exporter, base string, pathname stri
 		return err
 	}
 
+	maxConcurrency := opts.MaxConcurrency
+	if maxConcurrency == 0 {
+		maxConcurrency = uint64(snap.repository.Context().GetMaxConcurrency())
+	}
+
 	restoreContext := &restoreContext{
 		hardlinks:      make(map[string]string),
 		hardlinksMutex: sync.Mutex{},
-		maxConcurrency: make(chan bool, opts.MaxConcurrency),
+		maxConcurrency: make(chan bool, maxConcurrency),
 	}
 	defer close(restoreContext.maxConcurrency)
 

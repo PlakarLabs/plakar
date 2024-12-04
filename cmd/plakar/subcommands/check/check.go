@@ -41,7 +41,7 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 	var opt_quiet bool
 
 	flags := flag.NewFlagSet("check", flag.ExitOnError)
-	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetNumCPU())*8+1, "maximum number of parallel tasks")
+	flags.Uint64Var(&opt_concurrency, "concurrency", uint64(ctx.GetMaxConcurrency()), "maximum number of parallel tasks")
 	flags.BoolVar(&opt_noVerify, "no-verify", false, "disable signature verification")
 	flags.BoolVar(&opt_fastCheck, "fast", false, "enable fast checking (no checksum verification)")
 	flags.BoolVar(&opt_quiet, "quiet", false, "suppress output")

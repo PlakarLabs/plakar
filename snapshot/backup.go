@@ -683,7 +683,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	maxConcurrency := options.MaxConcurrency
 	if maxConcurrency == 0 {
-		maxConcurrency = uint64(snap.repository.Context().GetNumCPU())*8 + 1
+		maxConcurrency = uint64(snap.repository.Context().GetMaxConcurrency())
 	}
 
 	backupCtx := &BackupContext{

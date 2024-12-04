@@ -32,6 +32,7 @@ require (
 	golang.org/x/mod v0.21.0
 	golang.org/x/term v0.24.0
 	golang.org/x/tools v0.24.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -59,7 +60,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/xid v1.5.0 // indirect
-	github.com/sethvargo/go-diceware v0.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yuin/goldmark v1.7.4 // indirect
@@ -69,5 +69,4 @@ require (
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

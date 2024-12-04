@@ -24,11 +24,9 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
-	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/identity"
 	"github.com/PlakarKorp/plakar/logger"
@@ -103,14 +101,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 	_ = excludes
 
-	snapshotUUID := uuid.Must(uuid.NewRandom())
-	snapshotID, err := snapshotUUID.MarshalBinary()
-	if err != nil {
-		logger.Error("%s", err)
-		return 1
-	}
-
-	snap, err := snapshot.New(repo, repo.Checksum(snapshotID))
+	snap, err := snapshot.New(repo)
 	if err != nil {
 		logger.Error("%s", err)
 		return 1
@@ -134,26 +125,10 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		}
 		ctx.SetIdentity(id.Identifier)
 		ctx.SetKeypair(&id.KeyPair)
-	}
-
-	if ctx.GetIdentity() != uuid.Nil {
-		snap.Header.Identity.Identifier = ctx.GetIdentity()
-		snap.Header.Identity.PublicKey = ctx.GetKeypair().PublicKey
 	} else {
 		logger.Warn("no identity set, snapshot will not be signed")
 		logger.Warn("consider using 'plakar id' to create an identity")
 	}
-
-	snap.Header.SetContext("Hostname", ctx.GetHostname())
-	snap.Header.SetContext("Username", ctx.GetUsername())
-	snap.Header.SetContext("OperatingSystem", ctx.GetOperatingSystem())
-	snap.Header.SetContext("MachineID", ctx.GetMachineID())
-	snap.Header.SetContext("CommandLine", ctx.GetCommandLine())
-	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", ctx.GetProcessID()))
-	snap.Header.SetContext("Architecture", ctx.GetArchitecture())
-	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
-	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
-	snap.Header.SetContext("Client", "plakar/"+utils.GetVersion())
 
 	var tags []string
 	if opt_tags == "" {
@@ -161,10 +136,11 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	} else {
 		tags = []string{opt_tags}
 	}
-	snap.Header.Tags = tags
 
-	opts := &snapshot.PushOptions{
+	opts := &snapshot.BackupOptions{
 		MaxConcurrency: opt_concurrency,
+		Name:           "default",
+		Tags:           tags,
 		Excludes:       excludes,
 	}
 

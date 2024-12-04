@@ -23,6 +23,8 @@ type Context struct {
 	architecture    string
 	processID       int
 
+	plakarClient string
+
 	cwd string
 
 	identity uuid.UUID
@@ -161,4 +163,12 @@ func (c *Context) SetKeypair(keypair *keypair.KeyPair) {
 
 func (c *Context) GetKeypair() *keypair.KeyPair {
 	return c.keypair
+}
+
+func (c *Context) SetPlakarClient(plakarClient string) {
+	c.plakarClient = plakarClient
+}
+
+func (c *Context) GetPlakarClient() string {
+	return c.plakarClient
 }

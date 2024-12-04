@@ -2,10 +2,11 @@ package snapshot
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +21,6 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
-	"github.com/sethvargo/go-diceware/diceware"
 )
 
 type Snapshot struct {
@@ -42,7 +42,7 @@ type Snapshot struct {
 type PackerMsg struct {
 	Timestamp time.Time
 	Type      packfile.Type
-	Checksum  [32]byte
+	Checksum  objects.Checksum
 	Data      []byte
 }
 
@@ -89,31 +89,52 @@ func packerJob(snap *Snapshot) {
 	close(snap.packerChanDone)
 }
 
-func New(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
-	words, err := diceware.Generate(4)
+func New(repo *repository.Repository) (*Snapshot, error) {
+	var identifier objects.Checksum
+
+	n, err := rand.Read(identifier[:])
 	if err != nil {
 		return nil, err
 	}
-	name := strings.Join(words, "-")
+	if n != len(identifier) {
+		return nil, io.ErrShortWrite
+	}
 
 	snap := &Snapshot{
 		repository: repo,
 		stateDelta: repo.NewStateDelta(),
 
-		Header: header.NewHeader(name, Identifier),
+		Header: header.NewHeader("default", identifier),
 
 		statistics: statistics.New(),
 
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
+
+	if repo.Context().GetIdentity() != uuid.Nil {
+		snap.Header.Identity.Identifier = repo.Context().GetIdentity()
+		snap.Header.Identity.PublicKey = repo.Context().GetKeypair().PublicKey
+	}
+
+	snap.Header.SetContext("Hostname", repo.Context().GetHostname())
+	snap.Header.SetContext("Username", repo.Context().GetUsername())
+	snap.Header.SetContext("OperatingSystem", repo.Context().GetOperatingSystem())
+	snap.Header.SetContext("MachineID", repo.Context().GetMachineID())
+	snap.Header.SetContext("CommandLine", repo.Context().GetCommandLine())
+	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", repo.Context().GetProcessID()))
+	snap.Header.SetContext("Architecture", repo.Context().GetArchitecture())
+	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
+	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
+	snap.Header.SetContext("Client", repo.Context().GetPlakarClient())
+
 	go packerJob(snap)
 
 	logger.Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
-func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Load(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
 	hdr, _, err := GetSnapshot(repo, Identifier)
 	if err != nil {
 		return nil, err
@@ -127,7 +148,7 @@ func Load(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
+func Clone(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
 	snap, err := Load(repo, Identifier)
 	if err != nil {
 		return nil, err
@@ -147,6 +168,28 @@ func Fork(repo *repository.Repository, Identifier [32]byte) (*Snapshot, error) {
 	snap.packerChanDone = make(chan bool)
 	go packerJob(snap)
 
+	logger.Trace("snapshot", "%x: Clone(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
+	return snap, nil
+}
+
+func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, error) {
+	var identifier objects.Checksum
+
+	n, err := rand.Read(identifier[:])
+	if err != nil {
+		return nil, err
+	}
+	if n != len(identifier) {
+		return nil, io.ErrShortWrite
+	}
+
+	snap, err := Clone(repo, Identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	snap.Header.Identifier = identifier
+
 	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
@@ -155,7 +198,7 @@ func (snap *Snapshot) Event(evt events.Event) {
 	snap.Repository().Context().Events().Send(evt)
 }
 
-func GetSnapshot(repo *repository.Repository, Identifier [32]byte) (*header.Header, bool, error) {
+func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
 	logger.Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
@@ -219,7 +262,7 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 
 	checksum := snap.repository.Checksum(serializedPackfile)
 
-	var checksum32 [32]byte
+	var checksum32 objects.Checksum
 	copy(checksum32[:], checksum[:])
 
 	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
@@ -285,7 +328,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
-	indexChecksum32 := [32]byte{}
+	indexChecksum32 := objects.Checksum{}
 	copy(indexChecksum32[:], indexChecksum[:])
 	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
 	if err != nil {
@@ -304,12 +347,12 @@ func (snapshot *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Obje
 	return objects.NewObjectFromBytes(buffer)
 }
 
-func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListChunks() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
 			fsentry, err := fs.Stat(filename)
@@ -325,12 +368,12 @@ func (snap *Snapshot) ListChunks() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListObjects() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
 			fsentry, err := fs.Stat(filename)
@@ -344,12 +387,12 @@ func (snap *Snapshot) ListObjects() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListFiles() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListFiles() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		for checksum := range fs.FileChecksums() {
 			c <- checksum
@@ -359,12 +402,12 @@ func (snap *Snapshot) ListFiles() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListDirectories() (<-chan [32]byte, error) {
+func (snap *Snapshot) ListDirectories() (<-chan objects.Checksum, error) {
 	fs, err := snap.Filesystem()
 	if err != nil {
 		return nil, err
 	}
-	c := make(chan [32]byte)
+	c := make(chan objects.Checksum)
 	go func() {
 		c <- snap.Header.Root
 		for checksum := range fs.DirectoryChecksums() {
@@ -375,8 +418,8 @@ func (snap *Snapshot) ListDirectories() (<-chan [32]byte, error) {
 	return c, nil
 }
 
-func (snap *Snapshot) ListDatas() (<-chan [32]byte, error) {
-	c := make(chan [32]byte)
+func (snap *Snapshot) ListDatas() (<-chan objects.Checksum, error) {
+	c := make(chan objects.Checksum)
 
 	go func() {
 		c <- snap.Header.Metadata

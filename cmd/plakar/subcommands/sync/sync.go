@@ -185,7 +185,7 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		return err
 	}
 
-	dstSnapshot, err := snapshot.New(dstRepository, snapshotID)
+	dstSnapshot, err := snapshot.Clone(dstRepository, snapshotID)
 	if err != nil {
 		return err
 	}

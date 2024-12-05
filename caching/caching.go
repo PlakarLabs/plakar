@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/google/uuid"
 )
 
@@ -12,6 +13,9 @@ type Manager struct {
 
 	repositoryCache      map[uuid.UUID]*_RepositoryCache
 	repositoryCacheMutex sync.Mutex
+
+	scanCache      map[objects.Checksum]*_ScanCache
+	scanCacheMutex sync.Mutex
 
 	vfsCache      map[string]*_VFSCache
 	vfsCacheMutex sync.Mutex
@@ -22,6 +26,7 @@ func NewManager(cacheDir string) *Manager {
 		cacheDir: cacheDir,
 
 		repositoryCache: make(map[uuid.UUID]*_RepositoryCache),
+		scanCache:       make(map[objects.Checksum]*_ScanCache),
 		vfsCache:        make(map[string]*_VFSCache),
 	}
 }
@@ -69,6 +74,22 @@ func (m *Manager) Repository(repositoryID uuid.UUID) (*_RepositoryCache, error) 
 		return nil, err
 	} else {
 		m.repositoryCache[repositoryID] = cache
+		return cache, nil
+	}
+}
+
+func (m *Manager) Scan(snapshotID objects.Checksum) (*_ScanCache, error) {
+	m.scanCacheMutex.Lock()
+	defer m.scanCacheMutex.Unlock()
+
+	if cache, ok := m.scanCache[snapshotID]; ok {
+		return cache, nil
+	}
+
+	if cache, err := newScanCache(m, snapshotID); err != nil {
+		return nil, err
+	} else {
+		m.scanCache[snapshotID] = cache
 		return cache, nil
 	}
 }

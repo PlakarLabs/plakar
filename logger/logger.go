@@ -20,20 +20,23 @@ var enableTracing = false
 var mutraceSubsystems sync.Mutex
 var traceSubsystems map[string]bool
 
+var stdoutLogger *log.Logger
+var stderrLogger *log.Logger
 var infoLogger *log.Logger
 var warnLogger *log.Logger
-var stderrLogger *log.Logger
 var debugLogger *log.Logger
 var traceLogger *log.Logger
 
 func init() {
+	stdoutLogger = log.NewWithOptions(os.Stdout, log.Options{})
+	stderrLogger = log.NewWithOptions(os.Stderr, log.Options{})
+
 	infoLogger = log.NewWithOptions(os.Stdout, log.Options{
 		Prefix: "info",
 	})
 	warnLogger = log.NewWithOptions(os.Stderr, log.Options{
 		Prefix: "warn",
 	})
-	stderrLogger = log.NewWithOptions(os.Stderr, log.Options{})
 	debugLogger = log.NewWithOptions(os.Stdout, log.Options{
 		Prefix: "debug",
 	})
@@ -44,7 +47,14 @@ func init() {
 
 func Printf(format string, args ...interface{}) {
 	infoLogger.Print(fmt.Sprintf(format, args...))
-	// infoChannel <- fmt.Sprintf(format, args...)
+}
+
+func Stdout(format string, args ...interface{}) {
+	stdoutLogger.Print(fmt.Sprintf(format, args...))
+}
+
+func Stderr(format string, args ...interface{}) {
+	stderrLogger.Print(fmt.Sprintf(format, args...))
 }
 
 func Info(format string, args ...interface{}) {

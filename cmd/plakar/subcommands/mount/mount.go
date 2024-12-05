@@ -25,7 +25,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/plakarfs"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/anacrolix/fuse"
@@ -37,6 +36,8 @@ func init() {
 }
 
 func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := repo.Context().Logger
+
 	flags := flag.NewFlagSet("mount", flag.ExitOnError)
 	flags.Parse(args)
 

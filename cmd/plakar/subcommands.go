@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/agent"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/archive"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/backup"
 	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/cat"

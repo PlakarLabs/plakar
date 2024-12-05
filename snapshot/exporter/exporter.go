@@ -7,9 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 )
 
@@ -85,45 +83,21 @@ func NewExporter(location string) (*Exporter, error) {
 }
 
 func (exporter *Exporter) Root() string {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("vfs", "exporter.Root(): %s", time.Since(t0))
-	}()
-
 	return exporter.backend.Root()
 }
 
 func (exporter *Exporter) CreateDirectory(pathname string) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
-	}()
-
 	return exporter.backend.CreateDirectory(pathname)
 }
 
 func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("vfs", "exporter.StoreFile(%s): %s", pathname, time.Since(t0))
-	}()
-
 	return exporter.backend.StoreFile(pathname, fp)
 }
 
 func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("vfs", "exporter.SetPermissions(%s): %s", pathname, time.Since(t0))
-	}()
-
 	return exporter.backend.SetPermissions(pathname, fileinfo)
 }
 
 func (exporter *Exporter) Close() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("vfs", "exporter.Close(): %s", time.Since(t0))
-	}()
 	return exporter.backend.Close()
 }

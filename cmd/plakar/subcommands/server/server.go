@@ -21,7 +21,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/server/httpd"
 	"github.com/PlakarKorp/plakar/server/plakard"
@@ -32,6 +31,7 @@ func init() {
 }
 
 func cmd_server(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	var opt_protocol string
 	var opt_allowdelete bool
 

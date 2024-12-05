@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/network"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
@@ -53,6 +52,7 @@ func Stdio(ctx *context.Context, options *ServerOptions) error {
 
 func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.Reader, wr io.Writer, options *ServerOptions) {
 	var lrepository *repository.Repository
+	logger := ctx.Logger
 
 	lrepository = repo
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/classifier"
 	"github.com/PlakarKorp/plakar/events"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/cache"
@@ -518,6 +517,7 @@ func (cache *scanCache) EnumerateImmediateChildPathnames(directory string, rever
 }
 
 type BackupOptions struct {
+	Directory      string
 	MaxConcurrency uint64
 	Name           string
 	Tags           []string
@@ -631,7 +631,8 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 	return filesChannel, nil
 }
 
-func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
+func (snap *Snapshot) Backup(options *BackupOptions) error {
+	logger := snap.Repository().Context().Logger
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 
@@ -648,7 +649,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	defer sc.Close()
 
-	imp, err := importer.NewImporter(scanDir)
+	imp, err := importer.NewImporter(options.Directory)
 	if err != nil {
 		return err
 	}
@@ -665,21 +666,21 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Header.Tags = append(snap.Header.Tags, options.Tags...)
 
 	if options.Name == "" {
-		snap.Header.Name = scanDir + " @ " + snap.Header.Importer.Origin
+		snap.Header.Name = options.Directory + " @ " + snap.Header.Importer.Origin
 	} else {
 		snap.Header.Name = options.Name
 	}
 
-	if !strings.Contains(scanDir, "://") {
-		scanDir, err = filepath.Abs(scanDir)
+	if !strings.Contains(options.Directory, "://") {
+		options.Directory, err = filepath.Abs(options.Directory)
 		if err != nil {
 			logger.Warn("%s", err)
 			return err
 		}
 	} else {
-		scanDir = imp.Root()
+		options.Directory = imp.Root()
 	}
-	snap.Header.Importer.Directory = filepath.ToSlash(scanDir)
+	snap.Header.Importer.Directory = filepath.ToSlash(options.Directory)
 
 	maxConcurrency := options.MaxConcurrency
 	if maxConcurrency == 0 {
@@ -1014,6 +1015,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			snap.Header.FilePercentExtension[key] = math.Round((float64(value)/float64(snap.Header.FilesCount)*100)*100) / 100
 		}
 	*/
+
 	return snap.Commit()
 }
 

@@ -24,7 +24,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/google/uuid"
@@ -35,6 +34,7 @@ func init() {
 }
 
 func cmd_check(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	var opt_concurrency uint64
 	var opt_fastCheck bool
 	var opt_noVerify bool

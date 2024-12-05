@@ -3,182 +3,195 @@ package context
 import (
 	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/PlakarKorp/plakar/events"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/google/uuid"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Context struct {
-	events *events.Receiver
+	Logger *logging.Logger
+	Events *events.Receiver
 
-	numCPU      int
-	username    string
-	homeDir     string
-	hostname    string
-	commandLine string
-	machineID   string
-	keyFromFile string
-	cacheDir    string
-	keyringDir  string
+	NumCPU      int
+	Username    string
+	HomeDir     string
+	Hostname    string
+	CommandLine string
+	MachineID   string
+	KeyFromFile string
+	CacheDir    string
+	KeyringDir  string
 
-	operatingSystem string
-	architecture    string
-	processID       int
+	OperatingSystem string
+	Architecture    string
+	ProcessID       int
 
-	plakarClient string
+	PlakarClient string
 
-	cwd string
+	Cwd string
 
-	maxConcurrency int
+	MaxConcurrency int
 
-	identity uuid.UUID
-	keypair  *keypair.KeyPair
+	Identity uuid.UUID
+	Keypair  *keypair.KeyPair
 }
 
 func NewContext() *Context {
 	return &Context{
-		events: events.New(),
+		Events: events.New(),
 	}
 }
 
-func (c *Context) Close() {
-	c.events.Close()
+func (c *Context) ToBytes() ([]byte, error) {
+	return msgpack.Marshal(c)
 }
 
-func (c *Context) Events() *events.Receiver {
-	return c.events
+func FromBytes(data []byte) (*Context, error) {
+	var c Context
+
+	if err := msgpack.Unmarshal(data, &c); err != nil {
+		return nil, err
+	}
+	c.Events = events.New()
+	return &c, nil
+}
+
+func (c *Context) Close() {
+	c.Events.Close()
 }
 
 func (c *Context) SetCWD(cwd string) {
-	c.cwd = cwd
+	c.Cwd = cwd
 }
 
 func (c *Context) GetCWD() string {
-	return c.cwd
+	return c.Cwd
 }
 
 func (c *Context) SetNumCPU(numCPU int) {
-	c.numCPU = numCPU
+	c.NumCPU = numCPU
 }
 
 func (c *Context) GetNumCPU() int {
-	return c.numCPU
+	return c.NumCPU
 }
 
 func (c *Context) SetUsername(username string) {
-	c.username = username
+	c.Username = username
 }
 
 func (c *Context) GetUsername() string {
-	return c.username
+	return c.Username
 }
 
 func (c *Context) SetHostname(hostname string) {
-	c.hostname = hostname
+	c.Hostname = hostname
 }
 
 func (c *Context) GetHostname() string {
-	return c.hostname
+	return c.Hostname
 }
 
 func (c *Context) SetCommandLine(commandLine string) {
-	c.commandLine = commandLine
+	c.CommandLine = commandLine
 }
 
 func (c *Context) GetCommandLine() string {
-	return c.commandLine
+	return c.CommandLine
 }
 
 func (c *Context) SetMachineID(machineID string) {
-	c.machineID = machineID
+	c.MachineID = machineID
 }
 
 func (c *Context) GetMachineID() string {
-	return c.machineID
+	return c.MachineID
 }
 
 func (c *Context) SetKeyFromFile(keyFromFile string) {
-	c.keyFromFile = keyFromFile
+	c.KeyFromFile = keyFromFile
 }
 
 func (c *Context) GetKeyFromFile() string {
-	return c.keyFromFile
+	return c.KeyFromFile
 }
 
 func (c *Context) SetHomeDir(homeDir string) {
-	c.homeDir = homeDir
+	c.HomeDir = homeDir
 }
 
 func (c *Context) GetHomeDir() string {
-	return c.homeDir
+	return c.HomeDir
 }
 
 func (c *Context) SetCacheDir(cacheDir string) {
-	c.cacheDir = cacheDir
+	c.CacheDir = cacheDir
 }
 
 func (c *Context) GetCacheDir() string {
-	return c.cacheDir
+	return c.CacheDir
 }
 
 func (c *Context) SetOperatingSystem(operatingSystem string) {
-	c.operatingSystem = operatingSystem
+	c.OperatingSystem = operatingSystem
 }
 
 func (c *Context) GetOperatingSystem() string {
-	return c.operatingSystem
+	return c.OperatingSystem
 }
 
 func (c *Context) SetArchitecture(architecture string) {
-	c.architecture = architecture
+	c.Architecture = architecture
 }
 
 func (c *Context) GetArchitecture() string {
-	return c.architecture
+	return c.Architecture
 }
 
 func (c *Context) SetProcessID(processID int) {
-	c.processID = processID
+	c.ProcessID = processID
 }
 
 func (c *Context) GetProcessID() int {
-	return c.processID
+	return c.ProcessID
 }
 
 func (c *Context) SetKeyringDir(keyringDir string) {
-	c.keyringDir = keyringDir
+	c.KeyringDir = keyringDir
 }
 
 func (c *Context) GetKeyringDir() string {
-	return c.keyringDir
+	return c.KeyringDir
 }
 
 func (c *Context) SetIdentity(identity uuid.UUID) {
-	c.identity = identity
+	c.Identity = identity
 }
 
 func (c *Context) GetIdentity() uuid.UUID {
-	return c.identity
+	return c.Identity
 }
 
 func (c *Context) SetKeypair(keypair *keypair.KeyPair) {
-	c.keypair = keypair
+	c.Keypair = keypair
 }
 
 func (c *Context) GetKeypair() *keypair.KeyPair {
-	return c.keypair
+	return c.Keypair
 }
 
 func (c *Context) SetPlakarClient(plakarClient string) {
-	c.plakarClient = plakarClient
+	c.PlakarClient = plakarClient
 }
 
 func (c *Context) GetPlakarClient() string {
-	return c.plakarClient
+	return c.PlakarClient
 }
 
 func (c *Context) SetMaxConcurrency(maxConcurrency int) {
-	c.maxConcurrency = maxConcurrency
+	c.MaxConcurrency = maxConcurrency
 }
 
 func (c *Context) GetMaxConcurrency() int {
-	return c.maxConcurrency
+	return c.MaxConcurrency
 }

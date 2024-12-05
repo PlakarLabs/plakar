@@ -26,7 +26,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
@@ -38,6 +37,8 @@ func init() {
 }
 
 func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
+
 	var opt_nodecompress bool
 	var opt_highlight bool
 

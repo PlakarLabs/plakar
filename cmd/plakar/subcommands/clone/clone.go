@@ -24,7 +24,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
@@ -35,6 +34,7 @@ func init() {
 }
 
 func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	flags := flag.NewFlagSet("clone", flag.ExitOnError)
 	flags.Parse(args)
 

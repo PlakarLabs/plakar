@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/PlakarKorp/plakar/events"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
@@ -62,7 +61,6 @@ func packerJob(snap *Snapshot) {
 				if msg, ok := msg.(*PackerMsg); !ok {
 					panic("received data with unexpected type")
 				} else {
-					logger.Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snap.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
 					packer.AddBlob(msg.Type, msg.Checksum, msg.Data)
 				}
 
@@ -130,7 +128,6 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 
 	go packerJob(snap)
 
-	logger.Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -144,7 +141,6 @@ func Load(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 	snapshot.repository = repo
 	snapshot.Header = hdr
 
-	logger.Trace("snapshot", "%x: Load()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
 }
 
@@ -168,7 +164,6 @@ func Clone(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot,
 	snap.packerChanDone = make(chan bool)
 	go packerJob(snap)
 
-	logger.Trace("snapshot", "%x: Clone(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -190,17 +185,14 @@ func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 
 	snap.Header.Identifier = identifier
 
-	logger.Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
 func (snap *Snapshot) Event(evt events.Event) {
-	snap.Repository().Context().Events().Send(evt)
+	snap.Repository().Context().Events.Send(evt)
 }
 
 func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
-	logger.Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
-
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
 	if err != nil {
 		return nil, false, err
@@ -268,7 +260,6 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
-	logger.Trace("snapshot", "%x: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
 	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), uint64(len(serializedPackfile)))
 	if err != nil {
 		panic("could not write pack file")
@@ -324,7 +315,6 @@ func (snapshot *Snapshot) Commit() error {
 
 	serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
 	if err != nil {
-		logger.Warn("could not serialize repository index: %s", err)
 		return err
 	}
 	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
@@ -334,8 +324,6 @@ func (snapshot *Snapshot) Commit() error {
 	if err != nil {
 		return err
 	}
-
-	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
 	return nil
 }
 

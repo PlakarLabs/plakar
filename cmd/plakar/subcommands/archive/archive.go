@@ -31,7 +31,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -42,6 +41,7 @@ func init() {
 }
 
 func cmd_archive(ctx *context.Context, repo *repository.Repository, args []string) int {
+
 	var opt_rebase bool
 	var opt_output string
 	var opt_format string
@@ -123,6 +123,7 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 }
 
 func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) error {
+	logger := snap.Repository().Context().Logger
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 

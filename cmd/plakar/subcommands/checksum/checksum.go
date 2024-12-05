@@ -25,7 +25,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -36,6 +35,7 @@ func init() {
 }
 
 func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	var enableFastChecksum bool
 
 	flags := flag.NewFlagSet("checksum", flag.ExitOnError)

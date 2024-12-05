@@ -7,13 +7,11 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/PlakarKorp/plakar/compression"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository/cache"
@@ -34,11 +32,6 @@ type Repository struct {
 }
 
 func New(store *storage.Store, secret []byte) (*Repository, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
-	}()
-
 	cacheDir := filepath.Join(store.Context().GetCacheDir(), "repository", store.Configuration().RepositoryID.String(), "states")
 	cacheInstance, err := cache.New(cacheDir)
 	if err != nil {
@@ -58,11 +51,6 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 }
 
 func (r *Repository) RebuildState() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
-	}()
-
 	// identify local states
 	localStates := make(map[objects.Checksum]struct{})
 	for stateID := range r.cache.List() {
@@ -147,11 +135,6 @@ func (r *Repository) Store() *storage.Store {
 }
 
 func (r *Repository) Close() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "Close(): %s", time.Since(t0))
-	}()
-
 	if r.state.Dirty() {
 	}
 
@@ -159,11 +142,6 @@ func (r *Repository) Close() error {
 }
 
 func (r *Repository) Decode(buffer []byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "Decode(%d bytes): %s", len(buffer), time.Since(t0))
-	}()
-
 	if r.secret != nil {
 		tmp, err := encryption.DecryptStream(r.secret, bytes.NewReader(buffer))
 		if err != nil {
@@ -189,11 +167,6 @@ func (r *Repository) Decode(buffer []byte) ([]byte, error) {
 }
 
 func (r *Repository) Encode(buffer []byte) ([]byte, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "Encode(%d): %s", len(buffer), time.Since(t0))
-	}()
-
 	if r.configuration.Compression != nil {
 		tmp, err := compression.DeflateStream(r.configuration.Compression.Algorithm, bytes.NewReader(buffer))
 		if err != nil {
@@ -264,11 +237,6 @@ func (r *Repository) Configuration() storage.Configuration {
 }
 
 func (r *Repository) GetSnapshots() ([]objects.Checksum, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetSnapshots(): %s", time.Since(t0))
-	}()
-
 	ret := make([]objects.Checksum, 0)
 	for snapshotID := range r.state.ListSnapshots() {
 		ret = append(ret, snapshotID)
@@ -277,11 +245,6 @@ func (r *Repository) GetSnapshots() ([]objects.Checksum, error) {
 }
 
 func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
-	}()
-
 	ret := r.state.DeleteSnapshot(snapshotID)
 	if ret != nil {
 		return ret
@@ -300,20 +263,10 @@ func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
 }
 
 func (r *Repository) GetStates() ([]objects.Checksum, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetStates(): %s", time.Since(t0))
-	}()
-
 	return r.store.GetStates()
 }
 
 func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
-	}()
-
 	if r.cache != nil {
 		buffer, err := r.cache.Get(checksum)
 		if err == nil {
@@ -340,11 +293,6 @@ func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) 
 }
 
 func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int64) (int, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
-	}()
-
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return 0, err
@@ -365,38 +313,18 @@ func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int6
 }
 
 func (r *Repository) DeleteState(checksum objects.Checksum) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "DeleteState(%x, ...): %s", checksum, time.Since(t0))
-	}()
-
 	return r.store.DeleteState(checksum)
 }
 
 func (r *Repository) GetPackfiles() ([]objects.Checksum, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetPackfiles(): %s", time.Since(t0))
-	}()
-
 	return r.store.GetPackfiles()
 }
 
 func (r *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetPackfile(%x, ...): %s", checksum, time.Since(t0))
-	}()
-
 	return r.store.GetPackfile(checksum)
 }
 
 func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, int64, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetPackfileBlob(%x, %d, %d): %s", checksum, offset, length, time.Since(t0))
-	}()
-
 	rd, _, err := r.store.GetPackfileBlob(checksum, offset, length)
 	if err != nil {
 		return nil, 0, err
@@ -416,29 +344,14 @@ func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, l
 }
 
 func (r *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "PutPackfile(%x, ...): %s", checksum, time.Since(t0))
-	}()
-
 	return r.store.PutPackfile(checksum, rd, size)
 }
 
 func (r *Repository) DeletePackfile(checksum objects.Checksum) error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "DeletePackfile(%x): %s", checksum, time.Since(t0))
-	}()
-
 	return r.store.DeletePackfile(checksum)
 }
 
 func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.Reader, uint64, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "GetBlob(%x): %s", checksum, time.Since(t0))
-	}()
-
 	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(Type, checksum)
 	if !exists {
 		return nil, 0, fmt.Errorf("packfile not found")
@@ -453,27 +366,13 @@ func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.
 }
 
 func (r *Repository) BlobExists(Type packfile.Type, checksum objects.Checksum) bool {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "BlobExists(%x): %s", checksum, time.Since(t0))
-	}()
-
 	return r.state.BlobExists(Type, checksum)
 }
 
 func (r *Repository) ListSnapshots() <-chan objects.Checksum {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "ListSnapshots(): %s", time.Since(t0))
-	}()
 	return r.state.ListSnapshots()
 }
 
 func (r *Repository) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, offset uint32, length uint32) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("repository", "SetPackfileForBlob(%x, %x, %d, %d): %s", packfileChecksum, chunkChecksum, offset, length, time.Since(t0))
-	}()
-
 	r.state.SetPackfileForBlob(Type, packfileChecksum, chunkChecksum, offset, length)
 }

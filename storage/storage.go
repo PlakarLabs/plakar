@@ -35,7 +35,6 @@ import (
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/locking"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/google/uuid"
@@ -187,11 +186,6 @@ func Open(ctx *context.Context, location string) (*Store, error) {
 		return nil, err
 	}
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "Open(%s): %s", location, time.Since(t0))
-	}()
-
 	if err = store.backend.Open(location); err != nil {
 		return nil, err
 	} else {
@@ -205,11 +199,6 @@ func Create(ctx *context.Context, location string, configuration Configuration) 
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return nil, err
 	}
-
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "Create(%s): %s", location, time.Since(t0))
-	}()
 
 	if err = store.backend.Create(location, configuration); err != nil {
 		return nil, err
@@ -243,11 +232,6 @@ func (store *Store) GetPackfiles() ([]objects.Checksum, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "GetPackfiles(): %s", time.Since(t0))
-	}()
-
 	checksums, err := store.backend.GetPackfiles()
 	ret := make([]objects.Checksum, 0, len(checksums))
 	for _, checksum := range checksums {
@@ -259,11 +243,6 @@ func (store *Store) GetPackfiles() ([]objects.Checksum, error) {
 func (store *Store) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
-	}()
 
 	rd, datalen, err := store.backend.GetPackfile(checksum)
 	if err != nil {
@@ -277,11 +256,6 @@ func (store *Store) GetPackfileBlob(checksum objects.Checksum, offset uint32, le
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
-	}()
-
 	rd, datalen, err := store.backend.GetPackfileBlob(checksum, offset, length)
 	if err != nil {
 		return nil, 0, err
@@ -294,11 +268,6 @@ func (store *Store) PutPackfile(checksum objects.Checksum, rd io.Reader, size ui
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "PutPackfile(%016x): %s", checksum, time.Since(t0))
-	}()
-
 	store.bufferedPackfiles <- struct{}{}
 	defer func() { <-store.bufferedPackfiles }()
 
@@ -310,10 +279,6 @@ func (store *Store) DeletePackfile(checksum objects.Checksum) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
-	}()
 	return store.backend.DeletePackfile(checksum)
 }
 
@@ -321,11 +286,6 @@ func (store *Store) DeletePackfile(checksum objects.Checksum) error {
 func (store *Store) GetStates() ([]objects.Checksum, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "GetStates(): %s", time.Since(t0))
-	}()
 
 	checksums, err := store.backend.GetStates()
 	ret := make([]objects.Checksum, 0, len(checksums))
@@ -339,11 +299,6 @@ func (store *Store) PutState(checksum objects.Checksum, rd io.Reader, size uint6
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "PutState(%016x): %s", checksum, time.Since(t0))
-	}()
-
 	err := store.backend.PutState(checksum, rd, size)
 	if err != nil {
 		return err
@@ -354,11 +309,6 @@ func (store *Store) PutState(checksum objects.Checksum, rd io.Reader, size uint6
 func (store *Store) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
 	store.readSharedLock.Lock()
 	defer store.readSharedLock.Unlock()
-
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
-	}()
 
 	rd, size, err := store.backend.GetState(checksum)
 	if err != nil {
@@ -371,17 +321,9 @@ func (store *Store) DeleteState(checksum objects.Checksum) error {
 	store.writeSharedLock.Lock()
 	defer store.writeSharedLock.Unlock()
 
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "DeleteState(%064x): %s", checksum, time.Since(t0))
-	}()
 	return store.backend.DeleteState(checksum)
 }
 
 func (store *Store) Close() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("store", "Close(): %s", time.Since(t0))
-	}()
 	return store.backend.Close()
 }

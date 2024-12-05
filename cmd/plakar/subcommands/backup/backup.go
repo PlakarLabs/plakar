@@ -29,7 +29,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/identity"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -54,6 +53,7 @@ func (e *excludeFlags) Set(value string) error {
 }
 
 func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	var opt_tags string
 	var opt_excludes string
 	var opt_exclude excludeFlags
@@ -145,7 +145,8 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 
 	if flags.NArg() == 0 {
-		err = snap.Backup(ctx.GetCWD(), opts)
+		opts.Directory = ctx.GetCWD()
+		err = snap.Backup(opts)
 	} else if flags.NArg() == 1 {
 		var cleanPath string
 
@@ -159,7 +160,8 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		} else {
 			cleanPath = path.Clean(flags.Arg(0))
 		}
-		err = snap.Backup(cleanPath, opts)
+		opts.Directory = cleanPath
+		err = snap.Backup(opts)
 	} else {
 		log.Fatal("only one directory pushable")
 	}

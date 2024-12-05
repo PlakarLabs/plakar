@@ -3,6 +3,7 @@ package subcommands
 import (
 	"fmt"
 
+	"github.com/PlakarKorp/plakar/agent"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
 )
@@ -13,11 +14,20 @@ func Register(command string, fn func(*context.Context, *repository.Repository, 
 	subcommands[command] = fn
 }
 
-func Execute(ctx *context.Context, repo *repository.Repository, command string, args []string) (int, error) {
+func Execute(rpc bool, ctx *context.Context, repo *repository.Repository, command string, args []string) (int, error) {
+	if rpc {
+		err := agent.NewRPC(ctx, repo, append([]string{command}, args...))
+		if err != nil {
+			return 1, err
+		}
+		return 0, nil
+	}
+
 	fn, exists := subcommands[command]
 	if !exists {
 		return 1, fmt.Errorf("unknown command: %s", command)
 	}
+
 	return fn(ctx, repo, args), nil
 }
 

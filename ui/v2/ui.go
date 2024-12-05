@@ -29,7 +29,6 @@ import (
 	"runtime"
 
 	"github.com/PlakarKorp/plakar/api"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/gorilla/handlers"
 )
@@ -45,6 +44,8 @@ type UiOptions struct {
 var content embed.FS
 
 func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
+	logger := repo.Context().Logger
+
 	r := api.NewRouter(repo, opts.Token)
 
 	// Serve files from the ./frontend directory

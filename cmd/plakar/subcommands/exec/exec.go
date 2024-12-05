@@ -26,7 +26,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 )
 
@@ -35,6 +34,7 @@ func init() {
 }
 
 func cmd_exec(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	flags := flag.NewFlagSet("exec", flag.ExitOnError)
 	flags.Parse(args)
 

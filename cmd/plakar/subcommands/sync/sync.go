@@ -27,7 +27,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -39,6 +38,8 @@ func init() {
 }
 
 func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
+
 	flags := flag.NewFlagSet("sync", flag.ExitOnError)
 	flags.Parse(args)
 

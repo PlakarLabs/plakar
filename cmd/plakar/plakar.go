@@ -18,7 +18,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
@@ -40,6 +40,8 @@ import (
 	_ "github.com/PlakarKorp/plakar/snapshot/exporter/s3"
 
 	_ "github.com/PlakarKorp/plakar/classifier/backend/noop"
+
+	_ "github.com/PlakarKorp/plakar/cmd/plakar/subcommands/agent"
 )
 
 func main() {
@@ -97,6 +99,7 @@ func entryPoint() int {
 	var opt_keyfile string
 	var opt_keyring string
 	var opt_stats int
+	var opt_agentless bool
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
@@ -110,6 +113,7 @@ func entryPoint() int {
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.StringVar(&opt_keyring, "keyring", "", "path to directory holding the keyring")
 	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
+	flag.BoolVar(&opt_agentless, "agentless", false, "run without agent")
 	flag.Parse()
 
 	ctx := context.NewContext()
@@ -200,6 +204,9 @@ func entryPoint() int {
 		return 1
 	}
 
+	ctx.Logger = logging.NewLogger(os.Stdout, os.Stderr)
+	logger := ctx.Logger
+
 	// start logging
 	if !opt_quiet {
 		logger.EnableInfo()
@@ -228,8 +235,8 @@ func entryPoint() int {
 	}
 
 	// these commands need to be ran before the repository is opened
-	if command == "create" || command == "version" || command == "stdio" || command == "help" || command == "id" {
-		retval, err := subcommands.Execute(ctx, nil, command, args)
+	if command == "agent" || command == "create" || command == "version" || command == "stdio" || command == "help" || command == "id" {
+		retval, err := subcommands.Execute(false, ctx, nil, command, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 			return retval
@@ -346,7 +353,7 @@ func entryPoint() int {
 					}
 					avgMemAlloc = memStats.TotalAlloc / uint64(iterCount)
 
-					logger.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
+					ctx.Logger.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
 						runtime.NumGoroutine(),
 						avgGoroutines,
 						maxGoroutines,
@@ -380,7 +387,7 @@ func entryPoint() int {
 
 	// commands below all operate on an open repository
 	t0 := time.Now()
-	status, err := subcommands.Execute(ctx, repo, command, args)
+	status, err := subcommands.Execute(!opt_agentless, ctx, repo, command, args)
 	t1 := time.Since(t0)
 	done <- true
 

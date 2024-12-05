@@ -33,7 +33,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
@@ -48,6 +47,7 @@ func init() {
 }
 
 func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) int {
+	logger := ctx.Logger
 	if len(args) == 0 {
 		return info_repository(repo)
 	}
@@ -118,6 +118,7 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 }
 
 func info_repository(repo *repository.Repository) int {
+	logger := repo.Context().Logger
 	metadatas, err := utils.GetHeaders(repo, nil)
 	if err != nil {
 		logger.Warn("%s", err)
@@ -253,6 +254,7 @@ func info_snapshot(repo *repository.Repository, snapshotID string) error {
 }
 
 func info_state(repo *repository.Repository, args []string) error {
+
 	if len(args) == 0 {
 		states, err := repo.GetStates()
 		if err != nil {
@@ -657,6 +659,8 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 }
 
 func info_errors(repo *repository.Repository, snapshotID string) error {
+	logger := repo.Context().Logger
+
 	prefix, pathname := utils.ParseSnapshotID(snapshotID)
 	if !strings.HasSuffix(pathname, "/") {
 		pathname = pathname + "/"

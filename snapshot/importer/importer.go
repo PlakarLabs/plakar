@@ -23,9 +23,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 )
 
@@ -145,55 +143,25 @@ func NewImporter(location string) (*Importer, error) {
 }
 
 func (importer *Importer) Origin() string {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.Origin(): %s", time.Since(t0))
-	}()
-
 	return importer.backend.Origin()
 }
 
 func (importer *Importer) Type() string {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.Type(): %s", time.Since(t0))
-	}()
-
 	return importer.backend.Type()
 }
 
 func (importer *Importer) Root() string {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.Root(): %s", time.Since(t0))
-	}()
-
 	return importer.backend.Root()
 }
 
 func (importer *Importer) Scan() (<-chan ScanResult, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.Scan(): %s", time.Since(t0))
-	}()
-
 	return importer.backend.Scan()
 }
 
 func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.NewReader(%s): %s", pathname, time.Since(t0))
-	}()
-
 	return importer.backend.NewReader(pathname)
 }
 
 func (importer *Importer) Close() error {
-	t0 := time.Now()
-	defer func() {
-		logger.Trace("importer", "importer.Close(): %s", time.Since(t0))
-	}()
-
 	return importer.backend.Close()
 }

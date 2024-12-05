@@ -3,7 +3,6 @@ package check
 import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/events"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -13,9 +12,10 @@ var (
 )
 
 func eventsProcessorStdio(ctx *context.Context, quiet bool) chan struct{} {
+	logger := ctx.Logger
 	done := make(chan struct{})
 	go func() {
-		for event := range ctx.Events().Listen() {
+		for event := range ctx.Events.Listen() {
 			switch event := event.(type) {
 			case events.DirectoryMissing:
 				logger.Warn("%x: %s %s: missing directory", event.SnapshotID[:4], crossMark, event.Pathname)

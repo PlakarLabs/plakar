@@ -3,10 +3,15 @@ package caching
 import (
 	"fmt"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 type Manager struct {
 	cacheDir string
+
+	repositoryCache      map[uuid.UUID]*_RepositoryCache
+	repositoryCacheMutex sync.Mutex
 
 	vfsCache      map[string]*_VFSCache
 	vfsCacheMutex sync.Mutex
@@ -15,7 +20,9 @@ type Manager struct {
 func NewManager(cacheDir string) *Manager {
 	return &Manager{
 		cacheDir: cacheDir,
-		vfsCache: make(map[string]*_VFSCache),
+
+		repositoryCache: make(map[uuid.UUID]*_RepositoryCache),
+		vfsCache:        make(map[string]*_VFSCache),
 	}
 }
 
@@ -46,6 +53,22 @@ func (m *Manager) VFS(scheme string, origin string) (*_VFSCache, error) {
 		return nil, err
 	} else {
 		m.vfsCache[key] = cache
+		return cache, nil
+	}
+}
+
+func (m *Manager) Repository(repositoryID uuid.UUID) (*_RepositoryCache, error) {
+	m.repositoryCacheMutex.Lock()
+	defer m.repositoryCacheMutex.Unlock()
+
+	if cache, ok := m.repositoryCache[repositoryID]; ok {
+		return cache, nil
+	}
+
+	if cache, err := newRepositoryCache(m, repositoryID); err != nil {
+		return nil, err
+	} else {
+		m.repositoryCache[repositoryID] = cache
 		return cache, nil
 	}
 }

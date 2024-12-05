@@ -647,8 +647,8 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	defer imp.Close()
 
-	vfsCache, x := snap.Repository().Context().GetCache().VFS(imp.Type(), imp.Origin())
-	if x != nil {
+	vfsCache, err := snap.Repository().Context().GetCache().VFS(imp.Type(), imp.Origin())
+	if err != nil {
 		return err
 	}
 

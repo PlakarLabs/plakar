@@ -1,6 +1,7 @@
 package context
 
 import (
+	"github.com/PlakarKorp/plakar/caching"
 	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/google/uuid"
@@ -8,6 +9,7 @@ import (
 
 type Context struct {
 	events *events.Receiver
+	cache  *caching.Manager
 
 	numCPU      int
 	username    string
@@ -181,4 +183,12 @@ func (c *Context) SetMaxConcurrency(maxConcurrency int) {
 
 func (c *Context) GetMaxConcurrency() int {
 	return c.maxConcurrency
+}
+
+func (c *Context) SetCache(cacheManager *caching.Manager) {
+	c.cache = cacheManager
+}
+
+func (c *Context) GetCache() *caching.Manager {
+	return c.cache
 }

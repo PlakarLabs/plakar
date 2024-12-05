@@ -17,7 +17,6 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/PlakarKorp/plakar/snapshot/cache"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gabriel-vasile/mimetype"
@@ -632,15 +631,9 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 }
 
 func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
+
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
-
-	cacheDir := filepath.Join(snap.repository.Context().GetCacheDir(), "fscache")
-	cacheInstance, err := cache.New(cacheDir)
-	if err != nil {
-		return err
-	}
-	defer cacheInstance.Close()
 
 	sc, err := newScanCache()
 	if err != nil {
@@ -653,6 +646,11 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		return err
 	}
 	defer imp.Close()
+
+	vfsCache, x := snap.Repository().Context().GetCache().VFS(imp.Type(), imp.Origin())
+	if x != nil {
+		return err
+	}
 
 	cf, err := classifier.NewClassifier(snap.repository.Context())
 	if err != nil {
@@ -715,15 +713,34 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			var fileEntry *vfs.FileEntry
 			var object *objects.Object
 
+			var cachedFileEntry *vfs.FileEntry
+			var cachedFileEntryChecksum objects.Checksum
+			var cachedFileEntrySize uint64
+
 			// Check if the file entry and underlying objects are already in the cache
-			cachedFileEntry, cachedFileEntryChecksum, cachedFileEntrySize, err := cacheInstance.LookupFilename(imp.Origin(), record.Pathname)
-			if err == nil && cachedFileEntry != nil {
-				if cachedFileEntry.Stat().ModTime().Equal(record.FileInfo.ModTime()) && cachedFileEntry.Stat().Size() == record.FileInfo.Size() {
-					fileEntry = cachedFileEntry
-					if fileEntry.Type == importer.RecordTypeFile {
-						cachedObject, err := cacheInstance.LookupObject(cachedFileEntry.Object.Checksum)
-						if err == nil && cachedObject != nil {
-							object = cachedObject
+			if data, err := vfsCache.GetFilename(record.Pathname); err != nil {
+				logger.Warn("VFS CACHE: Error getting filename: %v", err)
+			} else if data != nil {
+				cachedFileEntry, err = vfs.FileEntryFromBytes(data)
+				if err != nil {
+					logger.Warn("VFS CACHE: Error unmarshaling filename: %v", err)
+				} else {
+					cachedFileEntryChecksum = snap.repository.Checksum(data)
+					cachedFileEntrySize = uint64(len(data))
+					if cachedFileEntry.Stat().ModTime().Equal(record.FileInfo.ModTime()) && cachedFileEntry.Stat().Size() == record.FileInfo.Size() {
+						fileEntry = cachedFileEntry
+						if fileEntry.Type == importer.RecordTypeFile {
+							data, err := vfsCache.GetObject(cachedFileEntry.Object.Checksum)
+							if err != nil {
+								logger.Warn("VFS CACHE: Error getting object: %v", err)
+							} else if data != nil {
+								cachedObject, err := objects.NewObjectFromBytes(data)
+								if err != nil {
+									logger.Warn("VFS CACHE: Error unmarshaling object: %v", err)
+								} else {
+									object = cachedObject
+								}
+							}
 						}
 					}
 				}
@@ -738,7 +755,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 						sc.RecordError(record.Pathname, err)
 						return
 					}
-					if err := cacheInstance.RecordObject(object); err != nil {
+
+					serializedObject, err := object.Serialize()
+					if err != nil {
+						sc.RecordError(record.Pathname, err)
+						return
+					}
+
+					if err := vfsCache.PutObject(object.Checksum, serializedObject); err != nil {
 						sc.RecordError(record.Pathname, err)
 						return
 					}
@@ -778,7 +802,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					fileEntry.AddClassification(result.Analyzer, result.Classes)
 				}
 
-				// Serialize the FileEntry and store it in the repository
 				serialized, err := fileEntry.Serialize()
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
@@ -794,7 +817,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				}
 
 				// Store the newly generated FileEntry in the cache for future runs
-				err = cacheInstance.RecordFilename(imp.Origin(), record.Pathname, fileEntry)
+				err = vfsCache.PutFilename(record.Pathname, serialized)
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
 					return
@@ -813,7 +836,13 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					fileSummary.Entropy = object.Entropy
 				}
 
-				err = cacheInstance.RecordFileSummary(imp.Origin(), record.Pathname, fileSummary)
+				seralizedFileSummary, err := fileSummary.Serialize()
+				if err != nil {
+					sc.RecordError(record.Pathname, err)
+					return
+				}
+
+				err = vfsCache.PutFileSummary(record.Pathname, seralizedFileSummary)
 				if err != nil {
 					sc.RecordError(record.Pathname, err)
 					return
@@ -867,10 +896,16 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				dirEntry.Summary.UpdateBelow(childSummary)
 				childEntry.Lsummary = childSummary
 			} else {
-				fileSummary, _, _, err := cacheInstance.LookupFileSummary(imp.Origin(), child.Pathname)
+				data, err := vfsCache.GetFileSummary(child.Pathname)
 				if err != nil {
 					continue
 				}
+
+				fileSummary, err := vfs.FileSummaryFromBytes(data)
+				if err != nil {
+					continue
+				}
+
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
 			}
 

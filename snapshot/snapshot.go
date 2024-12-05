@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
@@ -112,21 +113,21 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 		packerChanDone: make(chan bool),
 	}
 
-	if repo.Context().GetIdentity() != uuid.Nil {
-		snap.Header.Identity.Identifier = repo.Context().GetIdentity()
-		snap.Header.Identity.PublicKey = repo.Context().GetKeypair().PublicKey
+	if snap.Context().GetIdentity() != uuid.Nil {
+		snap.Header.Identity.Identifier = snap.Context().GetIdentity()
+		snap.Header.Identity.PublicKey = snap.Context().GetKeypair().PublicKey
 	}
 
-	snap.Header.SetContext("Hostname", repo.Context().GetHostname())
-	snap.Header.SetContext("Username", repo.Context().GetUsername())
-	snap.Header.SetContext("OperatingSystem", repo.Context().GetOperatingSystem())
-	snap.Header.SetContext("MachineID", repo.Context().GetMachineID())
-	snap.Header.SetContext("CommandLine", repo.Context().GetCommandLine())
-	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", repo.Context().GetProcessID()))
-	snap.Header.SetContext("Architecture", repo.Context().GetArchitecture())
+	snap.Header.SetContext("Hostname", snap.Context().GetHostname())
+	snap.Header.SetContext("Username", snap.Context().GetUsername())
+	snap.Header.SetContext("OperatingSystem", snap.Context().GetOperatingSystem())
+	snap.Header.SetContext("MachineID", snap.Context().GetMachineID())
+	snap.Header.SetContext("CommandLine", snap.Context().GetCommandLine())
+	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", snap.Context().GetProcessID()))
+	snap.Header.SetContext("Architecture", snap.Context().GetArchitecture())
 	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
 	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
-	snap.Header.SetContext("Client", repo.Context().GetPlakarClient())
+	snap.Header.SetContext("Client", snap.Context().GetPlakarClient())
 
 	go packerJob(snap)
 
@@ -194,8 +195,12 @@ func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 	return snap, nil
 }
 
+func (snap *Snapshot) Context() *context.Context {
+	return snap.Repository().Context()
+}
+
 func (snap *Snapshot) Event(evt events.Event) {
-	snap.Repository().Context().Events().Send(evt)
+	snap.Context().Events().Send(evt)
 }
 
 func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
@@ -307,7 +312,7 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	if kp := snapshot.repository.Context().GetKeypair(); kp != nil {
+	if kp := snapshot.Context().GetKeypair(); kp != nil {
 		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
 		signature := kp.Sign(serializedHdrChecksum[:])
 		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.Identifier, signature); err != nil {

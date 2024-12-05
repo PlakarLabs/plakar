@@ -224,8 +224,8 @@ func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*hea
 	return hdr, false, nil
 }
 
-func (snapshot *Snapshot) Repository() *repository.Repository {
-	return snapshot.repository
+func (snap *Snapshot) Repository() *repository.Repository {
+	return snap.repository
 }
 
 func (snap *Snapshot) PutPackfile(packer *Packer) error {
@@ -303,36 +303,36 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	return nil
 }
 
-func (snapshot *Snapshot) Commit() error {
+func (snap *Snapshot) Commit() error {
 
-	repo := snapshot.repository
+	repo := snap.repository
 
-	serializedHdr, err := snapshot.Header.Serialize()
+	serializedHdr, err := snap.Header.Serialize()
 	if err != nil {
 		return err
 	}
 
-	if kp := snapshot.Context().GetKeypair(); kp != nil {
-		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
+	if kp := snap.Context().GetKeypair(); kp != nil {
+		serializedHdrChecksum := snap.repository.Checksum(serializedHdr)
 		signature := kp.Sign(serializedHdrChecksum[:])
-		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.Identifier, signature); err != nil {
+		if err := snap.PutBlob(packfile.TYPE_SIGNATURE, snap.Header.Identifier, signature); err != nil {
 			return err
 		}
 	}
 
-	if err := snapshot.PutBlob(packfile.TYPE_SNAPSHOT, snapshot.Header.Identifier, serializedHdr); err != nil {
+	if err := snap.PutBlob(packfile.TYPE_SNAPSHOT, snap.Header.Identifier, serializedHdr); err != nil {
 		return err
 	}
 
-	close(snapshot.packerChan)
-	<-snapshot.packerChanDone
+	close(snap.packerChan)
+	<-snap.packerChanDone
 
-	serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
+	serializedRepositoryIndex, err := snap.stateDelta.Serialize()
 	if err != nil {
 		logger.Warn("could not serialize repository index: %s", err)
 		return err
 	}
-	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
+	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex)
 	indexChecksum32 := objects.Checksum{}
 	copy(indexChecksum32[:], indexChecksum[:])
 	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
@@ -340,12 +340,12 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
+	logger.Trace("snapshot", "%x: Commit()", snap.Header.GetIndexShortID())
 	return nil
 }
 
-func (snapshot *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Object, error) {
-	buffer, err := snapshot.GetBlob(packfile.TYPE_OBJECT, checksum)
+func (snap *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Object, error) {
+	buffer, err := snap.GetBlob(packfile.TYPE_OBJECT, checksum)
 	if err != nil {
 		return nil, err
 	}

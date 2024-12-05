@@ -635,7 +635,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 
-	cacheDir := filepath.Join(snap.repository.Context().GetCacheDir(), "fscache")
+	cacheDir := filepath.Join(snap.Context().GetCacheDir(), "fscache")
 	cacheInstance, err := cache.New(cacheDir)
 	if err != nil {
 		return err
@@ -654,7 +654,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	defer imp.Close()
 
-	cf, err := classifier.NewClassifier(snap.repository.Context())
+	cf, err := classifier.NewClassifier(snap.Context())
 	if err != nil {
 		return err
 	}
@@ -683,7 +683,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	maxConcurrency := options.MaxConcurrency
 	if maxConcurrency == 0 {
-		maxConcurrency = uint64(snap.repository.Context().GetMaxConcurrency())
+		maxConcurrency = uint64(snap.Context().GetMaxConcurrency())
 	}
 
 	backupCtx := &BackupContext{

@@ -1,0 +1,143 @@
+package btree
+
+import (
+	"errors"
+	"log"
+	"testing"
+)
+
+var (
+	notfound = errors.New("item not found")
+)
+
+type InMemoryStore[K any, V any] struct {
+	store []Node[K, int, V]
+}
+
+func (s *InMemoryStore[K, V]) get(ptr int) (*Node[K, int, V], error) {
+	if ptr >= len(s.store) {
+		return nil, notfound
+	}
+
+	return &s.store[ptr], nil
+}
+
+func (s *InMemoryStore[K, V]) Get(ptr int) (n Node[K, int, V], err error) {
+	node, err := s.get(ptr)
+	if err != nil {
+		return
+	}
+	return *node, nil
+}
+
+func (s *InMemoryStore[K, V]) Update(ptr int, n Node[K, int, V]) error {
+	_, err := s.get(ptr)
+	if err != nil {
+		return err
+	}
+
+	s.store[ptr] = n
+	return nil
+}
+
+func (s *InMemoryStore[K, V]) Put(n Node[K, int, V]) (int, error) {
+	s.store = append(s.store, n)
+	return len(s.store) - 1, nil
+}
+
+func cmp(a, b rune) int {
+	if a < b {
+		return -1
+	}
+	if a == b {
+		return 0
+	}
+	return +1
+}
+
+func printtree[K any, P any, V any](b *BTree[K, P, V]) {
+	stack := []P{b.root}
+
+	n := 0
+	for {
+		if len(stack) == 0 {
+			return
+		}
+		ptr := stack[0]
+		stack = stack[1:]
+		n++
+
+		node, err := b.store.Get(ptr)
+		if err != nil {
+			log.Fatalf("get(%+v) failed: %v", ptr, err)
+		}
+		for _, cptr := range node.Pointers {
+			stack = append(stack, cptr)
+		}
+		log.Printf("%v keys: %+v (ptrs: %+v)", n, node.Keys, node.Pointers)
+		// if len(node.Values) != 0 {
+		// 	log.Printf("%v vals: %+v", n, node.Values)
+		// }
+	}
+}
+
+func TestBTree(t *testing.T) {
+	store := InMemoryStore[rune, int]{}
+	tree, err := New(&store, cmp, 3)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	// 
+	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
+	for i, r := range alphabet {
+		// log.Println("==== tree dump ====")
+		// printtree(tree)
+		// log.Println("==== tree dump ====")
+		// log.Println("-> inserting", r, i)
+
+		if err := tree.Insert(r, i); err != nil {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	// log.Println("==== done; now querying ====")
+	// printtree(tree)
+	// log.Println("====")
+
+	for i, r := range alphabet {
+		v, found, err := tree.Find(r)
+		if err != nil {
+			t.Fatalf("Find(%v) unexpectedly failed", r)
+		}
+		if !found {
+			t.Fatalf("Find(%v) unexpectedly not found", r)
+		}
+		if v != i {
+			t.Fatalf("Find(%v) yielded %v, want %v", r, v, i)
+		}
+	}
+
+	for i := len(alphabet) - 1; i >= 0; i-- {
+		r := alphabet[i]
+		v, found, err := tree.Find(r)
+		if err != nil {
+			t.Fatalf("Find(%v) unexpectedly failed", r)
+		}
+		if !found {
+			t.Fatalf("Find(%v) unexpectedly not found", r)
+		}
+		if v != i {
+			t.Fatalf("Find(%v) yielded %v, want %v", r, v, i)
+		}
+	}
+
+	nonexist := 'A'
+	v, found, err := tree.Find(nonexist)
+	if err != nil {
+		t.Fatalf("Find(%v) unexpectedly failed", nonexist)
+	}
+	if found {
+		t.Fatalf("Find(%v) unexpectedly found %v", nonexist, v)
+	}
+}

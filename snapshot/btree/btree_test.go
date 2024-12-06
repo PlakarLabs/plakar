@@ -177,3 +177,74 @@ func TestScanAll(t *testing.T) {
 		t.Fatalf("iterator could unexpectedly continue")
 	}
 }
+
+func TestPersist(t *testing.T) {
+	order := 3
+	store := InMemoryStore[rune, int]{}
+	tree1, err := New(&store, cmp, order)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	//alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
+	alphabet := []rune("abcdef")
+	for i, r := range alphabet {
+		if err := tree1.Insert(r, i); err != nil {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	store2 := InMemoryStore[rune, int]{}
+	root, err := Persist(tree1, &store2)
+	if err != nil {
+		t.Fatalf("Failed to persist the tree: %v", err)
+	}
+
+	tree2 := FromStorage(root, &store2, cmp, order)
+	// printtree(tree)
+	// log.Println("===")
+	// printtree(tree2)
+	for i, r := range alphabet {
+		v, found, err := tree2.Find(r)
+		if err != nil {
+			t.Fatalf("Find(%v) unexpectedly failed", r)
+		}
+		if !found {
+			t.Fatalf("Find(%v) unexpectedly not found", r)
+		}
+		if v != i {
+			t.Fatalf("Find(%v) yielded %v, want %v", r, v, i)
+		}
+	}
+
+	nonexist := 'A'
+	v, found, err := tree2.Find(nonexist)
+	if err != nil {
+		t.Fatalf("Find(%v) unexpectedly failed", nonexist)
+	}
+	if found {
+		t.Fatalf("Find(%v) unexpectedly found %v", nonexist, v)
+	}
+
+	iter, err := tree2.ScanAll()
+	if err != nil {
+		t.Fatalf("ScanAll failed: %v", err)
+	}
+
+	for i, r := range alphabet {
+		if !iter.Next() {
+			t.Fatalf("iterator stopped too early!")
+		}
+		k, v := iter.Current()
+		if k != r {
+			t.Errorf("Got key %v; want %v", k, r)
+		}
+		if v != i {
+			t.Errorf("Got value %v; want %v", v, i)
+		}
+	}
+
+	if iter.Next() {
+		t.Fatalf("iterator could unexpectedly continue")
+	}
+}

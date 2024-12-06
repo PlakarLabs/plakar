@@ -70,3 +70,26 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 		idx:     -1,
 	}, nil
 }
+
+func (b *BTree[K, P, V]) VisitLevelOrder(cb func(Node[K, P, V]) bool) error {
+	stack := []P{b.Root}
+
+	for {
+		if len(stack) == 0 {
+			return nil
+		}
+		ptr := stack[0]
+		stack = stack[1:]
+
+		node, err := b.store.Get(ptr)
+		if err != nil {
+			return err
+		}
+
+		if !cb(node) {
+			return nil
+		}
+
+		stack = append(stack, node.Pointers...)
+	}
+}

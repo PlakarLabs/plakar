@@ -56,29 +56,12 @@ func cmp(a, b rune) int {
 }
 
 func printtree[K any, P any, V any](b *BTree[K, P, V]) {
-	stack := []P{b.Root}
-
-	n := 0
-	for {
-		if len(stack) == 0 {
-			return
-		}
-		ptr := stack[0]
-		stack = stack[1:]
+	n := -1
+	b.VisitLevelOrder(func(node Node[K, P, V]) bool {
 		n++
-
-		node, err := b.store.Get(ptr)
-		if err != nil {
-			log.Fatalf("get(%+v) failed: %v", ptr, err)
-		}
-		for _, cptr := range node.Pointers {
-			stack = append(stack, cptr)
-		}
 		log.Printf("%v keys: %+v (ptrs: %+v)", n, node.Keys, node.Pointers)
-		// if len(node.Values) != 0 {
-		// 	log.Printf("%v vals: %+v", n, node.Values)
-		// }
-	}
+		return true
+	})
 }
 
 func TestBTree(t *testing.T) {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -38,6 +39,17 @@ func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, repository.ErrBlobNotFound):
+		fallthrough
+	case errors.Is(err, repository.ErrPackfileNotFound):
+		err = &ApiError{
+			HttpCode: 404,
+			ErrCode:  "not-found",
+			Message:  err.Error(),
+		}
+	}
+
 	apierr, ok := err.(*ApiError)
 	if !ok {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

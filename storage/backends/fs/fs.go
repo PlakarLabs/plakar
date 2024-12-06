@@ -19,13 +19,16 @@ package fs
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/compression"
+	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -196,6 +199,9 @@ func (repo *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length
 
 	fp, err := os.Open(pathname)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			err = repository.ErrBlobNotFound
+		}
 		return nil, 0, err
 	}
 	defer fp.Close()

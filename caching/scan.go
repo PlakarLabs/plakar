@@ -12,13 +12,13 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type _ScanCache struct {
+type ScanCache struct {
 	snapshotID [32]byte
 	manager    *Manager
 	db         *leveldb.DB
 }
 
-func newScanCache(cacheManager *Manager, snapshotID [32]byte) (*_ScanCache, error) {
+func newScanCache(cacheManager *Manager, snapshotID [32]byte) (*ScanCache, error) {
 	cacheDir := filepath.Join(cacheManager.cacheDir, "scan", fmt.Sprintf("%x", snapshotID))
 
 	db, err := leveldb.OpenFile(cacheDir, nil)
@@ -26,23 +26,23 @@ func newScanCache(cacheManager *Manager, snapshotID [32]byte) (*_ScanCache, erro
 		return nil, err
 	}
 
-	return &_ScanCache{
+	return &ScanCache{
 		snapshotID: snapshotID,
 		manager:    cacheManager,
 		db:         db,
 	}, nil
 }
 
-func (c *_ScanCache) Close() error {
+func (c *ScanCache) Close() error {
 	c.db.Close()
 	return os.RemoveAll(filepath.Join(c.manager.cacheDir, "scan", fmt.Sprintf("%x", c.snapshotID)))
 }
 
-func (c *_ScanCache) put(prefix string, key string, data []byte) error {
+func (c *ScanCache) put(prefix string, key string, data []byte) error {
 	return c.db.Put([]byte(fmt.Sprintf("%s:%s", prefix, key)), data, nil)
 }
 
-func (c *_ScanCache) get(prefix, key string) ([]byte, error) {
+func (c *ScanCache) get(prefix, key string) ([]byte, error) {
 	data, err := c.db.Get([]byte(fmt.Sprintf("%s:%s", prefix, key)), nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -53,25 +53,25 @@ func (c *_ScanCache) get(prefix, key string) ([]byte, error) {
 	return data, nil
 }
 
-func (c *_ScanCache) PutError(pathname string, data []byte) error {
+func (c *ScanCache) PutError(pathname string, data []byte) error {
 	return c.put("__error__", pathname, data)
 }
 
-func (c *_ScanCache) GetError(pathname string) ([]byte, error) {
+func (c *ScanCache) GetError(pathname string) ([]byte, error) {
 	return c.get("__error__", pathname)
 }
 
 // XXX - beware that pathname should be constructed to end with / for directories
-func (c *_ScanCache) PutPathname(pathname string, data []byte) error {
+func (c *ScanCache) PutPathname(pathname string, data []byte) error {
 	return c.put("__pathname__", pathname, data)
 }
 
 // XXX - beware that pathname should be constructed to end with / for directories
-func (c *_ScanCache) GetPathname(pathname string) ([]byte, error) {
+func (c *ScanCache) GetPathname(pathname string) ([]byte, error) {
 	return c.get("__pathname__", pathname)
 }
 
-func (c *_ScanCache) PutChecksum(pathname string, checksum objects.Checksum) error {
+func (c *ScanCache) PutChecksum(pathname string, checksum objects.Checksum) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
@@ -79,7 +79,7 @@ func (c *_ScanCache) PutChecksum(pathname string, checksum objects.Checksum) err
 	return c.put("__checksum__", pathname, checksum[:])
 }
 
-func (c *_ScanCache) GetChecksum(pathname string) (objects.Checksum, error) {
+func (c *ScanCache) GetChecksum(pathname string) (objects.Checksum, error) {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
@@ -97,22 +97,22 @@ func (c *_ScanCache) GetChecksum(pathname string) (objects.Checksum, error) {
 	return objects.Checksum(data), nil
 }
 
-func (c *_ScanCache) PutStatistics(pathname string, data []byte) error {
+func (c *ScanCache) PutSummary(pathname string, data []byte) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
-	return c.put("__statistics__", pathname, data)
+	return c.put("__summary__", pathname, data)
 }
 
-func (c *_ScanCache) GetStatistics(pathname string) ([]byte, error) {
+func (c *ScanCache) GetSummary(pathname string) ([]byte, error) {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {
 		pathname = "/"
 	}
 
-	return c.get("__statistics__", pathname)
+	return c.get("__summary__", pathname)
 }
 
 // / BELOW IS THE OLD CODE FROM BACKUP LAYER, NEEDS TO BE CLEANED UP
@@ -122,7 +122,7 @@ type ErrorEntry struct {
 	Error       string           `msgpack:"error"`
 }
 
-func (c *_ScanCache) EnumerateErrorsWithinDirectory(directory string, reverse bool) (<-chan ErrorEntry, error) {
+func (c *ScanCache) EnumerateErrorsWithinDirectory(directory string, reverse bool) (<-chan ErrorEntry, error) {
 	// Ensure directory ends with a trailing slash for consistency
 	if !strings.HasSuffix(directory, "/") {
 		directory += "/"
@@ -202,7 +202,7 @@ func (c *_ScanCache) EnumerateErrorsWithinDirectory(directory string, reverse bo
 	return keyChan, nil
 }
 
-func (c *_ScanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
+func (c *ScanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
 	// Create a channel to return the keys
 	keyChan := make(chan importer.ScanRecord)
 
@@ -252,7 +252,7 @@ func (c *_ScanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory b
 	return keyChan, nil
 }
 
-func (c *_ScanCache) EnumerateImmediateChildPathnames(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
+func (c *ScanCache) EnumerateImmediateChildPathnames(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
 	// Ensure directory ends with a trailing slash for consistency
 	if !strings.HasSuffix(directory, "/") {
 		directory += "/"

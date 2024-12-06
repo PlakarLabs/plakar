@@ -27,6 +27,7 @@ import (
 
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type ScanResult interface {
@@ -62,6 +63,9 @@ type ScanRecord struct {
 }
 
 func (r ScanRecord) scanResult() {}
+func (r ScanRecord) ToBytes() ([]byte, error) {
+	return msgpack.Marshal(r)
+}
 
 type ScanError struct {
 	Pathname string

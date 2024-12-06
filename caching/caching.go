@@ -14,9 +14,6 @@ type Manager struct {
 	repositoryCache      map[uuid.UUID]*_RepositoryCache
 	repositoryCacheMutex sync.Mutex
 
-	scanCache      map[objects.Checksum]*_ScanCache
-	scanCacheMutex sync.Mutex
-
 	vfsCache      map[string]*_VFSCache
 	vfsCacheMutex sync.Mutex
 }
@@ -26,7 +23,6 @@ func NewManager(cacheDir string) *Manager {
 		cacheDir: cacheDir,
 
 		repositoryCache: make(map[uuid.UUID]*_RepositoryCache),
-		scanCache:       make(map[objects.Checksum]*_ScanCache),
 		vfsCache:        make(map[string]*_VFSCache),
 	}
 }
@@ -34,6 +30,10 @@ func NewManager(cacheDir string) *Manager {
 func (m *Manager) Close() error {
 	m.vfsCacheMutex.Lock()
 	defer m.vfsCacheMutex.Unlock()
+
+	for _, cache := range m.vfsCache {
+		cache.Close()
+	}
 
 	for _, cache := range m.vfsCache {
 		cache.Close()
@@ -78,18 +78,7 @@ func (m *Manager) Repository(repositoryID uuid.UUID) (*_RepositoryCache, error) 
 	}
 }
 
-func (m *Manager) Scan(snapshotID objects.Checksum) (*_ScanCache, error) {
-	m.scanCacheMutex.Lock()
-	defer m.scanCacheMutex.Unlock()
-
-	if cache, ok := m.scanCache[snapshotID]; ok {
-		return cache, nil
-	}
-
-	if cache, err := newScanCache(m, snapshotID); err != nil {
-		return nil, err
-	} else {
-		m.scanCache[snapshotID] = cache
-		return cache, nil
-	}
+// XXX - beware that caller has responsibility to call Close() on the returned cache
+func (m *Manager) Scan(snapshotID objects.Checksum) (*ScanCache, error) {
+	return newScanCache(m, snapshotID)
 }

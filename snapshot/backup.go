@@ -1,17 +1,16 @@
 package snapshot
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"mime"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarKorp/plakar/caching"
 	"github.com/PlakarKorp/plakar/classifier"
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/logger"
@@ -21,8 +20,6 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gobwas/glob"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type NoOpLogger struct{}
@@ -32,11 +29,6 @@ func (l *NoOpLogger) Warningf(format string, v ...interface{}) {}
 func (l *NoOpLogger) Infof(format string, v ...interface{})    {}
 func (l *NoOpLogger) Debugf(format string, v ...interface{})   {}
 func (l *NoOpLogger) Fatalf(format string, v ...interface{})   {}
-
-type scanCache struct {
-	db    *leveldb.DB
-	dbdir string
-}
 
 type ErrorEntry struct {
 	Predecessor objects.Checksum `msgpack:"predecessor"`
@@ -48,356 +40,8 @@ type BackupContext struct {
 	aborted        atomic.Bool
 	abortedReason  error
 	imp            *importer.Importer
-	sc             *scanCache
+	sc             *caching.ScanCache
 	maxConcurrency chan bool
-}
-
-func newScanCache() (*scanCache, error) {
-	tempDir, err := os.MkdirTemp("", "leveldb-temp")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	// Open an in-memory LevelDB database (replace "/tmp/test" with "" for in-memory)
-	db, err := leveldb.OpenFile(tempDir, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &scanCache{
-		db:    db,
-		dbdir: tempDir,
-	}, nil
-}
-
-func (cache *scanCache) Close() error {
-	// Close the LevelDB database
-	if err := cache.db.Close(); err != nil {
-		return err
-	}
-
-	// Remove the temporary directory and its contents
-	if err := os.RemoveAll(cache.dbdir); err != nil {
-		return fmt.Errorf("failed to remove temp directory: %w", err)
-	}
-
-	return nil
-}
-
-func (cache *scanCache) RecordError(pathname string, err error) error {
-	key := fmt.Sprintf("__error__:%s", pathname)
-	return cache.db.Put([]byte(key), []byte(err.Error()), nil)
-}
-
-func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string, reverse bool) (<-chan ErrorEntry, error) {
-	// Ensure directory ends with a trailing slash for consistency
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	// Create a channel to return the keys
-	keyChan := make(chan ErrorEntry)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Create the directory prefix to match keys
-		directoryKeyPrefix := "__error__:" + directory
-
-		if reverse {
-			// Reverse iteration: manually position to the last key within the prefix range
-			iter.Seek([]byte(directoryKeyPrefix)) // Start at the prefix
-			if iter.Valid() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
-				// Move to the last key in the range
-				for iter.Next() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
-				}
-				iter.Prev() // Step back to the last valid key
-			}
-		} else {
-			// Forward iteration: start at the beginning of the range
-			iter.Seek([]byte(directoryKeyPrefix))
-		}
-
-		for iter.Valid() {
-			key := string(iter.Key())
-			if key == directoryKeyPrefix {
-				// Skip the directory key itself
-				if reverse {
-					iter.Prev()
-				} else {
-					iter.Next()
-				}
-				continue
-			}
-
-			// Check if the key starts with the directory prefix
-			if strings.HasPrefix(key, directoryKeyPrefix) {
-				// Remove the prefix and the directory to isolate the remaining part of the path
-				remainingPath := key[len(directoryKeyPrefix):]
-
-				// Determine if this is an immediate child
-				slashCount := strings.Count(remainingPath, "/")
-
-				// Immediate child should either:
-				// - Have no slash (a file)
-				// - Have exactly one slash at the end (a directory)
-				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
-					// Retrieve the value for the current key
-					path := strings.TrimPrefix(key, "__error__:")
-					value := iter.Value()
-					keyChan <- ErrorEntry{Pathname: path, Error: string(value)}
-				}
-			} else {
-				// Stop if the key is no longer within the expected prefix
-				break
-			}
-
-			// Advance or reverse the iterator
-			if reverse {
-				iter.Prev()
-			} else {
-				iter.Next()
-			}
-		}
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
-}
-
-func (cache *scanCache) RecordPathname(record importer.ScanRecord) error {
-	buffer, err := msgpack.Marshal(&record)
-	if err != nil {
-		return err
-	}
-
-	var key string
-	if record.FileInfo.Mode().IsDir() {
-		if record.Pathname == "/" {
-			key = "__pathname__:/"
-		} else {
-			key = fmt.Sprintf("__pathname__:%s/", record.Pathname)
-		}
-	} else {
-		key = fmt.Sprintf("__pathname__:%s", record.Pathname)
-	}
-
-	// Use LevelDB's Put method to store the key-value pair
-	return cache.db.Put([]byte(key), buffer, nil)
-}
-
-func (cache *scanCache) GetPathname(pathname string) (importer.ScanRecord, error) {
-	var record importer.ScanRecord
-
-	key := fmt.Sprintf("__pathname__:%s", pathname)
-	data, err := cache.db.Get([]byte(key), nil)
-	if err != nil {
-		return record, err
-	}
-
-	err = msgpack.Unmarshal(data, &record)
-	if err != nil {
-		return record, err
-	}
-
-	return record, nil
-}
-
-func (cache *scanCache) RecordChecksum(pathname string, checksum objects.Checksum) error {
-	pathname = strings.TrimSuffix(pathname, "/")
-	if pathname == "" {
-		pathname = "/"
-	}
-	return cache.db.Put([]byte(fmt.Sprintf("__checksum__:%s", pathname)), checksum[:], nil)
-}
-
-func (cache *scanCache) RecordStatistics(pathname string, statistics *vfs.Summary) error {
-	pathname = strings.TrimSuffix(pathname, "/")
-	if pathname == "" {
-		pathname = "/"
-	}
-
-	buffer, err := msgpack.Marshal(statistics)
-	if err != nil {
-		return err
-	}
-	return cache.db.Put([]byte(fmt.Sprintf("__statistics__:%s", pathname)), buffer, nil)
-}
-
-func (cache *scanCache) GetChecksum(pathname string) (objects.Checksum, error) {
-	data, err := cache.db.Get([]byte(fmt.Sprintf("__checksum__:%s", pathname)), nil)
-	if err != nil {
-		return objects.Checksum{}, err
-	}
-
-	if len(data) != 32 {
-		return objects.Checksum{}, fmt.Errorf("invalid checksum length: %d", len(data))
-	}
-
-	ret := objects.Checksum{}
-	copy(ret[:], data)
-	return ret, nil
-}
-
-func (cache *scanCache) GetStatistics(pathname string) (*vfs.Summary, error) {
-	data, err := cache.db.Get([]byte(fmt.Sprintf("__statistics__:%s", pathname)), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var stats vfs.Summary
-	err = msgpack.Unmarshal(data, &stats)
-	if err != nil {
-		return nil, err
-	}
-	return &stats, nil
-}
-
-func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
-	// Create a channel to return the keys
-	keyChan := make(chan importer.ScanRecord)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		// Use LevelDB's iterator
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Move to the last key and iterate backward
-		for iter.Last(); iter.Valid(); iter.Prev() {
-			key := iter.Key()
-
-			// Check if the key starts with the given prefix
-			if !strings.HasPrefix(string(key), prefix) {
-				continue
-			}
-
-			if isDirectory {
-				if !strings.HasSuffix(string(key), "/") {
-					continue
-				}
-			} else {
-				if strings.HasSuffix(string(key), "/") {
-					continue
-				}
-			}
-
-			// Retrieve the value for the current key
-			value := iter.Value()
-
-			var record importer.ScanRecord
-			err := msgpack.Unmarshal(value, &record)
-			if err != nil {
-				fmt.Printf("Error unmarshaling value: %v\n", err)
-				continue
-			}
-
-			// Send the record through the channel
-			keyChan <- record
-		}
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
-}
-
-func (cache *scanCache) EnumerateImmediateChildPathnames(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
-	// Ensure directory ends with a trailing slash for consistency
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	// Create a channel to return the keys
-	keyChan := make(chan importer.ScanRecord)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Create the directory prefix to match keys
-		directoryKeyPrefix := "__pathname__:" + directory
-
-		if reverse {
-			// Reverse iteration: manually position to the last key within the prefix range
-			iter.Seek([]byte(directoryKeyPrefix)) // Start at the prefix
-			if iter.Valid() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
-				// Move to the last key in the range
-				for iter.Next() && strings.HasPrefix(string(iter.Key()), directoryKeyPrefix) {
-				}
-				iter.Prev() // Step back to the last valid key
-			}
-		} else {
-			// Forward iteration: start at the beginning of the range
-			iter.Seek([]byte(directoryKeyPrefix))
-		}
-
-		for iter.Valid() {
-			key := string(iter.Key())
-			if key == directoryKeyPrefix {
-				// Skip the directory key itself
-				if reverse {
-					iter.Prev()
-				} else {
-					iter.Next()
-				}
-				continue
-			}
-
-			// Check if the key starts with the directory prefix
-			if strings.HasPrefix(key, directoryKeyPrefix) {
-				// Remove the prefix and the directory to isolate the remaining part of the path
-				remainingPath := key[len(directoryKeyPrefix):]
-
-				// Determine if this is an immediate child
-				slashCount := strings.Count(remainingPath, "/")
-
-				// Immediate child should either:
-				// - Have no slash (a file)
-				// - Have exactly one slash at the end (a directory)
-				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
-					// Retrieve the value for the current key
-					value := iter.Value()
-
-					var record importer.ScanRecord
-					err := msgpack.Unmarshal(value, &record)
-					if err != nil {
-						fmt.Printf("Error unmarshaling value: %v\n", err)
-						if reverse {
-							iter.Prev()
-						} else {
-							iter.Next()
-						}
-						continue
-					}
-
-					// Send the immediate child key through the channel
-					keyChan <- record
-				}
-			} else {
-				// Stop if the key is no longer within the expected prefix
-				break
-			}
-
-			// Advance or reverse the iterator
-			if reverse {
-				iter.Prev()
-			} else {
-				iter.Next()
-			}
-		}
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
 }
 
 type BackupOptions struct {
@@ -491,13 +135,25 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 						backupCtx.abortedReason = record.Err
 						return
 					}
-					backupCtx.sc.RecordError(record.Pathname, record.Err)
+					backupCtx.sc.PutError(record.Pathname, []byte(record.Err.Error()))
 					snap.Event(events.PathErrorEvent(snap.Header.Identifier, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
 					snap.Event(events.PathEvent(snap.Header.Identifier, record.Pathname))
-					if err := backupCtx.sc.RecordPathname(record); err != nil {
-						backupCtx.sc.RecordError(record.Pathname, err)
+
+					serializedRecord, err := record.ToBytes()
+					if err != nil {
+						backupCtx.sc.PutError(record.Pathname, []byte(err.Error()))
+						return
+					}
+
+					pathname := record.Pathname
+					if record.FileInfo.Mode().IsDir() && pathname != "/" {
+						pathname += "/"
+					}
+
+					if err := backupCtx.sc.PutPathname(pathname, serializedRecord); err != nil {
+						backupCtx.sc.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 					if !record.FileInfo.Mode().IsDir() {
@@ -519,11 +175,11 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 
-	sc, err := newScanCache()
+	sc2, err := snap.repository.Context().GetCache().Scan(snap.Header.Identifier)
 	if err != nil {
 		return err
 	}
-	defer sc.Close()
+	defer sc2.Close()
 
 	imp, err := importer.NewImporter(scanDir)
 	if err != nil {
@@ -570,7 +226,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	backupCtx := &BackupContext{
 		imp:            imp,
-		sc:             sc,
+		sc:             sc2,
 		maxConcurrency: make(chan bool, maxConcurrency),
 	}
 
@@ -636,18 +292,18 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					object, err = snap.chunkify(imp, cf, record)
 					if err != nil {
 						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
-						sc.RecordError(record.Pathname, err)
+						sc2.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 
 					serializedObject, err := object.Serialize()
 					if err != nil {
-						sc.RecordError(record.Pathname, err)
+						sc2.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 
 					if err := vfsCache.PutObject(object.Checksum, serializedObject); err != nil {
-						sc.RecordError(record.Pathname, err)
+						sc2.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 				}
@@ -657,14 +313,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				if !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
 					data, err := object.Serialize()
 					if err != nil {
-						sc.RecordError(record.Pathname, err)
+						sc2.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
 					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
 					err = snap.PutBlob(packfile.TYPE_OBJECT, object.Checksum, data)
 					if err != nil {
-						sc.RecordError(record.Pathname, err)
+						sc2.PutError(record.Pathname, []byte(err.Error()))
 						return
 					}
 				}
@@ -688,7 +344,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 				serialized, err := fileEntry.Serialize()
 				if err != nil {
-					sc.RecordError(record.Pathname, err)
+					sc2.PutError(record.Pathname, []byte(err.Error()))
 					return
 				}
 
@@ -696,14 +352,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				fileEntrySize = uint64(len(serialized))
 				err = snap.PutBlob(packfile.TYPE_FILE, fileEntryChecksum, serialized)
 				if err != nil {
-					sc.RecordError(record.Pathname, err)
+					sc2.PutError(record.Pathname, []byte(err.Error()))
 					return
 				}
 
 				// Store the newly generated FileEntry in the cache for future runs
 				err = vfsCache.PutFilename(record.Pathname, serialized)
 				if err != nil {
-					sc.RecordError(record.Pathname, err)
+					sc2.PutError(record.Pathname, []byte(err.Error()))
 					return
 				}
 
@@ -722,13 +378,13 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 				seralizedFileSummary, err := fileSummary.Serialize()
 				if err != nil {
-					sc.RecordError(record.Pathname, err)
+					sc2.PutError(record.Pathname, []byte(err.Error()))
 					return
 				}
 
 				err = vfsCache.PutFileSummary(record.Pathname, seralizedFileSummary)
 				if err != nil {
-					sc.RecordError(record.Pathname, err)
+					sc2.PutError(record.Pathname, []byte(err.Error()))
 					return
 				}
 			}
@@ -736,9 +392,9 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			atomic.AddUint64(&snap.statistics.VFSFilesSize, fileEntrySize)
 
 			// Record the checksum of the FileEntry in the cache
-			err = sc.RecordChecksum(record.Pathname, fileEntryChecksum)
+			err = sc2.PutChecksum(record.Pathname, fileEntryChecksum)
 			if err != nil {
-				sc.RecordError(record.Pathname, err)
+				sc2.PutError(record.Pathname, []byte(err.Error()))
 				return
 			}
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.FileInfo.Size()))
@@ -749,14 +405,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	var rootSummary *vfs.Summary
 
-	directories, err := sc.EnumerateKeysWithPrefixReverse("__pathname__", true)
+	directories, err := sc2.EnumerateKeysWithPrefixReverse("__pathname__", true)
 	if err != nil {
 		return err
 	}
 	for record := range directories {
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
-		childrenChan, err := sc.EnumerateImmediateChildPathnames(record.Pathname, true)
+		childrenChan, err := sc2.EnumerateImmediateChildPathnames(record.Pathname, true)
 		if err != nil {
 			return err
 		}
@@ -764,7 +420,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		/* children */
 		var lastChecksum *objects.Checksum
 		for child := range childrenChan {
-			childChecksum, err := sc.GetChecksum(child.Pathname)
+			childChecksum, err := sc2.GetChecksum(child.Pathname)
 			if err != nil {
 				continue
 			}
@@ -773,10 +429,17 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				LfileInfo: child.FileInfo,
 			}
 			if child.FileInfo.Mode().IsDir() {
-				childSummary, err := sc.GetStatistics(child.Pathname)
+
+				data, err := sc2.GetSummary(child.Pathname)
 				if err != nil {
 					continue
 				}
+
+				childSummary, err := vfs.SummaryFromBytes(data)
+				if err != nil {
+					continue
+				}
+
 				dirEntry.Summary.UpdateBelow(childSummary)
 				childEntry.Lsummary = childSummary
 			} else {
@@ -815,7 +478,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 		/* errors */
 		lastChecksum = nil
-		if errc, err := sc.EnumerateErrorsWithinDirectory(record.Pathname, true); err == nil {
+		if errc, err := sc2.EnumerateErrorsWithinDirectory(record.Pathname, true); err == nil {
 			for entry := range errc {
 				errorEntry := &vfs.ErrorEntry{Name: filepath.Base(entry.Pathname), Error: entry.Error}
 
@@ -854,18 +517,25 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		if !snap.BlobExists(packfile.TYPE_DIRECTORY, dirEntryChecksum) {
 			err = snap.PutBlob(packfile.TYPE_DIRECTORY, dirEntryChecksum, serialized)
 			if err != nil {
-				sc.RecordError(record.Pathname, err)
+				sc2.PutError(record.Pathname, []byte(err.Error()))
 				return err
 			}
 		}
-		err = sc.RecordChecksum(record.Pathname, dirEntryChecksum)
+		err = sc2.PutChecksum(record.Pathname, dirEntryChecksum)
 		if err != nil {
-			sc.RecordError(record.Pathname, err)
+			sc2.PutError(record.Pathname, []byte(err.Error()))
 			return err
 		}
-		err = sc.RecordStatistics(record.Pathname, &dirEntry.Summary)
+
+		serializedSummary, err := dirEntry.Summary.ToBytes()
 		if err != nil {
-			sc.RecordError(record.Pathname, err)
+			sc2.PutError(record.Pathname, []byte(err.Error()))
+			return err
+		}
+
+		err = sc2.PutSummary(record.Pathname, serializedSummary)
+		if err != nil {
+			sc2.PutError(record.Pathname, []byte(err.Error()))
 			return err
 		}
 
@@ -893,7 +563,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		return err
 	}
 
-	value, err := sc.GetChecksum("/")
+	value, err := sc2.GetChecksum("/")
 	if err != nil {
 		return err
 	}

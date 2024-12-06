@@ -273,3 +273,17 @@ func (s *Summary) UpdateAverages() {
 		s.Directory.AvgEntropy = s.Directory.SumEntropy / float64(s.Directory.Files)
 	}
 }
+
+func SummaryFromBytes(data []byte) (*Summary, error) {
+	var s *Summary
+
+	if err := msgpack.Unmarshal(data, &s); err != nil {
+		return nil, err
+	} else {
+		return s, nil
+	}
+}
+
+func (s *Summary) ToBytes() ([]byte, error) {
+	return msgpack.Marshal(s)
+}

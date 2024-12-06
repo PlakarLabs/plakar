@@ -41,7 +41,7 @@ func NewRepository() storage.Backend {
 	return &Repository{}
 }
 
-func (r *Repository) sendRequest(method string, url string, requestType string, payload interface{}) (*http.Response, error) {
+func (repo *Repository) sendRequest(method string, url string, requestType string, payload interface{}) (*http.Response, error) {
 	requestBody, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -55,13 +55,13 @@ func (r *Repository) sendRequest(method string, url string, requestType string, 
 	return client.Do(req)
 }
 
-func (repository *Repository) Create(location string, config storage.Configuration) error {
+func (repo *Repository) Create(location string, config storage.Configuration) error {
 	return nil
 }
 
-func (repository *Repository) Open(location string) error {
-	repository.Repository = location
-	r, err := repository.sendRequest("GET", location, "/", network.ReqOpen{
+func (repo *Repository) Open(location string) error {
+	repo.Repository = location
+	r, err := repo.sendRequest("GET", location, "/", network.ReqOpen{
 		Repository: "",
 	})
 	if err != nil {
@@ -76,13 +76,13 @@ func (repository *Repository) Open(location string) error {
 		return fmt.Errorf("%s", resOpen.Err)
 	}
 
-	repository.config = *resOpen.Configuration
+	repo.config = *resOpen.Configuration
 	return nil
 }
 
-func (repository *Repository) Close() error {
-	r, err := repository.sendRequest("POST", repository.Repository, "/", network.ReqClose{
-		Uuid: repository.config.RepositoryID.String(),
+func (repo *Repository) Close() error {
+	r, err := repo.sendRequest("POST", repo.Repository, "/", network.ReqClose{
+		Uuid: repo.config.RepositoryID.String(),
 	})
 	if err != nil {
 		return err
@@ -99,13 +99,13 @@ func (repository *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.Configuration {
-	return repository.config
+func (repo *Repository) Configuration() storage.Configuration {
+	return repo.config
 }
 
 // states
-func (repository *Repository) GetStates() ([][32]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/states", network.ReqGetStates{})
+func (repo *Repository) GetStates() ([][32]byte, error) {
+	r, err := repo.sendRequest("GET", repo.Repository, "/states", network.ReqGetStates{})
 	if err != nil {
 		return nil, err
 	}
@@ -125,13 +125,13 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
+func (repo *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 
-	r, err := repository.sendRequest("PUT", repository.Repository, "/state", network.ReqPutState{
+	r, err := repo.sendRequest("PUT", repo.Repository, "/state", network.ReqPutState{
 		Checksum: checksum,
 		Data:     data,
 	})
@@ -149,8 +149,8 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uin
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/state", network.ReqGetState{
+func (repo *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
+	r, err := repo.sendRequest("GET", repo.Repository, "/state", network.ReqGetState{
 		Checksum: checksum,
 	})
 	if err != nil {
@@ -167,8 +167,8 @@ func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, er
 	return bytes.NewBuffer(resGetState.Data), uint64(len(resGetState.Data)), nil
 }
 
-func (repository *Repository) DeleteState(checksum [32]byte) error {
-	r, err := repository.sendRequest("DELETE", repository.Repository, "/state", network.ReqDeleteState{
+func (repo *Repository) DeleteState(checksum [32]byte) error {
+	r, err := repo.sendRequest("DELETE", repo.Repository, "/state", network.ReqDeleteState{
 		Checksum: checksum,
 	})
 	if err != nil {
@@ -186,8 +186,8 @@ func (repository *Repository) DeleteState(checksum [32]byte) error {
 }
 
 // packfiles
-func (repository *Repository) GetPackfiles() ([][32]byte, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/packfiles", network.ReqGetPackfiles{})
+func (repo *Repository) GetPackfiles() ([][32]byte, error) {
+	r, err := repo.sendRequest("GET", repo.Repository, "/packfiles", network.ReqGetPackfiles{})
 	if err != nil {
 		return nil, err
 	}
@@ -207,12 +207,12 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
+func (repo *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
-	r, err := repository.sendRequest("PUT", repository.Repository, "/packfile", network.ReqPutPackfile{
+	r, err := repo.sendRequest("PUT", repo.Repository, "/packfile", network.ReqPutPackfile{
 		Checksum: checksum,
 		Data:     data,
 	})
@@ -230,8 +230,8 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/packfile", network.ReqGetPackfile{
+func (repo *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+	r, err := repo.sendRequest("GET", repo.Repository, "/packfile", network.ReqGetPackfile{
 		Checksum: checksum,
 	})
 	if err != nil {
@@ -248,8 +248,8 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64,
 	return bytes.NewBuffer(resGetPackfile.Data), uint64(len(resGetPackfile.Data)), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
-	r, err := repository.sendRequest("GET", repository.Repository, "/packfile/blob", network.ReqGetPackfileBlob{
+func (repo *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
+	r, err := repo.sendRequest("GET", repo.Repository, "/packfile/blob", network.ReqGetPackfileBlob{
 		Checksum: checksum,
 		Offset:   offset,
 		Length:   length,
@@ -268,8 +268,8 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 	return bytes.NewBuffer(resGetPackfileBlob.Data), uint32(len(resGetPackfileBlob.Data)), nil
 }
 
-func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	r, err := repository.sendRequest("DELETE", repository.Repository, "/packfile", network.ReqDeletePackfile{
+func (repo *Repository) DeletePackfile(checksum [32]byte) error {
+	r, err := repo.sendRequest("DELETE", repo.Repository, "/packfile", network.ReqDeletePackfile{
 		Checksum: checksum,
 	})
 	if err != nil {

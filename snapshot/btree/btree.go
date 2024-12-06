@@ -9,8 +9,12 @@ var (
 )
 
 type Storer[K any, P any, V any] interface {
+	// Get returns the node pointed by P.  The pointer is one
+	// previously returned by the Put method.
 	Get(P) (Node[K, P, V], error)
+	// Updates in-place the node pointed by P.
 	Update(P, Node[K, P, V]) error
+	// Put saves a new node and returns its address, or an error.
 	Put(Node[K, P, V]) (P, error)
 }
 
@@ -37,6 +41,7 @@ type BTree[K any, P any, V any] struct {
 	compare func(K, K) int
 }
 
+// New returns a new, empty tree.
 func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, order int) (*BTree[K, P, V], error) {
 	root := Node[K, P, V]{}
 	ptr, err := store.Put(root)
@@ -52,6 +57,9 @@ func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, ord
 	}, nil
 }
 
+// FromStorage returns a btree from the given storage.  The root must
+// exist, eventually empty, i.e. it should be a tree previously
+// created via New().
 func FromStorage[K any, P any, V any](root P, store Storer[K, P, V], compare func(K, K) int, order int) *BTree[K, P, V] {
 	return &BTree[K, P, V]{
 		Order:   order,

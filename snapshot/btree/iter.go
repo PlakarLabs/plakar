@@ -46,6 +46,8 @@ func (fit *forwardIter[K, P, V]) Err() error {
 	return fit.err
 }
 
+// ScanAll returns an iterator that visits all the values from the
+// smaller one onwards.
 func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 	ptr := b.Root
 
@@ -70,6 +72,9 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 	}, nil
 }
 
+// ScanFrom returns an iterator that visits all the values starting
+// from the given key, or the first key larger than the given one,
+// onwards.
 func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, V], error) {
 	if cmp == nil {
 		cmp = b.compare

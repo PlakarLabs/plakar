@@ -39,6 +39,11 @@ func persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 	return store.Put(newnode)
 }
 
+// Persist converts a BTree from one storage backend to another.  The
+// given store only needs to provide a working Put method, since by
+// design Persist inserts the nodes in post-order from the right-most
+// leaf, in a way that's suitable for a content-addressed store, and
+// never updates existing nodes nor retrieves inserted ones.
 func Persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, PB, V]) (ptr PB, err error) {
 	root, err := b.store.Get(b.Root)
 	if err != nil {

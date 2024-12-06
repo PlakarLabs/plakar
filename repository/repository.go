@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/PlakarKorp/plakar/repository/cache"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/storage"
 	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
@@ -26,7 +24,6 @@ import (
 
 type Repository struct {
 	store         *storage.Store
-	cache         *cache.Cache
 	state         *state.State
 	configuration storage.Configuration
 
@@ -39,15 +36,8 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
-	cacheDir := filepath.Join(store.Context().GetCacheDir(), "repository", store.Configuration().RepositoryID.String(), "states")
-	cacheInstance, err := cache.New(cacheDir)
-	if err != nil {
-		return nil, err
-	}
-
 	r := &Repository{
 		store:         store,
-		cache:         cacheInstance,
 		configuration: store.Configuration(),
 		secret:        secret,
 	}
@@ -58,6 +48,11 @@ func New(store *storage.Store, secret []byte) (*Repository, error) {
 }
 
 func (r *Repository) RebuildState() error {
+	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
+	if err != nil {
+		return err
+	}
+
 	t0 := time.Now()
 	defer func() {
 		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
@@ -65,7 +60,12 @@ func (r *Repository) RebuildState() error {
 
 	// identify local states
 	localStates := make(map[objects.Checksum]struct{})
-	for stateID := range r.cache.List() {
+	statesChan, err := cacheInstance.ListStates()
+	if err != nil {
+		return err
+	}
+
+	for stateID := range statesChan {
 		localStates[stateID] = struct{}{}
 	}
 
@@ -105,8 +105,12 @@ func (r *Repository) RebuildState() error {
 			if err != nil {
 				return err
 			}
-			if r.cache != nil {
-				r.cache.Put(stateID, remoteState)
+			if exists, err := cacheInstance.HasState(stateID); err != nil {
+				return err
+			} else if !exists {
+				if err := cacheInstance.PutState(stateID, remoteState); err != nil {
+					return err
+				}
 			}
 			localStates[stateID] = struct{}{}
 		}
@@ -114,7 +118,9 @@ func (r *Repository) RebuildState() error {
 		// delete local states that are not present in remote
 		for _, stateID := range outdatedStates {
 			delete(localStates, stateID)
-			r.cache.Delete(stateID)
+			if err := cacheInstance.DelState(stateID); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -314,11 +320,19 @@ func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) 
 		logger.Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
 	}()
 
-	if r.cache != nil {
-		buffer, err := r.cache.Get(checksum)
-		if err == nil {
-			return buffer, 0, nil
+	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if exists, err := cacheInstance.HasState(checksum); err != nil {
+		return nil, 0, err
+	} else if exists {
+		buffer, err := cacheInstance.GetState(checksum)
+		if err != nil {
+			return nil, 0, err
 		}
+		return buffer, int64(len(buffer)), nil
 	}
 
 	rd, _, err := r.store.GetState(checksum)
@@ -355,10 +369,15 @@ func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int6
 		return 0, err
 	}
 
+	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
+	if err != nil {
+		return 0, err
+	}
+
 	ret := r.store.PutState(checksum, bytes.NewReader(encoded), uint64(len(encoded)))
 
-	if ret == nil && r.cache != nil {
-		r.cache.Put(checksum, data)
+	if ret == nil {
+		cacheInstance.PutState(checksum, data)
 	}
 
 	return len(encoded), ret

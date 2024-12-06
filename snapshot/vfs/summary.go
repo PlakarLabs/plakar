@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/PlakarKorp/plakar/snapshot/importer"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type FileSummary struct {
@@ -17,6 +18,20 @@ type FileSummary struct {
 	ModTime     int64               `msgpack:"mod_time" json:"mod_time"`
 	ContentType string              `msgpack:"content_type" json:"content_type"`
 	Entropy     float64             `msgpack:"entropy" json:"entropy"`
+}
+
+func FileSummaryFromBytes(data []byte) (*FileSummary, error) {
+	var f *FileSummary
+
+	if err := msgpack.Unmarshal(data, &f); err != nil {
+		return nil, err
+	} else {
+		return f, nil
+	}
+}
+
+func (f *FileSummary) Serialize() ([]byte, error) {
+	return msgpack.Marshal(f)
 }
 
 type Directory struct {
@@ -257,4 +272,18 @@ func (s *Summary) UpdateAverages() {
 		s.Directory.AvgSize = s.Directory.Size / s.Directory.Files
 		s.Directory.AvgEntropy = s.Directory.SumEntropy / float64(s.Directory.Files)
 	}
+}
+
+func SummaryFromBytes(data []byte) (*Summary, error) {
+	var s *Summary
+
+	if err := msgpack.Unmarshal(data, &s); err != nil {
+		return nil, err
+	} else {
+		return s, nil
+	}
+}
+
+func (s *Summary) ToBytes() ([]byte, error) {
+	return msgpack.Marshal(s)
 }

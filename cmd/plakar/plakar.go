@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PlakarKorp/plakar/caching"
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
@@ -128,6 +129,9 @@ func entryPoint() int {
 		return 1
 	}
 	ctx.SetCacheDir(cacheDir)
+
+	ctx.SetCache(caching.NewManager(cacheDir))
+	defer ctx.GetCache().Close()
 
 	// best effort check if security or reliability fix have been issued
 	if rus, err := utils.CheckUpdate(ctx.GetCacheDir()); err == nil {

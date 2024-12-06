@@ -117,9 +117,8 @@ func (c *ScanCache) GetSummary(pathname string) ([]byte, error) {
 
 // / BELOW IS THE OLD CODE FROM BACKUP LAYER, NEEDS TO BE CLEANED UP
 type ErrorEntry struct {
-	Predecessor objects.Checksum `msgpack:"predecessor"`
-	Pathname    string           `msgpack:"pathname"`
-	Error       string           `msgpack:"error"`
+	Pathname string
+	Error    string
 }
 
 func (c *ScanCache) EnumerateErrorsWithinDirectory(directory string, reverse bool) (<-chan ErrorEntry, error) {

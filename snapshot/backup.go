@@ -22,12 +22,6 @@ import (
 	"github.com/gobwas/glob"
 )
 
-type ErrorEntry struct {
-	Predecessor objects.Checksum `msgpack:"predecessor"`
-	Pathname    string           `msgpack:"pathname"`
-	Error       string           `msgpack:"error"`
-}
-
 type BackupContext struct {
 	aborted        atomic.Bool
 	abortedReason  error

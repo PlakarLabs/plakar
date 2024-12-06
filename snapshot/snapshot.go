@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/events"
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
@@ -112,21 +113,21 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 		packerChanDone: make(chan bool),
 	}
 
-	if repo.Context().GetIdentity() != uuid.Nil {
-		snap.Header.Identity.Identifier = repo.Context().GetIdentity()
-		snap.Header.Identity.PublicKey = repo.Context().GetKeypair().PublicKey
+	if snap.Context().GetIdentity() != uuid.Nil {
+		snap.Header.Identity.Identifier = snap.Context().GetIdentity()
+		snap.Header.Identity.PublicKey = snap.Context().GetKeypair().PublicKey
 	}
 
-	snap.Header.SetContext("Hostname", repo.Context().GetHostname())
-	snap.Header.SetContext("Username", repo.Context().GetUsername())
-	snap.Header.SetContext("OperatingSystem", repo.Context().GetOperatingSystem())
-	snap.Header.SetContext("MachineID", repo.Context().GetMachineID())
-	snap.Header.SetContext("CommandLine", repo.Context().GetCommandLine())
-	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", repo.Context().GetProcessID()))
-	snap.Header.SetContext("Architecture", repo.Context().GetArchitecture())
+	snap.Header.SetContext("Hostname", snap.Context().GetHostname())
+	snap.Header.SetContext("Username", snap.Context().GetUsername())
+	snap.Header.SetContext("OperatingSystem", snap.Context().GetOperatingSystem())
+	snap.Header.SetContext("MachineID", snap.Context().GetMachineID())
+	snap.Header.SetContext("CommandLine", snap.Context().GetCommandLine())
+	snap.Header.SetContext("ProcessID", fmt.Sprintf("%d", snap.Context().GetProcessID()))
+	snap.Header.SetContext("Architecture", snap.Context().GetArchitecture())
 	snap.Header.SetContext("NumCPU", fmt.Sprintf("%d", runtime.NumCPU()))
 	snap.Header.SetContext("GOMAXPROCS", fmt.Sprintf("%d", runtime.GOMAXPROCS(0)))
-	snap.Header.SetContext("Client", repo.Context().GetPlakarClient())
+	snap.Header.SetContext("Client", snap.Context().GetPlakarClient())
 
 	go packerJob(snap)
 
@@ -194,8 +195,12 @@ func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 	return snap, nil
 }
 
+func (snap *Snapshot) Context() *context.Context {
+	return snap.Repository().Context()
+}
+
 func (snap *Snapshot) Event(evt events.Event) {
-	snap.Repository().Context().Events().Send(evt)
+	snap.Context().Events().Send(evt)
 }
 
 func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
@@ -219,8 +224,8 @@ func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*hea
 	return hdr, false, nil
 }
 
-func (snapshot *Snapshot) Repository() *repository.Repository {
-	return snapshot.repository
+func (snap *Snapshot) Repository() *repository.Repository {
+	return snap.repository
 }
 
 func (snap *Snapshot) PutPackfile(packer *Packer) error {
@@ -298,36 +303,36 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	return nil
 }
 
-func (snapshot *Snapshot) Commit() error {
+func (snap *Snapshot) Commit() error {
 
-	repo := snapshot.repository
+	repo := snap.repository
 
-	serializedHdr, err := snapshot.Header.Serialize()
+	serializedHdr, err := snap.Header.Serialize()
 	if err != nil {
 		return err
 	}
 
-	if kp := snapshot.repository.Context().GetKeypair(); kp != nil {
-		serializedHdrChecksum := snapshot.repository.Checksum(serializedHdr)
+	if kp := snap.Context().GetKeypair(); kp != nil {
+		serializedHdrChecksum := snap.repository.Checksum(serializedHdr)
 		signature := kp.Sign(serializedHdrChecksum[:])
-		if err := snapshot.PutBlob(packfile.TYPE_SIGNATURE, snapshot.Header.Identifier, signature); err != nil {
+		if err := snap.PutBlob(packfile.TYPE_SIGNATURE, snap.Header.Identifier, signature); err != nil {
 			return err
 		}
 	}
 
-	if err := snapshot.PutBlob(packfile.TYPE_SNAPSHOT, snapshot.Header.Identifier, serializedHdr); err != nil {
+	if err := snap.PutBlob(packfile.TYPE_SNAPSHOT, snap.Header.Identifier, serializedHdr); err != nil {
 		return err
 	}
 
-	close(snapshot.packerChan)
-	<-snapshot.packerChanDone
+	close(snap.packerChan)
+	<-snap.packerChanDone
 
-	serializedRepositoryIndex, err := snapshot.stateDelta.Serialize()
+	serializedRepositoryIndex, err := snap.stateDelta.Serialize()
 	if err != nil {
 		logger.Warn("could not serialize repository index: %s", err)
 		return err
 	}
-	indexChecksum := snapshot.repository.Checksum(serializedRepositoryIndex)
+	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex)
 	indexChecksum32 := objects.Checksum{}
 	copy(indexChecksum32[:], indexChecksum[:])
 	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
@@ -335,12 +340,12 @@ func (snapshot *Snapshot) Commit() error {
 		return err
 	}
 
-	logger.Trace("snapshot", "%x: Commit()", snapshot.Header.GetIndexShortID())
+	logger.Trace("snapshot", "%x: Commit()", snap.Header.GetIndexShortID())
 	return nil
 }
 
-func (snapshot *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Object, error) {
-	buffer, err := snapshot.GetBlob(packfile.TYPE_OBJECT, checksum)
+func (snap *Snapshot) LookupObject(checksum objects.Checksum) (*objects.Object, error) {
+	buffer, err := snap.GetBlob(packfile.TYPE_OBJECT, checksum)
 	if err != nil {
 		return nil, err
 	}

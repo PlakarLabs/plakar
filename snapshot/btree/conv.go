@@ -40,7 +40,7 @@ func persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 }
 
 func Persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, PB, V]) (ptr PB, err error) {
-	root, err := b.store.Get(b.root)
+	root, err := b.store.Get(b.Root)
 	if err != nil {
 		return
 	}

@@ -27,8 +27,8 @@ type Node[K any, P any, V any] struct {
 // value stored, and P is a pointer type: it could be a disk sector,
 // a checksum in a packfile, or a key in a leveldb cache.  or more.
 type BTree[K any, P any, V any] struct {
-	order   int
-	root    P
+	Order   int
+	Root    P
 	store   Storer[K, P, V]
 	compare func(K, K) int
 }
@@ -41,8 +41,8 @@ func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, ord
 	}
 
 	return &BTree[K, P, V]{
-		order:   order,
-		root:    ptr,
+		Order:   order,
+		Root:    ptr,
 		store:   store,
 		compare: compare,
 	}, nil
@@ -50,8 +50,8 @@ func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, ord
 
 func FromStorage[K any, P any, V any](root P, store Storer[K, P, V], compare func(K, K) int, order int) *BTree[K, P, V] {
 	return &BTree[K, P, V]{
-		order:   order,
-		root:    root,
+		Order:   order,
+		Root:    root,
 		store:   store,
 		compare: compare,
 	}
@@ -62,7 +62,7 @@ func (n *Node[K, P, V]) isleaf() bool {
 }
 
 func (b *BTree[K, P, V]) findleaf(key K) (node Node[K, P, V], path []P, err error) {
-	ptr := b.root
+	ptr := b.Root
 
 outer:
 	for {
@@ -185,7 +185,7 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 	}
 
 	ptr := path[len(path)-1]
-	if len(node.Keys) < b.order-1 {
+	if len(node.Keys) < b.Order-1 {
 		node.insertAt(idx, key, val)
 		return b.store.Update(ptr, node)
 	}
@@ -224,7 +224,7 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 			panic("broken invariant: duplicate key in intermediate node")
 		}
 
-		if len(node.Keys) < b.order-1 {
+		if len(node.Keys) < b.Order-1 {
 			node.insertInternal(idx, key, ptr)
 			return b.store.Update(path[i], node)
 		}
@@ -250,12 +250,12 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 	// reached the root, growing the tree
 	newroot := Node[K, P, V]{
 		Keys:     []K{key},
-		Pointers: []P{b.root, ptr},
+		Pointers: []P{b.Root, ptr},
 	}
 	rootptr, err := b.store.Put(newroot)
 	if err != nil {
 		return err
 	}
-	b.root = rootptr
+	b.Root = rootptr
 	return nil
 }

@@ -47,7 +47,7 @@ func (fit *forwardIter[K, P, V]) Err() error {
 }
 
 func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
-	ptr := b.root
+	ptr := b.Root
 
 	var n *Node[K, P, V]
 	for {

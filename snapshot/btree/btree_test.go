@@ -56,7 +56,7 @@ func cmp(a, b rune) int {
 }
 
 func printtree[K any, P any, V any](b *BTree[K, P, V]) {
-	stack := []P{b.root}
+	stack := []P{b.Root}
 
 	n := 0
 	for {

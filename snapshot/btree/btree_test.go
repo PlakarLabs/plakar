@@ -88,7 +88,6 @@ func TestBTree(t *testing.T) {
 		t.Fatalf("New failed: %v", err)
 	}
 
-	// 
 	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
 	for i, r := range alphabet {
 		// log.Println("==== tree dump ====")
@@ -139,5 +138,42 @@ func TestBTree(t *testing.T) {
 	}
 	if found {
 		t.Fatalf("Find(%v) unexpectedly found %v", nonexist, v)
+	}
+}
+
+func TestScanAll(t *testing.T) {
+	store := InMemoryStore[rune, int]{}
+	tree, err := New(&store, cmp, 3)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
+	for i, r := range alphabet {
+		if err := tree.Insert(r, i); err != nil {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	iter, err := tree.ScanAll()
+	if err != nil {
+		t.Fatalf("ScanAll failed: %v", err)
+	}
+
+	for i, r := range alphabet {
+		if !iter.Next() {
+			t.Fatalf("iterator stopped too early!")
+		}
+		k, v := iter.Current()
+		if k != r {
+			t.Errorf("Got key %v; want %v", k, r)
+		}
+		if v != i {
+			t.Errorf("Got value %v; want %v", v, i)
+		}
+	}
+
+	if iter.Next() {
+		t.Fatalf("iterator could unexpectedly continue")
 	}
 }

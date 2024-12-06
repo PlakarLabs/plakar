@@ -16,11 +16,15 @@ type Storer[K any, P any, V any] interface {
 
 type Node[K any, P any, V any] struct {
 	// An intermediate node has only Keys and Pointers, while
-	// leaves have only keys and values.
-	Keys     []K
-	Pointers []P // invariant: len(Pointers) == len(Keys) + 1 in intermediate nodes
-	Values   []V // invariant: len(Values) == len(Keys)       in leaf nodes
-	Next     *P  // in leaves, point to the next one
+	// leaves have only keys and values and optionally a next
+	// pointer.
+	//
+	// invariant: len(Pointers) == len(Keys) + 1 in intermediate nodes
+	// invariant: len(Values)   == len(Keys)     in leaf nodes
+	Keys     []K `msgpack:"keys"`
+	Pointers []P `msgpack:"pointers"`
+	Values   []V `msgpack:"values"`
+	Next     *P  `msgpack:"next,omitempty"`
 }
 
 // BTree implements a B+tree.  K is the type for the key, V for the

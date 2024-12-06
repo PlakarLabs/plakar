@@ -178,7 +178,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		return err
 	}
 
-	cf, err := classifier.NewClassifier(snap.repository.Context())
+	cf, err := classifier.NewClassifier(snap.Context())
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	maxConcurrency := options.MaxConcurrency
 	if maxConcurrency == 0 {
-		maxConcurrency = uint64(snap.repository.Context().GetMaxConcurrency())
+		maxConcurrency = uint64(snap.Context().GetMaxConcurrency())
 	}
 
 	backupCtx := &BackupContext{

@@ -16,6 +16,7 @@ import (
 	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
+	"github.com/PlakarKorp/plakar/snapshot/btree"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/gabriel-vasile/mimetype"
@@ -28,6 +29,8 @@ type BackupContext struct {
 	imp            *importer.Importer
 	sc             *caching.ScanCache
 	maxConcurrency chan bool
+	tree           *btree.BTree[string, int, ErrorItem]
+	mutree         sync.Mutex
 }
 
 type BackupOptions struct {
@@ -35,6 +38,16 @@ type BackupOptions struct {
 	Name           string
 	Tags           []string
 	Excludes       []glob.Glob
+}
+
+func (bc *BackupContext) recordError(path string, err error) error {
+	bc.mutree.Lock()
+	e := bc.tree.Insert(path, ErrorItem{
+		Name:  path,
+		Error: err.Error(),
+	})
+	bc.mutree.Unlock()
+	return e
 }
 
 func (snapshot *Snapshot) skipExcludedPathname(options *BackupOptions, record importer.ScanResult) bool {
@@ -121,7 +134,7 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 						backupCtx.abortedReason = record.Err
 						return
 					}
-					backupCtx.sc.PutError(record.Pathname, []byte(record.Err.Error()))
+					backupCtx.recordError(record.Pathname, record.Err)
 					snap.Event(events.PathErrorEvent(snap.Header.Identifier, record.Pathname, record.Err.Error()))
 
 				case importer.ScanRecord:
@@ -129,7 +142,7 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 
 					serializedRecord, err := record.ToBytes()
 					if err != nil {
-						backupCtx.sc.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 
@@ -139,7 +152,7 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 					}
 
 					if err := backupCtx.sc.PutPathname(pathname, serializedRecord); err != nil {
-						backupCtx.sc.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 					if !record.FileInfo.Mode().IsDir() {
@@ -157,7 +170,6 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 }
 
 func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
-
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 
@@ -214,6 +226,15 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		imp:            imp,
 		sc:             sc2,
 		maxConcurrency: make(chan bool, maxConcurrency),
+	}
+
+	ds := caching.DBStore[string, ErrorItem]{
+		Prefix: "__error__",
+		Cache:  sc2,
+	}
+	backupCtx.tree, err = btree.New(&ds, strings.Compare, 50)
+	if err != nil {
+		return err
 	}
 
 	/* importer */
@@ -278,18 +299,18 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					object, err = snap.chunkify(imp, cf, record)
 					if err != nil {
 						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
-						sc2.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 
 					serializedObject, err := object.Serialize()
 					if err != nil {
-						sc2.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 
 					if err := vfsCache.PutObject(object.Checksum, serializedObject); err != nil {
-						sc2.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 				}
@@ -299,14 +320,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				if !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
 					data, err := object.Serialize()
 					if err != nil {
-						sc2.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
 					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
 					err = snap.PutBlob(packfile.TYPE_OBJECT, object.Checksum, data)
 					if err != nil {
-						sc2.PutError(record.Pathname, []byte(err.Error()))
+						backupCtx.recordError(record.Pathname, err)
 						return
 					}
 				}
@@ -330,7 +351,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 				serialized, err := fileEntry.Serialize()
 				if err != nil {
-					sc2.PutError(record.Pathname, []byte(err.Error()))
+					backupCtx.recordError(record.Pathname, err)
 					return
 				}
 
@@ -338,14 +359,14 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				fileEntrySize = uint64(len(serialized))
 				err = snap.PutBlob(packfile.TYPE_FILE, fileEntryChecksum, serialized)
 				if err != nil {
-					sc2.PutError(record.Pathname, []byte(err.Error()))
+					backupCtx.recordError(record.Pathname, err)
 					return
 				}
 
 				// Store the newly generated FileEntry in the cache for future runs
 				err = vfsCache.PutFilename(record.Pathname, serialized)
 				if err != nil {
-					sc2.PutError(record.Pathname, []byte(err.Error()))
+					backupCtx.recordError(record.Pathname, err)
 					return
 				}
 
@@ -364,13 +385,13 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 				seralizedFileSummary, err := fileSummary.Serialize()
 				if err != nil {
-					sc2.PutError(record.Pathname, []byte(err.Error()))
+					backupCtx.recordError(record.Pathname, err)
 					return
 				}
 
 				err = vfsCache.PutFileSummary(record.Pathname, seralizedFileSummary)
 				if err != nil {
-					sc2.PutError(record.Pathname, []byte(err.Error()))
+					backupCtx.recordError(record.Pathname, err)
 					return
 				}
 			}
@@ -380,7 +401,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			// Record the checksum of the FileEntry in the cache
 			err = sc2.PutChecksum(record.Pathname, fileEntryChecksum)
 			if err != nil {
-				sc2.PutError(record.Pathname, []byte(err.Error()))
+				backupCtx.recordError(record.Pathname, err)
 				return
 			}
 			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.FileInfo.Size()))
@@ -462,32 +483,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		dirEntry.Children = lastChecksum
 		dirEntry.Summary.UpdateAverages()
 
-		/* errors */
-		lastChecksum = nil
-		if errc, err := sc2.EnumerateErrorsWithinDirectory(record.Pathname, true); err == nil {
-			for entry := range errc {
-				errorEntry := &vfs.ErrorEntry{Name: filepath.Base(entry.Pathname), Error: entry.Error}
-
-				if lastChecksum != nil {
-					errorEntry.Successor = lastChecksum
-				}
-				errorEntrySerialized, err := errorEntry.ToBytes()
-				if err != nil {
-					continue
-				}
-				errorEntryChecksum := snap.repository.Checksum(errorEntrySerialized)
-				lastChecksum = &errorEntryChecksum
-				if !snap.BlobExists(packfile.TYPE_ERROR, errorEntryChecksum) {
-					if err := snap.PutBlob(packfile.TYPE_ERROR, errorEntryChecksum, errorEntrySerialized); err != nil {
-						continue
-					}
-				}
-				dirEntry.Summary.Directory.Errors++
-			}
-			// Set first and last error checksums in the directory entry
-			dirEntry.Errors = lastChecksum
-		}
-
 		classifications := cf.Processor(record.Pathname).Directory(dirEntry)
 		for _, result := range classifications {
 			dirEntry.AddClassification(result.Analyzer, result.Classes)
@@ -503,25 +498,25 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		if !snap.BlobExists(packfile.TYPE_DIRECTORY, dirEntryChecksum) {
 			err = snap.PutBlob(packfile.TYPE_DIRECTORY, dirEntryChecksum, serialized)
 			if err != nil {
-				sc2.PutError(record.Pathname, []byte(err.Error()))
+				backupCtx.recordError(record.Pathname, err)
 				return err
 			}
 		}
 		err = sc2.PutChecksum(record.Pathname, dirEntryChecksum)
 		if err != nil {
-			sc2.PutError(record.Pathname, []byte(err.Error()))
+			backupCtx.recordError(record.Pathname, err)
 			return err
 		}
 
 		serializedSummary, err := dirEntry.Summary.ToBytes()
 		if err != nil {
-			sc2.PutError(record.Pathname, []byte(err.Error()))
+			backupCtx.recordError(record.Pathname, err)
 			return err
 		}
 
 		err = sc2.PutSummary(record.Pathname, serializedSummary)
 		if err != nil {
-			sc2.PutError(record.Pathname, []byte(err.Error()))
+			backupCtx.recordError(record.Pathname, err)
 			return err
 		}
 
@@ -530,6 +525,29 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		snap.Event(events.DirectoryOKEvent(snap.Header.Identifier, record.Pathname))
 		if record.Pathname == "/" {
 			rootSummary = &dirEntry.Summary
+		}
+	}
+
+	root, err := btree.Persist(backupCtx.tree, &SnapshotStore[string, ErrorItem]{
+		readonly: false,
+		blobtype: packfile.TYPE_ERROR,
+		snap:     snap,
+	})
+	if err != nil {
+		return err
+	}
+	head := ErrorEntry{
+		Order: backupCtx.tree.Order,
+		Root:  root,
+	}
+	bytes, err := head.ToBytes()
+	if err != nil {
+		return err
+	}
+	headcsum := snap.repository.Checksum(bytes)
+	if !snap.BlobExists(packfile.TYPE_ERROR, headcsum) {
+		if err := snap.PutBlob(packfile.TYPE_ERROR, headcsum, bytes); err != nil {
+			return err
 		}
 	}
 
@@ -559,6 +577,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Header.Statistics = statisticsChecksum
 	snap.Header.Duration = time.Since(snap.statistics.ImporterStart)
 	snap.Header.Summary = *rootSummary
+	snap.Header.Errors = headcsum
 
 	/*
 		for _, key := range snap.Metadata.ListKeys() {

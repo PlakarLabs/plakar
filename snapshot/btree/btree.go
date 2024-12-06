@@ -48,6 +48,15 @@ func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, ord
 	}, nil
 }
 
+func FromStorage[K any, P any, V any](root P, store Storer[K, P, V], compare func(K, K) int, order int) *BTree[K, P, V] {
+	return &BTree[K, P, V]{
+		order:   order,
+		root:    root,
+		store:   store,
+		compare: compare,
+	}
+}
+
 func (n *Node[K, P, V]) isleaf() bool {
 	return len(n.Pointers) == 0
 }

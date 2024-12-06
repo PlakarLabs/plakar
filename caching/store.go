@@ -3,7 +3,7 @@ package caching
 import (
 	"fmt"
 
-	"github.com/PlakarKorp/plakar/snapshot/btree"
+	"github.com/PlakarKorp/plakar/btree"
 	"github.com/vmihailenco/msgpack/v5"
 )
 

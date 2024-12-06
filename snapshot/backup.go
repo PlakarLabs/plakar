@@ -169,60 +169,6 @@ func (cache *scanCache) EnumerateErrorsWithinDirectory(directory string, reverse
 	return keyChan, nil
 }
 
-func (cache *scanCache) EnumerateErrorsWithinDirectory2(directory string) (<-chan ErrorEntry, error) {
-	// Ensure directory ends with a trailing slash for consistency
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	// Create a channel to return the keys
-	keyChan := make(chan ErrorEntry)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Create the directory prefix to match keys
-		directoryKeyPrefix := "__error__:" + directory
-
-		for iter.Seek([]byte(directoryKeyPrefix)); iter.Valid(); iter.Next() {
-			key := string(iter.Key())
-			if key == directoryKeyPrefix {
-				continue
-			}
-
-			// Check if the key starts with the directory prefix
-			if strings.HasPrefix(key, directoryKeyPrefix) {
-				// Remove the prefix and the directory to isolate the remaining part of the path
-				remainingPath := key[len(directoryKeyPrefix):]
-
-				// Determine if this is an immediate child
-				slashCount := strings.Count(remainingPath, "/")
-
-				// Immediate child should either:
-				// - Have no slash (a file)
-				// - Have exactly one slash at the end (a directory)
-				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
-					// Retrieve the value for the current key
-					path := strings.TrimPrefix(key, "__error__:")
-					value := iter.Value()
-					keyChan <- ErrorEntry{Pathname: path, Error: string(value)}
-				}
-			} else {
-				// Stop if the key is no longer within the expected prefix
-				break
-			}
-		}
-
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
-}
-
 func (cache *scanCache) RecordPathname(record importer.ScanRecord) error {
 	buffer, err := msgpack.Marshal(&record)
 	if err != nil {
@@ -354,68 +300,6 @@ func (cache *scanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirector
 
 			// Send the record through the channel
 			keyChan <- record
-		}
-	}()
-
-	// Return the channel for the caller to consume
-	return keyChan, nil
-}
-
-func (cache *scanCache) EnumerateImmediateChildPathnames2(directory string, reverse bool) (<-chan importer.ScanRecord, error) {
-	// Ensure directory ends with a trailing slash for consistency
-	if !strings.HasSuffix(directory, "/") {
-		directory += "/"
-	}
-
-	// Create a channel to return the keys
-	keyChan := make(chan importer.ScanRecord)
-
-	// Start a goroutine to perform the iteration
-	go func() {
-		defer close(keyChan) // Ensure the channel is closed when the function exits
-
-		iter := cache.db.NewIterator(nil, nil)
-		defer iter.Release()
-
-		// Create the directory prefix to match keys
-		directoryKeyPrefix := "__pathname__:" + directory
-
-		// Iterate over keys in LevelDB
-		for iter.Seek([]byte(directoryKeyPrefix)); iter.Valid(); iter.Next() {
-			key := string(iter.Key())
-			if key == directoryKeyPrefix {
-				continue
-			}
-
-			// Check if the key starts with the directory prefix
-			if strings.HasPrefix(key, directoryKeyPrefix) {
-				// Remove the prefix and the directory to isolate the remaining part of the path
-				remainingPath := key[len(directoryKeyPrefix):]
-
-				// Determine if this is an immediate child
-				slashCount := strings.Count(remainingPath, "/")
-
-				// Immediate child should either:
-				// - Have no slash (a file)
-				// - Have exactly one slash at the end (a directory)
-				if slashCount == 0 || (slashCount == 1 && strings.HasSuffix(remainingPath, "/")) {
-					// Retrieve the value for the current key
-					value := iter.Value()
-
-					var record importer.ScanRecord
-					err := msgpack.Unmarshal(value, &record)
-					if err != nil {
-						fmt.Printf("Error unmarshaling value: %v\n", err)
-						continue
-					}
-
-					// Send the immediate child key through the channel
-					keyChan <- record
-				}
-			} else {
-				// Stop if the key is no longer within the expected prefix
-				break
-			}
 		}
 	}()
 

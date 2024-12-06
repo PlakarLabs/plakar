@@ -83,6 +83,14 @@ func TestBTree(t *testing.T) {
 		}
 	}
 
+	for i, r := range alphabet {
+		if err := tree.Insert(r, i); err != ErrExists {
+			t.Fatalf("insertion of (%v, %v) failed with unexpected error: %v", r, i, err)
+		} else if err != ErrExists {
+			t.Fatalf("insertion of (%v, %v) failed with unexpected succeeded", r, i)
+		}
+	}
+
 	// log.Println("==== done; now querying ====")
 	// printtree(tree)
 	// log.Println("====")

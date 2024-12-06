@@ -457,36 +457,3 @@ func (fsc *Filesystem) ChildrenIter(dir *DirEntry) (<-chan *ChildEntry, error) {
 
 	return c, nil
 }
-
-func (fsc *Filesystem) ErrorIter(dir *DirEntry) (<-chan *ErrorEntry, error) {
-	c := make(chan *ErrorEntry)
-
-	go func() {
-		defer close(c)
-
-		iter := dir.Errors
-		for iter != nil {
-
-			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_ERROR, *iter)
-			if err != nil {
-				return
-			}
-
-			errorBytes, err := io.ReadAll(rd)
-			if err != nil {
-				return
-			}
-
-			errEntry, err := ErrorEntryFromBytes(errorBytes)
-			if err != nil {
-				return
-			}
-
-			c <- errEntry
-
-			iter = errEntry.Successor
-		}
-	}()
-
-	return c, nil
-}

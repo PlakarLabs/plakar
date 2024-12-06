@@ -496,7 +496,8 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 		return err
 	}
 
-	fsinfo, err := fs.Stat(filepath.Clean(pathname))
+	pathname = filepath.Clean(pathname)
+	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
 		return err
 	}
@@ -603,7 +604,7 @@ func info_vfs(repo *repository.Repository, snapshotPath string) error {
 			offset++
 		}
 
-		errors, err := fs.ErrorIter(dirEntry)
+		errors, err := snap1.Errors(pathname)
 		if err != nil {
 			return err
 		}
@@ -667,34 +668,13 @@ func info_errors(repo *repository.Repository, snapshotID string) error {
 		return err
 	}
 
-	fs, err := snap.Filesystem()
+	errstream, err := snap.Errors(pathname)
 	if err != nil {
 		return err
 	}
 
-	for dir := range fs.Directories() {
-		if !strings.HasSuffix(dir, "/") {
-			dir = dir + "/"
-		}
-		if !strings.HasPrefix(dir, pathname) {
-			continue
-		}
-		fi, err := fs.Stat(dir)
-		if err != nil {
-			logger.Warn("%s", err)
-			continue
-		}
-		dirEntry := fi.(*vfs.DirEntry)
-		errors, err := fs.ErrorIter(dirEntry)
-		if err != nil {
-			logger.Warn("%s", err)
-			continue
-		}
-
-		for err := range errors {
-			fmt.Printf("%s: %s\n", filepath.Join(dirEntry.ParentPath, dirEntry.Stat().Name(), err.Name), err.Error)
-		}
-
+	for item := range errstream {
+		fmt.Printf("%s: %s\n", item.Name, item.Error)
 	}
 
 	return nil

@@ -56,6 +56,7 @@ type Header struct {
 	Context         []KeyValue       `msgpack:"context" json:"context"`
 	Importer        Importer         `msgpack:"importer" json:"importer"`
 	Root            objects.Checksum `msgpack:"root" json:"root"`
+	Errors          objects.Checksum `msgpack:"errors" json:"errors"`
 	Index           objects.Checksum `msgpack:"index" json:"index"`
 	Metadata        objects.Checksum `msgpack:"metadata" json:"metadata"`
 	Statistics      objects.Checksum `msgpack:"statistics" json:"statistics"`

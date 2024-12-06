@@ -53,14 +53,6 @@ func (c *ScanCache) get(prefix, key string) ([]byte, error) {
 	return data, nil
 }
 
-func (c *ScanCache) PutError(pathname string, data []byte) error {
-	return c.put("__error__", pathname, data)
-}
-
-func (c *ScanCache) GetError(pathname string) ([]byte, error) {
-	return c.get("__error__", pathname)
-}
-
 // XXX - beware that pathname should be constructed to end with / for directories
 func (c *ScanCache) PutPathname(pathname string, data []byte) error {
 	return c.put("__pathname__", pathname, data)

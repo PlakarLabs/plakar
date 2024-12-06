@@ -22,14 +22,6 @@ import (
 	"github.com/gobwas/glob"
 )
 
-type NoOpLogger struct{}
-
-func (l *NoOpLogger) Errorf(format string, v ...interface{})   {}
-func (l *NoOpLogger) Warningf(format string, v ...interface{}) {}
-func (l *NoOpLogger) Infof(format string, v ...interface{})    {}
-func (l *NoOpLogger) Debugf(format string, v ...interface{})   {}
-func (l *NoOpLogger) Fatalf(format string, v ...interface{})   {}
-
 type ErrorEntry struct {
 	Predecessor objects.Checksum `msgpack:"predecessor"`
 	Pathname    string           `msgpack:"pathname"`

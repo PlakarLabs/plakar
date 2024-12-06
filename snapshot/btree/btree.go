@@ -20,6 +20,7 @@ type Node[K any, P any, V any] struct {
 	Keys     []K
 	Pointers []P // invariant: len(Pointers) == len(Keys) + 1 in intermediate nodes
 	Values   []V // invariant: len(Values) == len(Keys)       in leaf nodes
+	Next     *P  // in leaves, point to the next one
 }
 
 // BTree implements a B+tree.  K is the type for the key, V for the
@@ -187,11 +188,13 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 		idx -= len(node.Keys)
 	}
 	new.insertAt(idx, key, val)
+	new.Next = node.Next
 
 	newptr, err := b.store.Put(new)
 	if err != nil {
 		return err
 	}
+	node.Next = &newptr
 	if err := b.store.Update(ptr, node); err != nil {
 		return err
 	}

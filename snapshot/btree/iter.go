@@ -65,9 +65,48 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 
 	return &forwardIter[K, P, V]{
 		b:       b,
-		err:     nil,
 		current: n,
 		idx:     -1,
+	}, nil
+}
+
+func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, V], error) {
+	if cmp == nil {
+		cmp = b.compare
+	}
+
+	node, _, err := b.findleaf(key, cmp)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		idx int
+		found bool
+	)
+	for idx = range node.Keys {
+		if cmp(key, node.Keys[idx]) <= 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		if node.Next == nil {
+			idx++ // key not found, make an empty iterator
+		} else {
+			node, err = b.store.Get(*node.Next)
+			if err != nil {
+				return nil, err
+			}
+			idx = 0
+		}
+	}
+
+	idx-- // forwardIter.Next() will bump this
+	return &forwardIter[K, P, V]{
+		b:       b,
+		current: &node,
+		idx:     idx,
 	}, nil
 }
 

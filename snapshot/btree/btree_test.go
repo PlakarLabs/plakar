@@ -169,6 +169,44 @@ func TestScanAll(t *testing.T) {
 	}
 }
 
+func TestScanFrom(t *testing.T) {
+	store := InMemoryStore[rune, int]{}
+	tree, err := New(&store, cmp, 8)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
+	for i, r := range alphabet {
+		if err := tree.Insert(r, i); err != nil {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	iter, err := tree.ScanFrom(rune('e'), nil)
+	if err != nil {
+		t.Fatalf("ScanAll failed: %v", err)
+	}
+
+	for i := 4; i < len(alphabet); i++ {
+		r := alphabet[i]
+		if !iter.Next() {
+			t.Fatalf("iterator stopped too early!")
+		}
+		k, v := iter.Current()
+		if k != r {
+			t.Errorf("Got key %c; want %c", k, r)
+		}
+		if v != i {
+			t.Errorf("Got value %v; want %v", v, i)
+		}
+	}
+
+	if iter.Next() {
+		t.Fatalf("iterator could unexpectedly continue")
+	}
+}
+
 func TestPersist(t *testing.T) {
 	order := 3
 	store := InMemoryStore[rune, int]{}
@@ -177,8 +215,7 @@ func TestPersist(t *testing.T) {
 		t.Fatalf("New failed: %v", err)
 	}
 
-	//alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
-	alphabet := []rune("abcdef")
+	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
 	for i, r := range alphabet {
 		if err := tree1.Insert(r, i); err != nil {
 			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)

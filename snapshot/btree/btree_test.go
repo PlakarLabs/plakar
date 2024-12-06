@@ -3,6 +3,7 @@ package btree
 import (
 	"errors"
 	"log"
+	"strings"
 	"testing"
 )
 
@@ -129,6 +130,46 @@ func TestBTree(t *testing.T) {
 	}
 	if found {
 		t.Fatalf("Find(%v) unexpectedly found %v", nonexist, v)
+	}
+}
+
+func TestInsert(t *testing.T) {
+	store := InMemoryStore[string, int]{}
+	tree, err := New(&store, strings.Compare, 30)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	items := []string{"e", "z", "a", "b", "a", "a", "b", "b", "a", "c", "d"}
+	for i, r := range items {
+		// log.Println("==== tree dump ====")
+		// printtree(tree)
+		// log.Println("==== tree dump ====")
+		// log.Println("-> inserting", r, i)
+		if err := tree.Insert(r, i); err != nil && err != ErrExists {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	unique := []struct{key string; val int}{
+		{"a", 2},
+		{"b", 3},
+		{"c", 9},
+		{"d", 10},
+		{"e", 0},
+	}
+
+	for _, u := range unique {
+		v, found, err := tree.Find(u.key)
+		if err != nil {
+			t.Fatalf("Find(%v) unexpectedly failed", u.key)
+		}
+		if !found {
+			t.Errorf("Find(%v) unexpectedly not found", u.key)
+		}
+		if v != u.val {
+			t.Errorf("Find(%v) yielded %v, want %v", u.key, v, u.val)
+		}
 	}
 }
 

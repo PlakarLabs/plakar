@@ -117,13 +117,13 @@ func (n *Node[K, P, V]) insertAt(idx int, key K, val V) {
 	}
 
 	var ks []K
-	copy(ks, n.Keys[:idx])
+	ks = append(ks, n.Keys[:idx]...)
 	ks = append(ks, key)
 	ks = append(ks, n.Keys[idx:]...)
 	n.Keys = ks
 
 	var vs []V
-	copy(vs, n.Values[idx:])
+	vs = append(vs, n.Values[:idx]...)
 	vs = append(vs, val)
 	vs = append(vs, n.Values[idx:]...)
 	n.Values = vs
@@ -154,7 +154,7 @@ func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (idx int, found b
 		r := b.compare(key, node.Keys[idx])
 		if r <= 0 {
 			found = r == 0
-			break
+			return
 		}
 	}
 	idx++

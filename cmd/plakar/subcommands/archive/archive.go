@@ -31,7 +31,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -133,7 +132,7 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 
 		info, err := fs.Stat(file)
 		if err != nil {
-			logger.Error("could not stat file %s: %s", file, err)
+			snap.Logger().Error("could not stat file %s: %s", file, err)
 			continue
 		}
 
@@ -159,7 +158,7 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 				ModTime: entry.Stat().ModTime(),
 			}
 		default:
-			logger.Error("could not stat file %T: %s %s", file, file, err)
+			snap.Logger().Error("could not stat file %T: %s %s", file, file, err)
 		}
 
 		if _, isDir := info.(*vfs.DirEntry); isDir {
@@ -168,20 +167,20 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 
 		rd, err := snap.NewReader(file)
 		if err != nil {
-			logger.Error("could not find file %s", file)
+			snap.Logger().Error("could not find file %s", file)
 			continue
 		}
 
 		err = tarWriter.WriteHeader(header)
 		if err != nil {
-			logger.Error("could not write header for file %s: %s", file, err)
+			snap.Logger().Error("could not write header for file %s: %s", file, err)
 			rd.Close()
 			continue
 		}
 
 		_, err = io.Copy(tarWriter, rd)
 		if err != nil {
-			logger.Error("could not write file %s: %s", file, err)
+			snap.Logger().Error("could not write file %s: %s", file, err)
 			rd.Close()
 			return err
 		}

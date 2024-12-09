@@ -29,7 +29,6 @@ import (
 	"runtime"
 
 	"github.com/PlakarKorp/plakar/api"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/gorilla/handlers"
 )
@@ -108,8 +107,8 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 			err = exec.Command("xdg-open", url).Start()
 		}
 		if err != nil {
-			logger.Printf("failed to launch browser: %s", err)
-			logger.Printf("you can access the webUI at %s", url)
+			repo.Logger().Printf("failed to launch browser: %s", err)
+			repo.Logger().Printf("you can access the webUI at %s", url)
 			return err
 		}
 	} else {

@@ -26,7 +26,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
@@ -47,13 +46,13 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		logger.Error("%s: at least one parameter is required", flags.Name())
+		ctx.GetLogger().Error("%s: at least one parameter is required", flags.Name())
 		return 1
 	}
 
 	snapshots, err := utils.GetSnapshots(repo, flags.Args())
 	if err != nil {
-		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
+		ctx.GetLogger().Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
@@ -62,14 +61,14 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		_, pathname := utils.ParseSnapshotID(flags.Args()[offset])
 
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot", flags.Name())
+			ctx.GetLogger().Error("%s: missing filename for snapshot", flags.Name())
 			errors++
 			continue
 		}
 
 		rd, err := snap.NewReader(pathname)
 		if err != nil {
-			logger.Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
+			ctx.GetLogger().Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}
@@ -80,7 +79,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 			if rd.ContentType() == "application/gzip" && !opt_nodecompress {
 				gzRd, err := gzip.NewReader(outRd)
 				if err != nil {
-					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
 					errors++
 					continue
 				}
@@ -109,14 +108,14 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 					// Tokenize the chunk and apply syntax highlighting
 					iterator, errTokenize := lexer.Tokenise(nil, chunk)
 					if errTokenize != nil {
-						logger.Error("%s: %s: %s", flags.Name(), pathname, errTokenize)
+						ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, errTokenize)
 						errors++
 						break
 					}
 
 					errFormat := formatter.Format(os.Stdout, style, iterator)
 					if errFormat != nil {
-						logger.Error("%s: %s: %s", flags.Name(), pathname, errFormat)
+						ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, errFormat)
 						errors++
 						break
 					}
@@ -126,7 +125,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 				if err == io.EOF {
 					break
 				} else if err != nil {
-					logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+					ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
 					errors++
 					break
 				}
@@ -136,7 +135,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 			_, err = io.Copy(os.Stdout, outRd)
 		}
 		if err != nil {
-			logger.Error("%s: %s: %s", flags.Name(), pathname, err)
+			ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++
 			continue
 		}

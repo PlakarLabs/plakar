@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/network"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
@@ -83,7 +82,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 					dirPath = filepath.Join(homeDir, ".plakar")
 				}
 
-				logger.Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
+				repo.Logger().Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
 				st, err := storage.Create(ctx, dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
 				if err != nil {
@@ -100,7 +99,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -109,7 +108,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: Open()", clientUuid)
+				repo.Logger().Trace("server", "%s: Open()", clientUuid)
 
 				location := request.Payload.(network.ReqOpen).Repository
 				st, err := storage.Open(ctx, location)
@@ -136,7 +135,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -145,7 +144,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: Close()", clientUuid)
+				repo.Logger().Trace("server", "%s: Close()", clientUuid)
 
 				var err error
 				if repo == nil {
@@ -165,7 +164,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -174,7 +173,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetStates()", clientUuid)
+				repo.Logger().Trace("server", "%s: GetStates()", clientUuid)
 				checksums, err := lrepository.GetStates()
 				retErr := ""
 				if err != nil {
@@ -190,7 +189,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -198,7 +197,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
+				repo.Logger().Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
 				data := request.Payload.(network.ReqPutState).Data
 				datalen := uint64(len(data))
 				err := lrepository.Store().PutState(request.Payload.(network.ReqPutState).Checksum, bytes.NewBuffer(data), datalen)
@@ -215,7 +214,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -223,7 +222,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetState(%016x)", clientUuid, request.Payload.(network.ReqGetState).Checksum)
+				repo.Logger().Trace("server", "%s: GetState(%016x)", clientUuid, request.Payload.(network.ReqGetState).Checksum)
 				rd, _, err := lrepository.Store().GetState(request.Payload.(network.ReqGetState).Checksum)
 				retErr := ""
 				var data []byte
@@ -246,7 +245,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -255,7 +254,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeleteState(%s)", clientUuid, request.Payload.(network.ReqDeleteState).Checksum)
+				repo.Logger().Trace("server", "%s: DeleteState(%s)", clientUuid, request.Payload.(network.ReqDeleteState).Checksum)
 
 				var err error
 				if options.NoDelete {
@@ -276,7 +275,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -285,7 +284,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfiles()", clientUuid)
+				repo.Logger().Trace("server", "%s: GetPackfiles()", clientUuid)
 				checksums, err := lrepository.Store().GetPackfiles()
 				retErr := ""
 				if err != nil {
@@ -301,7 +300,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -309,7 +308,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
+				repo.Logger().Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
 				err := lrepository.Store().PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum,
 					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data), uint64(len(request.Payload.(network.ReqPutPackfile).Data)))
 				retErr := ""
@@ -325,7 +324,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -333,7 +332,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(network.ReqGetPackfile).Checksum)
+				repo.Logger().Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(network.ReqGetPackfile).Checksum)
 				rd, _, err := lrepository.Store().GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
 				retErr := ""
 				if err != nil {
@@ -355,7 +354,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -363,7 +362,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				logger.Trace("server", "%s: GetPackfileBlob(%016x, %d, %d)", clientUuid,
+				repo.Logger().Trace("server", "%s: GetPackfileBlob(%016x, %d, %d)", clientUuid,
 					request.Payload.(network.ReqGetPackfileBlob).Checksum,
 					request.Payload.(network.ReqGetPackfileBlob).Offset,
 					request.Payload.(network.ReqGetPackfileBlob).Length)
@@ -391,7 +390,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 
@@ -400,7 +399,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 
-				logger.Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(network.ReqDeletePackfile).Checksum)
+				repo.Logger().Trace("server", "%s: DeletePackfile(%s)", clientUuid, request.Payload.(network.ReqDeletePackfile).Checksum)
 
 				var err error
 				if options.NoDelete {
@@ -421,7 +420,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 				err = encoder.Encode(&result)
 				if err != nil {
-					logger.Warn("%s", err)
+					repo.Logger().Warn("%s", err)
 				}
 			}()
 

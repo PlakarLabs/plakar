@@ -4,12 +4,14 @@ import (
 	"github.com/PlakarKorp/plakar/caching"
 	"github.com/PlakarKorp/plakar/encryption/keypair"
 	"github.com/PlakarKorp/plakar/events"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/google/uuid"
 )
 
 type Context struct {
 	events *events.Receiver
 	cache  *caching.Manager
+	logger *logging.Logger
 
 	numCPU      int
 	username    string
@@ -191,4 +193,12 @@ func (c *Context) SetCache(cacheManager *caching.Manager) {
 
 func (c *Context) GetCache() *caching.Manager {
 	return c.cache
+}
+
+func (c *Context) SetLogger(logger *logging.Logger) {
+	c.logger = logger
+}
+
+func (c *Context) GetLogger() *logging.Logger {
+	return c.logger
 }

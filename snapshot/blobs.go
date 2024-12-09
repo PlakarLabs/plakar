@@ -4,12 +4,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
 	"github.com/PlakarKorp/plakar/packfile"
 )
 
 func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte) error {
-	logger.Trace("snapshot", "%x: PutBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
+	snap.Logger().Trace("snapshot", "%x: PutBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
 
 	encoded, err := snap.repository.Encode(data)
 	if err != nil {
@@ -21,7 +20,7 @@ func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte
 }
 
 func (snap *Snapshot) GetBlob(Type packfile.Type, checksum [32]byte) ([]byte, error) {
-	logger.Trace("snapshot", "%x: GetBlob(%x)", snap.Header.GetIndexShortID(), checksum)
+	snap.Logger().Trace("snapshot", "%x: GetBlob(%x)", snap.Header.GetIndexShortID(), checksum)
 
 	rd, _, err := snap.repository.GetBlob(Type, checksum)
 	if err != nil {
@@ -37,7 +36,7 @@ func (snap *Snapshot) GetBlob(Type packfile.Type, checksum [32]byte) ([]byte, er
 }
 
 func (snap *Snapshot) BlobExists(Type packfile.Type, checksum [32]byte) bool {
-	logger.Trace("snapshot", "%x: CheckBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
+	snap.Logger().Trace("snapshot", "%x: CheckBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
 
 	return snap.repository.BlobExists(Type, checksum)
 }

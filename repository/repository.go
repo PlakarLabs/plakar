@@ -12,7 +12,7 @@ import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository/state"
@@ -33,7 +33,7 @@ type Repository struct {
 func New(store *storage.Store, secret []byte) (*Repository, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "New(store=%p): %s", store, time.Since(t0))
+		store.Logger().Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
 	r := &Repository{
@@ -55,7 +55,7 @@ func (r *Repository) RebuildState() error {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "rebuildState(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "rebuildState(): %s", time.Since(t0))
 	}()
 
 	// identify local states
@@ -155,7 +155,7 @@ func (r *Repository) Store() *storage.Store {
 func (r *Repository) Close() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "Close(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "Close(): %s", time.Since(t0))
 	}()
 
 	if r.state.Dirty() {
@@ -167,7 +167,7 @@ func (r *Repository) Close() error {
 func (r *Repository) Decode(buffer []byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "Decode(%d bytes): %s", len(buffer), time.Since(t0))
+		r.Logger().Trace("repository", "Decode(%d bytes): %s", len(buffer), time.Since(t0))
 	}()
 
 	if r.secret != nil {
@@ -197,7 +197,7 @@ func (r *Repository) Decode(buffer []byte) ([]byte, error) {
 func (r *Repository) Encode(buffer []byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "Encode(%d): %s", len(buffer), time.Since(t0))
+		r.Logger().Trace("repository", "Encode(%d): %s", len(buffer), time.Since(t0))
 	}()
 
 	if r.configuration.Compression != nil {
@@ -272,7 +272,7 @@ func (r *Repository) Configuration() storage.Configuration {
 func (r *Repository) GetSnapshots() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetSnapshots(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "GetSnapshots(): %s", time.Since(t0))
 	}()
 
 	ret := make([]objects.Checksum, 0)
@@ -285,7 +285,7 @@ func (r *Repository) GetSnapshots() ([]objects.Checksum, error) {
 func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
+		r.Logger().Trace("repository", "DeleteSnapshot(%x): %s", snapshotID, time.Since(t0))
 	}()
 
 	ret := r.state.DeleteSnapshot(snapshotID)
@@ -308,7 +308,7 @@ func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
 func (r *Repository) GetStates() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetStates(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "GetStates(): %s", time.Since(t0))
 	}()
 
 	return r.store.GetStates()
@@ -317,7 +317,7 @@ func (r *Repository) GetStates() ([]objects.Checksum, error) {
 func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
 	}()
 
 	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
@@ -356,7 +356,7 @@ func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) 
 func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int64) (int, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
 	data, err := io.ReadAll(rd)
@@ -386,7 +386,7 @@ func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int6
 func (r *Repository) DeleteState(checksum objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "DeleteState(%x, ...): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "DeleteState(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
 	return r.store.DeleteState(checksum)
@@ -395,7 +395,7 @@ func (r *Repository) DeleteState(checksum objects.Checksum) error {
 func (r *Repository) GetPackfiles() ([]objects.Checksum, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetPackfiles(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "GetPackfiles(): %s", time.Since(t0))
 	}()
 
 	return r.store.GetPackfiles()
@@ -404,7 +404,7 @@ func (r *Repository) GetPackfiles() ([]objects.Checksum, error) {
 func (r *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetPackfile(%x, ...): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "GetPackfile(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
 	return r.store.GetPackfile(checksum)
@@ -413,7 +413,7 @@ func (r *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, 
 func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, int64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetPackfileBlob(%x, %d, %d): %s", checksum, offset, length, time.Since(t0))
+		r.Logger().Trace("repository", "GetPackfileBlob(%x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
 	rd, _, err := r.store.GetPackfileBlob(checksum, offset, length)
@@ -437,7 +437,7 @@ func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, l
 func (r *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "PutPackfile(%x, ...): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "PutPackfile(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
 	return r.store.PutPackfile(checksum, rd, size)
@@ -446,7 +446,7 @@ func (r *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size u
 func (r *Repository) DeletePackfile(checksum objects.Checksum) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "DeletePackfile(%x): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "DeletePackfile(%x): %s", checksum, time.Since(t0))
 	}()
 
 	return r.store.DeletePackfile(checksum)
@@ -455,7 +455,7 @@ func (r *Repository) DeletePackfile(checksum objects.Checksum) error {
 func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.Reader, uint64, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "GetBlob(%x): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "GetBlob(%x): %s", checksum, time.Since(t0))
 	}()
 
 	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(Type, checksum)
@@ -474,7 +474,7 @@ func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.
 func (r *Repository) BlobExists(Type packfile.Type, checksum objects.Checksum) bool {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "BlobExists(%x): %s", checksum, time.Since(t0))
+		r.Logger().Trace("repository", "BlobExists(%x): %s", checksum, time.Since(t0))
 	}()
 
 	return r.state.BlobExists(Type, checksum)
@@ -483,7 +483,7 @@ func (r *Repository) BlobExists(Type packfile.Type, checksum objects.Checksum) b
 func (r *Repository) ListSnapshots() <-chan objects.Checksum {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "ListSnapshots(): %s", time.Since(t0))
+		r.Logger().Trace("repository", "ListSnapshots(): %s", time.Since(t0))
 	}()
 	return r.state.ListSnapshots()
 }
@@ -491,8 +491,12 @@ func (r *Repository) ListSnapshots() <-chan objects.Checksum {
 func (r *Repository) SetPackfileForBlob(Type packfile.Type, packfileChecksum objects.Checksum, chunkChecksum objects.Checksum, offset uint32, length uint32) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("repository", "SetPackfileForBlob(%x, %x, %d, %d): %s", packfileChecksum, chunkChecksum, offset, length, time.Since(t0))
+		r.Logger().Trace("repository", "SetPackfileForBlob(%x, %x, %d, %d): %s", packfileChecksum, chunkChecksum, offset, length, time.Since(t0))
 	}()
 
 	r.state.SetPackfileForBlob(Type, packfileChecksum, chunkChecksum, offset, length)
+}
+
+func (r *Repository) Logger() *logging.Logger {
+	return r.Context().GetLogger()
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
@@ -204,6 +204,8 @@ func entryPoint() int {
 		return 1
 	}
 
+	logger := logging.NewLogger(os.Stdout, os.Stderr)
+
 	// start logging
 	if !opt_quiet {
 		logger.EnableInfo()
@@ -211,6 +213,8 @@ func entryPoint() int {
 	if opt_trace != "" {
 		logger.EnableTrace(opt_trace)
 	}
+
+	ctx.SetLogger(logger)
 
 	command, args := flag.Args()[0], flag.Args()[1:]
 

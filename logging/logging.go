@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -37,33 +36,33 @@ func NewLogger(stdout io.Writer, stderr io.Writer) *Logger {
 }
 
 func (l *Logger) Printf(format string, args ...interface{}) {
-	l.infoLogger.Print(fmt.Sprintf(format, args...))
+	l.infoLogger.Printf(format, args...)
 }
 
 func (l *Logger) Stdout(format string, args ...interface{}) {
-	l.stdoutLogger.Print(fmt.Sprintf(format, args...))
+	l.stdoutLogger.Printf(format, args...)
 }
 
 func (l *Logger) Stderr(format string, args ...interface{}) {
-	l.stderrLogger.Print(fmt.Sprintf(format, args...))
+	l.stderrLogger.Printf(format, args...)
 }
 
 func (l *Logger) Info(format string, args ...interface{}) {
 	if l.enableInfo {
-		l.infoLogger.Print(fmt.Sprintf(format, args...))
+		l.infoLogger.Printf(format, args...)
 	}
 }
 
 func (l *Logger) Warn(format string, args ...interface{}) {
-	l.warnLogger.Print(fmt.Sprintf(format, args...))
+	l.warnLogger.Printf(format, args...)
 }
 
 func (l *Logger) Error(format string, args ...interface{}) {
-	l.stderrLogger.Print(fmt.Sprintf(format, args...))
+	l.stderrLogger.Printf(format, args...)
 }
 
 func (l *Logger) Debug(format string, args ...interface{}) {
-	l.debugLogger.Print(fmt.Sprintf(format, args...))
+	l.debugLogger.Printf(format, args...)
 }
 
 func (l *Logger) Trace(subsystem string, format string, args ...interface{}) {
@@ -75,7 +74,7 @@ func (l *Logger) Trace(subsystem string, format string, args ...interface{}) {
 		}
 		l.mutraceSubsystems.Unlock()
 		if exists {
-			l.traceLogger.Print(fmt.Sprintf(subsystem+": "+format, args...))
+			l.traceLogger.Printf(subsystem+": "+format, args...)
 		}
 	}
 }

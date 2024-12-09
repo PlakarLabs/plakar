@@ -27,7 +27,7 @@ func eventsProcessorStdio(ctx *context.Context, quiet bool) chan struct{} {
 					ctx.GetLogger().Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
 				}
 			default:
-				//logging.Warn("unknown event: %T", event)
+				//ctx.GetLogger().Warn("unknown event: %T", event)
 			}
 		}
 		done <- struct{}{}

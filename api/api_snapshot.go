@@ -372,54 +372,33 @@ func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	fs, err := snap.Filesystem()
-	if err != nil {
-		return err
-	}
-
 	if path == "" {
 		path = "/"
 	}
-	fsinfo, err := fs.Stat(path)
+
+	errorList, err := snap.Errors(path)
 	if err != nil {
 		return err
 	}
 
-	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
-		http.Error(w, "not a directory", http.StatusBadRequest)
-		return nil
-	} else {
-		items := Items{
-			Total: int(dirEntry.Summary.Directory.Errors),
-			Items: make([]interface{}, 0),
-		}
-		errorsList, err := fs.ErrorIter(dirEntry)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return nil
-		}
-
-		if limit == 0 {
-			limit = int64(dirEntry.Summary.Directory.Errors)
-		}
-
-		i := int64(0)
-		for errorEntry := range errorsList {
-			if errorEntry == nil {
-				break
-			}
-			if i < offset {
-				i++
-				continue
-			}
-			if i >= limit+offset {
-				break
-			}
-			items.Items = append(items.Items, errorEntry)
-			i++
-		}
-		return json.NewEncoder(w).Encode(items)
+	var i int64
+	items := Items{
+		Items: []interface{}{},
 	}
+	for errorEntry := range errorList {
+		if i < offset {
+			i++
+			continue
+		}
+		if limit > 0 && i >= limit+offset {
+			i++
+			continue
+		}
+		items.Items = append(items.Items, errorEntry)
+		i++
+	}
+	items.Total = int(i)
+	return json.NewEncoder(w).Encode(items)
 }
 
 func snapshotSearch(w http.ResponseWriter, r *http.Request) error {

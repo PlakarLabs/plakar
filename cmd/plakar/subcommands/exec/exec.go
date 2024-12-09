@@ -26,7 +26,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 )
 
@@ -39,7 +38,7 @@ func cmd_exec(ctx *context.Context, repo *repository.Repository, args []string) 
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		logging.Error("%s: at least one parameters is required", flags.Name())
+		ctx.GetLogger().Error("%s: at least one parameters is required", flags.Name())
 		return 1
 	}
 
@@ -56,7 +55,7 @@ func cmd_exec(ctx *context.Context, repo *repository.Repository, args []string) 
 
 	rd, err := snap.NewReader(pathname)
 	if err != nil {
-		logging.Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
+		ctx.GetLogger().Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
 		return 1
 	}
 	defer rd.Close()

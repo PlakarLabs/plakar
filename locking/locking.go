@@ -18,8 +18,6 @@ package locking
 
 import (
 	"time"
-
-	"github.com/PlakarKorp/plakar/logging"
 )
 
 type SharedLock struct {
@@ -39,10 +37,8 @@ func NewSharedLock(name string, capacity int) *SharedLock {
 }
 
 func (lock *SharedLock) Lock() {
-	t0 := time.Now()
 	lock.capacity <- true
 	lock.timestamp = time.Now()
-	logging.Trace("locking", "Lock(%s): refcount=%d, capacity=%d, wait=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(t0))
 }
 
 func (lock *SharedLock) Unlock() {
@@ -50,5 +46,4 @@ func (lock *SharedLock) Unlock() {
 		panic("unlocking unlocked lock")
 	}
 	<-lock.capacity
-	logging.Trace("locking", "Unlock(%s): refcount=%d, capacity=%d, held=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(lock.timestamp))
 }

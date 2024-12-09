@@ -3,7 +3,6 @@ package restore
 import (
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/events"
-	"github.com/PlakarKorp/plakar/logging"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -18,18 +17,18 @@ func eventsProcessorStdio(ctx *context.Context, quiet bool) chan struct{} {
 		for event := range ctx.Events().Listen() {
 			switch event := event.(type) {
 			case events.PathError:
-				logging.Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
+				ctx.GetLogger().Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
 
 			case events.FileError:
-				logging.Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
+				ctx.GetLogger().Warn("%x: KO %s %s: %s", event.SnapshotID[:4], crossMark, event.Pathname, event.Message)
 
 			case events.DirectoryOK:
 				if !quiet {
-					logging.Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
+					ctx.GetLogger().Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
 				}
 			case events.FileOK:
 				if !quiet {
-					logging.Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
+					ctx.GetLogger().Info("%x: OK %s %s", event.SnapshotID[:4], checkMark, event.Pathname)
 				}
 			default:
 			}

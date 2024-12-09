@@ -21,7 +21,6 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/server/httpd"
 	"github.com/PlakarKorp/plakar/server/plakard"
@@ -61,7 +60,7 @@ func cmd_server(ctx *context.Context, repo *repository.Repository, args []string
 		}
 		plakard.Server(ctx, repo, addr, options)
 	default:
-		logging.Error("unsupported protocol: %s", opt_protocol)
+		ctx.GetLogger().Error("unsupported protocol: %s", opt_protocol)
 	}
 	return 0
 }

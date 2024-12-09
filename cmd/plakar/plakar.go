@@ -204,13 +204,17 @@ func entryPoint() int {
 		return 1
 	}
 
+	logger := logging.NewLogger(os.Stdout, os.Stderr)
+
 	// start logging
 	if !opt_quiet {
-		logging.EnableInfo()
+		logger.EnableInfo()
 	}
 	if opt_trace != "" {
-		logging.EnableTrace(opt_trace)
+		logger.EnableTrace(opt_trace)
 	}
+
+	ctx.SetLogger(logger)
 
 	command, args := flag.Args()[0], flag.Args()[1:]
 
@@ -350,7 +354,7 @@ func entryPoint() int {
 					}
 					avgMemAlloc = memStats.TotalAlloc / uint64(iterCount)
 
-					logging.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
+					logger.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
 						runtime.NumGoroutine(),
 						avgGoroutines,
 						maxGoroutines,
@@ -394,12 +398,12 @@ func entryPoint() int {
 
 	err = repo.Close()
 	if err != nil {
-		logging.Warn("could not close repository: %s", err)
+		logger.Warn("could not close repository: %s", err)
 	}
 
 	err = store.Close()
 	if err != nil {
-		logging.Warn("could not close repository: %s", err)
+		logger.Warn("could not close repository: %s", err)
 	}
 
 	ctx.Close()

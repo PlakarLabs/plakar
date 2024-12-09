@@ -33,7 +33,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
@@ -59,53 +58,53 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 	switch flags.Arg(0) {
 	case "snapshot":
 		if len(flags.Args()) < 2 {
-			logging.Error("usage: %s snapshot snapshotID", flags.Name())
+			ctx.GetLogger().Error("usage: %s snapshot snapshotID", flags.Name())
 			return 1
 		}
 		if err := info_snapshot(repo, flags.Args()[1]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
 	case "errors":
 		if len(flags.Args()) < 2 {
-			logging.Error("usage: %s errors snapshotID", flags.Name())
+			ctx.GetLogger().Error("usage: %s errors snapshotID", flags.Name())
 			return 1
 		}
 		if err := info_errors(repo, flags.Args()[1]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
 	case "state":
 		if err := info_state(repo, flags.Args()[1:]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
 	case "packfile":
 		if err := info_packfile(repo, flags.Args()[1:]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
 	case "object":
 		if len(flags.Args()) < 2 {
-			logging.Error("usage: %s object objectID", flags.Name())
+			ctx.GetLogger().Error("usage: %s object objectID", flags.Name())
 			return 1
 		}
 		if err := info_object(repo, flags.Args()[1]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
 	case "vfs":
 		if len(flags.Args()) < 2 {
-			logging.Error("usage: %s vfs snapshotPathname", flags.Name())
+			ctx.GetLogger().Error("usage: %s vfs snapshotPathname", flags.Name())
 			return 1
 		}
 		if err := info_vfs(repo, flags.Args()[1]); err != nil {
-			logging.Error("error: %s", err)
+			ctx.GetLogger().Error("error: %s", err)
 			return 1
 		}
 
@@ -120,7 +119,7 @@ func cmd_info(ctx *context.Context, repo *repository.Repository, args []string) 
 func info_repository(repo *repository.Repository) int {
 	metadatas, err := utils.GetHeaders(repo, nil)
 	if err != nil {
-		logging.Warn("%s", err)
+		repo.Logger().Warn("%s", err)
 		return 1
 	}
 

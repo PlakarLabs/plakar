@@ -63,7 +63,7 @@ func packerJob(snap *Snapshot) {
 				if msg, ok := msg.(*PackerMsg); !ok {
 					panic("received data with unexpected type")
 				} else {
-					logging.Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snap.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
+					snap.Logger().Trace("packer", "%x: PackerMsg(%d, %064x), dt=%s", snap.Header.GetIndexShortID(), msg.Type, msg.Checksum, time.Since(msg.Timestamp))
 					packer.AddBlob(msg.Type, msg.Checksum, msg.Data)
 				}
 
@@ -131,7 +131,7 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 
 	go packerJob(snap)
 
-	logging.Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
+	repo.Logger().Trace("snapshot", "%x: New()", snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -145,7 +145,7 @@ func Load(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 	snapshot.repository = repo
 	snapshot.Header = hdr
 
-	logging.Trace("snapshot", "%x: Load()", snapshot.Header.GetIndexShortID())
+	repo.Logger().Trace("snapshot", "%x: Load()", snapshot.Header.GetIndexShortID())
 	return snapshot, nil
 }
 
@@ -169,7 +169,7 @@ func Clone(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot,
 	snap.packerChanDone = make(chan bool)
 	go packerJob(snap)
 
-	logging.Trace("snapshot", "%x: Clone(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
+	repo.Logger().Trace("snapshot", "%x: Clone(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -191,7 +191,7 @@ func Fork(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot, 
 
 	snap.Header.Identifier = identifier
 
-	logging.Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
+	repo.Logger().Trace("snapshot", "%x: Fork(): %s", snap.Header.Identifier, snap.Header.GetIndexShortID())
 	return snap, nil
 }
 
@@ -204,7 +204,7 @@ func (snap *Snapshot) Event(evt events.Event) {
 }
 
 func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
-	logging.Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
+	repo.Logger().Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
 	if err != nil {
@@ -273,7 +273,7 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
-	logging.Trace("snapshot", "%x: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
+	repo.Logger().Trace("snapshot", "%x: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
 	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), uint64(len(serializedPackfile)))
 	if err != nil {
 		panic("could not write pack file")
@@ -329,7 +329,7 @@ func (snap *Snapshot) Commit() error {
 
 	serializedRepositoryIndex, err := snap.stateDelta.Serialize()
 	if err != nil {
-		logging.Warn("could not serialize repository index: %s", err)
+		snap.Logger().Warn("could not serialize repository index: %s", err)
 		return err
 	}
 	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex)
@@ -340,7 +340,7 @@ func (snap *Snapshot) Commit() error {
 		return err
 	}
 
-	logging.Trace("snapshot", "%x: Commit()", snap.Header.GetIndexShortID())
+	snap.Logger().Trace("snapshot", "%x: Commit()", snap.Header.GetIndexShortID())
 	return nil
 }
 
@@ -433,4 +433,8 @@ func (snap *Snapshot) ListDatas() (<-chan objects.Checksum, error) {
 	}()
 
 	return c, nil
+}
+
+func (snap *Snapshot) Logger() *logging.Logger {
+	return snap.Context().GetLogger()
 }

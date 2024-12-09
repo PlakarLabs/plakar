@@ -2,100 +2,92 @@ package logging
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"sync"
 
 	"github.com/charmbracelet/log"
 )
 
-var infoChannel chan string
-var stderrChannel chan string
-var debugChannel chan string
-var traceChannel chan string
-
-var enableInfo = false
-var enableTracing = false
-
-var mutraceSubsystems sync.Mutex
-var traceSubsystems map[string]bool
-
-var stdoutLogger *log.Logger
-var stderrLogger *log.Logger
-var infoLogger *log.Logger
-var warnLogger *log.Logger
-var debugLogger *log.Logger
-var traceLogger *log.Logger
-
-func init() {
-	stdoutLogger = log.NewWithOptions(os.Stdout, log.Options{})
-	stderrLogger = log.NewWithOptions(os.Stderr, log.Options{})
-
-	infoLogger = log.NewWithOptions(os.Stdout, log.Options{
-		Prefix: "info",
-	})
-	warnLogger = log.NewWithOptions(os.Stderr, log.Options{
-		Prefix: "warn",
-	})
-	debugLogger = log.NewWithOptions(os.Stdout, log.Options{
-		Prefix: "debug",
-	})
-	traceLogger = log.NewWithOptions(os.Stdout, log.Options{
-		Prefix: "trace",
-	})
+type Logger struct {
+	enableInfo        bool
+	enableTracing     bool
+	mutraceSubsystems sync.Mutex
+	traceSubsystems   map[string]bool
+	stdoutLogger      *log.Logger
+	stderrLogger      *log.Logger
+	infoLogger        *log.Logger
+	warnLogger        *log.Logger
+	debugLogger       *log.Logger
+	traceLogger       *log.Logger
 }
 
-func Printf(format string, args ...interface{}) {
-	infoLogger.Print(fmt.Sprintf(format, args...))
-}
-
-func Stdout(format string, args ...interface{}) {
-	stdoutLogger.Print(fmt.Sprintf(format, args...))
-}
-
-func Stderr(format string, args ...interface{}) {
-	stderrLogger.Print(fmt.Sprintf(format, args...))
-}
-
-func Info(format string, args ...interface{}) {
-	if enableInfo {
-		infoLogger.Print(fmt.Sprintf(format, args...))
+func NewLogger(stdout io.Writer, stderr io.Writer) *Logger {
+	return &Logger{
+		enableInfo:      false,
+		enableTracing:   false,
+		stdoutLogger:    log.NewWithOptions(stdout, log.Options{}),
+		stderrLogger:    log.NewWithOptions(stderr, log.Options{}),
+		infoLogger:      log.NewWithOptions(stdout, log.Options{Prefix: "info"}),
+		warnLogger:      log.NewWithOptions(stderr, log.Options{Prefix: "warn"}),
+		debugLogger:     log.NewWithOptions(stdout, log.Options{Prefix: "debug"}),
+		traceLogger:     log.NewWithOptions(stdout, log.Options{Prefix: "trace"}),
+		traceSubsystems: make(map[string]bool),
 	}
 }
 
-func Warn(format string, args ...interface{}) {
-	warnLogger.Print(fmt.Sprintf(format, args...))
+func (l *Logger) Printf(format string, args ...interface{}) {
+	l.infoLogger.Print(fmt.Sprintf(format, args...))
 }
 
-func Error(format string, args ...interface{}) {
-	stderrLogger.Print(fmt.Sprintf(format, args...))
+func (l *Logger) Stdout(format string, args ...interface{}) {
+	l.stdoutLogger.Print(fmt.Sprintf(format, args...))
 }
 
-func Debug(format string, args ...interface{}) {
-	debugLogger.Print(fmt.Sprintf(format, args...))
+func (l *Logger) Stderr(format string, args ...interface{}) {
+	l.stderrLogger.Print(fmt.Sprintf(format, args...))
 }
 
-func Trace(subsystem string, format string, args ...interface{}) {
-	if enableTracing {
-		mutraceSubsystems.Lock()
-		_, exists := traceSubsystems[subsystem]
+func (l *Logger) Info(format string, args ...interface{}) {
+	if l.enableInfo {
+		l.infoLogger.Print(fmt.Sprintf(format, args...))
+	}
+}
+
+func (l *Logger) Warn(format string, args ...interface{}) {
+	l.warnLogger.Print(fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Error(format string, args ...interface{}) {
+	l.stderrLogger.Print(fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Debug(format string, args ...interface{}) {
+	l.debugLogger.Print(fmt.Sprintf(format, args...))
+}
+
+func (l *Logger) Trace(subsystem string, format string, args ...interface{}) {
+	if l.enableTracing {
+		l.mutraceSubsystems.Lock()
+		_, exists := l.traceSubsystems[subsystem]
 		if !exists {
-			_, exists = traceSubsystems["all"]
+			_, exists = l.traceSubsystems["all"]
 		}
-		mutraceSubsystems.Unlock()
+		l.mutraceSubsystems.Unlock()
 		if exists {
-			traceLogger.Print(fmt.Sprintf(subsystem+": "+format, args...))
+			l.traceLogger.Print(fmt.Sprintf(subsystem+": "+format, args...))
 		}
 	}
 }
 
-func EnableInfo() {
-	enableInfo = true
+func (l *Logger) EnableInfo() {
+	l.enableInfo = true
 }
-func EnableTrace(traces string) {
-	enableTracing = true
-	traceSubsystems = make(map[string]bool)
+
+func (l *Logger) EnableTrace(traces string) {
+	l.enableTracing = true
+	l.traceSubsystems = make(map[string]bool)
 	for _, subsystem := range strings.Split(traces, ",") {
-		traceSubsystems[subsystem] = true
+		l.traceSubsystems[subsystem] = true
 	}
 }

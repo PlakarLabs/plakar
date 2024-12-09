@@ -29,7 +29,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/identity"
-	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -80,7 +79,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	if opt_excludes != "" {
 		fp, err := os.Open(opt_excludes)
 		if err != nil {
-			logging.Error("%s", err)
+			ctx.GetLogger().Error("%s", err)
 			return 1
 		}
 		defer fp.Close()
@@ -89,13 +88,13 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		for scanner.Scan() {
 			pattern, err := glob.Compile(scanner.Text())
 			if err != nil {
-				logging.Error("%s", err)
+				ctx.GetLogger().Error("%s", err)
 				return 1
 			}
 			excludes = append(excludes, pattern)
 		}
 		if err := scanner.Err(); err != nil {
-			logging.Error("%s", err)
+			ctx.GetLogger().Error("%s", err)
 			return 1
 		}
 	}
@@ -103,7 +102,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 
 	snap, err := snapshot.New(repo)
 	if err != nil {
-		logging.Error("%s", err)
+		ctx.GetLogger().Error("%s", err)
 		return 1
 	}
 
@@ -126,8 +125,8 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 		ctx.SetIdentity(id.Identifier)
 		ctx.SetKeypair(&id.KeyPair)
 	} else {
-		logging.Warn("no identity set, snapshot will not be signed")
-		logging.Warn("consider using 'plakar id' to create an identity")
+		ctx.GetLogger().Warn("no identity set, snapshot will not be signed")
+		ctx.GetLogger().Warn("consider using 'plakar id' to create an identity")
 	}
 
 	var tags []string
@@ -165,7 +164,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	}
 
 	if err != nil {
-		logging.Error("failed to create snapshot: %s", err)
+		ctx.GetLogger().Error("failed to create snapshot: %s", err)
 		return 1
 	}
 
@@ -173,7 +172,7 @@ func cmd_backup(ctx *context.Context, repo *repository.Repository, args []string
 	if ctx.GetIdentity() != uuid.Nil {
 		signedStr = "signed"
 	}
-	logging.Info("created %s snapshot %x with root %s of size %s in %s",
+	ctx.GetLogger().Info("created %s snapshot %x with root %s of size %s in %s",
 		signedStr,
 		snap.Header.GetIndexShortID(),
 		base64.RawStdEncoding.EncodeToString(snap.Header.Root[:]),

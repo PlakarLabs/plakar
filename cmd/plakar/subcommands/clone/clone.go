@@ -24,7 +24,7 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
@@ -39,7 +39,7 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	flags.Parse(args)
 
 	if flags.NArg() != 2 || flags.Arg(0) != "to" {
-		logger.Error("usage: %s to repository", flags.Name())
+		logging.Error("usage: %s to repository", flags.Name())
 		return 1
 	}
 

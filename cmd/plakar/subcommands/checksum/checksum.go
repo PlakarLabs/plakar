@@ -25,7 +25,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
@@ -44,13 +44,13 @@ func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []stri
 	flags.Parse(args)
 
 	if flags.NArg() == 0 {
-		logger.Error("%s: at least one parameter is required", flags.Name())
+		logging.Error("%s: at least one parameter is required", flags.Name())
 		return 1
 	}
 
 	snapshots, err := utils.GetSnapshots(repo, flags.Args())
 	if err != nil {
-		logger.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
+		logging.Error("%s: could not obtain snapshots list: %s", flags.Name(), err)
 		return 1
 	}
 
@@ -63,7 +63,7 @@ func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []stri
 
 		_, pathname := utils.ParseSnapshotID(flags.Args()[offset])
 		if pathname == "" {
-			logger.Error("%s: missing filename for snapshot %s", flags.Name(), snap.Header.GetIndexShortID())
+			logging.Error("%s: missing filename for snapshot %s", flags.Name(), snap.Header.GetIndexShortID())
 			errors++
 			continue
 		}

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 )
 
@@ -87,7 +87,7 @@ func NewExporter(location string) (*Exporter, error) {
 func (exporter *Exporter) Root() string {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("vfs", "exporter.Root(): %s", time.Since(t0))
+		logging.Trace("vfs", "exporter.Root(): %s", time.Since(t0))
 	}()
 
 	return exporter.backend.Root()
@@ -96,7 +96,7 @@ func (exporter *Exporter) Root() string {
 func (exporter *Exporter) CreateDirectory(pathname string) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
+		logging.Trace("vfs", "exporter.CreateDirectory(%s): %s", pathname, time.Since(t0))
 	}()
 
 	return exporter.backend.CreateDirectory(pathname)
@@ -105,7 +105,7 @@ func (exporter *Exporter) CreateDirectory(pathname string) error {
 func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("vfs", "exporter.StoreFile(%s): %s", pathname, time.Since(t0))
+		logging.Trace("vfs", "exporter.StoreFile(%s): %s", pathname, time.Since(t0))
 	}()
 
 	return exporter.backend.StoreFile(pathname, fp)
@@ -114,7 +114,7 @@ func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
 func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("vfs", "exporter.SetPermissions(%s): %s", pathname, time.Since(t0))
+		logging.Trace("vfs", "exporter.SetPermissions(%s): %s", pathname, time.Since(t0))
 	}()
 
 	return exporter.backend.SetPermissions(pathname, fileinfo)
@@ -123,7 +123,7 @@ func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.File
 func (exporter *Exporter) Close() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("vfs", "exporter.Close(): %s", time.Since(t0))
+		logging.Trace("vfs", "exporter.Close(): %s", time.Since(t0))
 	}()
 	return exporter.backend.Close()
 }

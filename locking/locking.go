@@ -19,7 +19,7 @@ package locking
 import (
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 )
 
 type SharedLock struct {
@@ -42,7 +42,7 @@ func (lock *SharedLock) Lock() {
 	t0 := time.Now()
 	lock.capacity <- true
 	lock.timestamp = time.Now()
-	logger.Trace("locking", "Lock(%s): refcount=%d, capacity=%d, wait=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(t0))
+	logging.Trace("locking", "Lock(%s): refcount=%d, capacity=%d, wait=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(t0))
 }
 
 func (lock *SharedLock) Unlock() {
@@ -50,5 +50,5 @@ func (lock *SharedLock) Unlock() {
 		panic("unlocking unlocked lock")
 	}
 	<-lock.capacity
-	logger.Trace("locking", "Unlock(%s): refcount=%d, capacity=%d, held=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(lock.timestamp))
+	logging.Trace("locking", "Unlock(%s): refcount=%d, capacity=%d, held=%s", lock.name, len(lock.capacity), cap(lock.capacity), time.Since(lock.timestamp))
 }

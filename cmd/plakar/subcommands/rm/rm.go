@@ -28,7 +28,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/dustin/go-humanize"
@@ -157,11 +157,11 @@ func cmd_rm(ctx *context.Context, repo *repository.Repository, args []string) in
 			t0 := time.Now()
 			err := repo.DeleteSnapshot(snap.Header.GetIndexID())
 			if err != nil {
-				logger.Error("%s", err)
+				logging.Error("%s", err)
 				errors++
 			}
 			wg.Done()
-			logger.Info("removed snapshot %x of size %s in %s",
+			logging.Info("removed snapshot %x of size %s in %s",
 				snap.Header.GetIndexShortID(),
 				humanize.Bytes(snap.Header.Summary.Directory.Size+snap.Header.Summary.Below.Size),
 				time.Since(t0))

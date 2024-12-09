@@ -23,7 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/vmihailenco/msgpack/v5"
@@ -145,7 +145,7 @@ func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 func NewFromBytes(serialized []byte) (*State, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("state", "NewFromBytes(...): %s", time.Since(t0))
+		logging.Trace("state", "NewFromBytes(...): %s", time.Since(t0))
 	}()
 
 	if len(serialized) < 4 {
@@ -171,7 +171,7 @@ func NewFromBytes(serialized []byte) (*State, error) {
 func (st *State) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("state", "Serialize(): %s", time.Since(t0))
+		logging.Trace("state", "Serialize(): %s", time.Since(t0))
 	}()
 
 	serialized, err := msgpack.Marshal(st)

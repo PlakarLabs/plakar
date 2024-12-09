@@ -25,7 +25,7 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/plakarfs"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/anacrolix/fuse"
@@ -41,7 +41,7 @@ func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string)
 	flags.Parse(args)
 
 	if flags.NArg() != 1 {
-		logger.Error("need mountpoint")
+		logging.Error("need mountpoint")
 		return 1
 	}
 
@@ -57,7 +57,7 @@ func cmd_mount(ctx *context.Context, repo *repository.Repository, args []string)
 		log.Fatalf("Mount: %v", err)
 	}
 	defer c.Close()
-	logger.Info("mounted repository %s at %s", repo.Location(), mountpoint)
+	logging.Info("mounted repository %s at %s", repo.Location(), mountpoint)
 
 	err = fs.Serve(c, plakarfs.NewFS(repo, mountpoint))
 	if err != nil {

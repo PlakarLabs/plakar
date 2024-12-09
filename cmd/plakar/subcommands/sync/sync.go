@@ -27,7 +27,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -56,7 +56,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 		peerRepositoryPath = flags.Arg(2)
 
 	default:
-		logger.Error("usage: %s [snapshotID] to|from repository", flags.Name())
+		logging.Error("usage: %s [snapshotID] to|from repository", flags.Name())
 		return 1
 	}
 

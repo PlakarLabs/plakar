@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -151,7 +151,7 @@ func NewImporter(location string) (*Importer, error) {
 func (importer *Importer) Origin() string {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.Origin(): %s", time.Since(t0))
+		logging.Trace("importer", "importer.Origin(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Origin()
@@ -160,7 +160,7 @@ func (importer *Importer) Origin() string {
 func (importer *Importer) Type() string {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.Type(): %s", time.Since(t0))
+		logging.Trace("importer", "importer.Type(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Type()
@@ -169,7 +169,7 @@ func (importer *Importer) Type() string {
 func (importer *Importer) Root() string {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.Root(): %s", time.Since(t0))
+		logging.Trace("importer", "importer.Root(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Root()
@@ -178,7 +178,7 @@ func (importer *Importer) Root() string {
 func (importer *Importer) Scan() (<-chan ScanResult, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.Scan(): %s", time.Since(t0))
+		logging.Trace("importer", "importer.Scan(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Scan()
@@ -187,7 +187,7 @@ func (importer *Importer) Scan() (<-chan ScanResult, error) {
 func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.NewReader(%s): %s", pathname, time.Since(t0))
+		logging.Trace("importer", "importer.NewReader(%s): %s", pathname, time.Since(t0))
 	}()
 
 	return importer.backend.NewReader(pathname)
@@ -196,7 +196,7 @@ func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
 func (importer *Importer) Close() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("importer", "importer.Close(): %s", time.Since(t0))
+		logging.Trace("importer", "importer.Close(): %s", time.Since(t0))
 	}()
 
 	return importer.backend.Close()

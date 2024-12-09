@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot/exporter"
 )
@@ -68,15 +68,15 @@ func (p *FSExporter) StoreFile(pathname string, fp io.Reader) error {
 	}
 
 	if _, err := io.Copy(f, fp); err != nil {
-		logger.Warn("copy failure: %s: %s", pathname, err)
+		logging.Warn("copy failure: %s: %s", pathname, err)
 		f.Close()
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		logger.Warn("sync failure: %s: %s", pathname, err)
+		logging.Warn("sync failure: %s: %s", pathname, err)
 	}
 	if err := f.Close(); err != nil {
-		logger.Warn("close failure: %s: %s", pathname, err)
+		logging.Warn("close failure: %s: %s", pathname, err)
 	}
 	return nil
 }

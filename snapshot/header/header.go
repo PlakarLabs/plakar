@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/PlakarKorp/plakar/storage"
@@ -91,7 +91,7 @@ func NewHeader(name string, identifier objects.Checksum) *Header {
 func NewFromBytes(serialized []byte) (*Header, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("header", "NewMetadataFromBytes(...): %s", time.Since(t0))
+		logging.Trace("header", "NewMetadataFromBytes(...): %s", time.Since(t0))
 	}()
 
 	var header Header
@@ -105,7 +105,7 @@ func NewFromBytes(serialized []byte) (*Header, error) {
 func (h *Header) Serialize() ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("header", "Serialize(): %s", time.Since(t0))
+		logging.Trace("header", "Serialize(): %s", time.Since(t0))
 	}()
 
 	if serialized, err := msgpack.Marshal(h); err != nil {

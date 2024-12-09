@@ -24,7 +24,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/google/uuid"
@@ -73,17 +73,17 @@ func cmd_check(ctx *context.Context, repo *repository.Repository, args []string)
 
 		if !opt_noVerify && snap.Header.Identity.Identifier != uuid.Nil {
 			if ok, err := snap.Verify(); err != nil {
-				logger.Warn("%s", err)
+				logging.Warn("%s", err)
 			} else if !ok {
-				logger.Info("snapshot %x signature verification failed", snap.Header.Identifier)
+				logging.Info("snapshot %x signature verification failed", snap.Header.Identifier)
 				failures = true
 			} else {
-				logger.Info("snapshot %x signature verification succeeded", snap.Header.Identifier)
+				logging.Info("snapshot %x signature verification succeeded", snap.Header.Identifier)
 			}
 		}
 
 		if ok, err := snap.Check(pathname, opts); err != nil {
-			logger.Warn("%s", err)
+			logging.Warn("%s", err)
 		} else if !ok {
 			failures = true
 		}

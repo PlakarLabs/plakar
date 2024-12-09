@@ -14,7 +14,7 @@ import (
 	"github.com/PlakarKorp/plakar/caching"
 	"github.com/PlakarKorp/plakar/classifier"
 	"github.com/PlakarKorp/plakar/events"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/snapshot/importer"
@@ -209,7 +209,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	if !strings.Contains(scanDir, "://") {
 		scanDir, err = filepath.Abs(scanDir)
 		if err != nil {
-			logger.Warn("%s", err)
+			logging.Warn("%s", err)
 			return err
 		}
 	} else {
@@ -266,11 +266,11 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 			// Check if the file entry and underlying objects are already in the cache
 			if data, err := vfsCache.GetFilename(record.Pathname); err != nil {
-				logger.Warn("VFS CACHE: Error getting filename: %v", err)
+				logging.Warn("VFS CACHE: Error getting filename: %v", err)
 			} else if data != nil {
 				cachedFileEntry, err = vfs.FileEntryFromBytes(data)
 				if err != nil {
-					logger.Warn("VFS CACHE: Error unmarshaling filename: %v", err)
+					logging.Warn("VFS CACHE: Error unmarshaling filename: %v", err)
 				} else {
 					cachedFileEntryChecksum = snap.repository.Checksum(data)
 					cachedFileEntrySize = uint64(len(data))
@@ -279,11 +279,11 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 						if fileEntry.Type == importer.RecordTypeFile {
 							data, err := vfsCache.GetObject(cachedFileEntry.Object.Checksum)
 							if err != nil {
-								logger.Warn("VFS CACHE: Error getting object: %v", err)
+								logging.Warn("VFS CACHE: Error getting object: %v", err)
 							} else if data != nil {
 								cachedObject, err := objects.NewObjectFromBytes(data)
 								if err != nil {
-									logger.Warn("VFS CACHE: Error unmarshaling object: %v", err)
+									logging.Warn("VFS CACHE: Error unmarshaling object: %v", err)
 								} else {
 									object = cachedObject
 								}

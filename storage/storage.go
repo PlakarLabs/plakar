@@ -35,7 +35,7 @@ import (
 	"github.com/PlakarKorp/plakar/encryption"
 	"github.com/PlakarKorp/plakar/hashing"
 	"github.com/PlakarKorp/plakar/locking"
-	"github.com/PlakarKorp/plakar/logger"
+	"github.com/PlakarKorp/plakar/logging"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/google/uuid"
@@ -189,7 +189,7 @@ func Open(ctx *context.Context, location string) (*Store, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "Open(%s): %s", location, time.Since(t0))
+		logging.Trace("store", "Open(%s): %s", location, time.Since(t0))
 	}()
 
 	if err = store.backend.Open(location); err != nil {
@@ -208,7 +208,7 @@ func Create(ctx *context.Context, location string, configuration Configuration) 
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "Create(%s): %s", location, time.Since(t0))
+		logging.Trace("store", "Create(%s): %s", location, time.Since(t0))
 	}()
 
 	if err = store.backend.Create(location, configuration); err != nil {
@@ -245,7 +245,7 @@ func (store *Store) GetPackfiles() ([]objects.Checksum, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "GetPackfiles(): %s", time.Since(t0))
+		logging.Trace("store", "GetPackfiles(): %s", time.Since(t0))
 	}()
 
 	checksums, err := store.backend.GetPackfiles()
@@ -262,7 +262,7 @@ func (store *Store) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, e
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "GetPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	rd, datalen, err := store.backend.GetPackfile(checksum)
@@ -279,7 +279,7 @@ func (store *Store) GetPackfileBlob(checksum objects.Checksum, offset uint32, le
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
+		logging.Trace("store", "GetPackfileBlob(%016x, %d, %d): %s", checksum, offset, length, time.Since(t0))
 	}()
 
 	rd, datalen, err := store.backend.GetPackfileBlob(checksum, offset, length)
@@ -296,7 +296,7 @@ func (store *Store) PutPackfile(checksum objects.Checksum, rd io.Reader, size ui
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "PutPackfile(%016x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "PutPackfile(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	store.bufferedPackfiles <- struct{}{}
@@ -312,7 +312,7 @@ func (store *Store) DeletePackfile(checksum objects.Checksum) error {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "DeletePackfile(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeletePackfile(checksum)
 }
@@ -324,7 +324,7 @@ func (store *Store) GetStates() ([]objects.Checksum, error) {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "GetStates(): %s", time.Since(t0))
+		logging.Trace("store", "GetStates(): %s", time.Since(t0))
 	}()
 
 	checksums, err := store.backend.GetStates()
@@ -341,7 +341,7 @@ func (store *Store) PutState(checksum objects.Checksum, rd io.Reader, size uint6
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "PutState(%016x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "PutState(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	err := store.backend.PutState(checksum, rd, size)
@@ -357,7 +357,7 @@ func (store *Store) GetState(checksum objects.Checksum) (io.Reader, uint64, erro
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "GetState(%016x): %s", checksum, time.Since(t0))
 	}()
 
 	rd, size, err := store.backend.GetState(checksum)
@@ -373,7 +373,7 @@ func (store *Store) DeleteState(checksum objects.Checksum) error {
 
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "DeleteState(%064x): %s", checksum, time.Since(t0))
+		logging.Trace("store", "DeleteState(%064x): %s", checksum, time.Since(t0))
 	}()
 	return store.backend.DeleteState(checksum)
 }
@@ -381,7 +381,7 @@ func (store *Store) DeleteState(checksum objects.Checksum) error {
 func (store *Store) Close() error {
 	t0 := time.Now()
 	defer func() {
-		logger.Trace("store", "Close(): %s", time.Since(t0))
+		logging.Trace("store", "Close(): %s", time.Since(t0))
 	}()
 	return store.backend.Close()
 }

@@ -610,9 +610,9 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	return snap.Commit()
 }
 
-func entropy(data []byte) float64 {
+func entropy(data []byte) (float64, [256]float64) {
 	if len(data) == 0 {
-		return 0.0
+		return 0.0, [256]float64{}
 	}
 
 	// Count the frequency of each byte value
@@ -630,7 +630,7 @@ func entropy(data []byte) float64 {
 			entropy -= p * math.Log2(p)
 		}
 	}
-	return entropy
+	return entropy, freq
 }
 
 func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier, record importer.ScanRecord) (*objects.Object, error) {
@@ -654,6 +654,7 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier
 	var object_t32 objects.Checksum
 
 	var totalEntropy float64
+	var totalFreq [256]float64
 	var totalDataSize uint64
 
 	// Helper function to process a chunk
@@ -675,7 +676,14 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier
 		chunkHasher.Write(data)
 		copy(chunk_t32[:], chunkHasher.Sum(nil))
 
-		chunk := objects.Chunk{Checksum: chunk_t32, Length: uint32(len(data)), Entropy: entropy(data)}
+		entropyScore, freq := entropy(data)
+		if len(data) > 0 {
+			for i := 0; i < 256; i++ {
+				totalFreq[i] += freq[i]
+				freq[i] /= float64(len(data))
+			}
+		}
+		chunk := objects.Chunk{Checksum: chunk_t32, Length: uint32(len(data)), Entropy: entropyScore, Distribution: freq}
 		object.Chunks = append(object.Chunks, chunk)
 		cdcOffset += uint64(len(data))
 
@@ -731,8 +739,12 @@ func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier
 
 	if totalDataSize > 0 {
 		object.Entropy = totalEntropy / float64(totalDataSize)
+		for i := 0; i < 256; i++ {
+			totalFreq[i] /= float64(totalDataSize)
+		}
 	} else {
 		object.Entropy = 0.0
+		object.Distribution = [256]float64{}
 	}
 
 	copy(object_t32[:], objectHasher.Sum(nil))

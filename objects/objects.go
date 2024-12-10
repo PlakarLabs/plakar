@@ -31,6 +31,7 @@ type Object struct {
 	CustomMetadata  []CustomMetadata `msgpack:"custom_metadata,omitempty" json:"custom_metadata"`
 	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
 	Entropy         float64          `msgpack:"entropy,omitempty" json:"entropy"`
+	Distribution    [256]float64     `msgpack:"distribution,omitempty" json:"distribution"`
 }
 
 func NewObject() *Object {
@@ -69,7 +70,8 @@ func (o *Object) AddClassification(analyzer string, classes []string) {
 }
 
 type Chunk struct {
-	Checksum Checksum `msgpack:"checksum" json:"checksum"`
-	Length   uint32   `msgpack:"length" json:"length"`
-	Entropy  float64  `msgpack:"entropy" json:"entropy"`
+	Checksum     Checksum     `msgpack:"checksum" json:"checksum"`
+	Length       uint32       `msgpack:"length" json:"length"`
+	Entropy      float64      `msgpack:"entropy" json:"entropy"`
+	Distribution [256]float64 `msgpack:"distribution,omitempty" json:"distribution"`
 }

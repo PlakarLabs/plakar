@@ -118,6 +118,7 @@ func Ui(repo *repository.Repository, addr string, opts *UiOptions) error {
 	if opts.Cors {
 		return http.ListenAndServe(addr, handlers.CORS(
 			handlers.AllowedHeaders([]string{"Authorization", "Content-Type"}),
+			handlers.ExposedHeaders([]string{"Content-Disposition"}),
 		)(r))
 	}
 	return http.ListenAndServe(addr, r)

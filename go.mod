@@ -1,6 +1,6 @@
 module github.com/PlakarKorp/plakar
 
-go 1.22.2
+go 1.23.3
 
 require (
 	github.com/PlakarLabs/go-cdc-chunkers v0.0.7

@@ -19,6 +19,7 @@ package state
 import (
 	"encoding/binary"
 	"fmt"
+	"iter"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -443,9 +444,8 @@ func (st *State) DeleteSnapshot(snapshotChecksum objects.Checksum) error {
 	return nil
 }
 
-func (st *State) ListBlobs(Type packfile.Type) <-chan objects.Checksum {
-	ch := make(chan objects.Checksum)
-	go func() {
+func (st *State) ListBlobs(Type packfile.Type) iter.Seq[objects.Checksum] {
+	return func(yield func(objects.Checksum) bool) {
 		var mapPtr *map[uint64]Location
 		var mtx *sync.Mutex
 		switch Type {
@@ -485,11 +485,11 @@ func (st *State) ListBlobs(Type packfile.Type) <-chan objects.Checksum {
 		mtx.Unlock()
 
 		for _, checksum := range blobsList {
-			ch <- checksum
+			if !yield(checksum) {
+				return
+			}
 		}
-		close(ch)
-	}()
-	return ch
+	}
 }
 
 func (st *State) ListSnapshots() <-chan objects.Checksum {

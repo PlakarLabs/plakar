@@ -505,18 +505,21 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 	if query.Format == "zip" {
 		ext = ".zip"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		w.WriteHeader(200)
 		if err := archiveZip(snap, out, fs, query.Items, query.Rebase, name); err != nil {
 			return err
 		}
 	} else if query.Format == "tar" {
 		ext = ".tar"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		w.WriteHeader(200)
 		if err := archiveTarball(snap, out, fs, query.Items, query.Rebase, name); err != nil {
 			return err
 		}
 	} else if query.Format == "tarball" || query.Format == "" {
 		ext = ".tar.gz"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
+		w.WriteHeader(200)
 		gzipWriter := gzip.NewWriter(out)
 		defer gzipWriter.Close()
 		if err := archiveTarball(snap, gzipWriter, fs, query.Items, query.Rebase, name); err != nil {

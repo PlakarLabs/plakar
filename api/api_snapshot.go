@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -26,6 +28,15 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
+
+type downloadSignedUrl struct {
+	snapshotID [32]byte
+	rebase     string
+	files      []string
+}
+
+var downloadSignedUrls = make(map[string]downloadSignedUrl)
+var muDownloadSignedUrls sync.Mutex
 
 func snapshotHeader(w http.ResponseWriter, r *http.Request) error {
 	snapshotID32, err := PathParamToID(r, "snapshot")
@@ -470,6 +481,15 @@ type DownloadQuery struct {
 	Rebase string         `json:"rebase,omitempty"`
 }
 
+func randomID(n int) string {
+	alphabet := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+	return string(b)
+}
+
 func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	_ = vars
@@ -484,7 +504,51 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 		return parameterError("BODY", InvalidArgument, err)
 	}
 
-	snap, err := snapshot.Load(lrepository, snapshotID32)
+	_, err = snapshot.Load(lrepository, snapshotID32)
+	if err != nil {
+		return err
+	}
+
+	muDownloadSignedUrls.Lock()
+	defer muDownloadSignedUrls.Unlock()
+	for {
+		link := randomID(32)
+		if _, ok := downloadSignedUrls[link]; ok {
+			continue
+		}
+
+		url := downloadSignedUrl{
+			snapshotID: snapshotID32,
+			rebase:     query.Rebase,
+		}
+
+		for _, item := range query.Items {
+			url.files = append(url.files, item.Pathname)
+		}
+
+		downloadSignedUrls[link] = url
+		res := struct{ Link string }{link}
+		json.NewEncoder(w).Encode(&res)
+		return nil
+	}
+}
+
+func snapshotVFSDownloaderSigned(w http.ResponseWriter, r *http.Request) error {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	muDownloadSignedUrls.Lock()
+	link, ok := downloadSignedUrls[id]
+	muDownloadSignedUrls.Unlock()
+	if !ok {
+		return &ApiError{
+			HttpCode: 404,
+			ErrCode:  "signed-link-not-found",
+			Message:  "Signed Link Not Found",
+		}
+	}
+
+	snap, err := snapshot.Load(lrepository, link.snapshotID)
 	if err != nil {
 		return err
 	}
@@ -496,33 +560,35 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 
 	out := w
 
-	name := query.Name
+	name := r.URL.Query().Get("name")
 	if name == "" {
-		name = fmt.Sprintf("snapshot-%x-%s", snapshotID32[:4], time.Now().Format("2006-01-02-15-04-05"))
+		name = fmt.Sprintf("snapshot-%x-%s", link.snapshotID[:4], time.Now().Format("2006-01-02-15-04-05"))
 	}
 
+	format := r.URL.Query().Get("format")
+
 	var ext string
-	if query.Format == "zip" {
+	if format == "zip" {
 		ext = ".zip"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
 		w.WriteHeader(200)
-		if err := archiveZip(snap, out, fs, query.Items, query.Rebase, name); err != nil {
+		if err := archiveZip(snap, out, fs, link.files, link.rebase, name); err != nil {
 			return err
 		}
-	} else if query.Format == "tar" {
+	} else if format == "tar" {
 		ext = ".tar"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
 		w.WriteHeader(200)
-		if err := archiveTarball(snap, out, fs, query.Items, query.Rebase, name); err != nil {
+		if err := archiveTarball(snap, out, fs, link.files, link.rebase, name); err != nil {
 			return err
 		}
-	} else if query.Format == "tarball" || query.Format == "" {
+	} else if format == "tarball" || format == "" {
 		ext = ".tar.gz"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
 		w.WriteHeader(200)
 		gzipWriter := gzip.NewWriter(out)
 		defer gzipWriter.Close()
-		if err := archiveTarball(snap, gzipWriter, fs, query.Items, query.Rebase, name); err != nil {
+		if err := archiveTarball(snap, gzipWriter, fs, link.files, link.rebase, name); err != nil {
 			return err
 		}
 	} else {
@@ -532,7 +598,7 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []DownloadItem, rebase string, prefix string) error {
+func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []string, rebase string, prefix string) error {
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 
@@ -563,9 +629,7 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 		return nil
 	}
 
-	for _, path := range dl {
-		pathname := path.Pathname
-
+	for _, pathname := range dl {
 		fi, err := fs.Stat(pathname)
 		if err != nil {
 			return err
@@ -617,7 +681,7 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 	return nil
 }
 
-func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []DownloadItem, rebase string, prefix string) error {
+func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl []string, rebase string, prefix string) error {
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
 
@@ -653,9 +717,7 @@ func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, dl [
 		return nil
 	}
 
-	for _, path := range dl {
-		pathname := path.Pathname
-
+	for _, pathname := range dl {
 		fi, err := fs.Stat(pathname)
 		if err != nil {
 			return err

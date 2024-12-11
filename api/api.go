@@ -120,6 +120,8 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 	handle("/snapshot/vfs/{snapshot}:{path:.+}", snapshotVFSBrowse).Methods("GET")
 
 	handle("/snapshot/vfs/downloader/{snapshot}", snapshotVFSDownloader).Methods("POST")
+	apiRouter.Handle("/snapshot/vfs/downloader/signed/:id", Handler(snapshotVFSDownloaderSigned)).Methods("GET")
+
 	handle("/snapshot/vfs/children/{snapshot}:/", snapshotVFSChildren).Methods("GET")
 	handle("/snapshot/vfs/children/{snapshot}:{path:.+}/", snapshotVFSChildren).Methods("GET")
 	handle("/snapshot/vfs/children/{snapshot}:{path:.+}", snapshotVFSChildren).Methods("GET")

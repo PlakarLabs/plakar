@@ -506,13 +506,13 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 		ext = ".zip"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
 		if err := archiveZip(snap, out, fs, query.Items, query.Rebase, name); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	} else if query.Format == "tar" {
 		ext = ".tar"
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(name+ext))
 		if err := archiveTarball(snap, out, fs, query.Items, query.Rebase, name); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	} else if query.Format == "tarball" || query.Format == "" {
 		ext = ".tar.gz"
@@ -520,7 +520,7 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 		gzipWriter := gzip.NewWriter(out)
 		defer gzipWriter.Close()
 		if err := archiveTarball(snap, gzipWriter, fs, query.Items, query.Rebase, name); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	} else {
 		return parameterError("format", InvalidArgument, ErrInvalidFormat)

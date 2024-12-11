@@ -512,8 +512,8 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 	muDownloadSignedUrls.Lock()
 	defer muDownloadSignedUrls.Unlock()
 	for {
-		link := randomID(32)
-		if _, ok := downloadSignedUrls[link]; ok {
+		id := randomID(32)
+		if _, ok := downloadSignedUrls[id]; ok {
 			continue
 		}
 
@@ -526,8 +526,10 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 			url.files = append(url.files, item.Pathname)
 		}
 
-		downloadSignedUrls[link] = url
-		res := struct{ Link string }{link}
+		downloadSignedUrls[id] = url
+		res := struct {
+			Id string `json:"id"`
+		}{id}
 		json.NewEncoder(w).Encode(&res)
 		return nil
 	}

@@ -60,12 +60,10 @@ func (r *Repository) RebuildState() error {
 
 	// identify local states
 	localStates := make(map[objects.Checksum]struct{})
-	statesChan, err := cacheInstance.ListStates()
-	if err != nil {
-		return err
-	}
-
-	for stateID := range statesChan {
+	for stateID, err := range cacheInstance.ListStates() {
+		if err != nil {
+			return err
+		}
 		localStates[stateID] = struct{}{}
 	}
 

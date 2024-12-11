@@ -3,6 +3,7 @@ package caching
 import (
 	"encoding/hex"
 	"fmt"
+	"iter"
 	"path/filepath"
 	"strings"
 
@@ -72,11 +73,8 @@ func (c *_RepositoryCache) DelState(stateID [32]byte) error {
 	return c.delete("__state__", fmt.Sprintf("%x", stateID))
 }
 
-func (c *_RepositoryCache) ListStates() (chan [32]byte, error) {
-	ch := make(chan [32]byte)
-	go func() {
-		defer close(ch)
-
+func (c *_RepositoryCache) ListStates() iter.Seq2[[32]byte, error] {
+	return func(yield func([32]byte, error) bool) {
 		iter := c.db.NewIterator(nil, nil)
 		defer iter.Release()
 
@@ -88,13 +86,9 @@ func (c *_RepositoryCache) ListStates() (chan [32]byte, error) {
 
 			var stateID [32]byte
 			_, err := hex.Decode(stateID[:], iter.Key()[len(keyPrefix):])
-			if err != nil {
-				fmt.Printf("Error decoding state ID: %v\n", err)
-				continue
+			if !yield(stateID, err) {
+				return
 			}
-			ch <- stateID
 		}
-
-	}()
-	return ch, nil
+	}
 }

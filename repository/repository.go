@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"iter"
 	"strings"
 	"time"
 
@@ -478,7 +479,7 @@ func (r *Repository) BlobExists(Type packfile.Type, checksum objects.Checksum) b
 	return r.state.BlobExists(Type, checksum)
 }
 
-func (r *Repository) ListSnapshots() <-chan objects.Checksum {
+func (r *Repository) ListSnapshots() iter.Seq[objects.Checksum] {
 	t0 := time.Now()
 	defer func() {
 		r.Logger().Trace("repository", "ListSnapshots(): %s", time.Since(t0))

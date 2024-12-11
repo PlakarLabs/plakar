@@ -492,9 +492,8 @@ func (st *State) ListBlobs(Type packfile.Type) iter.Seq[objects.Checksum] {
 	}
 }
 
-func (st *State) ListSnapshots() <-chan objects.Checksum {
-	ch := make(chan objects.Checksum)
-	go func() {
+func (st *State) ListSnapshots() iter.Seq[objects.Checksum] {
+	return func(yield func(objects.Checksum) bool) {
 		snapshotsList := make([]objects.Checksum, 0)
 		st.muSnapshots.Lock()
 		for k := range st.Snapshots {
@@ -508,9 +507,9 @@ func (st *State) ListSnapshots() <-chan objects.Checksum {
 		st.muSnapshots.Unlock()
 
 		for _, checksum := range snapshotsList {
-			ch <- checksum
+			if !yield(checksum) {
+				return
+			}
 		}
-		close(ch)
-	}()
-	return ch
+	}
 }

@@ -418,14 +418,13 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
-		childrenChan, err := sc2.EnumerateImmediateChildPathnames(record.Pathname, true)
-		if err != nil {
-			return err
-		}
-
 		/* children */
 		var lastChecksum *objects.Checksum
-		for child := range childrenChan {
+		for child, err := range sc2.EnumerateImmediateChildPathnames(record.Pathname, true) {
+			if err != nil {
+				continue
+			}
+
 			childChecksum, err := sc2.GetChecksum(child.Pathname)
 			if err != nil {
 				continue

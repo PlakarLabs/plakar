@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"iter"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/btree"
@@ -45,34 +46,31 @@ func pathCmp(a, b string) int {
 	return strings.Compare(a, b)
 }
 
-func (snapshot *Snapshot) Errors(beneath string) (<-chan ErrorItem, error) {
+func (snapshot *Snapshot) Errors(beneath string) (iter.Seq2[ErrorItem, error], error) {
 	if !strings.HasSuffix(beneath, "/") {
 		beneath += "/"
 	}
 
-	c := make(chan ErrorItem)
+	bytes, err := snapshot.GetBlob(packfile.TYPE_ERROR, snapshot.Header.Errors)
+	if err != nil {
+		return nil, err
+	}
 
-	go func() {
-		defer close(c)
+	root, err := ErrorEntryFromBytes(bytes)
+	if err != nil {
+		return nil, err
+	}
 
-		bytes, err := snapshot.GetBlob(packfile.TYPE_ERROR, snapshot.Header.Errors)
-		if err != nil {
-			return
-		}
+	storage := SnapshotStore[string, ErrorItem]{
+		blobtype: packfile.TYPE_ERROR,
+		snap:     snapshot,
+	}
+	tree := btree.FromStorage(root.Root, &storage, strings.Compare, root.Order)
 
-		root, err := ErrorEntryFromBytes(bytes)
-		if err != nil {
-			return
-		}
-
-		storage := SnapshotStore[string, ErrorItem]{
-			blobtype: packfile.TYPE_ERROR,
-			snap:     snapshot,
-		}
-		tree := btree.FromStorage(root.Root, &storage, strings.Compare, root.Order)
-
+	return func(yield func(ErrorItem, error) bool) {
 		iter, err := tree.ScanFrom(beneath, pathCmp)
 		if err != nil {
+			yield(ErrorItem{}, err)
 			return
 		}
 
@@ -81,9 +79,13 @@ func (snapshot *Snapshot) Errors(beneath string) (<-chan ErrorItem, error) {
 			if !strings.HasPrefix(item.Name, beneath) {
 				break
 			}
-			c <- item
+			if !yield(item, nil) {
+				break
+			}
 		}
-	}()
-
-	return c, nil
+		if err := iter.Err(); err != nil {
+			yield(ErrorItem{}, err)
+			return
+		}
+	}, nil
 }

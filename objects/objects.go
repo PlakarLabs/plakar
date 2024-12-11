@@ -32,6 +32,7 @@ type Object struct {
 	Tags            []string         `msgpack:"tags,omitempty" json:"tags"`
 	Entropy         float64          `msgpack:"entropy,omitempty" json:"entropy"`
 	Distribution    [256]float64     `msgpack:"distribution,omitempty" json:"distribution"`
+	Flags           uint32           `msgpack:"flags" json:"flags"`
 }
 
 func NewObject() *Object {
@@ -73,5 +74,6 @@ type Chunk struct {
 	Checksum     Checksum     `msgpack:"checksum" json:"checksum"`
 	Length       uint32       `msgpack:"length" json:"length"`
 	Entropy      float64      `msgpack:"entropy" json:"entropy"`
+	Flags        uint32       `msgpack:"flags" json:"flags"`
 	Distribution [256]float64 `msgpack:"distribution,omitempty" json:"distribution"`
 }

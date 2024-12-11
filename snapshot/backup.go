@@ -411,11 +411,11 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	var rootSummary *vfs.Summary
 
-	directories, err := sc2.EnumerateKeysWithPrefixReverse("__pathname__", true)
-	if err != nil {
-		return err
-	}
-	for record := range directories {
+	for record, err := range sc2.EnumerateKeysWithPrefixReverse("__pathname__", true) {
+		if err != nil {
+			return err
+		}
+
 		dirEntry := vfs.NewDirectoryEntry(filepath.Dir(record.Pathname), &record)
 
 		childrenChan, err := sc2.EnumerateImmediateChildPathnames(record.Pathname, true)

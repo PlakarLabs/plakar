@@ -98,10 +98,10 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 		}
 	case "tarball":
 		gzipWriter := gzip.NewWriter(out)
-		defer gzipWriter.Close()
 		if err := archiveTarball(snap, gzipWriter, fs, pathname, opt_rebase); err != nil {
 			log.Fatal(err)
 		}
+		gzipWriter.Close()
 	case "zip":
 		if err := archiveZip(snap, out, fs, pathname, opt_rebase); err != nil {
 			log.Fatal(err)
@@ -145,20 +145,28 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 		switch entry := info.(type) {
 		case *vfs.FileEntry:
 			header = &tar.Header{
-				Name:    filepath,
-				Size:    entry.Stat().Size(),
-				Mode:    int64(entry.Stat().Mode()),
-				ModTime: entry.Stat().ModTime(),
+				Typeflag: tar.TypeReg,
+				Name:     filepath,
+				Size:     entry.Stat().Size(),
+				Mode:     int64(entry.Stat().Mode()),
+				ModTime:  entry.Stat().ModTime(),
 			}
 		case *vfs.DirEntry:
 			header = &tar.Header{
-				Name:    filepath,
-				Size:    entry.Stat().Size(),
-				Mode:    int64(entry.Stat().Mode()),
-				ModTime: entry.Stat().ModTime(),
+				Typeflag: tar.TypeDir,
+				Name:     filepath,
+				Mode:     int64(entry.Stat().Mode()),
+				ModTime:  entry.Stat().ModTime(),
 			}
 		default:
 			snap.Logger().Error("could not stat file %T: %s %s", file, file, err)
+			continue
+		}
+
+		err = tarWriter.WriteHeader(header)
+		if err != nil {
+			snap.Logger().Error("could not write header for file %s: %s", file, err)
+			continue
 		}
 
 		if _, isDir := info.(*vfs.DirEntry); isDir {
@@ -168,13 +176,6 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 		rd, err := snap.NewReader(file)
 		if err != nil {
 			snap.Logger().Error("could not find file %s", file)
-			continue
-		}
-
-		err = tarWriter.WriteHeader(header)
-		if err != nil {
-			snap.Logger().Error("could not write header for file %s: %s", file, err)
-			rd.Close()
 			continue
 		}
 

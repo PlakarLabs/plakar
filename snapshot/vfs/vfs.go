@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 )
@@ -15,7 +16,10 @@ const VERSION = 001
 
 type FSEntry interface {
 	fsEntry()
+	Stat() *objects.FileInfo
+	Name() string
 	Size() int64
+	Path() string
 }
 
 type Classification struct {
@@ -73,14 +77,7 @@ func (fsc *Filesystem) Open(name string) (fs.File, error) {
 		return nil, err
 	}
 
-	switch entry := st.(type) {
-	case *DirEntry:
-		return NewVDirectory(fsc, entry), nil
-	case *FileEntry:
-		return NewVFile(fsc, entry), nil
-	default:
-		return nil, fmt.Errorf("unknown entry type: %T", entry)
-	}
+	return NewVFilep(fsc, st), nil
 }
 
 func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) {

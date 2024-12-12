@@ -1,6 +1,9 @@
 package vfs
 
-import "io/fs"
+import (
+	"errors"
+	"io/fs"
+)
 
 type VDirectory struct {
 	vfs      *Filesystem
@@ -45,4 +48,8 @@ func (vd *VDirectory) Type() fs.FileMode {
 func (vd *VDirectory) Info() (fs.FileInfo, error) {
 	// Return fs.FileInfo for the entry
 	return vd.vfsEntry.FileInfo, nil
+}
+
+func (vf *VDirectory) ReadDir(count int) ([]fs.DirEntry, error) {
+	return nil, errors.New("not a implemented yet")
 }

@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -27,6 +26,7 @@ import (
 	"github.com/alecthomas/chroma/styles"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"go.omarpolo.com/ttlmap"
 )
 
 type downloadSignedUrl struct {
@@ -35,8 +35,11 @@ type downloadSignedUrl struct {
 	files      []string
 }
 
-var downloadSignedUrls = make(map[string]downloadSignedUrl)
-var muDownloadSignedUrls sync.Mutex
+var downloadSignedUrls = ttlmap.New[string, downloadSignedUrl](1 * time.Hour)
+
+func init() {
+	downloadSignedUrls.AutoExpire()
+}
 
 func snapshotHeader(w http.ResponseWriter, r *http.Request) error {
 	snapshotID32, err := PathParamToID(r, "snapshot")
@@ -476,7 +479,6 @@ type DownloadItem struct {
 }
 type DownloadQuery struct {
 	Name   string         `json:"name"`
-	Format string         `json:"format"`
 	Items  []DownloadItem `json:"items"`
 	Rebase string         `json:"rebase,omitempty"`
 }
@@ -509,11 +511,9 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	muDownloadSignedUrls.Lock()
-	defer muDownloadSignedUrls.Unlock()
 	for {
 		id := randomID(32)
-		if _, ok := downloadSignedUrls[id]; ok {
+		if _, ok := downloadSignedUrls.Get(id); ok {
 			continue
 		}
 
@@ -526,7 +526,7 @@ func snapshotVFSDownloader(w http.ResponseWriter, r *http.Request) error {
 			url.files = append(url.files, item.Pathname)
 		}
 
-		downloadSignedUrls[id] = url
+		downloadSignedUrls.Add(id, url)
 		res := struct {
 			Id string `json:"id"`
 		}{id}
@@ -539,9 +539,7 @@ func snapshotVFSDownloaderSigned(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	muDownloadSignedUrls.Lock()
-	link, ok := downloadSignedUrls[id]
-	muDownloadSignedUrls.Unlock()
+	link, ok := downloadSignedUrls.Get(id)
 	if !ok {
 		return &ApiError{
 			HttpCode: 404,

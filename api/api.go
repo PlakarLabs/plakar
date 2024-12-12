@@ -89,12 +89,18 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 		readerRouter.Use(urlSigner.VerifyMiddleware)
 	}
 
+	publicRouter := r.PathPrefix("/api").Subrouter()
+
 	handle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
 		return apiRouter.Handle(path, Handler(handler))
 	}
 
 	readerHandle := func(path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
 		return readerRouter.Handle(path, Handler(handler))
+	}
+
+	publicHandle := func (path string, handler func(http.ResponseWriter, *http.Request) error) *mux.Route {
+		return publicRouter.Handle(path, Handler(handler))
 	}
 
 	handle("/storage/configuration", storageConfiguration).Methods("GET")
@@ -120,7 +126,7 @@ func NewRouter(repo *repository.Repository, token string) *mux.Router {
 	handle("/snapshot/vfs/{snapshot}:{path:.+}", snapshotVFSBrowse).Methods("GET")
 
 	handle("/snapshot/vfs/downloader/{snapshot}", snapshotVFSDownloader).Methods("POST")
-	r.PathPrefix("/api/").Subrouter().Handle("/snapshot/vfs/downloader/signed/{id}", Handler(snapshotVFSDownloaderSigned)).Methods("GET")
+	publicHandle("/snapshot/vfs/downloader-sign-url/{id}", snapshotVFSDownloaderSigned).Methods("GET")
 
 	handle("/snapshot/vfs/children/{snapshot}:/", snapshotVFSChildren).Methods("GET")
 	handle("/snapshot/vfs/children/{snapshot}:{path:.+}/", snapshotVFSChildren).Methods("GET")

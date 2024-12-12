@@ -643,11 +643,11 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 			return err
 		}
 
-		if err := add(pathname, fi); err != nil {
-			return err
-		}
-
 		if !fi.Stat().IsDir() {
+			// PathnamesFrom will include the directory itself too!
+			if err := add(pathname, fi); err != nil {
+				return err
+			}
 			continue
 		}
 

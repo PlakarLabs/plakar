@@ -218,19 +218,31 @@ func (fsc *Filesystem) PathnamesFrom(parent string) (<-chan string, error) {
 	if !strings.HasSuffix(parent, "/") {
 		parent = parent + "/"
 	}
+
+	parent = filepath.Clean(parent)
+	components := strings.Split(parent, "/")
+	if len(components) == 0 {
+		return nil, fmt.Errorf("invalid path: %s", parent)
+	}
+
+	_, checksum, err := fsc.statRecursive(fsc.root, components[1:])
+	if err != nil {
+		return nil, err
+	}
+
 	ch := make(chan string)
 	go func() {
-		fsc.pathnamesRecursive(fsc.root, ch, parent)
+		fsc.pathnamesRecursive(checksum, ch, parent)
 		close(ch)
 	}()
 	return ch, nil
 }
 
 // Helper function to recursively traverse directories and find the path
-func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FSEntry, error) {
+func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FSEntry, [32]byte, error) {
 	if checksum == fsc.root {
 		if len(components) == 0 {
-			return fsc.rootEntry, nil
+			return fsc.rootEntry, checksum, nil
 		}
 	}
 
@@ -239,27 +251,27 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 		// Retrieve the file metadata
 		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_FILE, checksum)
 		if err != nil {
-			return nil, err
+			return nil, checksum, err
 		}
 
 		blob, err := io.ReadAll(rd)
 		if err != nil {
-			return nil, err
+			return nil, checksum, err
 		}
 
 		// Unmarshal the file entry
 		fileEntry, err := FileEntryFromBytes(blob)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling file entry: %v", err)
+			return nil, checksum, fmt.Errorf("error unmarshaling file entry: %v", err)
 		}
 
 		// If this is the last component, return the file
 		if len(components) == 0 {
-			return fileEntry, nil
+			return fileEntry, checksum, nil
 		}
 
 		// If there are still components left, this is an error (files cannot have children)
-		return nil, fmt.Errorf("invalid path: %s is a file but more components remain", components[0])
+		return nil, checksum, fmt.Errorf("invalid path: %s is a file but more components remain", components[0])
 	}
 
 	// Check if checksum refers to a directory
@@ -267,30 +279,30 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 		// Retrieve the directory metadata
 		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
-			return nil, err
+			return nil, checksum, err
 		}
 
 		blob, err := io.ReadAll(rd)
 		if err != nil {
-			return nil, err
+			return nil, checksum, err
 		}
 
 		// Unmarshal the directory entry
 		dirEntry, err := DirEntryFromBytes(blob)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling directory entry: %v", err)
+			return nil, checksum, fmt.Errorf("error unmarshaling directory entry: %v", err)
 		}
 
 		// If there are no more components, return the directory
 		if len(components) == 0 {
-			return dirEntry, nil
+			return dirEntry, checksum, nil
 		}
 
 		// Look for the next component (file or directory) in the children of the directory
 		children, err := fsc.ChildrenIter(dirEntry)
 		if err != nil {
 			fmt.Println("error getting children iterator")
-			return nil, err
+			return nil, checksum, err
 		}
 		for child := range children {
 			if child.Stat().Name() == components[0] {
@@ -300,11 +312,12 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 		}
 
 		// If no matching child was found, return an error
-		return nil, fmt.Errorf("path not found: %s", components[0])
+		return nil, checksum, fmt.Errorf("path not found: %s", components[0])
 	}
 
 	// If neither a file nor a directory, return an error
-	return nil, fmt.Errorf("path not found or invalid: checksum does not correspond to a file or directory")
+	err := fmt.Errorf("path not found or invalid: checksum does not correspond to a file or directory")
+	return nil, checksum, err
 }
 
 func (fsc *Filesystem) Stat(path string) (FSEntry, error) {
@@ -326,7 +339,8 @@ func (fsc *Filesystem) Stat(path string) (FSEntry, error) {
 	}
 
 	// Start the recursive lookup from the root
-	return fsc.statRecursive(fsc.root, components[1:]) // Skip the initial empty component due to leading '/'
+	entry, _, err := fsc.statRecursive(fsc.root, components[1:]) // Skip the initial empty component due to leading '/'
+	return entry, err
 }
 
 func (fsc *Filesystem) Children(path string) (<-chan string, error) {

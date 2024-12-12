@@ -3,6 +3,7 @@ package vfs
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -64,6 +65,22 @@ func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, err
 		root:      root,
 		rootEntry: dirEntry,
 	}, nil
+}
+
+func (fsc *Filesystem) Open(name string) (fs.File, error) {
+	st, err := fsc.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch entry := st.(type) {
+	case *DirEntry:
+		return NewVDirectory(fsc, entry), nil
+	case *FileEntry:
+		return NewVFile(fsc, entry), nil
+	default:
+		return nil, fmt.Errorf("unknown entry type: %T", entry)
+	}
 }
 
 func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) {

@@ -602,29 +602,37 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 
-	addFile := func(pathname string, fi vfs.FSEntry) error {
-		header := &tar.Header{
-			Name:     prefix + "/" + strings.TrimPrefix(strings.TrimPrefix(pathname, rebase), "/"),
-			Typeflag: tar.TypeReg,
+	add := func(pathname string, fi vfs.FSEntry) error {
+		sb := fi.Stat()
+		isdir := sb.Mode().IsDir()
+		isreg := sb.Mode().IsRegular()
 
-			Size:    fi.Stat().Size(),
-			Mode:    int64(fi.Stat().Mode()),
-			ModTime: fi.Stat().ModTime(),
+		if !isdir && !isreg {
+			return nil
 		}
-		if fi.Stat().Mode().IsRegular() {
+
+		name := prefix + "/" + strings.TrimPrefix(strings.TrimPrefix(pathname, rebase), "/")
+		header := &tar.Header{
+			Name:     name,
+			Typeflag: tar.TypeDir,
+			Mode:     int64(sb.Mode()),
+			ModTime:  sb.ModTime(),
+		}
+		if isreg {
+			header.Typeflag = tar.TypeReg
+			header.Size = sb.Size()
+		}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+		if isreg {
 			rd, err := snap.NewReader(pathname)
 			if err != nil {
 				return err
 			}
 			defer rd.Close()
-
-			if err := tarWriter.WriteHeader(header); err != nil {
-				return err
-			}
-
-			if _, err := io.Copy(tarWriter, rd); err != nil {
-				return err
-			}
+			_, err = io.Copy(tarWriter, rd)
+			return err
 		}
 		return nil
 	}
@@ -635,44 +643,24 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 			return err
 		}
 
-		filepath := pathname
-		if rebase != "" {
-			filepath = strings.TrimPrefix(filepath, rebase)
+		if err := add(pathname, fi); err != nil {
+			return err
 		}
 
-		if fi.Stat().IsDir() {
-			tarWriter.WriteHeader(&tar.Header{
-				Name:     prefix + "/" + strings.TrimPrefix(filepath, "/"),
-				Typeflag: tar.TypeDir,
-				//				Size:    fi.Size(),
-				Mode:    int64(fi.Stat().Mode()),
-				ModTime: fi.Stat().ModTime(),
-			})
-			c, err := fs.PathnamesFrom(pathname)
+		if !fi.Stat().IsDir() {
+			continue
+		}
+
+		c, err := fs.PathnamesFrom(pathname)
+		if err != nil {
+			return err
+		}
+		for childpath := range c {
+			subfi, err := fs.Stat(childpath)
 			if err != nil {
 				return err
 			}
-			for childpath := range c {
-				subfi, err := fs.Stat(childpath)
-				if err != nil {
-					return err
-				}
-				if subfi.Stat().IsDir() {
-					tarWriter.WriteHeader(&tar.Header{
-						Name:     prefix + "/" + strings.TrimPrefix(strings.TrimPrefix(childpath, rebase), "/"),
-						Typeflag: tar.TypeDir,
-						//Size:    subfi.Size(),
-						Mode:    int64(subfi.Stat().Mode()),
-						ModTime: subfi.Stat().ModTime(),
-					})
-				} else {
-					if err := addFile(childpath, subfi); err != nil {
-						return err
-					}
-				}
-			}
-		} else {
-			if err := addFile(pathname, fi); err != nil {
+			if err := add(childpath, subfi); err != nil {
 				return err
 			}
 		}

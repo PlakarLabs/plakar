@@ -180,6 +180,9 @@ func (repo *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error
 
 	fp, err := os.Open(pathname)
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			err = repository.ErrPackfileNotFound
+		}
 		return nil, 0, err
 	}
 	info, err := fp.Stat()

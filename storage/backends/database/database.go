@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 
 	"github.com/mattn/go-sqlite3"
@@ -339,6 +340,9 @@ func (repo *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length
 	var data []byte
 	err := repo.conn.QueryRow(`SELECT substr(data, ?, ?) FROM packfiles WHERE checksum=?`, offset+1, length, checksum[:]).Scan(&data)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			err = repository.ErrBlobNotFound
+		}
 		return nil, 0, err
 	}
 	return bytes.NewBuffer(data), uint32(len(data)), nil

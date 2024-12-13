@@ -63,10 +63,26 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	fs, err := snap.Filesystem()
+	if err != nil {
+		return err
+	}
+
+	st, err := fs.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if !st.Stat().Mode().IsRegular() {
+		return err
+	}
+	fileEntry := st.(*vfs.FileEntry)
+
 	rd, err := snap.NewReader(path)
 	if err != nil {
 		return err
 	}
+	defer rd.Close()
 
 	if do_download {
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(path)))
@@ -75,7 +91,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 	if do_highlight {
 		lexer := lexers.Match(path)
 		if lexer == nil {
-			lexer = lexers.Get(rd.ContentType())
+			lexer = lexers.Get(fileEntry.Object.ContentType)
 		}
 		if lexer == nil {
 			lexer = lexers.Fallback // Fallback if no lexer is found
@@ -115,7 +131,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 	} else {
-		http.ServeContent(w, r, filepath.Base(path), rd.ModTime(), rd)
+		http.ServeContent(w, r, filepath.Base(path), fileEntry.Stat().ModTime(), rd.(io.ReadSeeker))
 	}
 
 	return nil

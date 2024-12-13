@@ -122,9 +122,11 @@ func (vf *VFilep) Read(p []byte) (int, error) {
 }
 
 func (vf *VFilep) Close() error {
-	vf.offset = 0
-	vf.size = 0
-	vf.obuf.Reset()
+	if !vf.isDir {
+		vf.offset = 0
+		vf.size = 0
+		vf.obuf.Reset()
+	}
 	return nil
 }
 
@@ -143,25 +145,24 @@ func (vf *VFilep) ReadDir(count int) ([]fs.DirEntry, error) {
 	}
 
 	ret := make([]fs.DirEntry, 0)
+
+	offset := 0
 	for childname := range children {
-		if count == 0 {
-			break
+		if count > 0 && offset >= count {
+			offset++
+			continue
 		}
-		count--
+		offset++
 
 		st, err := vf.vfs.Stat(filepath.Join(vf.vfsEntry.Path(), childname))
 		if err != nil {
-			return nil, err
+			continue
 		} else {
 			ret = append(ret, NewVFilep(vf.vfs, st))
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	} else {
-		return ret, nil
-	}
+	return ret, nil
 }
 
 func (vf *VFilep) Seek(offset int64, whence int) (int64, error) {
@@ -196,11 +197,12 @@ func (vf *VFilep) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (vf *VFilep) Name() string {
-	return vf.Name()
+	return vf.vfsEntry.Name()
 }
 
 func (vf *VFilep) IsDir() bool {
-	return vf.IsDir()
+	_, isDir := vf.vfsEntry.(*DirEntry)
+	return isDir
 }
 
 func (vf *VFilep) Type() fs.FileMode {

@@ -80,6 +80,19 @@ func (fsc *Filesystem) Open(name string) (fs.File, error) {
 	return NewVFilep(fsc, st), nil
 }
 
+func (fsc *Filesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	st, err := fsc.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !st.Stat().IsDir() {
+		return nil, fs.ErrInvalid
+	}
+
+	return NewVFilep(fsc, st).ReadDir(0)
+}
+
 func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"

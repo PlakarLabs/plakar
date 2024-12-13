@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -22,6 +23,10 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrNotFound = errors.New("snapshot not found")
 )
 
 type Snapshot struct {
@@ -208,6 +213,9 @@ func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*hea
 
 	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
 	if err != nil {
+		if errors.Is(err, repository.ErrBlobNotFound) {
+			err = ErrNotFound
+		}
 		return nil, false, err
 	}
 

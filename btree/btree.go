@@ -119,43 +119,22 @@ func (n *Node[K, P, V]) find(key K, cmp func(K, K) int) (val V, found bool) {
 }
 
 func (n *Node[K, P, V]) insertAt(idx int, key K, val V) {
-	if idx >= len(n.Keys) {
-		n.Keys = append(n.Keys, key)
-		n.Values = append(n.Values, val)
-		return
-	}
-
-	var ks []K
-	ks = append(ks, n.Keys[:idx]...)
-	ks = append(ks, key)
-	ks = append(ks, n.Keys[idx:]...)
-	n.Keys = ks
-
-	var vs []V
-	vs = append(vs, n.Values[:idx]...)
-	vs = append(vs, val)
-	vs = append(vs, n.Values[idx:]...)
-	n.Values = vs
+	n.Keys = slices.Insert(n.Keys, idx, key)
+	n.Values = slices.Insert(n.Values, idx, val)
 }
 
 func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P) {
+	// Pointers and Keys have different cardinalities, but to
+	// decide whether to append or insert in Pointers we need
+	// to consider the length of the keys.
 	if idx >= len(n.Keys) {
 		n.Keys = append(n.Keys, key)
 		n.Pointers = append(n.Pointers, ptr)
 		return
 	}
 
-	var ks []K
-	ks = append(ks, n.Keys[:idx]...)
-	ks = append(ks, key)
-	ks = append(ks, n.Keys[idx:]...)
-	n.Keys = ks
-
-	var ps []P
-	ps = append(ps, n.Pointers[:idx]...)
-	ps = append(ps, ptr)
-	ps = append(ps, n.Pointers[idx:]...)
-	n.Pointers = ps
+	n.Keys = slices.Insert(n.Keys, idx, key)
+	n.Pointers = slices.Insert(n.Pointers, idx, ptr)
 }
 
 func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (int, bool) {

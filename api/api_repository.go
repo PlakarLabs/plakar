@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -101,8 +102,10 @@ func repositoryState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	_, err = w.Write(buffer)
-	return err
+	if _, err := w.Write(buffer); err != nil {
+		log.Println("write failed:", err)
+	}
+	return nil
 }
 
 func repositoryPackfiles(w http.ResponseWriter, r *http.Request) error {
@@ -158,6 +161,8 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	_, err = io.Copy(w, rd)
-	return err
+	if _, err := io.Copy(w, rd); err != nil {
+		log.Println("copy failed:", err)
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -44,8 +45,10 @@ func storageState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	_, err = io.Copy(w, rd)
-	return err
+	if _, err := io.Copy(w, rd); err != nil {
+		log.Println("copy failed:", err)
+	}
+	return nil
 }
 
 func storagePackfiles(w http.ResponseWriter, r *http.Request) error {
@@ -100,6 +103,8 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	_, err = io.Copy(w, rd)
-	return err
+	if _, err := io.Copy(w, rd); err != nil {
+		log.Println("copy failed:", err)
+	}
+	return nil
 }

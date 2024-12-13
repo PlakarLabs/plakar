@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 
 	"github.com/mattn/go-sqlite3"
@@ -67,27 +68,27 @@ func stringToChecksum(checksum string) ([32]byte, error) {
 }
 */
 
-func (repository *Repository) connect(addr string) error {
+func (repo *Repository) connect(addr string) error {
 	var connectionString string
 	if strings.HasPrefix(addr, "sqlite://") {
-		repository.backend = "sqlite3"
+		repo.backend = "sqlite3"
 		connectionString = addr[9:]
 	} else {
 		return fmt.Errorf("unsupported database backend: %s", addr)
 	}
 
-	conn, err := sql.Open(repository.backend, connectionString)
+	conn, err := sql.Open(repo.backend, connectionString)
 	if err != nil {
 		return err
 	}
-	repository.conn = conn
+	repo.conn = conn
 
-	if repository.backend == "sqlite3" {
-		_, err = repository.conn.Exec("PRAGMA journal_mode=WAL;")
+	if repo.backend == "sqlite3" {
+		_, err = repo.conn.Exec("PRAGMA journal_mode=WAL;")
 		if err != nil {
 			return nil
 		}
-		_, err = repository.conn.Exec("PRAGMA busy_timeout=2000;")
+		_, err = repo.conn.Exec("PRAGMA busy_timeout=2000;")
 		if err != nil {
 			return nil
 		}
@@ -97,13 +98,13 @@ func (repository *Repository) connect(addr string) error {
 	return nil
 }
 
-func (repository *Repository) Create(location string, config storage.Configuration) error {
-	err := repository.connect(location)
+func (repo *Repository) Create(location string, config storage.Configuration) error {
+	err := repo.connect(location)
 	if err != nil {
 		return err
 	}
 
-	statement, err := repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
+	statement, err := repo.conn.Prepare(`CREATE TABLE IF NOT EXISTS configuration (
 		value	BLOB
 	);`)
 	if err != nil {
@@ -112,7 +113,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS states (
+	statement, err = repo.conn.Prepare(`CREATE TABLE IF NOT EXISTS states (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
 	);`)
@@ -122,7 +123,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	defer statement.Close()
 	statement.Exec()
 
-	statement, err = repository.conn.Prepare(`CREATE TABLE IF NOT EXISTS packfiles (
+	statement, err = repo.conn.Prepare(`CREATE TABLE IF NOT EXISTS packfiles (
 		checksum	VARCHAR(64) NOT NULL PRIMARY KEY,
 		data		BLOB
 	);`)
@@ -137,7 +138,7 @@ func (repository *Repository) Create(location string, config storage.Configurati
 		return err
 	}
 
-	statement, err = repository.conn.Prepare(`INSERT INTO configuration(value) VALUES(?)`)
+	statement, err = repo.conn.Prepare(`INSERT INTO configuration(value) VALUES(?)`)
 	if err != nil {
 		return err
 	}
@@ -151,8 +152,8 @@ func (repository *Repository) Create(location string, config storage.Configurati
 	return nil
 }
 
-func (repository *Repository) Open(location string) error {
-	err := repository.connect(location)
+func (repo *Repository) Open(location string) error {
+	err := repo.connect(location)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,7 @@ func (repository *Repository) Open(location string) error {
 	var buffer []byte
 	var repositoryConfig storage.Configuration
 
-	err = repository.conn.QueryRow(`SELECT value FROM configuration`).Scan(&buffer)
+	err = repo.conn.QueryRow(`SELECT value FROM configuration`).Scan(&buffer)
 	if err != nil {
 		return err
 	}
@@ -169,26 +170,26 @@ func (repository *Repository) Open(location string) error {
 	if err != nil {
 		return err
 	}
-	repository.config = repositoryConfig
+	repo.config = repositoryConfig
 
 	return nil
 
 }
 
-func (repository *Repository) Close() error {
+func (repo *Repository) Close() error {
 	return nil
 }
 
-func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
-	statement, err := repository.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
+func (repo *Repository) Commit(snapshotID [32]byte, data []byte) error {
+	statement, err := repo.conn.Prepare(`INSERT INTO snapshots (snapshotID, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	repository.wrMutex.Lock()
+	repo.wrMutex.Lock()
 	_, err = statement.Exec(snapshotID, data)
-	repository.wrMutex.Unlock()
+	repo.wrMutex.Unlock()
 	if err != nil {
 		return err
 	}
@@ -196,13 +197,13 @@ func (repository *Repository) Commit(snapshotID [32]byte, data []byte) error {
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.Configuration {
-	return repository.config
+func (repo *Repository) Configuration() storage.Configuration {
+	return repo.config
 }
 
 // states
-func (repository *Repository) GetStates() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT checksum FROM states")
+func (repo *Repository) GetStates() ([][32]byte, error) {
+	rows, err := repo.conn.Query("SELECT checksum FROM states")
 	if err != nil {
 		return nil, err
 	}
@@ -222,21 +223,21 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
+func (repo *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 
-	statement, err := repository.conn.Prepare(`INSERT INTO states (checksum, data) VALUES(?, ?)`)
+	statement, err := repo.conn.Prepare(`INSERT INTO states (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	repository.wrMutex.Lock()
+	repo.wrMutex.Lock()
 	_, err = statement.Exec(checksum[:], data)
-	repository.wrMutex.Unlock()
+	repo.wrMutex.Unlock()
 	if err != nil {
 		if sqliteErr, ok := err.(sqlite3.Error); !ok {
 			return err
@@ -250,25 +251,25 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uin
 	return nil
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
+func (repo *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM states WHERE checksum=?`, checksum[:]).Scan(&data)
+	err := repo.conn.QueryRow(`SELECT data FROM states WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, 0, err
 	}
 	return bytes.NewBuffer(data), uint64(len(data)), nil
 }
 
-func (repository *Repository) DeleteState(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM states WHERE checksum=?`)
+func (repo *Repository) DeleteState(checksum [32]byte) error {
+	statement, err := repo.conn.Prepare(`DELETE FROM states WHERE checksum=?`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	repository.wrMutex.Lock()
+	repo.wrMutex.Lock()
 	_, err = statement.Exec(checksum[:])
-	repository.wrMutex.Unlock()
+	repo.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err
@@ -277,8 +278,8 @@ func (repository *Repository) DeleteState(checksum [32]byte) error {
 }
 
 // packfiles
-func (repository *Repository) GetPackfiles() ([][32]byte, error) {
-	rows, err := repository.conn.Query("SELECT checksum FROM packfiles")
+func (repo *Repository) GetPackfiles() ([][32]byte, error) {
+	rows, err := repo.conn.Query("SELECT checksum FROM packfiles")
 	if err != nil {
 		return nil, err
 	}
@@ -298,21 +299,21 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return checksums, nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
+func (repo *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
 
-	statement, err := repository.conn.Prepare(`INSERT INTO packfiles (checksum, data) VALUES(?, ?)`)
+	statement, err := repo.conn.Prepare(`INSERT INTO packfiles (checksum, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	repository.wrMutex.Lock()
+	repo.wrMutex.Lock()
 	_, err = statement.Exec(checksum[:], data)
-	repository.wrMutex.Unlock()
+	repo.wrMutex.Unlock()
 	if err != nil {
 		if sqliteErr, ok := err.(sqlite3.Error); !ok {
 			return err
@@ -326,34 +327,37 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+func (repo *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT data FROM packfiles WHERE checksum=?`, checksum[:]).Scan(&data)
+	err := repo.conn.QueryRow(`SELECT data FROM packfiles WHERE checksum=?`, checksum[:]).Scan(&data)
 	if err != nil {
 		return nil, 0, err
 	}
 	return bytes.NewReader(data), uint64(len(data)), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
+func (repo *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
 	var data []byte
-	err := repository.conn.QueryRow(`SELECT substr(data, ?, ?) FROM packfiles WHERE checksum=?`, offset+1, length, checksum[:]).Scan(&data)
+	err := repo.conn.QueryRow(`SELECT substr(data, ?, ?) FROM packfiles WHERE checksum=?`, offset+1, length, checksum[:]).Scan(&data)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			err = repository.ErrBlobNotFound
+		}
 		return nil, 0, err
 	}
 	return bytes.NewBuffer(data), uint32(len(data)), nil
 }
 
-func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	statement, err := repository.conn.Prepare(`DELETE FROM packfiles WHERE checksum=?`)
+func (repo *Repository) DeletePackfile(checksum [32]byte) error {
+	statement, err := repo.conn.Prepare(`DELETE FROM packfiles WHERE checksum=?`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
-	repository.wrMutex.Lock()
+	repo.wrMutex.Lock()
 	_, err = statement.Exec(checksum[:])
-	repository.wrMutex.Unlock()
+	repo.wrMutex.Unlock()
 	if err != nil {
 		// if err is that it's already present, we should discard err and assume a concurrent write
 		return err

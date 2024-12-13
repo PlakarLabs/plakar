@@ -329,8 +329,7 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 		}
 		childrenList, err := fs.ChildrenIter(dirEntry)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return nil
+			return err
 		}
 
 		if limit == 0 {

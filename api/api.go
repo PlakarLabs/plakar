@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/gorilla/mux"
 )
@@ -38,6 +40,19 @@ func (fn Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, repository.ErrBlobNotFound):
+		fallthrough
+	case errors.Is(err, repository.ErrPackfileNotFound):
+		fallthrough
+	case errors.Is(err, snapshot.ErrNotFound):
+		err = &ApiError{
+			HttpCode: 404,
+			ErrCode:  "not-found",
+			Message:  err.Error(),
+		}
+	}
+
 	apierr, ok := err.(*ApiError)
 	if !ok {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

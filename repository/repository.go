@@ -2,7 +2,7 @@ package repository
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"hash"
 	"io"
 	"strings"
@@ -20,6 +20,11 @@ import (
 	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
 	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
+)
+
+var (
+	ErrPackfileNotFound = errors.New("packfile not found")
+	ErrBlobNotFound     = errors.New("blob not found")
 )
 
 type Repository struct {
@@ -460,7 +465,7 @@ func (r *Repository) GetBlob(Type packfile.Type, checksum objects.Checksum) (io.
 
 	packfileChecksum, offset, length, exists := r.state.GetSubpartForBlob(Type, checksum)
 	if !exists {
-		return nil, 0, fmt.Errorf("packfile not found")
+		return nil, 0, ErrPackfileNotFound
 	}
 
 	rd, len, err := r.GetPackfileBlob(packfileChecksum, offset, length)

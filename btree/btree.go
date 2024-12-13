@@ -2,6 +2,7 @@ package btree
 
 import (
 	"errors"
+	"slices"
 )
 
 var (
@@ -76,7 +77,6 @@ func (n *Node[K, P, V]) isleaf() bool {
 func (b *BTree[K, P, V]) findleaf(key K, cmp func(K, K) int) (node Node[K, P, V], path []P, err error) {
 	ptr := b.Root
 
-outer:
 	for {
 		path = append(path, ptr)
 		node, err = b.store.Get(ptr)
@@ -88,13 +88,15 @@ outer:
 			return
 		}
 
-		for i := range node.Keys {
-			if cmp(key, node.Keys[i]) < 0 {
-				ptr = node.Pointers[i]
-				continue outer
-			}
+		idx, found := slices.BinarySearchFunc(node.Keys, key, cmp)
+		if found {
+			idx++
 		}
-		ptr = node.Pointers[len(node.Keys)]
+		if idx < len(node.Keys) {
+			ptr = node.Pointers[idx]
+		} else {
+			ptr = node.Pointers[len(node.Keys)]
+		}
 	}
 }
 
@@ -109,64 +111,34 @@ func (b *BTree[K, P, V]) Find(key K) (val V, found bool, err error) {
 }
 
 func (n *Node[K, P, V]) find(key K, cmp func(K, K) int) (val V, found bool) {
-	for i := range n.Keys {
-		if cmp(key, n.Keys[i]) == 0 {
-			return n.Values[i], true
-		}
+	idx, found := slices.BinarySearchFunc(n.Keys, key, cmp)
+	if found {
+		return n.Values[idx], true
 	}
-	return
+	return val, false
 }
 
 func (n *Node[K, P, V]) insertAt(idx int, key K, val V) {
-	if idx >= len(n.Keys) {
-		n.Keys = append(n.Keys, key)
-		n.Values = append(n.Values, val)
-		return
-	}
-
-	var ks []K
-	ks = append(ks, n.Keys[:idx]...)
-	ks = append(ks, key)
-	ks = append(ks, n.Keys[idx:]...)
-	n.Keys = ks
-
-	var vs []V
-	vs = append(vs, n.Values[:idx]...)
-	vs = append(vs, val)
-	vs = append(vs, n.Values[idx:]...)
-	n.Values = vs
+	n.Keys = slices.Insert(n.Keys, idx, key)
+	n.Values = slices.Insert(n.Values, idx, val)
 }
 
 func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P) {
+	// Pointers and Keys have different cardinalities, but to
+	// decide whether to append or insert in Pointers we need
+	// to consider the length of the keys.
 	if idx >= len(n.Keys) {
 		n.Keys = append(n.Keys, key)
 		n.Pointers = append(n.Pointers, ptr)
 		return
 	}
 
-	var ks []K
-	ks = append(ks, n.Keys[:idx]...)
-	ks = append(ks, key)
-	ks = append(ks, n.Keys[idx:]...)
-	n.Keys = ks
-
-	var ps []P
-	ps = append(ps, n.Pointers[:idx]...)
-	ps = append(ps, ptr)
-	ps = append(ps, n.Pointers[idx:]...)
-	n.Pointers = ps
+	n.Keys = slices.Insert(n.Keys, idx, key)
+	n.Pointers = slices.Insert(n.Pointers, idx, ptr)
 }
 
-func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (idx int, found bool) {
-	for idx = range node.Keys {
-		r := b.compare(key, node.Keys[idx])
-		if r <= 0 {
-			found = r == 0
-			return
-		}
-	}
-	idx++
-	return
+func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (int, bool) {
+	return slices.BinarySearchFunc(node.Keys, key, b.compare)
 }
 
 func (n *Node[K, P, V]) split() (new Node[K, P, V]) {

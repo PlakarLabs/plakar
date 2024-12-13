@@ -3,9 +3,11 @@ package vfs
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 )
@@ -14,7 +16,10 @@ const VERSION = 001
 
 type FSEntry interface {
 	fsEntry()
+	Stat() *objects.FileInfo
+	Name() string
 	Size() int64
+	Path() string
 }
 
 type Classification struct {
@@ -64,6 +69,28 @@ func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, err
 		root:      root,
 		rootEntry: dirEntry,
 	}, nil
+}
+
+func (fsc *Filesystem) Open(name string) (fs.File, error) {
+	st, err := fsc.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewVFilep(fsc, st), nil
+}
+
+func (fsc *Filesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	st, err := fsc.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !st.Stat().IsDir() {
+		return nil, fs.ErrInvalid
+	}
+
+	return NewVFilep(fsc, st).ReadDir(0)
 }
 
 func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) {

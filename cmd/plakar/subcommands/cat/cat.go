@@ -27,6 +27,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
@@ -66,6 +67,27 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 			continue
 		}
 
+		fs, err := snap.Filesystem()
+		if err != nil {
+			ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
+			errors++
+			continue
+		}
+
+		st, err := fs.Stat(pathname)
+		if err != nil {
+			ctx.GetLogger().Error("%s: %s: no such file", flags.Name(), pathname)
+			errors++
+			continue
+		}
+
+		if !st.Stat().Mode().IsRegular() {
+			ctx.GetLogger().Error("%s: %s: not a regular file", flags.Name(), pathname)
+			errors++
+			continue
+		}
+		fileEntry := st.(*vfs.FileEntry)
+
 		rd, err := snap.NewReader(pathname)
 		if err != nil {
 			ctx.GetLogger().Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
@@ -76,7 +98,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		var outRd io.ReadCloser = rd
 
 		if !opt_nodecompress {
-			if rd.ContentType() == "application/gzip" && !opt_nodecompress {
+			if fileEntry.Object.ContentType == "application/gzip" && !opt_nodecompress {
 				gzRd, err := gzip.NewReader(outRd)
 				if err != nil {
 					ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
@@ -90,7 +112,7 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 		if opt_highlight {
 			lexer := lexers.Match(pathname)
 			if lexer == nil {
-				lexer = lexers.Get(rd.ContentType())
+				lexer = lexers.Get(fileEntry.Object.ContentType)
 			}
 			if lexer == nil {
 				lexer = lexers.Fallback // Fallback if no lexer is found

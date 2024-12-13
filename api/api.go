@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/PlakarKorp/plakar/snapshot"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/gorilla/mux"
 )
@@ -43,6 +44,8 @@ func handleError(w http.ResponseWriter, err error) {
 	case errors.Is(err, repository.ErrBlobNotFound):
 		fallthrough
 	case errors.Is(err, repository.ErrPackfileNotFound):
+		fallthrough
+	case errors.Is(err, snapshot.ErrNotFound):
 		err = &ApiError{
 			HttpCode: 404,
 			ErrCode:  "not-found",

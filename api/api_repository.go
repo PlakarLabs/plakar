@@ -101,8 +101,8 @@ func repositoryState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	_, err = w.Write(buffer)
-	return err
+	w.Write(buffer)
+	return nil
 }
 
 func repositoryPackfiles(w http.ResponseWriter, r *http.Request) error {
@@ -158,6 +158,6 @@ func repositoryPackfile(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	_, err = io.Copy(w, rd)
-	return err
+	io.Copy(w, rd)
+	return nil
 }

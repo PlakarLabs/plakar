@@ -44,8 +44,8 @@ func storageState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	_, err = io.Copy(w, rd)
-	return err
+	io.Copy(w, rd)
+	return nil
 }
 
 func storagePackfiles(w http.ResponseWriter, r *http.Request) error {
@@ -100,6 +100,6 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
-	_, err = io.Copy(w, rd)
-	return err
+	io.Copy(w, rd)
+	return nil
 }

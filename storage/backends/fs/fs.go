@@ -45,29 +45,29 @@ func NewRepository() storage.Backend {
 	return &Repository{}
 }
 
-func (repository *Repository) Create(location string, config storage.Configuration) error {
+func (repo *Repository) Create(location string, config storage.Configuration) error {
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}
 
-	repository.root = location
+	repo.root = location
 
-	err := os.Mkdir(repository.root, 0700)
+	err := os.Mkdir(repo.root, 0700)
 	if err != nil {
 		return err
 	}
 
-	os.MkdirAll(filepath.Join(repository.root, "states"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "packfiles"), 0700)
-	os.MkdirAll(filepath.Join(repository.root, "tmp"), 0700)
+	os.MkdirAll(filepath.Join(repo.root, "states"), 0700)
+	os.MkdirAll(filepath.Join(repo.root, "packfiles"), 0700)
+	os.MkdirAll(filepath.Join(repo.root, "tmp"), 0700)
 
 	for i := 0; i < 256; i++ {
-		os.MkdirAll(filepath.Join(repository.root, "states", fmt.Sprintf("%02x", i)), 0700)
-		os.MkdirAll(filepath.Join(repository.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repo.root, "states", fmt.Sprintf("%02x", i)), 0700)
+		os.MkdirAll(filepath.Join(repo.root, "packfiles", fmt.Sprintf("%02x", i)), 0700)
 	}
 
-	configPath := filepath.Join(repository.root, "CONFIG")
-	tmpfile := filepath.Join(repository.PathTmp(), "CONFIG")
+	configPath := filepath.Join(repo.root, "CONFIG")
+	tmpfile := filepath.Join(repo.PathTmp(), "CONFIG")
 
 	f, err := os.Create(tmpfile)
 	if err != nil {
@@ -90,19 +90,19 @@ func (repository *Repository) Create(location string, config storage.Configurati
 		return err
 	}
 
-	repository.config = config
+	repo.config = config
 
 	return os.Rename(tmpfile, configPath)
 }
 
-func (repository *Repository) Open(location string) error {
+func (repo *Repository) Open(location string) error {
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}
 
-	repository.root = location
+	repo.root = location
 
-	configPath := filepath.Join(repository.root, "CONFIG")
+	configPath := filepath.Join(repo.root, "CONFIG")
 	rd, err := os.Open(configPath)
 	if err != nil {
 		return err
@@ -124,19 +124,19 @@ func (repository *Repository) Open(location string) error {
 		return err
 	}
 
-	repository.config = config
+	repo.config = config
 
 	return nil
 }
 
-func (repository *Repository) Configuration() storage.Configuration {
-	return repository.config
+func (repo *Repository) Configuration() storage.Configuration {
+	return repo.config
 }
 
-func (repository *Repository) GetPackfiles() ([][32]byte, error) {
+func (repo *Repository) GetPackfiles() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
-	buckets, err := os.ReadDir(repository.PathPackfiles())
+	buckets, err := os.ReadDir(repo.PathPackfiles())
 	if err != nil {
 		return ret, err
 	}
@@ -145,7 +145,7 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 		if !bucket.IsDir() {
 			continue
 		}
-		pathBuckets := filepath.Join(repository.PathPackfiles(), bucket.Name())
+		pathBuckets := filepath.Join(repo.PathPackfiles(), bucket.Name())
 		packfiles, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
@@ -169,9 +169,9 @@ func (repository *Repository) GetPackfiles() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
-	pathname := repository.PathPackfile(checksum)
-	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+func (repo *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64, error) {
+	pathname := repo.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
 		return nil, 0, fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -188,9 +188,9 @@ func (repository *Repository) GetPackfile(checksum [32]byte) (io.Reader, uint64,
 	return fp, uint64(info.Size()), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
-	pathname := repository.PathPackfile(checksum)
-	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+func (repo *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, length uint32) (io.Reader, uint32, error) {
+	pathname := repo.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
 		return nil, 0, fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -224,9 +224,9 @@ func (repository *Repository) GetPackfileBlob(checksum [32]byte, offset uint32, 
 	return bytes.NewBuffer(data), uint32(len(data)), nil
 }
 
-func (repository *Repository) DeletePackfile(checksum [32]byte) error {
-	pathname := repository.PathPackfile(checksum)
-	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+func (repo *Repository) DeletePackfile(checksum [32]byte) error {
+	pathname := repo.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -237,14 +237,14 @@ func (repository *Repository) DeletePackfile(checksum [32]byte) error {
 	return nil
 }
 
-func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
-	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
-	if !strings.HasPrefix(tmpfile, repository.PathTmp()) {
+func (repo *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size uint64) error {
+	tmpfile := filepath.Join(repo.PathTmp(), hex.EncodeToString(checksum[:]))
+	if !strings.HasPrefix(tmpfile, repo.PathTmp()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 
-	pathname := repository.PathPackfile(checksum)
-	if !strings.HasPrefix(pathname, repository.PathPackfiles()) {
+	pathname := repo.PathPackfile(checksum)
+	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -263,15 +263,15 @@ func (repository *Repository) PutPackfile(checksum [32]byte, rd io.Reader, size 
 	return os.Rename(tmpfile, pathname)
 }
 
-func (repository *Repository) Close() error {
+func (repo *Repository) Close() error {
 	return nil
 }
 
 /* Indexes */
-func (repository *Repository) GetStates() ([][32]byte, error) {
+func (repo *Repository) GetStates() ([][32]byte, error) {
 	ret := make([][32]byte, 0)
 
-	buckets, err := os.ReadDir(repository.PathStates())
+	buckets, err := os.ReadDir(repo.PathStates())
 	if err != nil {
 		return ret, err
 	}
@@ -280,7 +280,7 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 		if !bucket.IsDir() {
 			continue
 		}
-		pathBuckets := filepath.Join(repository.PathStates(), bucket.Name())
+		pathBuckets := filepath.Join(repo.PathStates(), bucket.Name())
 		blobs, err := os.ReadDir(pathBuckets)
 		if err != nil {
 			return ret, err
@@ -304,14 +304,14 @@ func (repository *Repository) GetStates() ([][32]byte, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
-	tmpfile := filepath.Join(repository.PathTmp(), hex.EncodeToString(checksum[:]))
-	if !strings.HasPrefix(tmpfile, repository.PathTmp()) {
+func (repo *Repository) PutState(checksum [32]byte, rd io.Reader, size uint64) error {
+	tmpfile := filepath.Join(repo.PathTmp(), hex.EncodeToString(checksum[:]))
+	if !strings.HasPrefix(tmpfile, repo.PathTmp()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 
-	pathname := repository.PathState(checksum)
-	if !strings.HasPrefix(pathname, repository.PathStates()) {
+	pathname := repo.PathState(checksum)
+	if !strings.HasPrefix(pathname, repo.PathStates()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -330,9 +330,9 @@ func (repository *Repository) PutState(checksum [32]byte, rd io.Reader, size uin
 	return os.Rename(tmpfile, pathname)
 }
 
-func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
-	pathname := repository.PathState(checksum)
-	if !strings.HasPrefix(pathname, repository.PathStates()) {
+func (repo *Repository) GetState(checksum [32]byte) (io.Reader, uint64, error) {
+	pathname := repo.PathState(checksum)
+	if !strings.HasPrefix(pathname, repo.PathStates()) {
 		return nil, 0, fmt.Errorf("invalid path generated from checksum")
 	}
 
@@ -349,9 +349,9 @@ func (repository *Repository) GetState(checksum [32]byte) (io.Reader, uint64, er
 	return fp, uint64(info.Size()), nil
 }
 
-func (repository *Repository) DeleteState(checksum [32]byte) error {
-	pathname := repository.PathState(checksum)
-	if !strings.HasPrefix(pathname, repository.PathStates()) {
+func (repo *Repository) DeleteState(checksum [32]byte) error {
+	pathname := repo.PathState(checksum)
+	if !strings.HasPrefix(pathname, repo.PathStates()) {
 		return fmt.Errorf("invalid path generated from checksum")
 	}
 

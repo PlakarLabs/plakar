@@ -33,7 +33,6 @@ import (
 )
 
 type FTPImporter struct {
-	importer.Importer
 	host    string
 	rootDir string
 	client  *goftp.Client

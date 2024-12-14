@@ -26,7 +26,6 @@ import (
 )
 
 type FSImporter struct {
-	importer.Importer
 	rootDir string
 }
 

@@ -35,8 +35,6 @@ import (
 )
 
 type S3Importer struct {
-	importer.Importer
-
 	minioClient *minio.Client
 	bucket      string
 	host        string

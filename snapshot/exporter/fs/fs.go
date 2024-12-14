@@ -26,7 +26,6 @@ import (
 )
 
 type FSExporter struct {
-	exporter.Exporter
 	rootDir string
 }
 

@@ -44,8 +44,6 @@ type Repository struct {
 
 	Repository string
 	location   string
-
-	// storage.RepositoryBackend
 }
 
 func init() {

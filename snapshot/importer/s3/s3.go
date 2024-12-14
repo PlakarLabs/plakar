@@ -35,8 +35,6 @@ import (
 )
 
 type S3Importer struct {
-	importer.ImporterBackend
-
 	minioClient *minio.Client
 	bucket      string
 	host        string
@@ -62,7 +60,7 @@ func connect(location *url.URL) (*minio.Client, error) {
 	})
 }
 
-func NewS3Importer(location string) (importer.ImporterBackend, error) {
+func NewS3Importer(location string) (importer.Importer, error) {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return nil, err

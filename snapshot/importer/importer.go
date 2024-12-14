@@ -43,21 +43,13 @@ const (
 	RecordTypeSocket    RecordType = 5
 )
 
-type FileAttributes struct {
-	IsHidden    bool // Hidden file attribute (Windows, Linux)
-	IsSystem    bool // System file attribute (Windows)
-	IsReadonly  bool // Read-only attribute
-	IsArchive   bool // Archive attribute (Windows)
-	IsTemporary bool // Temporary file (Windows)
-}
-
 type ScanRecord struct {
 	Type               RecordType
 	Pathname           string
 	Target             string
 	FileInfo           objects.FileInfo
 	ExtendedAttributes map[string][]byte
-	FileAttributes     []string
+	FileAttributes     uint32
 }
 
 func (r ScanRecord) scanResult() {}
@@ -72,23 +64,19 @@ type ScanError struct {
 
 func (r ScanError) scanResult() {}
 
-type ImporterBackend interface {
+type Importer interface {
 	Origin() string
 	Type() string
 	Root() string
 	Scan() (<-chan ScanResult, error)
-	NewReader(pathname string) (io.ReadCloser, error)
+	NewReader(string) (io.ReadCloser, error)
 	Close() error
 }
 
-type Importer struct {
-	backend ImporterBackend
-}
-
 var muBackends sync.Mutex
-var backends map[string]func(config string) (ImporterBackend, error) = make(map[string]func(config string) (ImporterBackend, error))
+var backends map[string]func(config string) (Importer, error) = make(map[string]func(config string) (Importer, error))
 
-func Register(name string, backend func(string) (ImporterBackend, error)) {
+func Register(name string, backend func(string) (Importer, error)) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -112,7 +100,7 @@ func Backends() []string {
 	return ret
 }
 
-func NewImporter(location string) (*Importer, error) {
+func NewImporter(location string) (Importer, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -142,30 +130,6 @@ func NewImporter(location string) (*Importer, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Importer{backend: backendInstance}, nil
+		return backendInstance, nil
 	}
-}
-
-func (importer *Importer) Origin() string {
-	return importer.backend.Origin()
-}
-
-func (importer *Importer) Type() string {
-	return importer.backend.Type()
-}
-
-func (importer *Importer) Root() string {
-	return importer.backend.Root()
-}
-
-func (importer *Importer) Scan() (<-chan ScanResult, error) {
-	return importer.backend.Scan()
-}
-
-func (importer *Importer) NewReader(pathname string) (io.ReadCloser, error) {
-	return importer.backend.NewReader(pathname)
-}
-
-func (importer *Importer) Close() error {
-	return importer.backend.Close()
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/snapshot"
@@ -59,7 +60,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 		return 1
 	}
 
-	peerStore, err := storage.Open(ctx, peerRepositoryPath)
+	peerStore, err := storage.Open(peerRepositoryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", peerRepositoryPath, err)
 		return 1
@@ -83,7 +84,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 			break
 		}
 	}
-	peerRepository, err := repository.New(peerStore, peerSecret)
+	peerRepository, err := repository.New(ctx, peerStore, peerSecret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not open repository: %s\n", peerStore.Location(), err)
 		return 1
@@ -120,8 +121,8 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 
 	_ = syncSnapshotID
 
-	srcSnapshotsMap := make(map[[32]byte]struct{})
-	dstSnapshotsMap := make(map[[32]byte]struct{})
+	srcSnapshotsMap := make(map[objects.Checksum]struct{})
+	dstSnapshotsMap := make(map[objects.Checksum]struct{})
 
 	for _, snapshotID := range srcSnapshots {
 		srcSnapshotsMap[snapshotID] = struct{}{}
@@ -131,7 +132,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 		dstSnapshotsMap[snapshotID] = struct{}{}
 	}
 
-	srcSyncList := make([][32]byte, 0)
+	srcSyncList := make([]objects.Checksum, 0)
 	for snapshotID := range srcSnapshotsMap {
 		if syncSnapshotID != "" {
 			hexSnapshotID := hex.EncodeToString(snapshotID[:])
@@ -154,7 +155,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	}
 
 	if direction == "with" {
-		dstSyncList := make([][32]byte, 0)
+		dstSyncList := make([]objects.Checksum, 0)
 		for snapshotID := range dstSnapshotsMap {
 			if syncSnapshotID != "" {
 				hexSnapshotID := hex.EncodeToString(snapshotID[:])
@@ -178,7 +179,7 @@ func cmd_sync(ctx *context.Context, repo *repository.Repository, args []string) 
 	return 0
 }
 
-func synchronize(srcRepository *repository.Repository, dstRepository *repository.Repository, snapshotID [32]byte) error {
+func synchronize(srcRepository *repository.Repository, dstRepository *repository.Repository, snapshotID objects.Checksum) error {
 	srcSnapshot, err := snapshot.Load(srcRepository, snapshotID)
 	if err != nil {
 		return err

@@ -28,17 +28,19 @@ var (
 )
 
 type Repository struct {
-	store         *storage.Store
+	store         storage.Store
 	state         *state.State
 	configuration storage.Configuration
+
+	context *context.Context
 
 	secret []byte
 }
 
-func New(store *storage.Store, secret []byte) (*Repository, error) {
+func New(ctx *context.Context, store storage.Store, secret []byte) (*Repository, error) {
 	t0 := time.Now()
 	defer func() {
-		store.Logger().Trace("repository", "New(store=%p): %s", store, time.Since(t0))
+		ctx.GetLogger().Trace("repository", "New(store=%p): %s", store, time.Since(t0))
 	}()
 
 	r := &Repository{
@@ -150,10 +152,10 @@ func (r *Repository) RebuildState() error {
 }
 
 func (r *Repository) Context() *context.Context {
-	return r.store.Context()
+	return r.context
 }
 
-func (r *Repository) Store() *storage.Store {
+func (r *Repository) Store() storage.Store {
 	return r.store
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/denisbrodbeck/machineid"
-	"github.com/dustin/go-humanize"
 	"github.com/google/uuid"
 
 	_ "github.com/PlakarKorp/plakar/storage/backends/database"
@@ -97,7 +96,6 @@ func entryPoint() int {
 	var opt_quiet bool
 	var opt_keyfile string
 	var opt_keyring string
-	var opt_stats int
 
 	flag.StringVar(&opt_configfile, "config", opt_configDefault, "configuration file")
 	flag.IntVar(&opt_cpuCount, "cpu", opt_cpuDefault, "limit the number of usable cores")
@@ -110,7 +108,6 @@ func entryPoint() int {
 	flag.BoolVar(&opt_quiet, "quiet", false, "no output except errors")
 	flag.StringVar(&opt_keyfile, "keyfile", "", "use passphrase from key file when prompted")
 	flag.StringVar(&opt_keyring, "keyring", "", "path to directory holding the keyring")
-	flag.IntVar(&opt_stats, "stats", 0, "display statistics")
 	flag.Parse()
 
 	ctx := context.NewContext()
@@ -251,7 +248,7 @@ func entryPoint() int {
 		skipPassphrase = true
 	}
 
-	store, err := storage.Open(ctx, repositoryPath)
+	store, err := storage.Open(repositoryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
@@ -303,84 +300,7 @@ func entryPoint() int {
 		}
 	}
 
-	done := make(chan bool, 1)
-	if opt_stats > 0 {
-		go func() {
-			iterCount := 0
-
-			avgGoroutines := 0
-			maxGoroutines := 0
-			totalGoroutines := 0
-
-			maxCgoCalls := int64(0)
-			maxMemAlloc := uint64(0)
-			avgMemAlloc := uint64(0)
-
-			t0 := time.Now()
-
-			lastrbytes := uint64(0)
-			lastwbytes := uint64(0)
-
-			for {
-				if iterCount != 0 {
-
-					elapsedSeconds := time.Since(t0).Seconds()
-
-					rbytes := store.GetRBytes()
-					wbytes := store.GetWBytes()
-
-					rbytesAvg := rbytes / uint64(elapsedSeconds)
-					wbytesAvg := wbytes / uint64(elapsedSeconds)
-
-					diffrbytes := rbytes - lastrbytes
-					diffwbytes := wbytes - lastwbytes
-					lastrbytes = rbytes
-					lastwbytes = wbytes
-
-					var memStats runtime.MemStats
-					runtime.ReadMemStats(&memStats)
-
-					if runtime.NumGoroutine() > maxGoroutines {
-						maxGoroutines = runtime.NumGoroutine()
-					}
-					totalGoroutines += runtime.NumGoroutine()
-					avgGoroutines = totalGoroutines / int(elapsedSeconds)
-
-					if runtime.NumCgoCall() > maxCgoCalls {
-						maxCgoCalls = runtime.NumCgoCall()
-					}
-					if memStats.Alloc > maxMemAlloc {
-						maxMemAlloc = memStats.Alloc
-					}
-					avgMemAlloc = memStats.TotalAlloc / uint64(iterCount)
-
-					logger.Printf("[stats] cpu: goroutines: %d (μ %d, <= %d), cgocalls: %d (<= %d) | mem: %s (μ %s, <= %s, += %s), gc: %d | storage: rd: %s (μ %s, += %s), wr: %s (μ %s, += %s)",
-						runtime.NumGoroutine(),
-						avgGoroutines,
-						maxGoroutines,
-						runtime.NumCgoCall(),
-						maxCgoCalls,
-						humanize.Bytes(memStats.Alloc),
-						humanize.Bytes(avgMemAlloc),
-						humanize.Bytes(maxMemAlloc),
-						humanize.Bytes(memStats.TotalAlloc),
-						memStats.NumGC,
-						humanize.Bytes(diffrbytes), humanize.Bytes(rbytesAvg), humanize.Bytes(rbytes),
-						humanize.Bytes(diffwbytes), humanize.Bytes(wbytesAvg), humanize.Bytes(wbytes))
-				}
-
-				select {
-				case <-time.After(time.Duration(opt_stats) * time.Second):
-					iterCount++
-					continue
-				case <-done:
-					return
-				}
-			}
-		}()
-	}
-
-	repo, err := repository.New(store, secret)
+	repo, err := repository.New(ctx, store, secret)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)
 		return 1
@@ -390,7 +310,6 @@ func entryPoint() int {
 	t0 := time.Now()
 	status, err := subcommands.Execute(ctx, repo, command, args)
 	t1 := time.Since(t0)
-	done <- true
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", flag.CommandLine.Name(), err)

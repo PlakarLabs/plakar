@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var lstore *storage.Store
+var lstore storage.Store
 var lrepository *repository.Repository
 
 type Item struct {

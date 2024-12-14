@@ -37,7 +37,7 @@ func init() {
 func cmd_restore(ctx *context.Context, repo *repository.Repository, args []string) int {
 	var pullPath string
 	var pullRebase bool
-	var exporterInstance *exporter.Exporter
+	var exporterInstance exporter.Exporter
 	var opt_concurrency uint64
 	var opt_quiet bool
 

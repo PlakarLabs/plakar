@@ -26,7 +26,7 @@ import (
 )
 
 type FSExporter struct {
-	exporter.ExporterBackend
+	exporter.Exporter
 	rootDir string
 }
 
@@ -34,7 +34,7 @@ func init() {
 	exporter.Register("fs", NewFSExporter)
 }
 
-func NewFSExporter(location string) (exporter.ExporterBackend, error) {
+func NewFSExporter(location string) (exporter.Exporter, error) {
 	if strings.HasPrefix(location, "fs://") {
 		location = location[4:]
 	}

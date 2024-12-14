@@ -29,7 +29,7 @@ import (
 )
 
 type S3Exporter struct {
-	exporter.ExporterBackend
+	exporter.Exporter
 
 	minioClient *minio.Client
 	rootDir     string
@@ -52,7 +52,7 @@ func connect(location *url.URL) (*minio.Client, error) {
 	})
 }
 
-func NewS3Exporter(location string) (exporter.ExporterBackend, error) {
+func NewS3Exporter(location string) (exporter.Exporter, error) {
 	parsed, err := url.Parse(location)
 	if err != nil {
 		return nil, err

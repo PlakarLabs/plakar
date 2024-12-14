@@ -11,7 +11,7 @@ import (
 	"github.com/PlakarKorp/plakar/objects"
 )
 
-type ExporterBackend interface {
+type Exporter interface {
 	Root() string
 	CreateDirectory(pathname string) error
 	StoreFile(pathname string, fp io.Reader) error
@@ -19,14 +19,10 @@ type ExporterBackend interface {
 	Close() error
 }
 
-type Exporter struct {
-	backend ExporterBackend
-}
-
 var muBackends sync.Mutex
-var backends map[string]func(location string) (ExporterBackend, error) = make(map[string]func(location string) (ExporterBackend, error))
+var backends map[string]func(location string) (Exporter, error) = make(map[string]func(location string) (Exporter, error))
 
-func Register(name string, backend func(location string) (ExporterBackend, error)) {
+func Register(name string, backend func(location string) (Exporter, error)) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -50,7 +46,7 @@ func Backends() []string {
 	return ret
 }
 
-func NewExporter(location string) (*Exporter, error) {
+func NewExporter(location string) (Exporter, error) {
 	muBackends.Lock()
 	defer muBackends.Unlock()
 
@@ -78,26 +74,6 @@ func NewExporter(location string) (*Exporter, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Exporter{backend: backendInstance}, nil
+		return backendInstance, nil
 	}
-}
-
-func (exporter *Exporter) Root() string {
-	return exporter.backend.Root()
-}
-
-func (exporter *Exporter) CreateDirectory(pathname string) error {
-	return exporter.backend.CreateDirectory(pathname)
-}
-
-func (exporter *Exporter) StoreFile(pathname string, fp io.Reader) error {
-	return exporter.backend.StoreFile(pathname, fp)
-}
-
-func (exporter *Exporter) SetPermissions(pathname string, fileinfo *objects.FileInfo) error {
-	return exporter.backend.SetPermissions(pathname, fileinfo)
-}
-
-func (exporter *Exporter) Close() error {
-	return exporter.backend.Close()
 }

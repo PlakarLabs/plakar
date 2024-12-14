@@ -24,7 +24,7 @@ type restoreContext struct {
 	maxConcurrency chan bool
 }
 
-func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Exporter, target string, base string, pathname string, opts *RestoreOptions, restoreContext *restoreContext, wg *sync.WaitGroup) error {
+func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp exporter.Exporter, target string, base string, pathname string, opts *RestoreOptions, restoreContext *restoreContext, wg *sync.WaitGroup) error {
 	snap.Event(events.PathEvent(snap.Header.Identifier, pathname))
 	fsinfo, err := fs.Stat(pathname)
 	if err != nil {
@@ -123,7 +123,7 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp *exporter.Expor
 	}
 }
 
-func (snap *Snapshot) Restore(exp *exporter.Exporter, base string, pathname string, opts *RestoreOptions) error {
+func (snap *Snapshot) Restore(exp exporter.Exporter, base string, pathname string, opts *RestoreOptions) error {
 	snap.Event(events.StartEvent())
 	defer snap.Event(events.DoneEvent())
 

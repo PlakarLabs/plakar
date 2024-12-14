@@ -42,8 +42,6 @@ type Repository struct {
 	wrMutex sync.Mutex
 
 	Repository string
-
-	// storage.RepositoryBackend
 }
 
 func init() {

@@ -25,7 +25,7 @@ import (
 type BackupContext struct {
 	aborted        atomic.Bool
 	abortedReason  error
-	imp            *importer.Importer
+	imp            importer.Importer
 	sc             *caching.ScanCache
 	maxConcurrency chan bool
 	tree           *btree.BTree[string, int, ErrorItem]
@@ -633,7 +633,7 @@ func entropy(data []byte) (float64, [256]float64) {
 	return entropy, freq
 }
 
-func (snap *Snapshot) chunkify(imp *importer.Importer, cf *classifier.Classifier, record importer.ScanRecord) (*objects.Object, error) {
+func (snap *Snapshot) chunkify(imp importer.Importer, cf *classifier.Classifier, record importer.ScanRecord) (*objects.Object, error) {
 	atomic.AddUint64(&snap.statistics.ChunkerFiles, 1)
 
 	rd, err := imp.NewReader(record.Pathname)

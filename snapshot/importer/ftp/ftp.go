@@ -33,7 +33,7 @@ import (
 )
 
 type FTPImporter struct {
-	importer.ImporterBackend
+	importer.Importer
 	host    string
 	rootDir string
 	client  *goftp.Client
@@ -52,7 +52,7 @@ func connectToFTP(host, username, password string) (*goftp.Client, error) {
 	return goftp.DialConfig(config, host)
 }
 
-func NewFTPImporter(location string) (importer.ImporterBackend, error) {
+func NewFTPImporter(location string) (importer.Importer, error) {
 
 	parsed, err := url.Parse(location)
 	if err != nil {

@@ -26,7 +26,6 @@ import (
 )
 
 type FSImporter struct {
-	importer.ImporterBackend
 	rootDir string
 }
 
@@ -34,7 +33,7 @@ func init() {
 	importer.Register("fs", NewFSImporter)
 }
 
-func NewFSImporter(location string) (importer.ImporterBackend, error) {
+func NewFSImporter(location string) (importer.Importer, error) {
 	var err error
 
 	if strings.HasPrefix(location, "fs://") {

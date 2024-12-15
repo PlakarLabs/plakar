@@ -1,5 +1,5 @@
-//go:build linux || darwin
-// +build linux darwin
+//go:build linux || darwin || freebsd
+// +build linux darwin freebsd
 
 /*
  * Copyright (c) 2021 Gilles Chehade <gilles@poolp.org>

@@ -24,6 +24,7 @@ import (
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/storage"
 	"github.com/google/uuid"
@@ -47,7 +48,7 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	configuration := sourceStore.Configuration()
 	configuration.RepositoryID = uuid.Must(uuid.NewRandom())
 
-	cloneStore, err := storage.Create(ctx, flags.Arg(1), configuration)
+	cloneStore, err := storage.Create(flags.Arg(1), configuration)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: could not create repository: %s\n", flags.Arg(1), err)
 		return 1
@@ -62,7 +63,7 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	wg := sync.WaitGroup{}
 	for _, _packfileChecksum := range packfileChecksums {
 		wg.Add(1)
-		go func(packfileChecksum [32]byte) {
+		go func(packfileChecksum objects.Checksum) {
 			defer wg.Done()
 
 			rd, size, err := sourceStore.GetPackfile(packfileChecksum)
@@ -89,7 +90,7 @@ func cmd_clone(ctx *context.Context, repo *repository.Repository, args []string)
 	wg = sync.WaitGroup{}
 	for _, _indexChecksum := range indexesChecksums {
 		wg.Add(1)
-		go func(indexChecksum [32]byte) {
+		go func(indexChecksum objects.Checksum) {
 			defer wg.Done()
 
 			data, size, err := sourceStore.GetState(indexChecksum)

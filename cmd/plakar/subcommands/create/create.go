@@ -105,14 +105,14 @@ func cmd_create(ctx *context.Context, _ *repository.Repository, args []string) i
 
 	switch flags.NArg() {
 	case 0:
-		repo, err := storage.Create(ctx, filepath.Join(ctx.GetHomeDir(), ".plakar"), *storageConfiguration)
+		repo, err := storage.Create(filepath.Join(ctx.GetHomeDir(), ".plakar"), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1
 		}
 		repo.Close()
 	case 1:
-		repo, err := storage.Create(ctx, flags.Arg(0), *storageConfiguration)
+		repo, err := storage.Create(flags.Arg(0), *storageConfiguration)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %s: %s\n", flag.CommandLine.Name(), flags.Name(), err)
 			return 1

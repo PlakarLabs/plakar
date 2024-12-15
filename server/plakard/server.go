@@ -83,12 +83,12 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				}
 
 				repo.Logger().Trace("server", "%s: Create(%s, %s)", clientUuid, dirPath, request.Payload.(network.ReqCreate).Configuration)
-				st, err := storage.Create(ctx, dirPath, request.Payload.(network.ReqCreate).Configuration)
+				st, err := storage.Create(dirPath, request.Payload.(network.ReqCreate).Configuration)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
-				lrepository, err = repository.New(st, nil)
+				lrepository, err = repository.New(ctx, st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}
@@ -111,12 +111,12 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				repo.Logger().Trace("server", "%s: Open()", clientUuid)
 
 				location := request.Payload.(network.ReqOpen).Repository
-				st, err := storage.Open(ctx, location)
+				st, err := storage.Open(location)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
 				}
-				lrepository, err = repository.New(st, nil)
+				lrepository, err = repository.New(ctx, st, nil)
 				if err != nil {
 					retErr = err.Error()
 				}

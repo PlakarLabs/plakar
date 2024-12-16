@@ -10,7 +10,7 @@ import (
 func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte) error {
 	snap.Logger().Trace("snapshot", "%x: PutBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
 
-	encoded, err := snap.repository.Encode(data)
+	encoded, err := snap.repository.EncodeBuffer(data)
 	if err != nil {
 		return err
 	}

@@ -77,10 +77,12 @@ func DeflateStream(name string, r io.Reader) (io.Reader, error) {
 }
 
 func DeflateGzipStream(r io.Reader) (io.Reader, error) {
+	gw := gzip.NewWriter(nil) // Initialize the writer
 	pr, pw := io.Pipe()
+	gw.Reset(pw) // Reset the writer to use the pipe writer
+
 	go func() {
 		defer pw.Close()
-		gw := gzip.NewWriter(pw)
 		defer gw.Close()
 		_, err := io.Copy(gw, r)
 		if err != nil {
@@ -91,10 +93,12 @@ func DeflateGzipStream(r io.Reader) (io.Reader, error) {
 }
 
 func DeflateLZ4Stream(r io.Reader) (io.Reader, error) {
+	lw := lz4.NewWriter(nil) // Initialize the writer
 	pr, pw := io.Pipe()
+	lw.Reset(pw) // Reset the writer to use the pipe writer
+
 	go func() {
 		defer pw.Close()
-		lw := lz4.NewWriter(pw)
 		defer lw.Close()
 		_, err := io.Copy(lw, r)
 		if err != nil {
@@ -144,10 +148,10 @@ func InflateGzipStream(r io.Reader) (io.Reader, error) {
 }
 
 func InflateLZ4Stream(r io.Reader) (io.Reader, error) {
+	lz := lz4.NewReader(r)
 	pr, pw := io.Pipe()
 	go func() {
 		defer pw.Close()
-		lz := lz4.NewReader(r)
 		_, err := io.Copy(pw, lz)
 		if err != nil {
 			pw.CloseWithError(err)

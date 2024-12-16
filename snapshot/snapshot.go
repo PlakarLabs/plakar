@@ -253,12 +253,12 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 		panic("could not serialize pack file footer" + err.Error())
 	}
 
-	encryptedIndex, err := repo.Encode(serializedIndex)
+	encryptedIndex, err := repo.EncodeBuffer(serializedIndex)
 	if err != nil {
 		return err
 	}
 
-	encryptedFooter, err := repo.Encode(serializedFooter)
+	encryptedFooter, err := repo.EncodeBuffer(serializedFooter)
 	if err != nil {
 		return err
 	}

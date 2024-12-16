@@ -132,6 +132,7 @@ func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
 				}
 				break
 			}
+
 			// Encrypt each chunk and write it to the pipe
 			encryptedChunk := dataGCM.Seal(nil, dataNonce, buf[:n], nil)
 			if _, err := pw.Write(encryptedChunk); err != nil {

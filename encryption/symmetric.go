@@ -19,7 +19,7 @@ type Configuration struct {
 
 const (
 	saltSize  = 16
-	chunkSize = 1024 // Size of each chunk for encryption/decryption
+	chunkSize = 4096 // Size of each chunk for encryption/decryption
 )
 
 func DefaultConfiguration() *Configuration {
@@ -105,39 +105,75 @@ func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 
-	// Generate a nonce for data encryption
-	dataNonce := make([]byte, dataGCM.NonceSize())
-	if _, err := rand.Read(dataNonce); err != nil {
-		return nil, err
-	}
-
 	// Set up the pipe for streaming encryption
 	pr, pw := io.Pipe()
 
 	// Start encryption in a goroutine
 	go func() {
 		defer pw.Close()
-		// Write the encrypted subkey and both nonces to the output stream
-		pw.Write(subkeyNonce)
-		pw.Write(encSubkey)
-		pw.Write(dataNonce)
 
-		// Encrypt and write the actual data in chunks
-		buf := make([]byte, chunkSize)
+		// Write the encrypted subkey and both nonces to the output stream
+		if _, err := pw.Write(subkeyNonce); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		if _, err := pw.Write(encSubkey); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+
+		// Create a buffer to accumulate input data
+		buffer := make([]byte, 0, chunkSize)
+		tmp := make([]byte, chunkSize)
+
 		for {
-			n, err := r.Read(buf)
+			// Read data into the temporary buffer
+			n, err := r.Read(tmp)
+			if n > 0 {
+				// Append the read data to the buffer
+				buffer = append(buffer, tmp[:n]...)
+
+				// Process fixed-size chunks
+				for len(buffer) >= chunkSize {
+					dataNonce := make([]byte, dataGCM.NonceSize())
+					if _, err := rand.Read(dataNonce); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+					if _, err := pw.Write(dataNonce); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+					encryptedChunk := dataGCM.Seal(nil, dataNonce, buffer[:chunkSize], nil)
+					if _, err := pw.Write(encryptedChunk); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+					buffer = buffer[chunkSize:] // Remove processed data
+				}
+			}
+
+			// Handle errors or EOF
 			if err != nil {
 				if err != io.EOF {
 					pw.CloseWithError(err)
+				} else if len(buffer) > 0 {
+					dataNonce := make([]byte, dataGCM.NonceSize())
+					if _, err := rand.Read(dataNonce); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+					if _, err := pw.Write(dataNonce); err != nil {
+						pw.CloseWithError(err)
+						return
+					}
+					// Process the last chunk if there is remaining data
+					encryptedChunk := dataGCM.Seal(nil, dataNonce, buffer, nil)
+					if _, err := pw.Write(encryptedChunk); err != nil {
+						pw.CloseWithError(err)
+					}
 				}
-				break
-			}
-
-			// Encrypt each chunk and write it to the pipe
-			encryptedChunk := dataGCM.Seal(nil, dataNonce, buf[:n], nil)
-			if _, err := pw.Write(encryptedChunk); err != nil {
-				pw.CloseWithError(err)
-				break
+				return
 			}
 		}
 	}()
@@ -183,37 +219,42 @@ func DecryptStream(key []byte, r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 
-	// Read the data nonce from the input
-	dataNonce := make([]byte, dataGCM.NonceSize())
-	if _, err := io.ReadFull(r, dataNonce); err != nil {
-		return nil, err
-	}
-
 	pr, pw := io.Pipe()
 
 	// Start decryption in a goroutine
 	go func() {
 		defer pw.Close()
 
-		// Decrypt the data in chunks and write it to the pipe
-		buf := make([]byte, chunkSize+dataGCM.Overhead())
+		// Read the data nonce from the input
+		dataNonce := make([]byte, dataGCM.NonceSize())
+		if _, err := io.ReadFull(r, dataNonce); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+
+		buffer := make([]byte, chunkSize+dataGCM.Overhead())
 		for {
-			n, err := r.Read(buf)
+			n, err := r.Read(buffer)
 			if err != nil {
 				if err != io.EOF {
 					pw.CloseWithError(err)
+					return
 				}
-				break
 			}
+
+			if n == 0 {
+				return
+			}
+
 			// Decrypt each chunk and write it to the pipe
-			decryptedChunk, err := dataGCM.Open(nil, dataNonce, buf[:n], nil)
+			decryptedChunk, err := dataGCM.Open(nil, dataNonce, buffer[:n], nil)
 			if err != nil {
 				pw.CloseWithError(err)
-				break
+				return
 			}
 			if _, err := pw.Write(decryptedChunk); err != nil {
 				pw.CloseWithError(err)
-				break
+				return
 			}
 		}
 	}()

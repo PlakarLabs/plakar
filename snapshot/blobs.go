@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"bytes"
 	"io"
 	"time"
 
@@ -8,9 +9,14 @@ import (
 )
 
 func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte) error {
-	snap.Logger().Trace("snapshot", "%x: PutBlob(%064x)", snap.Header.GetIndexShortID(), checksum)
+	snap.Logger().Trace("snapshot", "%x: PutBlob(%d, %064x) len=%d", snap.Header.GetIndexShortID(), Type, checksum, len(data))
 
-	encoded, err := snap.repository.EncodeBuffer(data)
+	encodedReader, err := snap.repository.Encode(bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+
+	encoded, err := io.ReadAll(encodedReader)
 	if err != nil {
 		return err
 	}
@@ -27,12 +33,7 @@ func (snap *Snapshot) GetBlob(Type packfile.Type, checksum [32]byte) ([]byte, er
 		return nil, err
 	}
 
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer, nil
+	return io.ReadAll(rd)
 }
 
 func (snap *Snapshot) BlobExists(Type packfile.Type, checksum [32]byte) bool {

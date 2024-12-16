@@ -409,6 +409,17 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	scannerWg.Wait()
 
+	errcsum, err := persistIndex(snap, backupCtx.tree, packfile.TYPE_ERROR)
+	if err != nil {
+		return err
+	}
+
+	// Re-open the error index; this time the version on the snapshot
+	errIndex := btree.FromStorage(errcsum, &SnapshotStore[string, ErrorItem]{
+		blobtype: packfile.TYPE_ERROR,
+		snap:     snap,
+	}, strings.Compare, backupCtx.tree.Order)
+
 	var rootSummary *vfs.Summary
 
 	directories, err := sc2.EnumerateKeysWithPrefixReverse("__pathname__", true)
@@ -435,7 +446,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				LfileInfo: child.FileInfo,
 			}
 			if child.FileInfo.Mode().IsDir() {
-
 				data, err := sc2.GetSummary(child.Pathname)
 				if err != nil {
 					continue
@@ -480,6 +490,25 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			dirEntry.Summary.Directory.Children++
 		}
 		dirEntry.Children = lastChecksum
+
+		first := true
+		iter, err := errIndex.ScanFrom(record.Pathname, pathCmp)
+		if err != nil {
+			return err
+		}
+		for iter.Next() {
+			_, errentry := iter.Current()
+			if first {
+				first = false
+				ptr := iter.Node()
+				dirEntry.Errors = &ptr
+			}
+			if !strings.HasPrefix(errentry.Name, record.Pathname) {
+				break
+			}
+			dirEntry.Summary.Below.Errors++
+		}
+
 		dirEntry.Summary.UpdateAverages()
 
 		classifications := cf.Processor(record.Pathname).Directory(dirEntry)
@@ -527,29 +556,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		}
 	}
 
-	root, err := btree.Persist(backupCtx.tree, &SnapshotStore[string, ErrorItem]{
-		readonly: false,
-		blobtype: packfile.TYPE_ERROR,
-		snap:     snap,
-	})
-	if err != nil {
-		return err
-	}
-	head := ErrorEntry{
-		Order: backupCtx.tree.Order,
-		Root:  root,
-	}
-	bytes, err := head.ToBytes()
-	if err != nil {
-		return err
-	}
-	headcsum := snap.repository.Checksum(bytes)
-	if !snap.BlobExists(packfile.TYPE_ERROR, headcsum) {
-		if err := snap.PutBlob(packfile.TYPE_ERROR, headcsum, bytes); err != nil {
-			return err
-		}
-	}
-
 	if backupCtx.aborted.Load() {
 		return backupCtx.abortedReason
 	}
@@ -576,7 +582,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Header.Statistics = statisticsChecksum
 	snap.Header.Duration = time.Since(snap.statistics.ImporterStart)
 	snap.Header.Summary = *rootSummary
-	snap.Header.Errors = headcsum
+	snap.Header.Errors = errcsum
 
 	/*
 		for _, key := range snap.Metadata.ListKeys() {

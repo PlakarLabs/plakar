@@ -52,8 +52,10 @@ func (s *SnapshotStore[K, V]) Put(node btree.Node[K, objects.Checksum, V]) (obje
 	return sum, nil
 }
 
-func persistIndex[P, V any](snap *Snapshot, tree *btree.BTree[string, P, V], t packfile.Type) (csum objects.Checksum, err error) {
-	root, err := btree.Persist(tree, &SnapshotStore[string, V]{
+// persistIndex saves a btree[K, P, V] index to the snapshot.  The
+// pointer type P is converted to a checksum.
+func persistIndex[K, P, V any](snap *Snapshot, tree *btree.BTree[K, P, V], t packfile.Type) (csum objects.Checksum, err error) {
+	root, err := btree.Persist(tree, &SnapshotStore[K, V]{
 		readonly: false,
 		blobtype: t,
 		snap:     snap,
@@ -62,7 +64,7 @@ func persistIndex[P, V any](snap *Snapshot, tree *btree.BTree[string, P, V], t p
 		return
 	}
 
-	bytes, err := msgpack.Marshal(&btree.BTree[string, objects.Checksum, V]{
+	bytes, err := msgpack.Marshal(&btree.BTree[K, objects.Checksum, V]{
 		Order: tree.Order,
 		Root: root,
 	})

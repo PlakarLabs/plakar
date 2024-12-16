@@ -3,7 +3,6 @@ module github.com/PlakarKorp/plakar
 go 1.22.2
 
 require (
-	github.com/PlakarLabs/go-cdc-chunkers v0.0.7
 	github.com/alecthomas/chroma v0.10.0
 	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/anacrolix/fuse v0.4.0
@@ -35,6 +34,7 @@ require (
 )
 
 require (
+	github.com/PlakarKorp/go-cdc-chunkers v0.0.8 // indirect
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect

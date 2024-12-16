@@ -3,7 +3,7 @@ package chunking
 import (
 	"testing"
 
-	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
+	chunkers "github.com/PlakarKorp/go-cdc-chunkers"
 )
 
 func TestDefaultAlgorithm(t *testing.T) {

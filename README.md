@@ -17,7 +17,7 @@ it may work on older versions but hasn't been tested.
 ## Installing the CLI
 
 ```
-go install github.com/PlakarLabs/plakar/cmd/plakar@latest
+go install github.com/PlakarKorp/plakar/cmd/plakar@latest
 ```
 
 

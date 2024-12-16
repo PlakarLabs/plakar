@@ -225,15 +225,15 @@ func DecryptStream(key []byte, r io.Reader) (io.Reader, error) {
 	go func() {
 		defer pw.Close()
 
-		// Read the data nonce from the input
-		dataNonce := make([]byte, dataGCM.NonceSize())
-		if _, err := io.ReadFull(r, dataNonce); err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-
 		buffer := make([]byte, chunkSize+dataGCM.Overhead())
 		for {
+			// Read the data nonce from the input
+			dataNonce := make([]byte, dataGCM.NonceSize())
+			if _, err := io.ReadFull(r, dataNonce); err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
 			n, err := r.Read(buffer)
 			if err != nil {
 				if err != io.EOF {

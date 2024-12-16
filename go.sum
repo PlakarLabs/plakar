@@ -1,6 +1,6 @@
 github.com/Julusian/godocdown v0.0.0-20170816220326-6d19f8ff2df8/go.mod h1:INZr5t32rG59/5xeltqoCJoNY7e5x/3xoY9WSWVWg74=
-github.com/PlakarLabs/go-cdc-chunkers v0.0.7 h1:lfDPsxoSHEGDxXNFpOb1Tr6wtOKkm8pleBCgF9p0p4s=
-github.com/PlakarLabs/go-cdc-chunkers v0.0.7/go.mod h1:BWr615Ldhjf2OpNy8lNMjrqiL8d0C3+naItVybDfXXU=
+github.com/PlakarKorp/go-cdc-chunkers v0.0.8 h1:k1sH+OIsBVY24wMJvnR0vMR6zwjUtOWOlIj9E8mdDjc=
+github.com/PlakarKorp/go-cdc-chunkers v0.0.8/go.mod h1:2HDU7VZeHUpTRviOHSGIrliMQgBnsBAAW8NoZIyW9qY=
 github.com/alecthomas/assert/v2 v2.7.0 h1:QtqSACNS3tF7oasA8CU6A6sXZSBDqnm7RfpLl9bZqbE=
 github.com/alecthomas/assert/v2 v2.7.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
 github.com/alecthomas/chroma v0.10.0 h1:7XDcGkCQopCNKjZHfYrNLraA+M7e0fMiJ/Mfikbfjek=

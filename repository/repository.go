@@ -17,9 +17,9 @@ import (
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/storage"
-	chunkers "github.com/PlakarLabs/go-cdc-chunkers"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/fastcdc"
-	_ "github.com/PlakarLabs/go-cdc-chunkers/chunkers/ultracdc"
+	chunkers "github.com/PlakarKorp/go-cdc-chunkers"
+	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/fastcdc"
+	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/ultracdc"
 )
 
 var (

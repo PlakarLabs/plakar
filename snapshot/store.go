@@ -66,7 +66,7 @@ func persistIndex[K, P, V any](snap *Snapshot, tree *btree.BTree[K, P, V], t pac
 
 	bytes, err := msgpack.Marshal(&btree.BTree[K, objects.Checksum, V]{
 		Order: tree.Order,
-		Root: root,
+		Root:  root,
 	})
 	if err != nil {
 		return

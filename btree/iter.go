@@ -94,10 +94,10 @@ func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, P, V],
 		return nil, err
 	}
 
-	ptr := path[len(path) - 1]
+	ptr := path[len(path)-1]
 
 	var (
-		idx int
+		idx   int
 		found bool
 	)
 	for idx = range node.Keys {

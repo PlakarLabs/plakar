@@ -19,7 +19,7 @@ type Configuration struct {
 
 const (
 	saltSize  = 16
-	chunkSize = 4096 // Size of each chunk for encryption/decryption
+	chunkSize = 64 * 1024 // Size of each chunk for encryption/decryption
 )
 
 func DefaultConfiguration() *Configuration {

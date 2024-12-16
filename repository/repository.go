@@ -46,6 +46,7 @@ func New(ctx *context.Context, store storage.Store, secret []byte) (*Repository,
 	r := &Repository{
 		store:         store,
 		configuration: store.Configuration(),
+		context:       ctx,
 		secret:        secret,
 	}
 	if err := r.RebuildState(); err != nil {

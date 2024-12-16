@@ -51,3 +51,28 @@ func (s *SnapshotStore[K, V]) Put(node btree.Node[K, objects.Checksum, V]) (obje
 	}
 	return sum, nil
 }
+
+func persistIndex[P, V any](snap *Snapshot, tree *btree.BTree[string, P, V], t packfile.Type) (csum objects.Checksum, err error) {
+	root, err := btree.Persist(tree, &SnapshotStore[string, V]{
+		readonly: false,
+		blobtype: packfile.TYPE_ERROR,
+		snap:     snap,
+	})
+	if err != nil {
+		return
+	}
+
+	bytes, err := msgpack.Marshal(&btree.BTree[string, objects.Checksum, V]{
+		Order: tree.Order,
+		Root: root,
+	})
+	if err != nil {
+		return
+	}
+
+	csum = snap.repository.Checksum(bytes)
+	if !snap.BlobExists(t, csum) {
+		err = snap.PutBlob(t, csum, bytes)
+	}
+	return
+}

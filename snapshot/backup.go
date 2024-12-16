@@ -539,27 +539,9 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		}
 	}
 
-	root, err := btree.Persist(backupCtx.tree, &SnapshotStore[string, ErrorItem]{
-		readonly: false,
-		blobtype: packfile.TYPE_ERROR,
-		snap:     snap,
-	})
+	errcsum, err := persistIndex(snap, backupCtx.tree, packfile.TYPE_ERROR)
 	if err != nil {
 		return err
-	}
-	head := ErrorEntry{
-		Order: backupCtx.tree.Order,
-		Root:  root,
-	}
-	bytes, err := head.ToBytes()
-	if err != nil {
-		return err
-	}
-	headcsum := snap.repository.Checksum(bytes)
-	if !snap.BlobExists(packfile.TYPE_ERROR, headcsum) {
-		if err := snap.PutBlob(packfile.TYPE_ERROR, headcsum, bytes); err != nil {
-			return err
-		}
 	}
 
 	if backupCtx.aborted.Load() {
@@ -588,7 +570,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	snap.Header.Statistics = statisticsChecksum
 	snap.Header.Duration = time.Since(snap.statistics.ImporterStart)
 	snap.Header.Summary = *rootSummary
-	snap.Header.Errors = headcsum
+	snap.Header.Errors = errcsum
 
 	/*
 		for _, key := range snap.Metadata.ListKeys() {

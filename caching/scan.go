@@ -108,10 +108,6 @@ func (c *ScanCache) GetSummary(pathname string) ([]byte, error) {
 }
 
 // / BELOW IS THE OLD CODE FROM BACKUP LAYER, NEEDS TO BE CLEANED UP
-type ErrorEntry struct {
-	Pathname string
-	Error    string
-}
 
 func (c *ScanCache) EnumerateKeysWithPrefixReverse(prefix string, isDirectory bool) (<-chan importer.ScanRecord, error) {
 	// Create a channel to return the keys

@@ -1,13 +1,15 @@
 package btree
 
-type Iterator[K any, V any] interface {
+type Iterator[K any, P any, V any] interface {
 	Next() bool
 	Current() (K, V)
+	Node() P
 	Err() error
 }
 
 type forwardIter[K any, P any, V any] struct {
 	b       *BTree[K, P, V]
+	ptr     P
 	current *Node[K, P, V]
 	err     error
 	idx     int
@@ -26,20 +28,26 @@ func (fit *forwardIter[K, P, V]) Next() bool {
 	if fit.current.Next == nil {
 		return false
 	}
+	nextptr := *fit.current.Next
 
-	fit.idx = 0
-	next, err := fit.b.store.Get(*fit.current.Next)
+	next, err := fit.b.store.Get(nextptr)
 	if err != nil {
 		fit.err = err
 		return false
 	}
 
+	fit.ptr = nextptr
 	fit.current = &next
+	fit.idx = 0
 	return true
 }
 
 func (fit *forwardIter[K, P, V]) Current() (K, V) {
 	return fit.current.Keys[fit.idx], fit.current.Values[fit.idx]
+}
+
+func (fit *forwardIter[K, P, V]) Node() P {
+	return fit.ptr
 }
 
 func (fit *forwardIter[K, P, V]) Err() error {
@@ -48,7 +56,7 @@ func (fit *forwardIter[K, P, V]) Err() error {
 
 // ScanAll returns an iterator that visits all the values from the
 // smaller one onwards.
-func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
+func (b *BTree[K, P, V]) ScanAll() (Iterator[K, P, V], error) {
 	ptr := b.Root
 
 	var n *Node[K, P, V]
@@ -67,6 +75,7 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 
 	return &forwardIter[K, P, V]{
 		b:       b,
+		ptr:     ptr,
 		current: n,
 		idx:     -1,
 	}, nil
@@ -75,18 +84,20 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, V], error) {
 // ScanFrom returns an iterator that visits all the values starting
 // from the given key, or the first key larger than the given one,
 // onwards.
-func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, V], error) {
+func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, P, V], error) {
 	if cmp == nil {
 		cmp = b.compare
 	}
 
-	node, _, err := b.findleaf(key, cmp)
+	node, path, err := b.findleaf(key, cmp)
 	if err != nil {
 		return nil, err
 	}
 
+	ptr := path[len(path)-1]
+
 	var (
-		idx int
+		idx   int
 		found bool
 	)
 	for idx = range node.Keys {
@@ -99,7 +110,8 @@ func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, V], er
 		if node.Next == nil {
 			idx++ // key not found, make an empty iterator
 		} else {
-			node, err = b.store.Get(*node.Next)
+			ptr = *node.Next
+			node, err = b.store.Get(ptr)
 			if err != nil {
 				return nil, err
 			}
@@ -110,6 +122,7 @@ func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, V], er
 	idx-- // forwardIter.Next() will bump this
 	return &forwardIter[K, P, V]{
 		b:       b,
+		ptr:     ptr,
 		current: &node,
 		idx:     idx,
 	}, nil

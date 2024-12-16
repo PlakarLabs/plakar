@@ -14,30 +14,6 @@ type ErrorItem struct {
 	Error string `msgpack:"error" json:"error"`
 }
 
-type ErrorEntry btree.BTree[string, objects.Checksum, ErrorItem]
-
-func ErrorItemFromBytes(data []byte) (*ErrorItem, error) {
-	entry := &ErrorItem{}
-	err := msgpack.Unmarshal(data, entry)
-	if err != nil {
-		return nil, err
-	}
-	return entry, nil
-}
-
-func ErrorEntryFromBytes(data []byte) (*ErrorEntry, error) {
-	entry := &ErrorEntry{}
-	err := msgpack.Unmarshal(data, entry)
-	if err != nil {
-		return nil, err
-	}
-	return entry, nil
-}
-
-func (e *ErrorEntry) ToBytes() ([]byte, error) {
-	return msgpack.Marshal(e)
-}
-
 func pathCmp(a, b string) int {
 	if strings.HasPrefix(a, b) {
 		return -1
@@ -60,8 +36,8 @@ func (snapshot *Snapshot) Errors(beneath string) (<-chan ErrorItem, error) {
 			return
 		}
 
-		root, err := ErrorEntryFromBytes(bytes)
-		if err != nil {
+		var root btree.BTree[string, objects.Checksum, ErrorItem]
+		if err := msgpack.Unmarshal(bytes, &root); err != nil {
 			return
 		}
 

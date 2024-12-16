@@ -409,6 +409,17 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 	}
 	scannerWg.Wait()
 
+	errcsum, err := persistIndex(snap, backupCtx.tree, packfile.TYPE_ERROR)
+	if err != nil {
+		return err
+	}
+
+	// Re-open the error index; this time the version on the snapshot
+	errIndex := btree.FromStorage(errcsum, &SnapshotStore[string, ErrorItem]{
+		blobtype: packfile.TYPE_ERROR,
+		snap:     snap,
+	}, strings.Compare, backupCtx.tree.Order)
+
 	var rootSummary *vfs.Summary
 
 	directories, err := sc2.EnumerateKeysWithPrefixReverse("__pathname__", true)
@@ -480,12 +491,18 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		}
 		dirEntry.Children = lastChecksum
 
-		iter, err := backupCtx.tree.ScanFrom(record.Pathname, pathCmp)
+		first := true
+		iter, err := errIndex.ScanFrom(record.Pathname, pathCmp)
 		if err != nil {
 			return err
 		}
 		for iter.Next() {
 			_, errentry := iter.Current()
+			if first {
+				first = false
+				ptr := iter.Node()
+				dirEntry.Errors = &ptr
+			}
 			if !strings.HasPrefix(errentry.Name, record.Pathname) {
 				break
 			}
@@ -537,11 +554,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		if record.Pathname == "/" {
 			rootSummary = &dirEntry.Summary
 		}
-	}
-
-	errcsum, err := persistIndex(snap, backupCtx.tree, packfile.TYPE_ERROR)
-	if err != nil {
-		return err
 	}
 
 	if backupCtx.aborted.Load() {

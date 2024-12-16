@@ -55,7 +55,7 @@ func (s *SnapshotStore[K, V]) Put(node btree.Node[K, objects.Checksum, V]) (obje
 func persistIndex[P, V any](snap *Snapshot, tree *btree.BTree[string, P, V], t packfile.Type) (csum objects.Checksum, err error) {
 	root, err := btree.Persist(tree, &SnapshotStore[string, V]{
 		readonly: false,
-		blobtype: packfile.TYPE_ERROR,
+		blobtype: t,
 		snap:     snap,
 	})
 	if err != nil {

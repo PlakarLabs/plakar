@@ -435,7 +435,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				LfileInfo: child.FileInfo,
 			}
 			if child.FileInfo.Mode().IsDir() {
-
 				data, err := sc2.GetSummary(child.Pathname)
 				if err != nil {
 					continue
@@ -480,6 +479,19 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			dirEntry.Summary.Directory.Children++
 		}
 		dirEntry.Children = lastChecksum
+
+		iter, err := backupCtx.tree.ScanFrom(record.Pathname, pathCmp)
+		if err != nil {
+			return err
+		}
+		for iter.Next() {
+			_, errentry := iter.Current()
+			if !strings.HasPrefix(errentry.Name, record.Pathname) {
+				break
+			}
+			dirEntry.Summary.Below.Errors++
+		}
+
 		dirEntry.Summary.UpdateAverages()
 
 		classifications := cf.Processor(record.Pathname).Directory(dirEntry)

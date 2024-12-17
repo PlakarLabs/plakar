@@ -122,57 +122,37 @@ func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
 			return
 		}
 
-		// Create a buffer to accumulate input data
-		buffer := make([]byte, 0, chunkSize)
-		tmp := make([]byte, 0, chunkSize)
-
+		// Encrypt and write data chunks
+		chunk := make([]byte, chunkSize)
 		for {
-			// Read data into the temporary buffer
-			n, err := r.Read(tmp)
-			if n > 0 {
-				// Append the read data to the buffer
-				buffer = append(buffer, tmp[:n]...)
+			// Use ReadFull to read exactly chunkSize or less at EOF
+			n, err := io.ReadFull(r, chunk)
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+				pw.CloseWithError(err)
+				return
+			}
 
-				// Process fixed-size chunks
-				for len(buffer) >= chunkSize {
-					dataNonce := make([]byte, dataGCM.NonceSize())
-					if _, err := rand.Read(dataNonce); err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					if _, err := pw.Write(dataNonce); err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					encryptedChunk := dataGCM.Seal(nil, dataNonce, buffer[:chunkSize], nil)
-					if _, err := pw.Write(encryptedChunk); err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					buffer = buffer[chunkSize:] // Remove processed data
+			if n > 0 {
+				// Generate nonce and encrypt the chunk
+				dataNonce := make([]byte, dataGCM.NonceSize())
+				if _, err := rand.Read(dataNonce); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+				if _, err := pw.Write(dataNonce); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+
+				encryptedChunk := dataGCM.Seal(nil, dataNonce, chunk[:n], nil)
+				if _, err := pw.Write(encryptedChunk); err != nil {
+					pw.CloseWithError(err)
+					return
 				}
 			}
 
-			// Handle errors or EOF
-			if err != nil {
-				if err != io.EOF {
-					pw.CloseWithError(err)
-				} else if len(buffer) > 0 {
-					dataNonce := make([]byte, dataGCM.NonceSize())
-					if _, err := rand.Read(dataNonce); err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					if _, err := pw.Write(dataNonce); err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					// Process the last chunk if there is remaining data
-					encryptedChunk := dataGCM.Seal(nil, dataNonce, buffer, nil)
-					if _, err := pw.Write(encryptedChunk); err != nil {
-						pw.CloseWithError(err)
-					}
-				}
+			// Stop when EOF is reached
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				return
 			}
 		}

@@ -124,7 +124,7 @@ func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
 
 		// Create a buffer to accumulate input data
 		buffer := make([]byte, 0, chunkSize)
-		tmp := make([]byte, chunkSize)
+		tmp := make([]byte, 0, chunkSize)
 
 		for {
 			// Read data into the temporary buffer

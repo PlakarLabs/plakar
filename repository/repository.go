@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	chunkers "github.com/PlakarKorp/go-cdc-chunkers"
+	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/fastcdc"
+	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/ultracdc"
 	"github.com/PlakarKorp/plakar/compression"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/encryption"
@@ -17,9 +20,6 @@ import (
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/storage"
-	chunkers "github.com/PlakarKorp/go-cdc-chunkers"
-	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/fastcdc"
-	_ "github.com/PlakarKorp/go-cdc-chunkers/chunkers/ultracdc"
 )
 
 var (
@@ -172,65 +172,82 @@ func (r *Repository) Close() error {
 	return nil
 }
 
-func (r *Repository) Decode(buffer []byte) ([]byte, error) {
+func (r *Repository) Decode(input io.Reader) (io.Reader, error) {
+	t0 := time.Now()
+	defer func() {
+		r.Logger().Trace("repository", "Decode: %s", time.Since(t0))
+	}()
+
+	stream := input
+	if r.secret != nil {
+		tmp, err := encryption.DecryptStream(r.secret, stream)
+		if err != nil {
+			return nil, err
+		}
+		stream = tmp
+	}
+
+	if r.configuration.Compression != nil {
+		tmp, err := compression.InflateStream(r.configuration.Compression.Algorithm, stream)
+		if err != nil {
+			return nil, err
+		}
+		stream = tmp
+	}
+
+	return stream, nil
+}
+
+func (r *Repository) Encode(input io.Reader) (io.Reader, error) {
+	t0 := time.Now()
+	defer func() {
+		r.Logger().Trace("repository", "Encode: %s", time.Since(t0))
+	}()
+
+	stream := input
+	if r.configuration.Compression != nil {
+		tmp, err := compression.DeflateStream(r.configuration.Compression.Algorithm, stream)
+		if err != nil {
+			return nil, err
+		}
+		stream = tmp
+	}
+
+	if r.secret != nil {
+		tmp, err := encryption.EncryptStream(r.secret, stream)
+		if err != nil {
+			return nil, err
+		}
+		stream = tmp
+	}
+
+	return stream, nil
+}
+
+func (r *Repository) DecodeBuffer(buffer []byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		r.Logger().Trace("repository", "Decode(%d bytes): %s", len(buffer), time.Since(t0))
 	}()
 
-	if r.secret != nil {
-		tmp, err := encryption.DecryptStream(r.secret, bytes.NewReader(buffer))
-		if err != nil {
-			return nil, err
-		}
-		buffer, err = io.ReadAll(tmp)
-		if err != nil {
-			return nil, err
-		}
+	rd, err := r.Decode(bytes.NewBuffer(buffer))
+	if err != nil {
+		return nil, err
 	}
-
-	if r.configuration.Compression != nil {
-		tmp, err := compression.InflateStream(r.configuration.Compression.Algorithm, bytes.NewReader(buffer))
-		if err != nil {
-			return nil, err
-		}
-		buffer, err = io.ReadAll(tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return buffer, nil
+	return io.ReadAll(rd)
 }
 
-func (r *Repository) Encode(buffer []byte) ([]byte, error) {
+func (r *Repository) EncodeBuffer(buffer []byte) ([]byte, error) {
 	t0 := time.Now()
 	defer func() {
 		r.Logger().Trace("repository", "Encode(%d): %s", len(buffer), time.Since(t0))
 	}()
 
-	if r.configuration.Compression != nil {
-		tmp, err := compression.DeflateStream(r.configuration.Compression.Algorithm, bytes.NewReader(buffer))
-		if err != nil {
-			return nil, err
-		}
-		buffer, err = io.ReadAll(tmp)
-		if err != nil {
-			return nil, err
-		}
+	rd, err := r.Encode(bytes.NewBuffer(buffer))
+	if err != nil {
+		return nil, err
 	}
-
-	if r.secret != nil {
-		tmp, err := encryption.EncryptStream(r.secret, bytes.NewReader(buffer))
-		if err != nil {
-			return nil, err
-		}
-		buffer, err = io.ReadAll(tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return buffer, nil
+	return io.ReadAll(rd)
 }
 
 func (r *Repository) Hasher() hash.Hash {
@@ -353,7 +370,7 @@ func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) 
 		return nil, 0, err
 	}
 
-	data, err := r.Decode(buffer)
+	data, err := r.DecodeBuffer(buffer)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -372,7 +389,7 @@ func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int6
 		return 0, err
 	}
 
-	encoded, err := r.Encode(data)
+	encoded, err := r.EncodeBuffer(data)
 	if err != nil {
 		return 0, err
 	}
@@ -434,7 +451,7 @@ func (r *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, l
 		return nil, 0, err
 	}
 
-	decoded, err := r.Decode(data)
+	decoded, err := r.DecodeBuffer(data)
 	if err != nil {
 		return nil, 0, err
 	}

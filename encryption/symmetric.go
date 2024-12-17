@@ -19,7 +19,7 @@ type Configuration struct {
 
 const (
 	saltSize  = 16
-	chunkSize = 1024 // Size of each chunk for encryption/decryption
+	chunkSize = 64 * 1024 // Size of each chunk for encryption/decryption
 )
 
 func DefaultConfiguration() *Configuration {
@@ -105,38 +105,55 @@ func EncryptStream(key []byte, r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 
-	// Generate a nonce for data encryption
-	dataNonce := make([]byte, dataGCM.NonceSize())
-	if _, err := rand.Read(dataNonce); err != nil {
-		return nil, err
-	}
-
 	// Set up the pipe for streaming encryption
 	pr, pw := io.Pipe()
 
 	// Start encryption in a goroutine
 	go func() {
 		defer pw.Close()
-		// Write the encrypted subkey and both nonces to the output stream
-		pw.Write(subkeyNonce)
-		pw.Write(encSubkey)
-		pw.Write(dataNonce)
 
-		// Encrypt and write the actual data in chunks
-		buf := make([]byte, chunkSize)
+		// Write the encrypted subkey and both nonces to the output stream
+		if _, err := pw.Write(subkeyNonce); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+		if _, err := pw.Write(encSubkey); err != nil {
+			pw.CloseWithError(err)
+			return
+		}
+
+		// Encrypt and write data chunks
+		chunk := make([]byte, chunkSize)
 		for {
-			n, err := r.Read(buf)
-			if err != nil {
-				if err != io.EOF {
-					pw.CloseWithError(err)
-				}
-				break
-			}
-			// Encrypt each chunk and write it to the pipe
-			encryptedChunk := dataGCM.Seal(nil, dataNonce, buf[:n], nil)
-			if _, err := pw.Write(encryptedChunk); err != nil {
+			// Use ReadFull to read exactly chunkSize or less at EOF
+			n, err := io.ReadFull(r, chunk)
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 				pw.CloseWithError(err)
-				break
+				return
+			}
+
+			if n > 0 {
+				// Generate nonce and encrypt the chunk
+				dataNonce := make([]byte, dataGCM.NonceSize())
+				if _, err := rand.Read(dataNonce); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+				if _, err := pw.Write(dataNonce); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+
+				encryptedChunk := dataGCM.Seal(nil, dataNonce, chunk[:n], nil)
+				if _, err := pw.Write(encryptedChunk); err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}
+
+			// Stop when EOF is reached
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				return
 			}
 		}
 	}()
@@ -182,37 +199,42 @@ func DecryptStream(key []byte, r io.Reader) (io.Reader, error) {
 		return nil, err
 	}
 
-	// Read the data nonce from the input
-	dataNonce := make([]byte, dataGCM.NonceSize())
-	if _, err := io.ReadFull(r, dataNonce); err != nil {
-		return nil, err
-	}
-
 	pr, pw := io.Pipe()
 
 	// Start decryption in a goroutine
 	go func() {
 		defer pw.Close()
 
-		// Decrypt the data in chunks and write it to the pipe
-		buf := make([]byte, chunkSize+dataGCM.Overhead())
+		buffer := make([]byte, chunkSize+dataGCM.Overhead())
 		for {
-			n, err := r.Read(buf)
+			// Read the data nonce from the input
+			dataNonce := make([]byte, dataGCM.NonceSize())
+			if _, err := io.ReadFull(r, dataNonce); err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			n, err := r.Read(buffer)
 			if err != nil {
 				if err != io.EOF {
 					pw.CloseWithError(err)
+					return
 				}
-				break
 			}
+
+			if n == 0 {
+				return
+			}
+
 			// Decrypt each chunk and write it to the pipe
-			decryptedChunk, err := dataGCM.Open(nil, dataNonce, buf[:n], nil)
+			decryptedChunk, err := dataGCM.Open(nil, dataNonce, buffer[:n], nil)
 			if err != nil {
 				pw.CloseWithError(err)
-				break
+				return
 			}
 			if _, err := pw.Write(decryptedChunk); err != nil {
 				pw.CloseWithError(err)
-				break
+				return
 			}
 		}
 	}()

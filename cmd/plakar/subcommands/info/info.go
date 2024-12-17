@@ -396,7 +396,7 @@ func info_packfile(repo *repository.Repository, args []string) error {
 			footerbuf := rawPackfile[len(rawPackfile)-int(footerOffset):]
 			rawPackfile = rawPackfile[:len(rawPackfile)-int(footerOffset)]
 
-			footerbuf, err = repo.Decode(footerbuf)
+			footerbuf, err = repo.DecodeBuffer(footerbuf)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -408,7 +408,7 @@ func info_packfile(repo *repository.Repository, args []string) error {
 			indexbuf := rawPackfile[int(footer.IndexOffset):]
 			rawPackfile = rawPackfile[:int(footer.IndexOffset)]
 
-			indexbuf, err = repo.Decode(indexbuf)
+			indexbuf, err = repo.DecodeBuffer(indexbuf)
 			if err != nil {
 				log.Fatal(err)
 			}

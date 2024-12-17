@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/PlakarKorp/plakar/compression"
 )
 
 func TestEncryptDecryptStream(t *testing.T) {
@@ -146,5 +148,56 @@ func TestBuildSecretFromPassphraseAndDeriveSecret(t *testing.T) {
 	_, err = DeriveSecret([]byte("wrong passphrase"), secret)
 	if err == nil {
 		t.Fatal("Expected error for incorrect passphrase, but got none")
+	}
+}
+
+func TestCompressEncryptThenDecryptDecompressStream(t *testing.T) {
+	passphrase := []byte("strong passphrase")
+	secret, err := BuildSecretFromPassphrase(passphrase)
+	if err != nil {
+		t.Fatalf("Failed to build secret from passphrase: %v", err)
+	}
+	derivedKey, err := DeriveSecret(passphrase, secret)
+	if err != nil {
+		t.Fatalf("Failed to derive key from passphrase: %v", err)
+	}
+
+	// Original data to compress, encrypt, decrypt, and decompress
+	originalData := "This is a test string for compression and encryption. It should work!"
+	r := strings.NewReader(originalData)
+
+	// Step 1: Compress the data
+	compressedReader, err := compression.DeflateStream("GZIP", r)
+	if err != nil {
+		t.Fatalf("Failed to compress data: %v", err)
+	}
+
+	// Step 2: Encrypt the compressed data
+	encryptedReader, err := EncryptStream(derivedKey, compressedReader)
+	if err != nil {
+		t.Fatalf("Failed to encrypt data: %v", err)
+	}
+
+	// Step 3: Decrypt the data
+	decryptedReader, err := DecryptStream(derivedKey, encryptedReader)
+	if err != nil {
+		t.Fatalf("Failed to decrypt data: %v", err)
+	}
+
+	// Step 4: Decompress the decrypted data
+	decompressedReader, err := compression.InflateStream("GZIP", decryptedReader)
+	if err != nil {
+		t.Fatalf("Failed to decompress data: %v", err)
+	}
+
+	// Read the final output
+	finalData, err := io.ReadAll(decompressedReader)
+	if err != nil {
+		t.Fatalf("Failed to read decompressed data: %v", err)
+	}
+
+	// Verify the final data matches the original data
+	if string(finalData) != originalData {
+		t.Errorf("Final data does not match original. Got: %q, want: %q", string(finalData), originalData)
 	}
 }

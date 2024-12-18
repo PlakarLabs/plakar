@@ -97,12 +97,12 @@ func repositoryState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	buffer, _, err := lrepository.GetState(stateBytes32)
+	rd, err := lrepository.GetState(stateBytes32)
 	if err != nil {
 		return err
 	}
 
-	if _, err := w.Write(buffer); err != nil {
+	if _, err := io.Copy(w, rd); err != nil {
 		log.Println("write failed:", err)
 	}
 	return nil

@@ -277,12 +277,12 @@ func info_state(repo *repository.Repository, args []string) error {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rawState, _, err := repo.GetState(byteArray)
+			rawStateRd, err := repo.GetState(byteArray)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			st, err := state.NewFromBytes(rawState)
+			st, err := state.DeserializeStream(rawStateRd)
 			if err != nil {
 				log.Fatal(err)
 			}

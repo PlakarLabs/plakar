@@ -1,8 +1,12 @@
 package state
 
 import (
+	"bytes"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 )
 
@@ -16,71 +20,6 @@ func TestNew(t *testing.T) {
 	}
 	if st.dirty != 0 {
 		t.Errorf("Expected dirty to be 0, got %d", st.dirty)
-	}
-}
-
-func TestSerializeAndDeserialize(t *testing.T) {
-	st := New()
-
-	checksum1 := [32]byte{1, 2, 3}
-	checksum2 := [32]byte{4, 5, 6}
-	chunkSubpart := Location{
-		Offset: 100,
-		Length: 200,
-	}
-	objectSubpart := Location{
-		Offset: 300,
-		Length: 400,
-	}
-
-	st.SetPackfileForBlob(packfile.TYPE_CHUNK, checksum1, checksum2, chunkSubpart.Offset, chunkSubpart.Length)
-	st.SetPackfileForBlob(packfile.TYPE_OBJECT, checksum1, checksum2, objectSubpart.Offset, objectSubpart.Length)
-
-	serialized, err := st.Serialize()
-	if err != nil {
-		t.Fatalf("Serialize failed: %v", err)
-	}
-
-	deserializedSt, err := NewFromBytes(serialized)
-	if err != nil {
-		t.Fatalf("NewFromBytes failed: %v", err)
-	}
-
-	if len(deserializedSt.Chunks) != len(st.Chunks) {
-		t.Errorf("Expected Chunks length %d, got %d", len(st.Chunks), len(deserializedSt.Chunks))
-	}
-
-	for id, subpart := range st.Chunks {
-		deserializedSubpart, exists := deserializedSt.Chunks[id]
-		if !exists {
-			t.Errorf("Chunk ID %d not found in deserialized Chunks", id)
-		}
-		if subpart != deserializedSubpart {
-			t.Errorf("Chunk Subpart mismatch for ID %d: expected %+v, got %+v", id, subpart, deserializedSubpart)
-		}
-	}
-
-	if len(deserializedSt.Objects) != len(st.Objects) {
-		t.Errorf("Expected Objects length %d, got %d", len(st.Objects), len(deserializedSt.Objects))
-	}
-
-	for id, subpart := range st.Objects {
-		deserializedSubpart, exists := deserializedSt.Objects[id]
-		if !exists {
-			t.Errorf("Object ID %d not found in deserialized Objects", id)
-		}
-		if subpart != deserializedSubpart {
-			t.Errorf("Object Subpart mismatch for ID %d: expected %+v, got %+v", id, subpart, deserializedSubpart)
-		}
-	}
-}
-
-func TestNewFromBytesError(t *testing.T) {
-	invalidData := []byte{0x00, 0x01, 0x02}
-
-	_, err := NewFromBytes(invalidData)
-	if err == nil {
-		t.Fatalf("Expected error when deserializing invalid data, got nil")
 	}
 }
 
@@ -196,5 +135,115 @@ func TestGetSubpartForObject(t *testing.T) {
 	_, _, _, exists = st.GetSubpartForBlob(packfile.TYPE_OBJECT, nonExisting)
 	if exists {
 		t.Errorf("Expected GetSubpartForObject to return false for %v", nonExisting)
+	}
+}
+
+func TestSerializeDeserialize(t *testing.T) {
+	// Create a test State object
+	originalState := &State{
+		Metadata: Metadata{
+			Version:   1,
+			Timestamp: time.Now(),
+			Aggregate: true,
+			Extends:   []objects.Checksum{{0x01}, {0x02}, {0x03}},
+		},
+		DeletedSnapshots: map[uint64]time.Time{
+			123: time.Unix(1697045400, 0), // Example timestamp
+			456: time.Unix(1697046000, 0),
+		},
+		IdToChecksum: map[uint64]objects.Checksum{
+			1: {0x10},
+			2: {0x20},
+		},
+		Chunks: map[uint64]Location{
+			1: {Packfile: 100, Offset: 10, Length: 500},
+			2: {Packfile: 200, Offset: 20, Length: 600},
+		},
+	}
+
+	// Serialize the State object
+	var buffer bytes.Buffer
+	if err := originalState.SerializeStream(&buffer); err != nil {
+		t.Fatalf("Failed to serialize state: %v", err)
+	}
+
+	// Deserialize the buffer back into a State object
+	deserializedState, err := DeserializeStream(&buffer)
+	if err != nil {
+		t.Fatalf("Failed to deserialize state: %v", err)
+	}
+
+	// Verify that the original and deserialized states match
+	if !compareStates(originalState, deserializedState) {
+		t.Fatalf("Original and deserialized states do not match.\nOriginal: %+v\nDeserialized: %+v",
+			originalState, deserializedState)
+	}
+}
+
+// Helper function to compare two State objects
+func compareStates(a, b *State) bool {
+	if a.Metadata.Version != b.Metadata.Version ||
+		!a.Metadata.Timestamp.Equal(b.Metadata.Timestamp) ||
+		a.Metadata.Aggregate != b.Metadata.Aggregate ||
+		len(a.Metadata.Extends) != len(b.Metadata.Extends) {
+		return false
+	}
+	for i := range a.Metadata.Extends {
+		if a.Metadata.Extends[i] != b.Metadata.Extends[i] {
+			return false
+		}
+	}
+
+	if len(a.DeletedSnapshots) != len(b.DeletedSnapshots) {
+		return false
+	}
+	for k, v := range a.DeletedSnapshots {
+		if bv, ok := b.DeletedSnapshots[k]; !ok || !v.Equal(bv) {
+			return false
+		}
+	}
+
+	if len(a.IdToChecksum) != len(b.IdToChecksum) {
+		return false
+	}
+	for k, v := range a.IdToChecksum {
+		if bv, ok := b.IdToChecksum[k]; !ok || bv != v {
+			return false
+		}
+	}
+
+	if len(a.Chunks) != len(b.Chunks) {
+		return false
+	}
+	for k, v := range a.Chunks {
+		if bv, ok := b.Chunks[k]; !ok || bv != v {
+			return false
+		}
+	}
+
+	return true
+}
+
+func TestIdToChecksumSerialization(t *testing.T) {
+	originalState := &State{
+		IdToChecksum: map[uint64]objects.Checksum{
+			1: {0x10, 0x11, 0x12, 0x13},
+			2: {0x20, 0x21, 0x22, 0x23},
+		},
+	}
+
+	var buffer bytes.Buffer
+	if err := originalState.SerializeStream(&buffer); err != nil {
+		t.Fatalf("Failed to serialize state: %v", err)
+	}
+
+	deserializedState, err := DeserializeStream(&buffer)
+	if err != nil {
+		t.Fatalf("Failed to deserialize state: %v", err)
+	}
+
+	if !reflect.DeepEqual(originalState.IdToChecksum, deserializedState.IdToChecksum) {
+		t.Fatalf("IdToChecksum mismatch.\nOriginal: %+v\nDeserialized: %+v",
+			originalState.IdToChecksum, deserializedState.IdToChecksum)
 	}
 }

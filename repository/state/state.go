@@ -130,7 +130,6 @@ func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 }
 
 func (st *State) SerializeStream(w io.Writer) error {
-	// Helper function to write a uint64
 	writeUint64 := func(value uint64) error {
 		buf := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buf, value)
@@ -138,7 +137,6 @@ func (st *State) SerializeStream(w io.Writer) error {
 		return err
 	}
 
-	// Helper function to write a uint32
 	writeUint32 := func(value uint32) error {
 		buf := make([]byte, 4)
 		binary.LittleEndian.PutUint32(buf, value)
@@ -305,7 +303,6 @@ func DeserializeStream(r io.Reader) (*State, error) {
 		st.Metadata.Extends[i] = checksum
 	}
 
-	// Deserialize DeletedSnapshots
 	st.DeletedSnapshots = make(map[uint64]time.Time)
 	if err := deserializeMapping(r, st.DeletedSnapshots, readUint64, func() (time.Time, error) {
 		timestamp, err := readUint64()
@@ -317,7 +314,6 @@ func DeserializeStream(r io.Reader) (*State, error) {
 		return nil, fmt.Errorf("failed to deserialize DeletedSnapshots: %w", err)
 	}
 
-	// Deserialize IdToChecksum
 	st.IdToChecksum = make(map[uint64]objects.Checksum)
 	if err := deserializeMapping(r, st.IdToChecksum, readUint64, func() (objects.Checksum, error) {
 		var checksum objects.Checksum

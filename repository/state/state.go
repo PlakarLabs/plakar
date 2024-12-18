@@ -19,13 +19,13 @@ package state
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 const VERSION = 100
@@ -115,18 +115,6 @@ func (st *State) Derive() *State {
 	return nst
 }
 
-func (st *State) rebuildChecksums() {
-	st.muChecksum.Lock()
-	defer st.muChecksum.Unlock()
-
-	st.checksumToId = make(map[objects.Checksum]uint64)
-
-	// Rebuild checksumToID by reversing the IDToChecksum map
-	for id, checksum := range st.IdToChecksum {
-		st.checksumToId[checksum] = id
-	}
-}
-
 func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 	st.muChecksum.Lock()
 	defer st.muChecksum.Unlock()
@@ -141,37 +129,260 @@ func (st *State) getOrCreateIdForChecksum(checksum objects.Checksum) uint64 {
 	return newID
 }
 
-func NewFromBytes(serialized []byte) (*State, error) {
-	if len(serialized) < 4 {
-		return nil, fmt.Errorf("invalid state data")
+func (st *State) SerializeStream(w io.Writer) error {
+	// Helper function to write a uint64
+	writeUint64 := func(value uint64) error {
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, value)
+		_, err := w.Write(buf)
+		return err
 	}
 
-	serialized, versionBytes := serialized[:len(serialized)-4], serialized[len(serialized)-4:]
-	version := binary.LittleEndian.Uint32(versionBytes)
-	if version != VERSION {
-		return nil, fmt.Errorf("invalid state version: %d", version)
+	// Helper function to write a uint32
+	writeUint32 := func(value uint32) error {
+		buf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(buf, value)
+		_, err := w.Write(buf)
+		return err
 	}
 
-	var st State
-	if err := msgpack.Unmarshal(serialized, &st); err != nil {
-		return nil, err
+	writeLocation := func(loc Location) error {
+		if err := writeUint64(loc.Packfile); err != nil {
+			return err
+		}
+		if err := writeUint32(loc.Offset); err != nil {
+			return err
+		}
+		return writeUint32(loc.Length)
 	}
 
-	st.rebuildChecksums()
+	// Serialize Metadata
+	if err := writeUint32(st.Metadata.Version); err != nil {
+		return fmt.Errorf("failed to write version: %w", err)
+	}
+	timestamp := st.Metadata.Timestamp.UnixNano()
+	if err := writeUint64(uint64(timestamp)); err != nil {
+		return fmt.Errorf("failed to write timestamp: %w", err)
+	}
+	if st.Metadata.Aggregate {
+		if _, err := w.Write([]byte{1}); err != nil {
+			return fmt.Errorf("failed to write aggregate flag: %w", err)
+		}
+	} else {
+		if _, err := w.Write([]byte{0}); err != nil {
+			return fmt.Errorf("failed to write aggregate flag: %w", err)
+		}
+	}
+	if err := writeUint64(uint64(len(st.Metadata.Extends))); err != nil {
+		return fmt.Errorf("failed to write extends length: %w", err)
+	}
+	for _, checksum := range st.Metadata.Extends {
+		if _, err := w.Write(checksum[:]); err != nil {
+			return fmt.Errorf("failed to write checksum: %w", err)
+		}
+	}
 
-	return &st, nil
+	if err := serializeMapping(w, st.DeletedSnapshots, func(key uint64) error {
+		return writeUint64(key)
+	}, func(value time.Time) error {
+		return writeUint64(uint64(value.UnixNano()))
+	}); err != nil {
+		return fmt.Errorf("failed to serialize DeletedSnapshots: %w", err)
+	}
+
+	// Serialize each mapping
+	if err := serializeMapping(w, st.IdToChecksum, writeUint64, func(v objects.Checksum) error { _, err := w.Write(v[:]); return err }); err != nil {
+		return fmt.Errorf("failed to serialize IdToChecksum: %w", err)
+	}
+
+	mappings := []struct {
+		name string
+		data map[uint64]Location
+	}{
+		{"Chunks", st.Chunks},
+		{"Objects", st.Objects},
+		{"Files", st.Files},
+		{"Directories", st.Directories},
+		{"Children", st.Children},
+		{"Datas", st.Datas},
+		{"Snapshots", st.Snapshots},
+		{"Signatures", st.Signatures},
+		{"Errors", st.Errors},
+	}
+
+	for _, m := range mappings {
+		if err := serializeMapping(w, m.data, writeUint64, func(v Location) error {
+			return writeLocation(v)
+		}); err != nil {
+			return fmt.Errorf("failed to serialize %s: %w", m.name, err)
+		}
+	}
+
+	return nil
 }
 
-func (st *State) Serialize() ([]byte, error) {
-	serialized, err := msgpack.Marshal(st)
-	if err != nil {
-		return nil, err
+func serializeMapping[K comparable, V any](w io.Writer, mapping map[K]V, writeKey func(K) error, writeValue func(V) error) error {
+	// Write the size of the mapping
+	if err := binary.Write(w, binary.LittleEndian, uint64(len(mapping))); err != nil {
+		return fmt.Errorf("failed to write map size: %w", err)
+	}
+	// Write each key-value pair
+	for key, value := range mapping {
+		if err := writeKey(key); err != nil {
+			return fmt.Errorf("failed to write key: %w", err)
+		}
+		if err := writeValue(value); err != nil {
+			return fmt.Errorf("failed to write value: %w", err)
+		}
+	}
+	return nil
+}
+
+func DeserializeStream(r io.Reader) (*State, error) {
+	readUint64 := func() (uint64, error) {
+		buf := make([]byte, 8)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint64(buf), nil
 	}
 
-	versionBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(versionBytes, st.Metadata.Version)
+	readUint32 := func() (uint32, error) {
+		buf := make([]byte, 4)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint32(buf), nil
+	}
 
-	return append(serialized, versionBytes...), nil
+	readLocation := func() (Location, error) {
+		packfile, err := readUint64()
+		if err != nil {
+			return Location{}, err
+		}
+		offset, err := readUint32()
+		if err != nil {
+			return Location{}, err
+		}
+		length, err := readUint32()
+		if err != nil {
+			return Location{}, err
+		}
+		return Location{Packfile: packfile, Offset: offset, Length: length}, nil
+	}
+
+	st := &State{}
+
+	// Deserialize Metadata
+	version, err := readUint32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read version: %w", err)
+	}
+	st.Metadata.Version = version
+
+	timestamp, err := readUint64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read timestamp: %w", err)
+	}
+	st.Metadata.Timestamp = time.Unix(0, int64(timestamp))
+
+	aggregate := make([]byte, 1)
+	if _, err := io.ReadFull(r, aggregate); err != nil {
+		return nil, fmt.Errorf("failed to read aggregate flag: %w", err)
+	}
+	st.Metadata.Aggregate = aggregate[0] == 1
+
+	extendsLen, err := readUint64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read extends length: %w", err)
+	}
+	st.Metadata.Extends = make([]objects.Checksum, extendsLen)
+	for i := uint64(0); i < extendsLen; i++ {
+		var checksum objects.Checksum
+		if _, err := io.ReadFull(r, checksum[:]); err != nil {
+			return nil, fmt.Errorf("failed to read checksum: %w", err)
+		}
+		st.Metadata.Extends[i] = checksum
+	}
+
+	// Deserialize DeletedSnapshots
+	st.DeletedSnapshots = make(map[uint64]time.Time)
+	if err := deserializeMapping(r, st.DeletedSnapshots, readUint64, func() (time.Time, error) {
+		timestamp, err := readUint64()
+		if err != nil {
+			return time.Time{}, err
+		}
+		return time.Unix(0, int64(timestamp)), nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to deserialize DeletedSnapshots: %w", err)
+	}
+
+	// Deserialize IdToChecksum
+	st.IdToChecksum = make(map[uint64]objects.Checksum)
+	if err := deserializeMapping(r, st.IdToChecksum, readUint64, func() (objects.Checksum, error) {
+		var checksum objects.Checksum
+		if _, err := io.ReadFull(r, checksum[:]); err != nil {
+			return objects.Checksum{}, err
+		}
+		return checksum, nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to deserialize IdToChecksum: %w", err)
+	}
+
+	// Deserialize each mapping
+	mappings := []struct {
+		name string
+		data *map[uint64]Location
+	}{
+		{"Chunks", &st.Chunks},
+		{"Objects", &st.Objects},
+		{"Files", &st.Files},
+		{"Directories", &st.Directories},
+		{"Children", &st.Children},
+		{"Datas", &st.Datas},
+		{"Snapshots", &st.Snapshots},
+		{"Signatures", &st.Signatures},
+		{"Errors", &st.Errors},
+	}
+
+	for _, m := range mappings {
+		*m.data = make(map[uint64]Location)
+		if err := deserializeMapping(r, *m.data, readUint64, readLocation); err != nil {
+			return nil, fmt.Errorf("failed to deserialize %s: %w", m.name, err)
+		}
+	}
+
+	return st, nil
+}
+
+func deserializeMapping[K comparable, V any](r io.Reader, mapping map[K]V, readKey func() (K, error), readValue func() (V, error)) error {
+	readUint64 := func(r io.Reader) (uint64, error) {
+		buf := make([]byte, 8)
+		if _, err := io.ReadFull(r, buf); err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint64(buf), nil
+	}
+
+	// Read the size of the mapping
+	length, err := readUint64(r)
+	if err != nil {
+		return fmt.Errorf("failed to read map size: %w", err)
+	}
+
+	// Read each key-value pair
+	for i := uint64(0); i < length; i++ {
+		key, err := readKey()
+		if err != nil {
+			return fmt.Errorf("failed to read key: %w", err)
+		}
+		value, err := readValue()
+		if err != nil {
+			return fmt.Errorf("failed to read value: %w", err)
+		}
+		mapping[key] = value
+	}
+	return nil
 }
 
 func (st *State) Extends(stateID objects.Checksum) {

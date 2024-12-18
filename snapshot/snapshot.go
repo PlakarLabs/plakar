@@ -335,15 +335,16 @@ func (snap *Snapshot) Commit() error {
 	close(snap.packerChan)
 	<-snap.packerChanDone
 
-	serializedRepositoryIndex, err := snap.stateDelta.Serialize()
+	var serializedRepositoryIndex bytes.Buffer
+	err = snap.stateDelta.SerializeStream(&serializedRepositoryIndex)
 	if err != nil {
 		snap.Logger().Warn("could not serialize repository index: %s", err)
 		return err
 	}
-	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex)
+	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex.Bytes())
 	indexChecksum32 := objects.Checksum{}
 	copy(indexChecksum32[:], indexChecksum[:])
-	_, err = repo.PutState(indexChecksum32, bytes.NewBuffer(serializedRepositoryIndex), int64(len(serializedRepositoryIndex)))
+	_, err = repo.PutState(indexChecksum32, &serializedRepositoryIndex, int64(len(serializedRepositoryIndex.Bytes())))
 	if err != nil {
 		return err
 	}

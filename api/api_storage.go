@@ -40,7 +40,7 @@ func storageState(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	rd, _, err := lstore.GetState(stateBytes32)
+	rd, err := lstore.GetState(stateBytes32)
 	if err != nil {
 		return err
 	}
@@ -93,12 +93,12 @@ func storagePackfile(w http.ResponseWriter, r *http.Request) error {
 
 	var rd io.Reader
 	if offsetExists && lengthExists {
-		rd, _, err = lstore.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))
+		rd, err = lstore.GetPackfileBlob(packfileBytes32, uint32(offset), uint32(length))
 		if err != nil {
 			return err
 		}
 	} else {
-		rd, _, err = lstore.GetPackfile(packfileBytes32)
+		rd, err = lstore.GetPackfile(packfileBytes32)
 		if err != nil {
 			return err
 		}

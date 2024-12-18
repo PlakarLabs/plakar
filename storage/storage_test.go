@@ -43,12 +43,12 @@ func (mb *MockBackend) GetStates() ([]objects.Checksum, error) {
 	return nil, nil
 }
 
-func (mb *MockBackend) PutState(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (mb *MockBackend) PutState(checksum objects.Checksum, rd io.Reader) error {
 	return nil
 }
 
-func (mb *MockBackend) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
-	return bytes.NewReader([]byte("test data")), 8, nil
+func (mb *MockBackend) GetState(checksum objects.Checksum) (io.Reader, error) {
+	return bytes.NewReader([]byte("test data")), nil
 }
 
 func (mb *MockBackend) DeleteState(checksum objects.Checksum) error {
@@ -59,16 +59,16 @@ func (mb *MockBackend) GetPackfiles() ([]objects.Checksum, error) {
 	return nil, nil
 }
 
-func (mb *MockBackend) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (mb *MockBackend) PutPackfile(checksum objects.Checksum, rd io.Reader) error {
 	return nil
 }
 
-func (mb *MockBackend) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
-	return bytes.NewReader([]byte("packfile data")), 13, nil
+func (mb *MockBackend) GetPackfile(checksum objects.Checksum) (io.Reader, error) {
+	return bytes.NewReader([]byte("packfile data")), nil
 }
 
-func (mb *MockBackend) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error) {
-	return bytes.NewReader([]byte("blob data")), 9, nil
+func (mb *MockBackend) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, error) {
+	return bytes.NewReader([]byte("blob data")), nil
 }
 
 func (mb *MockBackend) DeletePackfile(checksum objects.Checksum) error {

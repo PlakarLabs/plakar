@@ -199,8 +199,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				defer wg.Done()
 				repo.Logger().Trace("server", "%s: PutState(%016x)", clientUuid, request.Payload.(network.ReqPutState).Checksum)
 				data := request.Payload.(network.ReqPutState).Data
-				datalen := uint64(len(data))
-				err := lrepository.Store().PutState(request.Payload.(network.ReqPutState).Checksum, bytes.NewBuffer(data), datalen)
+				err := lrepository.Store().PutState(request.Payload.(network.ReqPutState).Checksum, bytes.NewBuffer(data))
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -223,7 +222,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 				repo.Logger().Trace("server", "%s: GetState(%016x)", clientUuid, request.Payload.(network.ReqGetState).Checksum)
-				rd, _, err := lrepository.Store().GetState(request.Payload.(network.ReqGetState).Checksum)
+				rd, err := lrepository.Store().GetState(request.Payload.(network.ReqGetState).Checksum)
 				retErr := ""
 				var data []byte
 				if err != nil {
@@ -310,7 +309,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 				defer wg.Done()
 				repo.Logger().Trace("server", "%s: PutPackfile(%016x)", clientUuid, request.Payload.(network.ReqPutPackfile).Checksum)
 				err := lrepository.Store().PutPackfile(request.Payload.(network.ReqPutPackfile).Checksum,
-					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data), uint64(len(request.Payload.(network.ReqPutPackfile).Data)))
+					bytes.NewBuffer(request.Payload.(network.ReqPutPackfile).Data))
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -333,7 +332,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 			go func() {
 				defer wg.Done()
 				repo.Logger().Trace("server", "%s: GetPackfile(%016x)", clientUuid, request.Payload.(network.ReqGetPackfile).Checksum)
-				rd, _, err := lrepository.Store().GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
+				rd, err := lrepository.Store().GetPackfile(request.Payload.(network.ReqGetPackfile).Checksum)
 				retErr := ""
 				if err != nil {
 					retErr = err.Error()
@@ -366,7 +365,7 @@ func handleConnection(ctx *context.Context, repo *repository.Repository, rd io.R
 					request.Payload.(network.ReqGetPackfileBlob).Checksum,
 					request.Payload.(network.ReqGetPackfileBlob).Offset,
 					request.Payload.(network.ReqGetPackfileBlob).Length)
-				rd, _, err := lrepository.Store().GetPackfileBlob(request.Payload.(network.ReqGetPackfileBlob).Checksum,
+				rd, err := lrepository.Store().GetPackfileBlob(request.Payload.(network.ReqGetPackfileBlob).Checksum,
 					request.Payload.(network.ReqGetPackfileBlob).Offset,
 					request.Payload.(network.ReqGetPackfileBlob).Length)
 				retErr := ""

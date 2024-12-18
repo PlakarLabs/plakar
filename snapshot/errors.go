@@ -14,13 +14,6 @@ type ErrorItem struct {
 	Error string `msgpack:"error" json:"error"`
 }
 
-func pathCmp(a, b string) int {
-	if strings.HasPrefix(a, b) {
-		return -1
-	}
-	return strings.Compare(a, b)
-}
-
 func (snapshot *Snapshot) Errors(beneath string) (<-chan ErrorItem, error) {
 	if !strings.HasSuffix(beneath, "/") {
 		beneath += "/"
@@ -47,7 +40,7 @@ func (snapshot *Snapshot) Errors(beneath string) (<-chan ErrorItem, error) {
 		}
 		tree := btree.FromStorage(root.Root, &storage, strings.Compare, root.Order)
 
-		iter, err := tree.ScanFrom(beneath, pathCmp)
+		iter, err := tree.ScanFrom(beneath)
 		if err != nil {
 			return
 		}

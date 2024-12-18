@@ -374,7 +374,7 @@ func info_packfile(repo *repository.Repository, args []string) error {
 			var byteArray [32]byte
 			copy(byteArray[:], b)
 
-			rd, _, err := repo.GetPackfile(byteArray)
+			rd, err := repo.GetPackfile(byteArray)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -455,7 +455,7 @@ func info_object(repo *repository.Repository, objectID string) error {
 	var byteArray [32]byte
 	copy(byteArray[:], b)
 
-	rd, _, err := repo.GetBlob(packfile.TYPE_OBJECT, byteArray)
+	rd, err := repo.GetBlob(packfile.TYPE_OBJECT, byteArray)
 	if err != nil {
 		log.Fatal(err)
 	}

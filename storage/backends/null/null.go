@@ -85,12 +85,12 @@ func (repository *Repository) GetStates() ([]objects.Checksum, error) {
 	return []objects.Checksum{}, nil
 }
 
-func (repository *Repository) PutState(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (repository *Repository) PutState(checksum objects.Checksum, rd io.Reader) error {
 	return nil
 }
 
-func (repository *Repository) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
-	return bytes.NewBuffer([]byte{}), 0, nil
+func (repository *Repository) GetState(checksum objects.Checksum) (io.Reader, error) {
+	return bytes.NewBuffer([]byte{}), nil
 }
 
 func (repository *Repository) DeleteState(checksum objects.Checksum) error {
@@ -102,16 +102,16 @@ func (repository *Repository) GetPackfiles() ([]objects.Checksum, error) {
 	return []objects.Checksum{}, nil
 }
 
-func (repository *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (repository *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader) error {
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
-	return bytes.NewBuffer([]byte{}), 0, nil
+func (repository *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, error) {
+	return bytes.NewBuffer([]byte{}), nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error) {
-	return bytes.NewBuffer([]byte{}), 0, nil
+func (repository *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, error) {
+	return bytes.NewBuffer([]byte{}), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum objects.Checksum) error {

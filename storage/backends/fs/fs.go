@@ -42,6 +42,23 @@ type Repository struct {
 	location   string
 }
 
+type LimitedReaderWithClose struct {
+	*io.LimitedReader
+	file *os.File
+}
+
+func (l *LimitedReaderWithClose) Read(p []byte) (int, error) {
+	n, err := l.LimitedReader.Read(p)
+	if err == io.EOF {
+		// Close the file when EOF is reached
+		closeErr := l.file.Close()
+		if closeErr != nil {
+			return n, fmt.Errorf("error closing file: %w", closeErr)
+		}
+	}
+	return n, err
+}
+
 func init() {
 	storage.Register("fs", NewRepository)
 }
@@ -180,10 +197,10 @@ func (repo *Repository) GetPackfiles() ([]objects.Checksum, error) {
 	return ret, nil
 }
 
-func (repo *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
+func (repo *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, error) {
 	pathname := repo.PathPackfile(checksum)
 	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
-		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+		return nil, fmt.Errorf("invalid path generated from checksum")
 	}
 
 	fp, err := os.Open(pathname)
@@ -191,21 +208,16 @@ func (repo *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint6
 		if errors.Is(err, fs.ErrNotExist) {
 			err = repository.ErrPackfileNotFound
 		}
-		return nil, 0, err
-	}
-	info, err := fp.Stat()
-	if err != nil {
-		fp.Close()
-		return nil, 0, err
+		return nil, err
 	}
 
-	return fp, uint64(info.Size()), nil
+	return fp, nil
 }
 
-func (repo *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error) {
+func (repo *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, error) {
 	pathname := repo.PathPackfile(checksum)
 	if !strings.HasPrefix(pathname, repo.PathPackfiles()) {
-		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+		return nil, fmt.Errorf("invalid path generated from checksum")
 	}
 
 	fp, err := os.Open(pathname)
@@ -213,32 +225,33 @@ func (repo *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32
 		if errors.Is(err, fs.ErrNotExist) {
 			err = repository.ErrBlobNotFound
 		}
-		return nil, 0, err
+		return nil, err
 	}
-	defer fp.Close()
 
 	if _, err := fp.Seek(int64(offset), io.SeekStart); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	st, err := fp.Stat()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	if st.Size() == 0 {
-		return bytes.NewBuffer([]byte{}), 0, nil
+		return bytes.NewBuffer([]byte{}), nil
 	}
 
 	if length > (uint32(st.Size()) - offset) {
-		return nil, 0, fmt.Errorf("invalid length")
+		return nil, fmt.Errorf("invalid length")
 	}
 
-	data := make([]byte, length)
-	if _, err := fp.Read(data); err != nil {
-		return nil, 0, err
-	}
-	return bytes.NewBuffer(data), uint32(len(data)), nil
+	return &LimitedReaderWithClose{
+		LimitedReader: &io.LimitedReader{
+			R: fp,
+			N: int64(length),
+		},
+		file: fp,
+	}, nil
 }
 
 func (repo *Repository) DeletePackfile(checksum objects.Checksum) error {
@@ -254,7 +267,7 @@ func (repo *Repository) DeletePackfile(checksum objects.Checksum) error {
 	return nil
 }
 
-func (repo *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (repo *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader) error {
 	tmpfile := filepath.Join(repo.PathTmp(), hex.EncodeToString(checksum[:]))
 	if !strings.HasPrefix(tmpfile, repo.PathTmp()) {
 		return fmt.Errorf("invalid path generated from checksum")
@@ -271,10 +284,8 @@ func (repo *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, siz
 	}
 	defer f.Close()
 
-	if n, err := io.Copy(f, rd); err != nil {
+	if _, err := io.Copy(f, rd); err != nil {
 		return err
-	} else if uint64(n) != size {
-		return fmt.Errorf("short write")
 	}
 
 	return os.Rename(tmpfile, pathname)
@@ -321,7 +332,7 @@ func (repo *Repository) GetStates() ([]objects.Checksum, error) {
 	return ret, nil
 }
 
-func (repo *Repository) PutState(checksum objects.Checksum, rd io.Reader, size uint64) error {
+func (repo *Repository) PutState(checksum objects.Checksum, rd io.Reader) error {
 	tmpfile := filepath.Join(repo.PathTmp(), hex.EncodeToString(checksum[:]))
 	if !strings.HasPrefix(tmpfile, repo.PathTmp()) {
 		return fmt.Errorf("invalid path generated from checksum")
@@ -338,32 +349,20 @@ func (repo *Repository) PutState(checksum objects.Checksum, rd io.Reader, size u
 	}
 	defer f.Close()
 
-	w, err := io.Copy(f, rd)
+	_, err = io.Copy(f, rd)
 	if err != nil {
 		return err
-	} else if uint64(w) != size {
-		return fmt.Errorf("short write")
 	}
 	return os.Rename(tmpfile, pathname)
 }
 
-func (repo *Repository) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
+func (repo *Repository) GetState(checksum objects.Checksum) (io.Reader, error) {
 	pathname := repo.PathState(checksum)
 	if !strings.HasPrefix(pathname, repo.PathStates()) {
-		return nil, 0, fmt.Errorf("invalid path generated from checksum")
+		return nil, fmt.Errorf("invalid path generated from checksum")
 	}
 
-	fp, err := os.Open(pathname)
-	if err != nil {
-		return nil, 0, err
-	}
-	info, err := fp.Stat()
-	if err != nil {
-		fp.Close()
-		return nil, 0, err
-	}
-
-	return fp, uint64(info.Size()), nil
+	return os.Open(pathname)
 }
 
 func (repo *Repository) DeleteState(checksum objects.Checksum) error {

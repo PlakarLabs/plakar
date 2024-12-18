@@ -84,12 +84,8 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, P, V], error) {
 // ScanFrom returns an iterator that visits all the values starting
 // from the given key, or the first key larger than the given one,
 // onwards.
-func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, P, V], error) {
-	if cmp == nil {
-		cmp = b.compare
-	}
-
-	node, path, err := b.findleaf(key, cmp)
+func (b *BTree[K, P, V]) ScanFrom(key K) (Iterator[K, P, V], error) {
+	node, path, err := b.findleaf(key)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +97,7 @@ func (b *BTree[K, P, V]) ScanFrom(key K, cmp func(K, K) int) (Iterator[K, P, V],
 		found bool
 	)
 	for idx = range node.Keys {
-		if cmp(key, node.Keys[idx]) <= 0 {
+		if b.compare(key, node.Keys[idx]) <= 0 {
 			found = true
 			break
 		}

@@ -80,7 +80,7 @@ func (vf *VFilep) Read(p []byte) (int, error) {
 		}
 
 		// we have data to read from this chunk, fetch content
-		rd, _, err := vf.vfs.repo.GetBlob(packfile.TYPE_CHUNK, fileEntry.Object.Chunks[chunkOffset].Checksum)
+		rd, err := vf.vfs.repo.GetBlob(packfile.TYPE_CHUNK, fileEntry.Object.Chunks[chunkOffset].Checksum)
 		if err != nil {
 			return -1, err
 		}

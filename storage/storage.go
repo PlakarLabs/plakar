@@ -73,14 +73,14 @@ type Store interface {
 	Location() string
 
 	GetStates() ([]objects.Checksum, error)
-	PutState(checksum objects.Checksum, rd io.Reader, size uint64) error
-	GetState(checksum objects.Checksum) (io.Reader, uint64, error)
+	PutState(checksum objects.Checksum, rd io.Reader) error
+	GetState(checksum objects.Checksum) (io.Reader, error)
 	DeleteState(checksum objects.Checksum) error
 
 	GetPackfiles() ([]objects.Checksum, error)
-	PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error
-	GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error)
-	GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error)
+	PutPackfile(checksum objects.Checksum, rd io.Reader) error
+	GetPackfile(checksum objects.Checksum) (io.Reader, error)
+	GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, error)
 	DeletePackfile(checksum objects.Checksum) error
 
 	Close() error

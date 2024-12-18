@@ -28,7 +28,7 @@ func (snap *Snapshot) PutBlob(Type packfile.Type, checksum [32]byte, data []byte
 func (snap *Snapshot) GetBlob(Type packfile.Type, checksum [32]byte) ([]byte, error) {
 	snap.Logger().Trace("snapshot", "%x: GetBlob(%x)", snap.Header.GetIndexShortID(), checksum)
 
-	rd, _, err := snap.repository.GetBlob(Type, checksum)
+	rd, err := snap.repository.GetBlob(Type, checksum)
 	if err != nil {
 		return nil, err
 	}

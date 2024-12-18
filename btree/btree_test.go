@@ -224,7 +224,7 @@ func TestScanFrom(t *testing.T) {
 		}
 	}
 
-	iter, err := tree.ScanFrom(rune('e'), nil)
+	iter, err := tree.ScanFrom(rune('e'))
 	if err != nil {
 		t.Fatalf("ScanAll failed: %v", err)
 	}

@@ -271,26 +271,21 @@ func (repository *Repository) GetStates() ([]objects.Checksum, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutState(checksum objects.Checksum, rd io.Reader, size uint64) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), rd, int64(size), minio.PutObjectOptions{})
+func (repository *Repository) PutState(checksum objects.Checksum, rd io.Reader) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), rd, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *Repository) GetState(checksum objects.Checksum) (io.Reader, uint64, error) {
+func (repository *Repository) GetState(checksum objects.Checksum) (io.Reader, error) {
 	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("states/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return object, uint64(stat.Size), nil
+	return object, nil
 }
 
 func (repository *Repository) DeleteState(checksum objects.Checksum) error {
@@ -324,54 +319,50 @@ func (repository *Repository) GetPackfiles() ([]objects.Checksum, error) {
 	return ret, nil
 }
 
-func (repository *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader, size uint64) error {
-	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), rd, int64(size), minio.PutObjectOptions{})
+func (repository *Repository) PutPackfile(checksum objects.Checksum, rd io.Reader) error {
+	_, err := repository.minioClient.PutObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), rd, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (repository *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, uint64, error) {
+func (repository *Repository) GetPackfile(checksum objects.Checksum) (io.Reader, error) {
 	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), minio.GetObjectOptions{})
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	stat, err := object.Stat()
-	if err != nil {
-		return nil, 0, err
-	}
-	return object, uint64(stat.Size), nil
+	return object, nil
 }
 
-func (repository *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, uint32, error) {
+func (repository *Repository) GetPackfileBlob(checksum objects.Checksum, offset uint32, length uint32) (io.Reader, error) {
 	opts := minio.GetObjectOptions{}
 	opts.SetRange(int64(offset), int64(offset+length))
 	object, err := repository.minioClient.GetObject(context.Background(), repository.bucketName, fmt.Sprintf("packfiles/%02x/%016x", checksum[0], checksum), opts)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	stat, err := object.Stat()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	if stat.Size < int64(offset+length) {
-		return nil, 0, fmt.Errorf("invalid range")
+		return nil, fmt.Errorf("invalid range")
 	}
 
 	if _, err := object.Seek(int64(offset), io.SeekStart); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	buffer := make([]byte, length)
 	if nbytes, err := object.Read(buffer); err != nil {
-		return nil, 0, err
+		return nil, err
 	} else if nbytes != int(length) {
-		return nil, 0, fmt.Errorf("short read")
+		return nil, fmt.Errorf("short read")
 	}
 
-	return bytes.NewBuffer(buffer), uint32(length), nil
+	return bytes.NewBuffer(buffer), nil
 }
 
 func (repository *Repository) DeletePackfile(checksum objects.Checksum) error {

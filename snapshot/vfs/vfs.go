@@ -49,7 +49,7 @@ type Filesystem struct {
 }
 
 func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, error) {
-	rd, _, err := repo.GetBlob(packfile.TYPE_DIRECTORY, root)
+	rd, err := repo.GetBlob(packfile.TYPE_DIRECTORY, root)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			fmt.Println("packfile blob not found for directory")
 			return
@@ -144,7 +144,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			return
 		}
@@ -191,7 +191,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 	currentEntry := fsc.rootEntry
 	baseDir := "/"
 	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			return
 		}
@@ -246,7 +246,7 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 	// Check if checksum refers to a file
 	if fsc.repo.BlobExists(packfile.TYPE_FILE, checksum) {
 		// Retrieve the file metadata
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_FILE, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_FILE, checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -274,7 +274,7 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 	// Check if checksum refers to a directory
 	if fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, checksum) {
 		// Retrieve the directory metadata
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			return nil, err
 		}
@@ -366,7 +366,7 @@ func (fsc *Filesystem) Children(path string) (<-chan string, error) {
 func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
 	currentEntry := fsc.rootEntry
 	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			return
 		}
@@ -411,7 +411,7 @@ func (fsc *Filesystem) FileChecksums() <-chan [32]byte {
 func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
 	currentEntry := fsc.rootEntry
 	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
+		rd, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
 		if err != nil {
 			fmt.Println("packfile blob not found for directory")
 			return
@@ -461,7 +461,7 @@ func (fsc *Filesystem) ChildrenIter(dir *DirEntry) (<-chan *ChildEntry, error) {
 		iter := dir.Children
 		for iter != nil {
 
-			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_CHILD, *iter)
+			rd, err := fsc.repo.GetBlob(packfile.TYPE_CHILD, *iter)
 			if err != nil {
 				return
 			}

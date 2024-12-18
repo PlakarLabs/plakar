@@ -211,7 +211,7 @@ func (snap *Snapshot) Event(evt events.Event) {
 func GetSnapshot(repo *repository.Repository, Identifier objects.Checksum) (*header.Header, bool, error) {
 	repo.Logger().Trace("snapshot", "repository.GetSnapshot(%x)", Identifier)
 
-	rd, _, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
+	rd, err := repo.GetBlob(packfile.TYPE_SNAPSHOT, Identifier)
 	if err != nil {
 		if errors.Is(err, repository.ErrBlobNotFound) {
 			err = ErrNotFound
@@ -282,7 +282,7 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
 
 	repo.Logger().Trace("snapshot", "%x: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
-	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile), uint64(len(serializedPackfile)))
+	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile))
 	if err != nil {
 		panic("could not write pack file")
 	}

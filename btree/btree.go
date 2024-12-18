@@ -74,7 +74,7 @@ func (n *Node[K, P, V]) isleaf() bool {
 	return len(n.Pointers) == 0
 }
 
-func (b *BTree[K, P, V]) findleaf(key K, cmp func(K, K) int) (node Node[K, P, V], path []P, err error) {
+func (b *BTree[K, P, V]) findleaf(key K) (node Node[K, P, V], path []P, err error) {
 	ptr := b.Root
 
 	for {
@@ -88,7 +88,7 @@ func (b *BTree[K, P, V]) findleaf(key K, cmp func(K, K) int) (node Node[K, P, V]
 			return
 		}
 
-		idx, found := slices.BinarySearchFunc(node.Keys, key, cmp)
+		idx, found := slices.BinarySearchFunc(node.Keys, key, b.compare)
 		if found {
 			idx++
 		}
@@ -101,7 +101,7 @@ func (b *BTree[K, P, V]) findleaf(key K, cmp func(K, K) int) (node Node[K, P, V]
 }
 
 func (b *BTree[K, P, V]) Find(key K) (val V, found bool, err error) {
-	leaf, _, err := b.findleaf(key, b.compare)
+	leaf, _, err := b.findleaf(key)
 	if err != nil {
 		return
 	}
@@ -158,7 +158,7 @@ func (n *Node[K, P, V]) split() (new Node[K, P, V]) {
 }
 
 func (b *BTree[K, P, V]) Insert(key K, val V) error {
-	node, path, err := b.findleaf(key, b.compare)
+	node, path, err := b.findleaf(key)
 	if err != nil {
 		return err
 	}

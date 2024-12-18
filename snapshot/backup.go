@@ -485,7 +485,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		}
 		dirEntry.Children = lastChecksum
 
-		iter, err := backupCtx.tree.ScanFrom(record.Pathname, pathCmp)
+		iter, err := backupCtx.tree.ScanFrom(record.Pathname)
 		if err != nil {
 			return err
 		}

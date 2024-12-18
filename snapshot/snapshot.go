@@ -341,10 +341,7 @@ func (snap *Snapshot) Commit() error {
 		snap.Logger().Warn("could not serialize repository index: %s", err)
 		return err
 	}
-	indexChecksum := snap.repository.Checksum(serializedRepositoryIndex.Bytes())
-	indexChecksum32 := objects.Checksum{}
-	copy(indexChecksum32[:], indexChecksum[:])
-	_, err = repo.PutState(indexChecksum32, &serializedRepositoryIndex, int64(len(serializedRepositoryIndex.Bytes())))
+	err = repo.PutState(snap.Header.Identifier, &serializedRepositoryIndex)
 	if err != nil {
 		return err
 	}

@@ -109,10 +109,15 @@ func (r *Repository) RebuildState() error {
 	if desynchronized {
 		// synchronize local state with unknown remote states
 		for _, stateID := range missingStates {
-			remoteState, _, err := r.GetState(stateID)
+			remoteStateRd, err := r.GetState(stateID)
 			if err != nil {
 				return err
 			}
+			remoteState, err := io.ReadAll(remoteStateRd)
+			if err != nil {
+				return err
+			}
+
 			if exists, err := cacheInstance.HasState(stateID); err != nil {
 				return err
 			} else if !exists {
@@ -136,11 +141,17 @@ func (r *Repository) RebuildState() error {
 	aggregateState := state.New()
 
 	for stateID := range localStates {
-		idx, _, err := r.GetState(stateID)
+		idxRd, err := r.GetState(stateID)
 		if err != nil {
 			return err
 		}
-		tmp, err := state.NewFromBytes(idx)
+
+		idx, err := io.ReadAll(idxRd)
+		if err != nil {
+			return err
+		}
+
+		tmp, err := state.DeserializeStream(bytes.NewReader(idx))
 		if err != nil {
 			return err
 		}
@@ -318,13 +329,14 @@ func (r *Repository) DeleteSnapshot(snapshotID objects.Checksum) error {
 		return ret
 	}
 
-	buffer, err := r.state.Serialize()
+	var buffer bytes.Buffer
+	err := r.state.SerializeStream(&buffer)
 	if err != nil {
 		return err
 	}
 
-	checksum := r.Checksum(buffer)
-	if _, err := r.PutState(checksum, bytes.NewBuffer(buffer), int64(len(buffer))); err != nil {
+	checksum := r.Checksum(buffer.Bytes())
+	if err := r.PutState(checksum, &buffer); err != nil {
 		return err
 	}
 	return nil
@@ -339,72 +351,30 @@ func (r *Repository) GetStates() ([]objects.Checksum, error) {
 	return r.store.GetStates()
 }
 
-func (r *Repository) GetState(checksum objects.Checksum) ([]byte, int64, error) {
+func (r *Repository) GetState(checksum objects.Checksum) (io.Reader, error) {
 	t0 := time.Now()
 	defer func() {
 		r.Logger().Trace("repository", "GetState(%x): %s", checksum, time.Since(t0))
 	}()
 
-	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	if exists, err := cacheInstance.HasState(checksum); err != nil {
-		return nil, 0, err
-	} else if exists {
-		buffer, err := cacheInstance.GetState(checksum)
-		if err != nil {
-			return nil, 0, err
-		}
-		return buffer, int64(len(buffer)), nil
-	}
-
 	rd, err := r.store.GetState(checksum)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-
-	buffer, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	data, err := r.DecodeBuffer(buffer)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return data, int64(len(data)), err
+	return r.Decode(rd)
 }
 
-func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader, size int64) (int, error) {
+func (r *Repository) PutState(checksum objects.Checksum, rd io.Reader) error {
 	t0 := time.Now()
 	defer func() {
 		r.Logger().Trace("repository", "PutState(%x, ...): %s", checksum, time.Since(t0))
 	}()
 
-	data, err := io.ReadAll(rd)
+	rd, err := r.Encode(rd)
 	if err != nil {
-		return 0, err
+		return err
 	}
-
-	encoded, err := r.EncodeBuffer(data)
-	if err != nil {
-		return 0, err
-	}
-
-	cacheInstance, err := r.Context().GetCache().Repository(r.Configuration().RepositoryID)
-	if err != nil {
-		return 0, err
-	}
-
-	ret := r.store.PutState(checksum, bytes.NewReader(encoded))
-	if ret == nil {
-		cacheInstance.PutState(checksum, data)
-	}
-
-	return len(encoded), ret
+	return r.store.PutState(checksum, rd)
 }
 
 func (r *Repository) DeleteState(checksum objects.Checksum) error {

@@ -2,6 +2,8 @@ package btree
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"slices"
 )
 
@@ -106,6 +108,10 @@ func (b *BTree[K, P, V]) Find(key K) (val V, found bool, err error) {
 		return
 	}
 
+	if false {
+		log.Println("found leaf", leaf)
+	}
+
 	val, found = leaf.find(key, b.compare)
 	return val, found, nil
 }
@@ -118,23 +124,44 @@ func (n *Node[K, P, V]) find(key K, cmp func(K, K) int) (val V, found bool) {
 	return val, false
 }
 
-func (n *Node[K, P, V]) insertAt(idx int, key K, val V) {
+func (n *Node[K, P, V]) insertAt(idx int, key K, val V, b *BTree[K, P, V]) {
 	n.Keys = slices.Insert(n.Keys, idx, key)
 	n.Values = slices.Insert(n.Values, idx, val)
+
+	var previous *K
+	for i := range n.Keys {
+		curr := n.Keys[i]
+		if previous != nil {
+			if b.compare(*previous, curr) != -1 {
+				panic(fmt.Sprintf("inversion: %v vs %v", *previous, key))
+			}
+		}
+		previous = &curr
+	}
 }
 
-func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P) {
+func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P, cmp func(K, K) int) {
 	// Pointers and Keys have different cardinalities, but to
 	// decide whether to append or insert in Pointers we need
 	// to consider the length of the keys.
 	if idx >= len(n.Keys) {
 		n.Keys = append(n.Keys, key)
 		n.Pointers = append(n.Pointers, ptr)
-		return
+	} else {
+		n.Keys = slices.Insert(n.Keys, idx, key)
+		n.Pointers = slices.Insert(n.Pointers, idx, ptr)
 	}
 
-	n.Keys = slices.Insert(n.Keys, idx, key)
-	n.Pointers = slices.Insert(n.Pointers, idx, ptr)
+	var previous *K
+	for i := range n.Keys {
+		curr := n.Keys[i]
+		if previous != nil {
+			if cmp(*previous, curr) != -1 {
+				panic(fmt.Sprintf("inversion: %v vs %v", *previous, key))
+			}
+		}
+		previous = &curr
+	}
 }
 
 func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (int, bool) {
@@ -157,30 +184,39 @@ func (n *Node[K, P, V]) split() (new Node[K, P, V]) {
 	return
 }
 
-func (b *BTree[K, P, V]) Insert(key K, val V) error {
+func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
 	node, path, err := b.findleaf(key)
 	if err != nil {
 		return err
 	}
 
+	ptr := path[len(path)-1]
+
 	idx, found := b.findsplit(key, &node)
 	if found {
+		if overwrite {
+			log.Println("overwriting", key, node.Keys[idx])
+			node.Values[idx] = val
+			return b.store.Update(ptr, node)
+		}
+		log.Println("insert:", key, "is already in the btree")
 		return ErrExists
 	}
 
-	ptr := path[len(path)-1]
 	if len(node.Keys) < b.Order-1 {
-		node.insertAt(idx, key, val)
+		node.insertAt(idx, key, val, b)
 		return b.store.Update(ptr, node)
 	}
 
+	log.Printf("splitting to insert %v at %d into %v", key, idx, node.Keys)
+	//node.insertAt(idx, key, val, b)
 	new := node.split()
 	if idx < len(node.Keys) {
 		idx = 0
 	} else {
 		idx -= len(node.Keys)
 	}
-	new.insertAt(idx, key, val)
+	new.insertAt(idx, key, val, b)
 	new.Next = node.Next
 
 	newptr, err := b.store.Put(new)
@@ -196,6 +232,50 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 	return b.insertUpwards(key, newptr, path[:len(path)-1])
 }
 
+var run uint64 = 0
+func (b *BTree[K, P, V]) Validate() {
+	iter, err := b.ScanAll()
+	if err != nil {
+		panic(err)
+	}
+
+	run++
+	var previous *K
+	for iter.Next() {
+		k, _ := iter.Current()
+		log.Println(run, "viewing", k)
+		
+		if previous != nil {
+			if b.compare(*previous, k) != -1 {
+				panic(fmt.Sprintf("validate: inversion: %v vs %v", *previous, k))
+			}
+		}
+		previous = &k
+	}
+
+	if err := iter.Err(); err != nil {
+		panic(err)
+	}
+}
+
+func (b *BTree[K, P, V]) Insert(key K, val V) error {
+	log.Println("inserting", key)
+	if err := b.insert(key, val, false); err != nil {
+		return err
+	}
+	b.Validate()
+	log.Println("inserted", key)
+	return nil
+}
+
+func (b *BTree[K, P, V]) Update(key K, val V) error {
+	if err := b.insert(key, val, true); err != nil {
+		return err
+	}
+	b.Validate()
+	return nil
+}
+
 func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 	for i := len(path) - 1; i >= 0; i-- {
 		node, err := b.store.Get(path[i])
@@ -209,7 +289,7 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 		}
 
 		if len(node.Keys) < b.Order-1 {
-			node.insertInternal(idx, key, ptr)
+			node.insertInternal(idx, key, ptr, b.compare)
 			return b.store.Update(path[i], node)
 		}
 
@@ -219,7 +299,7 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 		} else {
 			idx -= len(node.Keys)
 		}
-		new.insertInternal(idx, key, ptr)
+		new.insertInternal(idx, key, ptr, b.compare)
 		key = new.Keys[0]
 		new.Keys = new.Keys[1:]
 		ptr, err = b.store.Put(new)

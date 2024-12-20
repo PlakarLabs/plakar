@@ -36,7 +36,8 @@ func persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 	if node.isleaf() && *lastptr != nil {
 		newnode.Next = *lastptr
 	}
-	return store.Put(newnode)
+	ptr, err := store.Put(newnode)
+	return ptr, err
 }
 
 // Persist converts a BTree from one storage backend to another.  The

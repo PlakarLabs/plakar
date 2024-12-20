@@ -220,32 +220,8 @@ func synchronize(srcRepository *repository.Repository, dstRepository *repository
 		}
 	}
 
-	c, err = srcSnapshot.ListFiles()
-	if err != nil {
-		return err
-	}
-	for fileID := range c {
-		if !dstRepository.BlobExists(packfile.TYPE_FILE, fileID) {
-			fileData, err := srcSnapshot.GetBlob(packfile.TYPE_FILE, fileID)
-			if err != nil {
-				return err
-			}
-			dstSnapshot.PutBlob(packfile.TYPE_FILE, fileID, fileData)
-		}
-	}
-
-	c, err = srcSnapshot.ListDirectories()
-	if err != nil {
-		return err
-	}
-	for directoryID := range c {
-		if !dstRepository.BlobExists(packfile.TYPE_DIRECTORY, directoryID) {
-			directoryData, err := srcSnapshot.GetBlob(packfile.TYPE_DIRECTORY, directoryID)
-			if err != nil {
-				return err
-			}
-			dstSnapshot.PutBlob(packfile.TYPE_DIRECTORY, directoryID, directoryData)
-		}
+	if true {
+		return fmt.Errorf("XXX need to implement file sync")
 	}
 
 	c, err = srcSnapshot.ListDatas()

@@ -14,7 +14,6 @@ import (
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/search"
 	"github.com/PlakarKorp/plakar/snapshot"
-	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
@@ -68,21 +67,17 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	st, err := fs.Stat(path)
+	entry, err := fs.GetEntry(path)
 	if err != nil {
 		return err
 	}
 
-	if !st.Stat().Mode().IsRegular() {
-		return err
-	}
-	fileEntry := st.(*vfs.FileEntry)
+	file := entry.Open(fs, path)
+	defer file.Close()
 
-	rd, err := snap.NewReader(path)
-	if err != nil {
-		return err
+	if !entry.Stat().Mode().IsRegular() {
+		return nil
 	}
-	defer rd.Close()
 
 	if do_download {
 		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(filepath.Base(path)))
@@ -91,7 +86,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 	if do_highlight {
 		lexer := lexers.Match(path)
 		if lexer == nil {
-			lexer = lexers.Get(fileEntry.Object.ContentType)
+			lexer = lexers.Get(entry.Object.ContentType)
 		}
 		if lexer == nil {
 			lexer = lexers.Fallback // Fallback if no lexer is found
@@ -104,7 +99,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		reader := bufio.NewReader(rd)
+		reader := bufio.NewReader(file)
 		buffer := make([]byte, 4096) // Fixed-size buffer for chunked reading
 		for {
 			n, err := reader.Read(buffer) // Read up to the size of the buffer
@@ -131,7 +126,7 @@ func snapshotReader(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 	} else {
-		http.ServeContent(w, r, filepath.Base(path), fileEntry.Stat().ModTime(), rd.(io.ReadSeeker))
+		http.ServeContent(w, r, filepath.Base(path), entry.Stat().ModTime(), file.(io.ReadSeeker))
 	}
 
 	return nil
@@ -257,19 +252,12 @@ func snapshotVFSBrowse(w http.ResponseWriter, r *http.Request) error {
 	if path == "" {
 		path = "/"
 	}
-	fsinfo, err := fs.Stat(path)
+	entry, err := fs.GetEntry(path)
 	if err != nil {
 		return err
 	}
 
-	if dirEntry, ok := fsinfo.(*vfs.DirEntry); ok {
-		return json.NewEncoder(w).Encode(Item{Item: dirEntry})
-	} else if fileEntry, ok := fsinfo.(*vfs.FileEntry); ok {
-		return json.NewEncoder(w).Encode(Item{Item: fileEntry})
-	} else {
-		http.Error(w, "", http.StatusInternalServerError)
-		return nil
-	}
+	return json.NewEncoder(w).Encode(Item{Item: entry})
 }
 
 func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
@@ -314,45 +302,45 @@ func snapshotVFSChildren(w http.ResponseWriter, r *http.Request) error {
 	if path == "" {
 		path = "/"
 	}
-	fsinfo, err := fs.Stat(path)
+	fsinfo, err := fs.GetEntry(path)
 	if err != nil {
 		return err
 	}
 
-	if dirEntry, ok := fsinfo.(*vfs.DirEntry); !ok {
+	if !fsinfo.Stat().Mode().IsDir() {
 		http.Error(w, "not a directory", http.StatusBadRequest)
 		return nil
-	} else {
-		items := Items{
-			Total: int(dirEntry.Summary.Directory.Children),
-			Items: make([]interface{}, 0),
-		}
-		childrenList, err := fs.ChildrenIter(dirEntry)
-		if err != nil {
-			return err
-		}
-
-		if limit == 0 {
-			limit = int64(dirEntry.Summary.Directory.Children)
-		}
-
-		i := int64(0)
-		for child := range childrenList {
-			if child == nil {
-				break
-			}
-			if i < offset {
-				i++
-				continue
-			}
-			if i >= limit+offset {
-				break
-			}
-			items.Items = append(items.Items, child)
-			i++
-		}
-		return json.NewEncoder(w).Encode(items)
 	}
+
+	items := Items{
+		Total: int(fsinfo.Summary.Directory.Children),
+		Items: make([]interface{}, 0),
+	}
+	iter, err := fsinfo.Getdents(fs)
+	if err != nil {
+		return err
+	}
+
+	if limit == 0 {
+		limit = int64(fsinfo.Summary.Directory.Children)
+	}
+
+	i := int64(0)
+	for child := range iter {
+		if child == nil {
+			break
+		}
+		if i < offset {
+			i++
+			continue
+		}
+		if i >= limit+offset {
+			break
+		}
+		items.Items = append(items.Items, child)
+		i++
+	}
+	return json.NewEncoder(w).Encode(items)
 }
 
 func snapshotVFSErrors(w http.ResponseWriter, r *http.Request) error {

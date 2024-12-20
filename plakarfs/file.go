@@ -28,23 +28,24 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 	f.fullpath = filepath.Clean(f.fullpath)
 
-	fi, err := f.vfs.Stat(f.fullpath)
+	entry, err := f.vfs.GetEntry(f.fullpath)
 	if err != nil {
 		return syscall.ENOENT
 	}
-	if fi, ok := fi.(*vfs.FileEntry); !ok {
-		panic(fmt.Sprintf("unexpected type %T", fi))
-	} else {
-		a.Rdev = uint32(fi.Stat().Dev())
-		a.Inode = fi.Stat().Ino()
-		a.Mode = fi.Stat().Mode()
-		a.Uid = uint32(fi.Stat().Uid())
-		a.Gid = uint32(fi.Stat().Gid())
-		a.Ctime = fi.Stat().ModTime()
-		a.Mtime = fi.Stat().ModTime()
-		a.Size = uint64(fi.Stat().Size())
-		a.Nlink = uint32(fi.Stat().Nlink())
+
+	if entry.Stat().IsDir() {
+		panic(fmt.Sprintf("unexpected type %T", entry))
 	}
+
+	a.Rdev = uint32(entry.Stat().Dev())
+	a.Inode = entry.Stat().Ino()
+	a.Mode = entry.Stat().Mode()
+	a.Uid = uint32(entry.Stat().Uid())
+	a.Gid = uint32(entry.Stat().Gid())
+	a.Ctime = entry.Stat().ModTime()
+	a.Mtime = entry.Stat().ModTime()
+	a.Size = uint64(entry.Stat().Size())
+	a.Nlink = uint32(entry.Stat().Nlink())
 	return nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"strings"
@@ -121,18 +122,25 @@ func cmd_archive(ctx *context.Context, repo *repository.Repository, args []strin
 	return 0
 }
 
-func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) error {
+func archiveTarball(snap *snapshot.Snapshot, out io.Writer, vfs *vfs.Filesystem, path string, rebase bool) error {
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 
-	for file := range fs.Pathnames() {
+	for file := range vfs.Pathnames() {
 		if path != "" && !utils.PathIsWithin(file, path) {
 			continue
 		}
 
-		info, err := fs.Stat(file)
+		fp, err := vfs.Open(file)
+		if err != nil {
+			snap.Logger().Error("could not open file %s: %s", file, err)
+			continue
+		}
+
+		sb, err := fp.Stat()
 		if err != nil {
 			snap.Logger().Error("could not stat file %s: %s", file, err)
+			fp.Close()
 			continue
 		}
 
@@ -141,105 +149,98 @@ func archiveTarball(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, 
 			filepath = strings.TrimPrefix(filepath, path)
 		}
 
-		var header *tar.Header
-		switch entry := info.(type) {
-		case *vfs.FileEntry:
-			header = &tar.Header{
-				Typeflag: tar.TypeReg,
-				Name:     filepath,
-				Size:     entry.Stat().Size(),
-				Mode:     int64(entry.Stat().Mode()),
-				ModTime:  entry.Stat().ModTime(),
-			}
-		case *vfs.DirEntry:
-			header = &tar.Header{
-				Typeflag: tar.TypeDir,
-				Name:     filepath,
-				Mode:     int64(entry.Stat().Mode()),
-				ModTime:  entry.Stat().ModTime(),
-			}
-		default:
-			snap.Logger().Error("could not stat file %T: %s %s", file, file, err)
-			continue
+		header := &tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     filepath,
+			Size:     sb.Size(),
+			Mode:     int64(sb.Mode()),
+			ModTime:  sb.ModTime(),
+		}
+
+		if _, ok := fp.(fs.ReadDirFile); ok {
+			header.Typeflag = tar.TypeDir
 		}
 
 		err = tarWriter.WriteHeader(header)
 		if err != nil {
 			snap.Logger().Error("could not write header for file %s: %s", file, err)
+			fp.Close()
 			continue
 		}
 
-		if _, isDir := info.(*vfs.DirEntry); isDir {
+		if header.Typeflag == tar.TypeDir {
+			fp.Close()
 			continue
 		}
 
-		rd, err := snap.NewReader(file)
-		if err != nil {
-			snap.Logger().Error("could not find file %s", file)
-			continue
-		}
-
-		_, err = io.Copy(tarWriter, rd)
+		_, err = io.Copy(tarWriter, fp)
 		if err != nil {
 			snap.Logger().Error("could not write file %s: %s", file, err)
-			rd.Close()
+			fp.Close()
 			return err
 		}
-		rd.Close()
+		fp.Close()
 	}
 
 	return nil
 }
 
-func archiveZip(snap *snapshot.Snapshot, out io.Writer, fs *vfs.Filesystem, path string, rebase bool) error {
+func archiveZip(snap *snapshot.Snapshot, out io.Writer, vfs *vfs.Filesystem, path string, rebase bool) error {
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
 
-	for file := range fs.Pathnames() {
-
+	for file := range vfs.Pathnames() {
 		if path != "" {
 			if !utils.PathIsWithin(file, path) {
 				continue
 			}
 		}
-		info, _ := fs.Stat(file)
+
+		fp, err := vfs.Open(file)
+		if err != nil {
+			return err
+		}
+
 		filepath := file
 		if rebase {
 			filepath = strings.TrimPrefix(filepath, path)
 		}
 
-		if _, isDir := info.(*vfs.DirEntry); isDir {
+		if _, isDir := fp.(fs.ReadDirFile); isDir {
+			fp.Close()
 			continue
 		}
 
-		header, err := zip.FileInfoHeader(info.(*vfs.FileEntry).Stat())
+		sb, err := fp.Stat()
 		if err != nil {
-			log.Printf("could not create header for file %s: %s", file, err)
-			continue
+			snap.Logger().Printf("couldn't stat %s: %s", file, err)
+			fp.Close()
+			return err
+		}
+
+		header, err := zip.FileInfoHeader(sb)
+		if err != nil {
+			snap.Logger().Printf("could not create header for file %s: %s", file, err)
+			fp.Close()
+			return err
 		}
 		header.Name = strings.TrimLeft(filepath, "/")
 		header.Method = zip.Deflate
 
-		rd, err := snap.NewReader(file)
-		if err != nil {
-			log.Printf("could not find file %s", file)
-			continue
-		}
-
 		writer, err := zipWriter.CreateHeader(header)
 		if err != nil {
-			log.Printf("could not create zip entry for file %s: %s", file, err)
-			rd.Close()
-			continue
+			snap.Logger().Printf("could not create zip entry for file %s: %s", file, err)
+			fp.Close()
+			return err
 		}
 
-		_, err = io.Copy(writer, rd)
+		_, err = io.Copy(writer, fp)
 		if err != nil {
-			log.Printf("could not write file %s: %s", file, err)
-			rd.Close()
-			continue
+			snap.Logger().Printf("could not write file %s: %s", file, err)
+			fp.Close()
+			return err
 		}
-		rd.Close()
+		fp.Close()
 	}
 	return nil
 }

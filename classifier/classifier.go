@@ -18,6 +18,7 @@ package classifier
 
 import (
 	"fmt"
+
 	"log"
 	"sync"
 
@@ -39,8 +40,8 @@ type Backend interface {
 
 type ProcessorBackend interface {
 	Name() string
-	File(fileEntry *vfs.FileEntry) []string
-	Directory(dirEntry *vfs.DirEntry) []string
+	File(fileEntry *vfs.Entry) []string
+	Directory(dirEntry *vfs.Entry) []string
 	Write(buf []byte) bool
 	Finalize() []string
 }
@@ -107,7 +108,7 @@ type Processor struct {
 	Pathname  string
 }
 
-func (p *Processor) File(fileEntry *vfs.FileEntry) []Classification {
+func (p *Processor) File(fileEntry *vfs.Entry) []Classification {
 	ret := []Classification{}
 	for _, backend := range p.backends {
 		result := Classification{
@@ -122,7 +123,7 @@ func (p *Processor) File(fileEntry *vfs.FileEntry) []Classification {
 	return ret
 }
 
-func (p *Processor) Directory(dirEntry *vfs.DirEntry) []Classification {
+func (p *Processor) Directory(dirEntry *vfs.Entry) []Classification {
 	ret := []Classification{}
 	for _, backend := range p.backends {
 		result := Classification{

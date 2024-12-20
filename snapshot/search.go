@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"fmt"
+	"io/fs"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 )
 
-func (snap *Snapshot) matchFilename(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+func (snap *Snapshot) matchFilename(fileEntry fs.DirEntry, f search.Filter) (bool, error) {
 	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
@@ -53,7 +54,7 @@ func (snap *Snapshot) matchFilename(fileEntry *vfs.FileEntry, f search.Filter) (
 	return matched, nil
 }
 
-func (snap *Snapshot) matchContentType(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+func (snap *Snapshot) matchContentType(fileEntry *vfs.Entry, f search.Filter) (bool, error) {
 	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
@@ -96,7 +97,7 @@ func (snap *Snapshot) matchContentType(fileEntry *vfs.FileEntry, f search.Filter
 	return matched, nil
 }
 
-func (snap *Snapshot) matchSize(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+func (snap *Snapshot) matchSize(fileEntry *vfs.Entry, f search.Filter) (bool, error) {
 	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
@@ -138,7 +139,7 @@ func (snap *Snapshot) matchSize(fileEntry *vfs.FileEntry, f search.Filter) (bool
 	return matched, nil
 }
 
-func (snap *Snapshot) matchEntropy(fileEntry *vfs.FileEntry, f search.Filter) (bool, error) {
+func (snap *Snapshot) matchEntropy(fileEntry *vfs.Entry, f search.Filter) (bool, error) {
 	value := f.Value
 	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
 		value = value[1 : len(value)-1]
@@ -180,7 +181,7 @@ func (snap *Snapshot) matchEntropy(fileEntry *vfs.FileEntry, f search.Filter) (b
 	return matched, nil
 }
 
-func (snap *Snapshot) searchMatch(fileEntry *vfs.FileEntry, q search.Query) (bool, error) {
+func (snap *Snapshot) searchMatch(fileEntry *vfs.Entry, q search.Query) (bool, error) {
 	var err error
 	leftMatch := false
 	rightMatch := false
@@ -240,21 +241,21 @@ func (snap *Snapshot) search(fs *vfs.Filesystem, prefix string, q search.Query, 
 			continue
 		}
 
-		fi, err := fs.Stat(f)
+		fi, err := fs.GetEntry(f)
 		if err != nil {
 			return err
 		}
-		if fileEntry, isFile := fi.(*vfs.FileEntry); !isFile {
+		if fi.IsDir() {
 			continue
-		} else {
-			if match, err := snap.searchMatch(fileEntry, q); err != nil {
-				return err
-			} else if match {
-				c <- search.FileEntry{
-					Repository: snap.Repository().Location(),
-					Snapshot:   snap.Header.Identifier,
-					FileEntry:  *fileEntry,
-				}
+		}
+
+		if match, err := snap.searchMatch(fi, q); err != nil {
+			return err
+		} else if match {
+			c <- search.FileEntry{
+				Repository: snap.Repository().Location(),
+				Snapshot:   snap.Header.Identifier,
+				FileEntry:  fi,
 			}
 		}
 	}

@@ -68,7 +68,7 @@ func (f FileInfo) Nlink() uint16 {
 }
 
 func (f FileInfo) Sys() any {
-	return nil
+	return f
 }
 
 func (f FileInfo) Username() string {

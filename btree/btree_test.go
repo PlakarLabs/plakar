@@ -1,6 +1,7 @@
 package btree
 
 import (
+	"math/rand"
 	"errors"
 	"log"
 	"strings"
@@ -353,5 +354,73 @@ func TestPersist(t *testing.T) {
 
 	if iter.Next() {
 		t.Fatalf("iterator could unexpectedly continue")
+	}
+}
+
+func PathCmp(a, b string) int {
+	da := strings.Count(a, "/")
+	db := strings.Count(b, "/")
+
+	if da > db {
+		return 1
+	}
+	if da < db {
+		return -1
+	}
+	return strings.Compare(a, b)
+}
+
+func TestFoo(t *testing.T) {
+	files := []string{
+		"/home/op",
+		"/home/op/w/plakar/storage/backends",
+		"/home/op/w/plakar/.github/workflows/codeql-analysis.yml",
+		"/home/op/w/plakar/storage/backends/fs",
+		"/home/op/w/plakar/storage/backends/http",
+		"/home/op/w/plakar/storage/backends/null",
+		"/home/op/w/plakar/storage/backends/plakard",
+		"/home/op/w/plakar/ui/v2/frontend",
+		"/home/op/w/plakar/ui/v2/ui.go",
+		"/home/op/w/plakar/storage/backends/plakard/client.go",
+		"/home/op/w/plakar/storage/backends/s3/s3.go",
+		"/home/op/w/plakar/ui/v2/frontend/assets/IOS-C52CfiJx.png",
+		"/home/op/w/plakar/storage/storage.go",
+	}
+
+	for run := 0; run < 100; run++ {
+		items := make([]string, 0, len(files))
+		copy(items, files[:])
+
+		for i := range items {
+			j := rand.Intn(i + 1)
+			items[i], items[j] = items[j], items[i]
+		}
+
+		order := 3
+		store := InMemoryStore[string, int]{}
+		tree, err := New(&store, PathCmp, order)
+		if err != nil {
+			t.Fatalf("New failed: %v", err)
+		}
+
+		for i, path := range items {
+			if err := tree.Insert(path, i); err != nil {
+				t.Fatalf("failed to insert %v: %v", path, err)
+			}
+		}
+
+		for i, path := range items {
+			val, found, err := tree.Find(path)
+			if err != nil {
+				t.Fatalf("failed to Find(%q): %v", path, err)
+			}
+			if !found {
+				t.Errorf("key %v unexpectedly not found", path)
+				continue
+			}
+			if val != i {
+				t.Errorf("bad value for key %v: got %v want %v", path, val, i)
+			}
+		}	
 	}
 }

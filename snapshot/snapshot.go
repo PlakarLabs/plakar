@@ -368,11 +368,14 @@ func (snap *Snapshot) ListChunks() (<-chan objects.Checksum, error) {
 	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
-			fsentry, err := fs.Stat(filename)
+			fsentry, err := fs.GetEntry(filename)
 			if err != nil {
 				break
 			}
-			for _, chunk := range fsentry.(*vfs.FileEntry).Object.Chunks {
+			if fsentry.Object == nil {
+				continue
+			}
+			for _, chunk := range fsentry.Object.Chunks {
 				c <- chunk.Checksum
 			}
 		}
@@ -389,42 +392,14 @@ func (snap *Snapshot) ListObjects() (<-chan objects.Checksum, error) {
 	c := make(chan objects.Checksum)
 	go func() {
 		for filename := range fs.Files() {
-			fsentry, err := fs.Stat(filename)
+			fsentry, err := fs.GetEntry(filename)
 			if err != nil {
 				break
 			}
-			c <- fsentry.(*vfs.FileEntry).Object.Checksum
-		}
-		close(c)
-	}()
-	return c, nil
-}
-
-func (snap *Snapshot) ListFiles() (<-chan objects.Checksum, error) {
-	fs, err := snap.Filesystem()
-	if err != nil {
-		return nil, err
-	}
-	c := make(chan objects.Checksum)
-	go func() {
-		for checksum := range fs.FileChecksums() {
-			c <- checksum
-		}
-		close(c)
-	}()
-	return c, nil
-}
-
-func (snap *Snapshot) ListDirectories() (<-chan objects.Checksum, error) {
-	fs, err := snap.Filesystem()
-	if err != nil {
-		return nil, err
-	}
-	c := make(chan objects.Checksum)
-	go func() {
-		c <- snap.Header.Root
-		for checksum := range fs.DirectoryChecksums() {
-			c <- checksum
+			if fsentry.Object == nil {
+				continue
+			}
+			c <- fsentry.Object.Checksum
 		}
 		close(c)
 	}()

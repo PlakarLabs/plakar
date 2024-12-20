@@ -1,21 +1,22 @@
 package vfs
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"path/filepath"
 	"strings"
 
+	"github.com/PlakarKorp/plakar/btree"
 	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/packfile"
 	"github.com/PlakarKorp/plakar/repository"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const VERSION = 001
 
 type FSEntry interface {
-	fsEntry()
 	Stat() *objects.FileInfo
 	Name() string
 	Size() int64
@@ -43,444 +44,197 @@ type AlternateDataStream struct {
 }
 
 type Filesystem struct {
-	repo      *repository.Repository
-	root      [32]byte
-	rootEntry *DirEntry
+	tree *btree.BTree[string, objects.Checksum, Entry]
+	repo *repository.Repository
 }
 
-func NewFilesystem(repo *repository.Repository, root [32]byte) (*Filesystem, error) {
-	rd, _, err := repo.GetBlob(packfile.TYPE_DIRECTORY, root)
-	if err != nil {
-		return nil, err
-	}
+func PathCmp(a, b string) int {
+	da := strings.Count(a, "/")
+	db := strings.Count(b, "/")
 
-	blob, err := io.ReadAll(rd)
-	if err != nil {
-		return nil, err
+	if da > db {
+		return 1
 	}
-
-	dirEntry, err := DirEntryFromBytes(blob)
-	if err != nil {
-		return nil, err
+	if da < db {
+		return -1
 	}
-
-	return &Filesystem{
-		repo:      repo,
-		root:      root,
-		rootEntry: dirEntry,
-	}, nil
+	return strings.Compare(a, b)
 }
 
-func (fsc *Filesystem) Open(name string) (fs.File, error) {
-	st, err := fsc.Stat(name)
+func NewFilesystem(repo *repository.Repository, root objects.Checksum) (*Filesystem, error) {
+	rd, _, err := repo.GetBlob(packfile.TYPE_FILE, root)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewVFilep(fsc, st), nil
-}
-
-func (fsc *Filesystem) ReadDir(name string) ([]fs.DirEntry, error) {
-	st, err := fsc.Stat(name)
+	bytes, err := io.ReadAll(rd)
 	if err != nil {
 		return nil, err
 	}
 
-	if !st.Stat().IsDir() {
-		return nil, fs.ErrInvalid
+	var tree btree.BTree[string, objects.Checksum, Entry]
+	if err := msgpack.Unmarshal(bytes, &tree); err != nil {
+		return nil, err
 	}
 
-	return NewVFilep(fsc, st).ReadDir(0)
+	storage := repository.NewRepositoryStore[string, Entry](repo, packfile.TYPE_FILE)
+	fs := &Filesystem{
+		tree: btree.FromStorage(tree.Root, storage, PathCmp, tree.Order),
+		repo: repo,
+	}
+
+	iter, _ := fs.tree.ScanAll()
+	for iter.Next() {
+		path, _ := iter.Current()
+		log.Println("tree:", path)
+	}
+
+	return fs, nil
 }
 
-func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) {
-	currentEntry := fsc.rootEntry
-	baseDir := "/"
-	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			fmt.Println("packfile blob not found for directory")
-			return
-		}
+func (fsc *Filesystem) lookup(path string) (*Entry, error) {
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	path = filepath.Clean(path)
 
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			fmt.Println("could not read packfile blob for directory")
-			return
-		}
-
-		currentEntry, err = DirEntryFromBytes(blob)
-		if err != nil {
-			fmt.Println("error decoding directory entry")
-			return
-		}
-		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
+	if path == "" {
+		path = "/"
 	}
 
-	children, err := fsc.ChildrenIter(currentEntry)
+	entry, found, err := fsc.tree.Find(path)
 	if err != nil {
-		fmt.Println("error getting children iterator")
+		log.Println("error looking up", path, ":", err)
+		return nil, err
+	}
+	if !found {
+		log.Println("path not found", path)
+		return nil, fs.ErrNotExist
+	}
+	//log.Println("found", path, ":", entry)
+	return &entry, nil
+}
+
+func (fsc *Filesystem) Open(path string) (fs.File, error) {
+	entry, err := fsc.lookup(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return entry.Open(fsc, path), nil
+}
+
+func (fsc *Filesystem) ReadDir(path string) (entries []fs.DirEntry, err error) {
+	fp, err := fsc.Open(path)
+	if err != nil {
 		return
 	}
-	for child := range children {
-		if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
-			continue
-		}
-		out <- filepath.Join(baseDir, child.Stat().Name())
-		fsc.directoriesRecursive(child.Checksum(), out)
-	}
-}
-
-func (fsc *Filesystem) Directories() <-chan string {
-	ch := make(chan string)
-	go func() {
-		fsc.directoriesRecursive(fsc.root, ch)
-		close(ch)
-	}()
-	return ch
-}
-
-func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
-	currentEntry := fsc.rootEntry
-	baseDir := "/"
-	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			return
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			return
-		}
-
-		currentEntry, err = DirEntryFromBytes(blob)
-		if err != nil {
-			return
-		}
-		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Stat().Name())
+	dir, ok := fp.(fs.ReadDirFile)
+	if !ok {
+		return entries, fs.ErrInvalid
 	}
 
-	children, err := fsc.ChildrenIter(currentEntry)
-	if err != nil {
-		fmt.Println("error getting children iterator")
-		return
-	}
-	for child := range children {
-		if exists := fsc.repo.BlobExists(packfile.TYPE_FILE, child.Checksum()); !exists {
-			if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
-				return
-			}
-			fsc.filesRecursive(child.Checksum(), out)
-		} else {
-			out <- filepath.Join(baseDir, child.Stat().Name())
-		}
-	}
+	return dir.ReadDir(-1)
 }
 
 func (fsc *Filesystem) Files() <-chan string {
 	ch := make(chan string)
 	go func() {
-		fsc.filesRecursive(fsc.root, ch)
-		close(ch)
+		defer close(ch)
+
+		iter, err := fsc.tree.ScanAll()
+		if err != nil {
+			return
+		}
+
+		for iter.Next() {
+			path, entry := iter.Current()
+			if entry.FileInfo.Lmode.IsRegular() {
+				ch <- path
+			}
+		}
 	}()
 	return ch
-}
-
-func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
-	currentEntry := fsc.rootEntry
-	baseDir := "/"
-	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			return
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			return
-		}
-
-		currentEntry, err = DirEntryFromBytes(blob)
-		if err != nil {
-			return
-		}
-	}
-	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
-	out <- baseDir
-
-	children, err := fsc.ChildrenIter(currentEntry)
-	if err != nil {
-		fmt.Println("error getting children iterator")
-		return
-	}
-	for child := range children {
-		if exists := fsc.repo.BlobExists(packfile.TYPE_FILE, child.Checksum()); !exists {
-			if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
-				return
-			}
-			fsc.pathnamesRecursive(child.Checksum(), out)
-		} else {
-			out <- filepath.Join(baseDir, child.Stat().Name())
-		}
-	}
 }
 
 func (fsc *Filesystem) Pathnames() <-chan string {
 	ch := make(chan string)
 	go func() {
-		fsc.pathnamesRecursive(fsc.root, ch)
-		close(ch)
+		defer close(ch)
+
+		iter, err := fsc.tree.ScanAll()
+		if err != nil {
+			return
+		}
+
+		for iter.Next() {
+			path, _ := iter.Current()
+			ch <- path
+		}
 	}()
 	return ch
 }
 
-// Helper function to recursively traverse directories and find the path
-func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FSEntry, error) {
-	if checksum == fsc.root {
-		if len(components) == 0 {
-			return fsc.rootEntry, nil
-		}
-	}
-
-	// Check if checksum refers to a file
-	if fsc.repo.BlobExists(packfile.TYPE_FILE, checksum) {
-		// Retrieve the file metadata
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_FILE, checksum)
-		if err != nil {
-			return nil, err
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			return nil, err
-		}
-
-		// Unmarshal the file entry
-		fileEntry, err := FileEntryFromBytes(blob)
-		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling file entry: %v", err)
-		}
-
-		// If this is the last component, return the file
-		if len(components) == 0 {
-			return fileEntry, nil
-		}
-
-		// If there are still components left, this is an error (files cannot have children)
-		return nil, fmt.Errorf("invalid path: %s is a file but more components remain", components[0])
-	}
-
-	// Check if checksum refers to a directory
-	if fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, checksum) {
-		// Retrieve the directory metadata
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			return nil, err
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			return nil, err
-		}
-
-		// Unmarshal the directory entry
-		dirEntry, err := DirEntryFromBytes(blob)
-		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling directory entry: %v", err)
-		}
-
-		// If there are no more components, return the directory
-		if len(components) == 0 {
-			return dirEntry, nil
-		}
-
-		// Look for the next component (file or directory) in the children of the directory
-		children, err := fsc.ChildrenIter(dirEntry)
-		if err != nil {
-			fmt.Println("error getting children iterator")
-			return nil, err
-		}
-		for child := range children {
-			if child.Stat().Name() == components[0] {
-				// Recursively continue with the child checksum
-				return fsc.statRecursive(child.Checksum(), components[1:])
-			}
-		}
-
-		// If no matching child was found, return an error
-		return nil, fmt.Errorf("path not found: %s", components[0])
-	}
-
-	// If neither a file nor a directory, return an error
-	return nil, fmt.Errorf("path not found or invalid: checksum does not correspond to a file or directory")
+func (fsc *Filesystem) GetEntry(path string) (*Entry, error) {
+	return fsc.lookup(path)
 }
 
 func (fsc *Filesystem) Stat(path string) (FSEntry, error) {
-	// Ensure the path starts with a slash for consistency
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	if path == "/" {
-		return fsc.rootEntry, nil
-	}
-
-	path = filepath.Clean(path)
-
-	// Split the path into components for recursive lookup
-	components := strings.Split(path, "/")
-	if len(components) == 0 {
-		return nil, fmt.Errorf("invalid path: %s", path)
-	}
-
-	// Start the recursive lookup from the root
-	return fsc.statRecursive(fsc.root, components[1:]) // Skip the initial empty component due to leading '/'
+	return fsc.lookup(path)
 }
 
 func (fsc *Filesystem) Children(path string) (<-chan string, error) {
-	fsEntry, err := fsc.Stat(path)
+	fp, err := fsc.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	if fsEntry.(*DirEntry) == nil {
-		return nil, fmt.Errorf("path is not a directory")
+	defer fp.Close()
+
+	dir, ok := fp.(fs.ReadDirFile)
+	if !ok {
+		return nil, fs.ErrInvalid
 	}
 
 	ch := make(chan string)
 	go func() {
 		defer close(ch)
-
-		children, err := fsc.ChildrenIter(fsEntry.(*DirEntry))
-		if err != nil {
-			fmt.Println("error getting children iterator")
-			return
-		}
-		for child := range children {
-			ch <- child.Stat().Name()
+		for {
+			entries, err := dir.ReadDir(16)
+			if err != nil {
+				return
+			}
+			for i := range entries {
+				ch <- entries[i].Name()
+			}
 		}
 	}()
 	return ch, nil
 }
 
-func (fsc *Filesystem) fileChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
-	currentEntry := fsc.rootEntry
-	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			return
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			return
-		}
-
-		currentEntry, err = DirEntryFromBytes(blob)
-		if err != nil {
-			return
-		}
-	}
-
-	children, err := fsc.ChildrenIter(currentEntry)
+func (fsc *Filesystem) ChildrenIter(path string) (chan<- string, error) {
+	fp, err := fsc.Open(path)
 	if err != nil {
-		fmt.Println("error getting children iterator")
-		return
+		return nil, err
 	}
-	for child := range children {
-		if exists := fsc.repo.BlobExists(packfile.TYPE_FILE, child.Checksum()); !exists {
-			if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
-				return
-			}
-			fsc.fileChecksumsRecursive(child.Checksum(), out)
-		} else {
-			out <- child.Checksum()
-		}
-	}
-}
+	defer fp.Close()
 
-func (fsc *Filesystem) FileChecksums() <-chan [32]byte {
-	ch := make(chan [32]byte)
+	dir, ok := fp.(fs.ReadDirFile)
+	if !ok {
+		return nil, fs.ErrInvalid
+	}
+
+	ch := make(chan string)
 	go func() {
-		fsc.fileChecksumsRecursive(fsc.root, ch)
-		close(ch)
-	}()
-	return ch
-}
-
-func (fsc *Filesystem) directoryChecksumsRecursive(checksum [32]byte, out chan [32]byte) {
-	currentEntry := fsc.rootEntry
-	if fsc.root != checksum {
-		rd, _, err := fsc.repo.GetBlob(packfile.TYPE_DIRECTORY, checksum)
-		if err != nil {
-			fmt.Println("packfile blob not found for directory")
-			return
-		}
-
-		blob, err := io.ReadAll(rd)
-		if err != nil {
-			fmt.Println("could not read packfile blob for directory")
-			return
-		}
-
-		currentEntry, err = DirEntryFromBytes(blob)
-		if err != nil {
-			fmt.Println("error decoding directory entry")
-			return
-		}
-	}
-
-	children, err := fsc.ChildrenIter(currentEntry)
-	if err != nil {
-		fmt.Println("error getting children iterator")
-		return
-	}
-	for child := range children {
-		if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
-			continue
-		}
-		out <- child.Checksum()
-		fsc.directoryChecksumsRecursive(child.Checksum(), out)
-	}
-}
-func (fsc *Filesystem) DirectoryChecksums() <-chan [32]byte {
-	ch := make(chan [32]byte)
-	go func() {
-		fsc.directoryChecksumsRecursive(fsc.root, ch)
-		close(ch)
-	}()
-	return ch
-}
-
-func (fsc *Filesystem) ChildrenIter(dir *DirEntry) (<-chan *ChildEntry, error) {
-	c := make(chan *ChildEntry)
-
-	go func() {
-		defer close(c)
-
-		iter := dir.Children
-		for iter != nil {
-
-			rd, _, err := fsc.repo.GetBlob(packfile.TYPE_CHILD, *iter)
+		defer close(ch)
+		for {
+			entries, err := dir.ReadDir(16)
 			if err != nil {
 				return
 			}
-
-			childBytes, err := io.ReadAll(rd)
-			if err != nil {
-				return
+			for i := range entries {
+				ch <- entries[i].Name()
 			}
-
-			child, err := ChildEntryFromBytes(childBytes)
-			if err != nil {
-				return
-			}
-
-			c <- child
-
-			iter = child.Successor
 		}
 	}()
-
-	return c, nil
+	return ch, nil
 }

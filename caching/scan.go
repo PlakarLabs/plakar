@@ -53,16 +53,6 @@ func (c *ScanCache) get(prefix, key string) ([]byte, error) {
 	return data, nil
 }
 
-// XXX - beware that pathname should be constructed to end with / for directories
-func (c *ScanCache) PutPathname(pathname string, data []byte) error {
-	return c.put("__pathname__", pathname, data)
-}
-
-// XXX - beware that pathname should be constructed to end with / for directories
-func (c *ScanCache) GetPathname(pathname string) ([]byte, error) {
-	return c.get("__pathname__", pathname)
-}
-
 func (c *ScanCache) PutChecksum(pathname string, checksum objects.Checksum) error {
 	pathname = strings.TrimSuffix(pathname, "/")
 	if pathname == "" {

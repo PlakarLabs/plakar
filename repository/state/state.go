@@ -180,9 +180,7 @@ func (st *State) SerializeStream(w io.Writer) error {
 		}
 	}
 
-	if err := serializeMapping(w, st.DeletedSnapshots, func(key uint64) error {
-		return writeUint64(key)
-	}, func(value time.Time) error {
+	if err := serializeMapping(w, st.DeletedSnapshots, writeUint64, func(value time.Time) error {
 		return writeUint64(uint64(value.UnixNano()))
 	}); err != nil {
 		return fmt.Errorf("failed to serialize DeletedSnapshots: %w", err)
@@ -209,9 +207,7 @@ func (st *State) SerializeStream(w io.Writer) error {
 	}
 
 	for _, m := range mappings {
-		if err := serializeMapping(w, m.data, writeUint64, func(v Location) error {
-			return writeLocation(v)
-		}); err != nil {
+		if err := serializeMapping(w, m.data, writeUint64, writeLocation); err != nil {
 			return fmt.Errorf("failed to serialize %s: %w", m.name, err)
 		}
 	}

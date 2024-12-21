@@ -9,7 +9,6 @@ import (
 	"io"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/PlakarKorp/plakar/context"
@@ -20,7 +19,6 @@ import (
 	"github.com/PlakarKorp/plakar/repository"
 	"github.com/PlakarKorp/plakar/repository/state"
 	"github.com/PlakarKorp/plakar/snapshot/header"
-	"github.com/PlakarKorp/plakar/snapshot/statistics"
 	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/google/uuid"
 )
@@ -38,8 +36,6 @@ type Snapshot struct {
 	SkipDirs []string
 
 	Header *header.Header
-
-	statistics *statistics.Statistics
 
 	packerChan     chan interface{}
 	packerChanDone chan bool
@@ -112,8 +108,6 @@ func New(repo *repository.Repository) (*Snapshot, error) {
 
 		Header: header.NewHeader("default", identifier),
 
-		statistics: statistics.New(),
-
 		packerChan:     make(chan interface{}, runtime.NumCPU()*2+1),
 		packerChanDone: make(chan bool),
 	}
@@ -167,7 +161,6 @@ func Clone(repo *repository.Repository, Identifier objects.Checksum) (*Snapshot,
 	}
 
 	snap.stateDelta = state.New()
-	snap.statistics = statistics.New()
 
 	snap.Header.Identifier = repo.Checksum(uuidBytes[:])
 	snap.packerChan = make(chan interface{}, runtime.NumCPU()*2+1)
@@ -278,17 +271,11 @@ func (snap *Snapshot) PutPackfile(packer *Packer) error {
 	var checksum32 objects.Checksum
 	copy(checksum32[:], checksum[:])
 
-	atomic.AddUint64(&snap.statistics.PackfilesCount, 1)
-	atomic.AddUint64(&snap.statistics.PackfilesSize, uint64(len(serializedPackfile)))
-
 	repo.Logger().Trace("snapshot", "%x: PutPackfile(%x, ...)", snap.Header.GetIndexShortID(), checksum32)
 	err = snap.repository.PutPackfile(checksum32, bytes.NewBuffer(serializedPackfile))
 	if err != nil {
 		panic("could not write pack file")
 	}
-
-	atomic.AddUint64(&snap.statistics.PackfilesTransferCount, 1)
-	atomic.AddUint64(&snap.statistics.PackfilesTransferSize, uint64(len(serializedPackfile)))
 
 	for _, Type := range packer.Types() {
 		for blobChecksum := range packer.Blobs[Type] {
@@ -434,7 +421,6 @@ func (snap *Snapshot) ListDatas() (<-chan objects.Checksum, error) {
 
 	go func() {
 		c <- snap.Header.Metadata
-		c <- snap.Header.Statistics
 		close(c)
 	}()
 

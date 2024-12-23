@@ -330,18 +330,18 @@ func (vf *vdir) ReadDir(n int) (entries []fs.DirEntry, err error) {
 		}
 		path, dirent := vf.iter.Current()
 
-		log.Println("considering entry", path)
+		//log.Println("considering entry", path)
 		if path == prefix {
-			log.Println("it's the same as prefix; next")
+			//log.Println("it's the same as prefix; next")
 			continue
 		}
 
 		if !strings.HasPrefix(path, prefix) {
-			log.Println("is not under", prefix, "; next")
+			//log.Println("is not under", prefix, "; next")
 			break
 		}
 		if strings.Index(path[len(prefix):], "/") != -1 {
-			log.Println("it's too deep;", prefix)
+			//log.Println("it's too deep;", prefix)
 			break
 		}
 

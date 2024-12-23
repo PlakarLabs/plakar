@@ -37,13 +37,35 @@ func (s *InMemoryStore[K, V]) Update(ptr int, n Node[K, int, V]) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("store: updating @ %v; item is %v; %v", ptr, n.Keys, n.Pointers)
 
-	s.store[ptr] = n
+	nn := Node[K, int, V]{
+		Keys: make([]K, len(n.Keys)),
+		Pointers: make([]int, len(n.Pointers)),
+		Values: make([]V, len(n.Values)),
+		Next: n.Next,
+	}
+	copy(nn.Keys, n.Keys)
+	copy(nn.Pointers, n.Pointers)
+	copy(nn.Values, n.Values)
+
+	s.store[ptr] = nn
 	return nil
 }
 
 func (s *InMemoryStore[K, V]) Put(n Node[K, int, V]) (int, error) {
-	s.store = append(s.store, n)
+	nn := Node[K, int, V]{
+		Keys: make([]K, len(n.Keys)),
+		Pointers: make([]int, len(n.Pointers)),
+		Values: make([]V, len(n.Values)),
+		Next: n.Next,
+	}
+	copy(nn.Keys, n.Keys)
+	copy(nn.Pointers, n.Pointers)
+	copy(nn.Values, n.Values)
+
+	log.Printf("store: adding new node @ %v: %v", len(s.store), n)
+	s.store = append(s.store, nn)
 	return len(s.store) - 1, nil
 }
 
@@ -370,6 +392,52 @@ func PathCmp(a, b string) int {
 	return strings.Compare(a, b)
 }
 
+func TestBar(t *testing.T) {
+	items := []string{
+		"/etc/.clean",
+		"/etc/.updated",
+		"/etc/NIXOS",
+		"/etc/.pwd.lock",
+		"/etc/NetworkManager/system-connections",
+		"/etc/ipsec.d",
+		"/etc/X11/xorg.conf.d/10-evdev.conf",
+		"/etc/modprobe.d/nixos.conf",
+		"/etc/ly/config.ini",
+		"/etc/fuse.conf",
+		"/etc/default",
+	}
+
+	order := 3
+	store := InMemoryStore[string, int]{}
+	tree, err := New(&store, PathCmp, order)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	for i, path := range items {
+		if err := tree.Insert(path, i); err != nil {
+			if err == ErrExists {
+				continue
+			}
+			t.Fatalf("failed to insert %v: %v", path, err)
+		}
+	}
+
+	for i, path := range items {
+		val, found, err := tree.Find(path)
+		if err != nil {
+			t.Fatalf("failed to Find(%q): %v", path, err)
+		}
+		if !found {
+			t.Errorf("key %v unexpectedly not found", path)
+			continue
+		}
+		if val != i {
+			t.Errorf("bad value for key %v: got %v want %v", path, val, i)
+		}
+	}
+}
+
 func TestFoo(t *testing.T) {
 	files := []string{
 		"/home/op",
@@ -421,6 +489,6 @@ func TestFoo(t *testing.T) {
 			if val != i {
 				t.Errorf("bad value for key %v: got %v want %v", path, val, i)
 			}
-		}	
+		}
 	}
 }

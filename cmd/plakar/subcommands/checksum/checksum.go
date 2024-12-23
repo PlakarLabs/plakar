@@ -20,7 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
@@ -86,7 +86,7 @@ func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *sna
 			return err
 		}
 		for child := range children {
-			if err := displayChecksums(fs, repo, snap, filepath.Join(pathname, child.Stat().Name()), fastcheck); err != nil {
+			if err := displayChecksums(fs, repo, snap, path.Join(pathname, child.Stat().Name()), fastcheck); err != nil {
 				return err
 			}
 		}

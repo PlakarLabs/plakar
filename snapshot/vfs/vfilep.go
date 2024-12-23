@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/PlakarKorp/plakar/packfile"
@@ -154,7 +154,7 @@ func (vf *VFilep) ReadDir(count int) ([]fs.DirEntry, error) {
 		}
 		offset++
 
-		st, err := vf.vfs.Stat(filepath.Join(vf.vfsEntry.Path(), childname))
+		st, err := vf.vfs.Stat(path.Join(vf.vfsEntry.Path(), childname))
 		if err != nil {
 			continue
 		} else {

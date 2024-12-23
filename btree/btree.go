@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 )
 
 var (
@@ -85,12 +86,14 @@ func (b *BTree[K, P, V]) findleaf(key K) (node Node[K, P, V], path []P, err erro
 		if err != nil {
 			return
 		}
+		//log.Println("findleaf: trace: loaded", node)
 
 		if node.isleaf() {
 			return
 		}
 
 		idx, found := slices.BinarySearchFunc(node.Keys, key, b.compare)
+		//log.Printf("in %v; binary search was %d %v", node.Keys, idx, found)
 		if found {
 			idx++
 		}
@@ -103,14 +106,14 @@ func (b *BTree[K, P, V]) findleaf(key K) (node Node[K, P, V], path []P, err erro
 }
 
 func (b *BTree[K, P, V]) Find(key K) (val V, found bool, err error) {
+	//log.Println("Find", key)
+
 	leaf, _, err := b.findleaf(key)
 	if err != nil {
 		return
 	}
 
-	if false {
-		log.Println("found leaf", leaf)
-	}
+	//log.Println("found leaf", leaf)
 
 	val, found = leaf.find(key, b.compare)
 	return val, found, nil
@@ -144,13 +147,16 @@ func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P, cmp func(K, K) int
 	// Pointers and Keys have different cardinalities, but to
 	// decide whether to append or insert in Pointers we need
 	// to consider the length of the keys.
+	log.Printf("before %v / %v ; idx=%v key=%v, ptr=%v", n.Keys, n.Pointers, idx, key, ptr)
 	if idx >= len(n.Keys) {
 		n.Keys = append(n.Keys, key)
 		n.Pointers = append(n.Pointers, ptr)
 	} else {
 		n.Keys = slices.Insert(n.Keys, idx, key)
-		n.Pointers = slices.Insert(n.Pointers, idx, ptr)
+		n.Pointers = slices.Insert(n.Pointers, idx + 1, ptr)
 	}
+
+	log.Printf("after %v / %v", n.Keys, n.Pointers)
 
 	var previous *K
 	for i := range n.Keys {
@@ -168,20 +174,33 @@ func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (int, bool) {
 	return slices.BinarySearchFunc(node.Keys, key, b.compare)
 }
 
-func (n *Node[K, P, V]) split() (new Node[K, P, V]) {
-	cutoff := (len(n.Keys) + 1) / 2
-	new.Keys = n.Keys[cutoff:]
+func (n *Node[K, P, V]) split() Node[K, P, V] {
+	cutoff := (len(n.Keys) + 1) / 2 - 1
+	if cutoff == 0 {
+		cutoff = 1
+	}
+	//log.Println("cutoff is", cutoff)
+	
+	new := Node[K, P, V]{
+		Keys: make([]K, len(n.Keys)-cutoff),
+		Next: n.Next,
+	}
+
+	copy(new.Keys, n.Keys[cutoff:])
 	n.Keys = n.Keys[:cutoff]
 
 	if n.isleaf() {
-		new.Values = n.Values[cutoff:]
+		new.Values = make([]V, len(n.Values)-cutoff)
+		copy(new.Values, n.Values[cutoff:])
 		n.Values = n.Values[:cutoff]
 	} else {
 		cutoff++
-		new.Pointers = n.Pointers[cutoff:]
+		new.Pointers = make([]P, len(n.Pointers)-cutoff)
+		copy(new.Pointers, n.Pointers[cutoff:])
 		n.Pointers = n.Pointers[:cutoff]
 	}
-	return
+	//log.Println("split: trace: nodes are", n, new)
+	return new
 }
 
 func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
@@ -191,15 +210,16 @@ func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
 	}
 
 	ptr := path[len(path)-1]
+	path = path[:len(path)-1]
 
 	idx, found := b.findsplit(key, &node)
 	if found {
 		if overwrite {
-			log.Println("overwriting", key, node.Keys[idx])
+			//log.Println("overwriting", key, node.Keys[idx])
 			node.Values[idx] = val
 			return b.store.Update(ptr, node)
 		}
-		log.Println("insert:", key, "is already in the btree")
+		//log.Println("insert:", key, "is already in the btree")
 		return ErrExists
 	}
 
@@ -208,16 +228,21 @@ func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
 		return b.store.Update(ptr, node)
 	}
 
-	log.Printf("splitting to insert %v at %d into %v", key, idx, node.Keys)
-	//node.insertAt(idx, key, val, b)
+	node.insertAt(idx, key, val, b)
+	//log.Println("inserted new element before splitting:", node.Keys)
 	new := node.split()
-	if idx < len(node.Keys) {
-		idx = 0
-	} else {
-		idx -= len(node.Keys)
-	}
-	new.insertAt(idx, key, val, b)
-	new.Next = node.Next
+	//log.Println("split into", node.Keys, new.Keys)
+
+	// log.Println("before splitting node is", node.Keys)
+	// new := node.split()
+	// log.Println("splitted into", node.Keys, new.Keys)
+	// if idx < len(node.Keys) {
+	// 	node.insertAt(idx, key, val, b)
+	// } else {
+	// 	idx -= len(node.Keys)
+	// 	new.insertAt(idx, key, val, b)
+	// }
+	// new.Next = node.Next
 
 	newptr, err := b.store.Put(new)
 	if err != nil {
@@ -228,8 +253,27 @@ func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
 		return err
 	}
 
+	log.Printf("after inserting %v; got %+v and %+v; bubbling up (%v, %v)", key,
+		node.Keys, new.Keys, new.Keys[0], newptr)
 	key = new.Keys[0]
-	return b.insertUpwards(key, newptr, path[:len(path)-1])
+	return b.insertUpwards(key, newptr, path)
+}
+
+func (b *BTree[K, P, V]) Dot() string {
+	w := strings.Builder{}
+
+	b.VisitLevelOrder2(func(n Node[K, P, V], ptr P) bool {
+		fmt.Fprintf(&w, "%v [label=%q]\n", ptr, fmt.Sprintf("%v %v", ptr, n.Keys))
+		for _, cptr := range n.Pointers {
+			fmt.Fprintf(&w, "%v -> %v\n", ptr, cptr)
+		}
+		// if n.Next != nil {
+		// 	fmt.Fprintf(&w, "%v -> %v\n", ptr, *n.Next)
+		// }
+		return true
+	})
+
+	return w.String()
 }
 
 var run uint64 = 0
@@ -239,11 +283,13 @@ func (b *BTree[K, P, V]) Validate() {
 		panic(err)
 	}
 
+	// log.Printf("graph is:\n%s\n", b.Dot())
+
 	run++
 	var previous *K
 	for iter.Next() {
 		k, _ := iter.Current()
-		log.Println(run, "viewing", k)
+		//log.Println(run, "viewing", k)
 		
 		if previous != nil {
 			if b.compare(*previous, k) != -1 {
@@ -259,12 +305,12 @@ func (b *BTree[K, P, V]) Validate() {
 }
 
 func (b *BTree[K, P, V]) Insert(key K, val V) error {
-	log.Println("inserting", key)
+	//log.Println("inserting", key)
 	if err := b.insert(key, val, false); err != nil {
 		return err
 	}
 	b.Validate()
-	log.Println("inserted", key)
+	//log.Println("inserted", key)
 	return nil
 }
 
@@ -277,6 +323,8 @@ func (b *BTree[K, P, V]) Update(key K, val V) error {
 }
 
 func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
+	log.Printf("insertUpwards of (%v, %v) with path %v", key, ptr, path)
+
 	for i := len(path) - 1; i >= 0; i-- {
 		node, err := b.store.Get(path[i])
 		if err != nil {
@@ -289,19 +337,27 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 		}
 
 		if len(node.Keys) < b.Order-1 {
+			log.Printf("insert at %v without splitting %v (@%v)", idx, node.Keys, path[i])
 			node.insertInternal(idx, key, ptr, b.compare)
 			return b.store.Update(path[i], node)
 		}
 
+		node.insertInternal(idx, key, ptr, b.compare)
+		log.Printf("inserted at %v in %v", idx, node.Keys)
+
 		new := node.split()
-		if idx < len(node.Keys) {
-			idx = 0
-		} else {
-			idx -= len(node.Keys)
-		}
-		new.insertInternal(idx, key, ptr, b.compare)
+		// if idx < len(node.Keys) {
+		// 	node.insertInternal(idx, key, ptr, b.compare)
+		// } else {
+		// 	idx -= len(node.Keys)
+		// 	new.insertInternal(idx, key, ptr, b.compare)
+		// }
 		key = new.Keys[0]
-		new.Keys = new.Keys[1:]
+		keys := make([]K, len(new.Keys)-1)
+		copy(keys, new.Keys[1:])
+		new.Keys = keys
+		//new.Keys = new.Keys[1:]
+		//log.Println("split internal into", node, new)
 		ptr, err = b.store.Put(new)
 		if err != nil {
 			return err

@@ -394,17 +394,46 @@ func PathCmp(a, b string) int {
 
 func TestBar(t *testing.T) {
 	items := []string{
-		"/etc/.clean",
-		"/etc/.updated",
-		"/etc/NIXOS",
-		"/etc/.pwd.lock",
-		"/etc/NetworkManager/system-connections",
-		"/etc/ipsec.d",
-		"/etc/X11/xorg.conf.d/10-evdev.conf",
-		"/etc/modprobe.d/nixos.conf",
-		"/etc/ly/config.ini",
-		"/etc/fuse.conf",
-		"/etc/default",
+		"ui/v2/frontend/favicon.png",
+		"ui/v2/ui.go",
+		"storage/backends/database",
+		".direnv/devenv.rc",
+		"btree/btree_test.go",
+		"CONTRIBUTING.md",
+		".gitignore",
+
+		// "/home/op/w/plakar/ui/v2/frontend/favicon.png",
+		// "/home/op/w/plakar/ui/v2/ui.go",
+		// "/home/op/w/plakar/storage/backends/database",
+		// "/home/op/w/plakar/.direnv/devenv.rc",
+		// "/home/op/w/plakar/btree/btree_test.go",
+		// "/",
+		// "/home/op/w/plakar/CONTRIBUTING.md",
+		// "/home/op/w/plakar/.gitignore",
+		// "/home/op/w/plakar/api/api_params.go",
+		// "/home",
+		// "/home/op/w/plakar/snapshot/importer/s3/s3.go",
+		// "/home/op/w/plakar/snapshot/packer.go",
+
+
+		// "c",
+		// "b",
+		// "a",
+
+		// "/ui/v2/frontend/assets/index-CEMZEWSL.js",
+		// "/cmd/plakar/subcommands/backup/stdio.go",
+		// "/snapshot/store.go",
+		// "/etc/.clean",
+		// "/etc/.updated",
+		// "/etc/NIXOS",
+		// "/etc/.pwd.lock",
+		// "/etc/NetworkManager/system-connections",
+		// "/etc/ipsec.d",
+		// "/etc/X11/xorg.conf.d/10-evdev.conf",
+		// "/etc/modprobe.d/nixos.conf",
+		// "/etc/ly/config.ini",
+		// "/etc/fuse.conf",
+		// "/etc/default",
 	}
 
 	order := 3

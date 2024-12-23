@@ -214,6 +214,29 @@ func (b *BTree[K, P, V]) ScanAllReverse() (Iterator[K, P, V], error) {
 	return bit, nil
 }
 
+func (b *BTree[K, P, V]) VisitLevelOrder2(cb func(Node[K, P, V], P) bool) error {
+	stack := []P{b.Root}
+
+	for {
+		if len(stack) == 0 {
+			return nil
+		}
+		ptr := stack[0]
+		stack = stack[1:]
+
+		node, err := b.store.Get(ptr)
+		if err != nil {
+			return err
+		}
+
+		if !cb(node, ptr) {
+			return nil
+		}
+
+		stack = append(stack, node.Pointers...)
+	}
+}
+
 func (b *BTree[K, P, V]) VisitLevelOrder(cb func(Node[K, P, V]) bool) error {
 	stack := []P{b.Root}
 

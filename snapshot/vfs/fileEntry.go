@@ -1,7 +1,7 @@
 package vfs
 
 import (
-	"path/filepath"
+	"path"
 	"sort"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -112,7 +112,7 @@ func (f *FileEntry) Name() string {
 }
 
 func (f *FileEntry) Path() string {
-	return filepath.Join(f.ParentPath, f.Name())
+	return path.Join(f.ParentPath, f.Name())
 }
 
 func (f *FileEntry) Size() int64 {

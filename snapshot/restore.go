@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -34,9 +33,9 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp exporter.Export
 
 	var dest string
 	if opts.Rebase && strings.HasPrefix(pathname, base) {
-		dest = filepath.Join(target, pathname[len(base):])
+		dest = path.Join(target, pathname[len(base):])
 	} else {
-		dest = filepath.Join(target, pathname)
+		dest = path.Join(target, pathname)
 	}
 
 	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
@@ -57,7 +56,7 @@ func snapshotRestorePath(snap *Snapshot, fs *vfs.Filesystem, exp exporter.Export
 			return err
 		}
 		for child := range children {
-			err = snapshotRestorePath(snap, fs, exp, target, base, filepath.Join(pathname, child.Stat().Name()), opts, restoreContext, &subwg)
+			err = snapshotRestorePath(snap, fs, exp, target, base, path.Join(pathname, child.Stat().Name()), opts, restoreContext, &subwg)
 			if err != nil {
 				complete = false
 			}

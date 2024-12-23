@@ -1,7 +1,7 @@
 package vfs
 
 import (
-	"path/filepath"
+	"path"
 	"sort"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -108,7 +108,7 @@ func (d *DirEntry) Name() string {
 }
 
 func (d *DirEntry) Path() string {
-	return filepath.Join(d.ParentPath, d.Name())
+	return path.Join(d.ParentPath, d.Name())
 }
 
 func (d *DirEntry) AddClassification(analyzer string, classes []string) {

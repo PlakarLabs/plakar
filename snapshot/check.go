@@ -3,7 +3,7 @@ package snapshot
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
+	"path"
 	"sync"
 
 	"github.com/PlakarKorp/plakar/events"
@@ -33,7 +33,7 @@ func snapshotCheckPath(snap *Snapshot, fs *vfs.Filesystem, pathname string, opts
 			return false, err
 		}
 		for child := range children {
-			ok, err := snapshotCheckPath(snap, fs, filepath.Join(pathname, child.Stat().Name()), opts, concurrency, wg)
+			ok, err := snapshotCheckPath(snap, fs, path.Join(pathname, child.Stat().Name()), opts, concurrency, wg)
 			if err != nil || !ok {
 				complete = false
 			}

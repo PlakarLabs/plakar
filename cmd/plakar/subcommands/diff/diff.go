@@ -22,7 +22,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
+	"path"
 
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
@@ -155,13 +155,13 @@ func diff_files(snap1 *snapshot.Snapshot, fileEntry1 *vfs.FileEntry, snap2 *snap
 
 	if fileEntry1.Object.Checksum == fileEntry2.Object.Checksum {
 		fmt.Printf("%s:%s and %s:%s are identical\n",
-			fmt.Sprintf("%x", snap1.Header.GetIndexShortID()), filepath.Join(fileEntry1.ParentPath, fileEntry1.Stat().Name()),
-			fmt.Sprintf("%x", snap2.Header.GetIndexShortID()), filepath.Join(fileEntry2.ParentPath, fileEntry2.Stat().Name()))
+			fmt.Sprintf("%x", snap1.Header.GetIndexShortID()), path.Join(fileEntry1.ParentPath, fileEntry1.Stat().Name()),
+			fmt.Sprintf("%x", snap2.Header.GetIndexShortID()), path.Join(fileEntry2.ParentPath, fileEntry2.Stat().Name()))
 		return "", nil
 	}
 
-	filename1 := filepath.Join(fileEntry1.ParentPath, fileEntry1.Stat().Name())
-	filename2 := filepath.Join(fileEntry2.ParentPath, fileEntry2.Stat().Name())
+	filename1 := path.Join(fileEntry1.ParentPath, fileEntry1.Stat().Name())
+	filename2 := path.Join(fileEntry2.ParentPath, fileEntry2.Stat().Name())
 
 	buf1 := make([]byte, 0)
 	rd1, err := snap1.NewReader(filename1)

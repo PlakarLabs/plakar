@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/PlakarKorp/plakar/objects"
@@ -114,7 +114,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 			fmt.Println("error decoding directory entry")
 			return
 		}
-		baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
+		baseDir = path.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	children, err := fsc.ChildrenIter(currentEntry)
@@ -126,7 +126,7 @@ func (fsc *Filesystem) directoriesRecursive(checksum [32]byte, out chan string) 
 		if exists := fsc.repo.BlobExists(packfile.TYPE_DIRECTORY, child.Checksum()); !exists {
 			continue
 		}
-		out <- filepath.Join(baseDir, child.Stat().Name())
+		out <- path.Join(baseDir, child.Stat().Name())
 		fsc.directoriesRecursive(child.Checksum(), out)
 	}
 }
@@ -158,7 +158,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 		if err != nil {
 			return
 		}
-		baseDir = filepath.Join(currentEntry.ParentPath, currentEntry.Stat().Name())
+		baseDir = path.Join(currentEntry.ParentPath, currentEntry.Stat().Name())
 	}
 
 	children, err := fsc.ChildrenIter(currentEntry)
@@ -173,7 +173,7 @@ func (fsc *Filesystem) filesRecursive(checksum [32]byte, out chan string) {
 			}
 			fsc.filesRecursive(child.Checksum(), out)
 		} else {
-			out <- filepath.Join(baseDir, child.Stat().Name())
+			out <- path.Join(baseDir, child.Stat().Name())
 		}
 	}
 }
@@ -206,7 +206,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 			return
 		}
 	}
-	baseDir = filepath.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
+	baseDir = path.Join("/", currentEntry.ParentPath, currentEntry.Stat().Name())
 	out <- baseDir
 
 	children, err := fsc.ChildrenIter(currentEntry)
@@ -221,7 +221,7 @@ func (fsc *Filesystem) pathnamesRecursive(checksum [32]byte, out chan string) {
 			}
 			fsc.pathnamesRecursive(child.Checksum(), out)
 		} else {
-			out <- filepath.Join(baseDir, child.Stat().Name())
+			out <- path.Join(baseDir, child.Stat().Name())
 		}
 	}
 }
@@ -316,22 +316,22 @@ func (fsc *Filesystem) statRecursive(checksum [32]byte, components []string) (FS
 	return nil, fmt.Errorf("path not found or invalid: checksum does not correspond to a file or directory")
 }
 
-func (fsc *Filesystem) Stat(path string) (FSEntry, error) {
+func (fsc *Filesystem) Stat(entrypath string) (FSEntry, error) {
 	// Ensure the path starts with a slash for consistency
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	if !strings.HasPrefix(entrypath, "/") {
+		entrypath = "/" + entrypath
 	}
 
-	if path == "/" {
+	if entrypath == "/" {
 		return fsc.rootEntry, nil
 	}
 
-	path = filepath.Clean(path)
+	entrypath = path.Clean(entrypath)
 
 	// Split the path into components for recursive lookup
-	components := strings.Split(path, "/")
+	components := strings.Split(entrypath, "/")
 	if len(components) == 0 {
-		return nil, fmt.Errorf("invalid path: %s", path)
+		return nil, fmt.Errorf("invalid path: %s", entrypath)
 	}
 
 	// Start the recursive lookup from the root

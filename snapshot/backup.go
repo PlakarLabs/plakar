@@ -67,37 +67,6 @@ func (snapshot *Snapshot) skipExcludedPathname(options *BackupOptions, record im
 	return doExclude
 }
 
-func (snap *Snapshot) updateImporterStatistics(record importer.ScanResult) {
-	atomic.AddUint64(&snap.statistics.ImporterRecords, 1)
-
-	switch record := record.(type) {
-	case importer.ScanError:
-		atomic.AddUint64(&snap.statistics.ImporterErrors, 1)
-
-	case importer.ScanRecord:
-		switch record.Type {
-		case importer.RecordTypeFile:
-			atomic.AddUint64(&snap.statistics.ImporterFiles, 1)
-			if record.FileInfo.Nlink() > 1 {
-				atomic.AddUint64(&snap.statistics.ImporterLinks, 1)
-			}
-			atomic.AddUint64(&snap.statistics.ImporterSize, uint64(record.FileInfo.Size()))
-		case importer.RecordTypeDirectory:
-			atomic.AddUint64(&snap.statistics.ImporterDirectories, 1)
-		case importer.RecordTypeSymlink:
-			atomic.AddUint64(&snap.statistics.ImporterSymlinks, 1)
-		case importer.RecordTypeDevice:
-			atomic.AddUint64(&snap.statistics.ImporterDevices, 1)
-		case importer.RecordTypePipe:
-			atomic.AddUint64(&snap.statistics.ImporterPipes, 1)
-		case importer.RecordTypeSocket:
-			atomic.AddUint64(&snap.statistics.ImporterSockets, 1)
-		default:
-			panic("unexpected record type")
-		}
-	}
-}
-
 func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptions) (chan importer.ScanRecord, error) {
 	scanner, err := backupCtx.imp.Scan()
 	if err != nil {
@@ -108,7 +77,6 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 	filesChannel := make(chan importer.ScanRecord, 1000)
 
 	go func() {
-		snap.statistics.ImporterStart = time.Now()
 		for _record := range scanner {
 			if backupCtx.aborted.Load() {
 				break
@@ -124,7 +92,6 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 					<-backupCtx.maxConcurrency
 					wg.Done()
 				}()
-				snap.updateImporterStatistics(record)
 
 				switch record := record.(type) {
 				case importer.ScanError:
@@ -162,7 +129,6 @@ func (snap *Snapshot) importerJob(backupCtx *BackupContext, options *BackupOptio
 		}
 		wg.Wait()
 		close(filesChannel)
-		snap.statistics.ImporterDuration = time.Since(snap.statistics.ImporterStart)
 	}()
 
 	return filesChannel, nil
@@ -236,6 +202,9 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		return err
 	}
 
+	/* backup starts now */
+	beginTime := time.Now()
+
 	/* importer */
 	filesChannel, err := snap.importerJob(backupCtx, options)
 	if err != nil {
@@ -244,7 +213,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	/* scanner */
 	scannerWg := sync.WaitGroup{}
-	snap.statistics.ScannerStart = time.Now()
 	for _record := range filesChannel {
 		backupCtx.maxConcurrency <- true
 		scannerWg.Add(1)
@@ -261,7 +229,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 			var cachedFileEntry *vfs.FileEntry
 			var cachedFileEntryChecksum objects.Checksum
-			var cachedFileEntrySize uint64
 
 			// Check if the file entry and underlying objects are already in the cache
 			if data, err := vfsCache.GetFilename(record.Pathname); err != nil {
@@ -272,7 +239,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					snap.Logger().Warn("VFS CACHE: Error unmarshaling filename: %v", err)
 				} else {
 					cachedFileEntryChecksum = snap.repository.Checksum(data)
-					cachedFileEntrySize = uint64(len(data))
 					if cachedFileEntry.Stat().ModTime().Equal(record.FileInfo.ModTime()) && cachedFileEntry.Stat().Size() == record.FileInfo.Size() {
 						fileEntry = cachedFileEntry
 						if fileEntry.Type == importer.RecordTypeFile {
@@ -297,7 +263,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				if object == nil || !snap.BlobExists(packfile.TYPE_OBJECT, object.Checksum) {
 					object, err = snap.chunkify(imp, cf, record)
 					if err != nil {
-						atomic.AddUint64(&snap.statistics.ChunkerErrors, 1)
 						backupCtx.recordError(record.Pathname, err)
 						return
 					}
@@ -322,8 +287,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 						backupCtx.recordError(record.Pathname, err)
 						return
 					}
-					atomic.AddUint64(&snap.statistics.ObjectsCount, 1)
-					atomic.AddUint64(&snap.statistics.ObjectsSize, uint64(len(data)))
 					err = snap.PutBlob(packfile.TYPE_OBJECT, object.Checksum, data)
 					if err != nil {
 						backupCtx.recordError(record.Pathname, err)
@@ -333,10 +296,8 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			}
 
 			var fileEntryChecksum objects.Checksum
-			var fileEntrySize uint64
 			if fileEntry != nil && snap.BlobExists(packfile.TYPE_FILE, cachedFileEntryChecksum) {
 				fileEntryChecksum = cachedFileEntryChecksum
-				fileEntrySize = cachedFileEntrySize
 			} else {
 				fileEntry = vfs.NewFileEntry(filepath.Dir(record.Pathname), &record)
 				if object != nil {
@@ -355,7 +316,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				}
 
 				fileEntryChecksum = snap.repository.Checksum(serialized)
-				fileEntrySize = uint64(len(serialized))
 				err = snap.PutBlob(packfile.TYPE_FILE, fileEntryChecksum, serialized)
 				if err != nil {
 					backupCtx.recordError(record.Pathname, err)
@@ -394,8 +354,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					return
 				}
 			}
-			atomic.AddUint64(&snap.statistics.VFSFilesCount, 1)
-			atomic.AddUint64(&snap.statistics.VFSFilesSize, fileEntrySize)
 
 			// Record the checksum of the FileEntry in the cache
 			err = sc2.PutChecksum(record.Pathname, fileEntryChecksum)
@@ -403,7 +361,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				backupCtx.recordError(record.Pathname, err)
 				return
 			}
-			atomic.AddUint64(&snap.statistics.ScannerProcessedSize, uint64(record.FileInfo.Size()))
 			snap.Event(events.FileOKEvent(snap.Header.Identifier, record.Pathname))
 		}(_record)
 	}
@@ -509,7 +466,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			return err
 		}
 		dirEntryChecksum := snap.repository.Checksum(serialized)
-		dirEntrySize := uint64(len(serialized))
 
 		if !snap.BlobExists(packfile.TYPE_DIRECTORY, dirEntryChecksum) {
 			err = snap.PutBlob(packfile.TYPE_DIRECTORY, dirEntryChecksum, serialized)
@@ -536,8 +492,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			return err
 		}
 
-		atomic.AddUint64(&snap.statistics.VFSDirectoriesCount, 1)
-		atomic.AddUint64(&snap.statistics.VFSDirectoriesSize, dirEntrySize)
 		snap.Event(events.DirectoryOKEvent(snap.Header.Identifier, record.Pathname))
 		if record.Pathname == "/" {
 			rootSummary = &dirEntry.Summary
@@ -548,18 +502,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		return backupCtx.abortedReason
 	}
 
-	snap.statistics.ScannerDuration = time.Since(snap.statistics.ScannerStart)
-
-	statistics, err := snap.statistics.Serialize()
-	if err != nil {
-		return err
-	}
-	statisticsChecksum := snap.repository.Checksum(statistics)
-	err = snap.PutBlob(packfile.TYPE_DATA, statisticsChecksum, statistics)
-	if err != nil {
-		return err
-	}
-
 	value, err := sc2.GetChecksum("/")
 	if err != nil {
 		return err
@@ -567,8 +509,7 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 
 	snap.Header.Root = value
 	//snap.Header.Metadata = metadataChecksum
-	snap.Header.Statistics = statisticsChecksum
-	snap.Header.Duration = time.Since(snap.statistics.ImporterStart)
+	snap.Header.Duration = time.Since(beginTime)
 	snap.Header.Summary = *rootSummary
 	snap.Header.Errors = errcsum
 
@@ -628,8 +569,6 @@ func entropy(data []byte) (float64, [256]float64) {
 }
 
 func (snap *Snapshot) chunkify(imp importer.Importer, cf *classifier.Classifier, record importer.ScanRecord) (*objects.Object, error) {
-	atomic.AddUint64(&snap.statistics.ChunkerFiles, 1)
-
 	rd, err := imp.NewReader(record.Pathname)
 	if err != nil {
 		return nil, err
@@ -656,7 +595,6 @@ func (snap *Snapshot) chunkify(imp importer.Importer, cf *classifier.Classifier,
 		var chunk_t32 objects.Checksum
 		chunkHasher := snap.repository.Hasher()
 
-		atomic.AddUint64(&snap.statistics.ChunkerChunks, 1)
 		if firstChunk {
 			if object.ContentType == "" {
 				object.ContentType = mimetype.Detect(data).String()
@@ -685,8 +623,6 @@ func (snap *Snapshot) chunkify(imp importer.Importer, cf *classifier.Classifier,
 		totalDataSize += uint64(len(data))
 
 		if !snap.BlobExists(packfile.TYPE_CHUNK, chunk.Checksum) {
-			atomic.AddUint64(&snap.statistics.ChunksCount, 1)
-			atomic.AddUint64(&snap.statistics.ChunksSize, uint64(len(data)))
 			return snap.PutBlob(packfile.TYPE_CHUNK, chunk.Checksum, data)
 		}
 		return nil
@@ -728,8 +664,6 @@ func (snap *Snapshot) chunkify(imp importer.Importer, cf *classifier.Classifier,
 			}
 		}
 	}
-	atomic.AddUint64(&snap.statistics.ChunkerObjects, 1)
-	atomic.AddUint64(&snap.statistics.ChunkerSize, uint64(record.FileInfo.Size()))
 
 	if totalDataSize > 0 {
 		object.Entropy = totalEntropy / float64(totalDataSize)

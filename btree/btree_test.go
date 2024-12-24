@@ -155,7 +155,10 @@ func TestInsert(t *testing.T) {
 		}
 	}
 
-	unique := []struct{key string; val int}{
+	unique := []struct {
+		key string
+		val int
+	}{
 		{"a", 2},
 		{"b", 3},
 		{"c", 9},
@@ -237,6 +240,44 @@ func TestScanFrom(t *testing.T) {
 		r := alphabet[i]
 		if !iter.Next() {
 			t.Fatalf("iterator stopped too early!")
+		}
+		k, v := iter.Current()
+		if k != r {
+			t.Errorf("Got key %c; want %c", k, r)
+		}
+		if v != i {
+			t.Errorf("Got value %v; want %v", v, i)
+		}
+	}
+
+	if iter.Next() {
+		t.Fatalf("iterator could unexpectedly continue")
+	}
+}
+
+func TestScanAllReverse(t *testing.T) {
+	store := InMemoryStore[rune, int]{}
+	tree, err := New(&store, cmp, 3)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	alphabet := []rune("abcdefghijklmnopqrstuvwxyz")
+	for i, r := range alphabet {
+		if err := tree.Insert(r, i); err != nil {
+			t.Fatalf("Failed to insert(%v, %v): %v", r, i, err)
+		}
+	}
+
+	iter, err := tree.ScanAllReverse()
+	if err != nil {
+		t.Fatalf("ScanAll failed: %v", err)
+	}
+
+	for i := len(alphabet) - 1; i >= 0; i-- {
+		r := alphabet[i]
+		if !iter.Next() {
+			t.Fatalf("iterator stopped too early at %v (%c)", i, r)
 		}
 		k, v := iter.Current()
 		if k != r {

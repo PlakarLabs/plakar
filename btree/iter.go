@@ -126,12 +126,12 @@ func (b *BTree[K, P, V]) ScanFrom(key K) (Iterator[K, P, V], error) {
 
 type step[K, P, V any] struct {
 	ptr  P
-	node *Node[K, P, V]
 	idx  int
 }
 
 type backwardIter[K, P, V any] struct {
 	b     *BTree[K, P, V]
+	cur   *Node[K, P, V]
 	steps []step[K, P, V]
 	err   error
 }
@@ -144,12 +144,12 @@ func (bit *backwardIter[K, P, V]) dive(ptr P) error {
 		}
 
 		bit.steps = append(bit.steps, step[K, P, V]{
-			node: node,
 			ptr:  ptr,
 			idx:  len(node.Keys),
 		})
 
 		if node.isleaf() {
+			bit.cur = node
 			return nil
 		}
 		ptr = node.Pointers[len(node.Keys)]
@@ -180,8 +180,15 @@ func (bit *backwardIter[K, P, V]) Next() bool {
 			continue
 		}
 
+		// fetch parent node
+		node, err := bit.b.store.Get(last.ptr)
+		if err != nil {
+			bit.err = err
+			return false
+		}
+
 		bit.steps[len(bit.steps)-1].idx--
-		bit.err = bit.dive(last.node.Pointers[bit.steps[len(bit.steps)-1].idx])
+		bit.err = bit.dive(node.Pointers[bit.steps[len(bit.steps)-1].idx])
 		bit.steps[len(bit.steps)-1].idx--
 		return bit.err == nil
 	}
@@ -191,7 +198,7 @@ func (bit *backwardIter[K, P, V]) Next() bool {
 
 func (bit *backwardIter[K, P, V]) Current() (K, V) {
 	last := bit.steps[len(bit.steps)-1]
-	return last.node.Keys[last.idx], last.node.Values[last.idx]
+	return bit.cur.Keys[last.idx], bit.cur.Values[last.idx]
 }
 
 func (bit *backwardIter[K, P, V]) Node() P {

@@ -124,7 +124,7 @@ func (b *BTree[K, P, V]) ScanFrom(key K) (Iterator[K, P, V], error) {
 	}, nil
 }
 
-func (b *BTree[K, P, V]) VisitLevelOrder(cb func(Node[K, P, V]) bool) error {
+func (b *BTree[K, P, V]) VisitLevelOrder(cb func(P, Node[K, P, V]) bool) error {
 	stack := []P{b.Root}
 
 	for {
@@ -139,7 +139,7 @@ func (b *BTree[K, P, V]) VisitLevelOrder(cb func(Node[K, P, V]) bool) error {
 			return err
 		}
 
-		if !cb(node) {
+		if !cb(ptr, node) {
 			return nil
 		}
 

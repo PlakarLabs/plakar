@@ -58,7 +58,7 @@ func cmp(a, b rune) int {
 
 func printtree[K any, P any, V any](b *BTree[K, P, V]) {
 	n := -1
-	b.VisitLevelOrder(func(node Node[K, P, V]) bool {
+	b.VisitLevelOrder(func(ptr P, node Node[K, P, V]) bool {
 		n++
 		log.Printf("%v keys: %+v (ptrs: %+v)", n, node.Keys, node.Pointers)
 		return true

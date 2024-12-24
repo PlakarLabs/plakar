@@ -170,19 +170,23 @@ func (n *Node[K, P, V]) split() (new *Node[K, P, V]) {
 	return new
 }
 
-func (b *BTree[K, P, V]) Insert(key K, val V) error {
+func (b *BTree[K, P, V]) insert(key K, val V, overwrite bool) error {
 	node, path, err := b.findleaf(key)
 	if err != nil {
 		return err
 	}
 
-	idx, found := b.findsplit(key, node)
-	if found {
-		return ErrExists
-	}
-
 	ptr := path[len(path)-1]
 	path = path[:len(path)-1]
+
+	idx, found := b.findsplit(key, node)
+	if found {
+		if overwrite {
+			node.Values[idx] = val
+			return b.store.Update(ptr, node)
+		}
+		return ErrExists
+	}
 
 	node.insertAt(idx, key, val)
 	if len(node.Keys) < b.Order {
@@ -202,6 +206,14 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 
 	key = new.Keys[0]
 	return b.insertUpwards(key, newptr, path)
+}
+
+func (b *BTree[K, P, V]) Insert(key K, val V) error {
+	return b.insert(key, val, false)
+}
+
+func (b *BTree[K, P, V]) Update(key K, val V) error {
+	return b.insert(key, val, true)
 }
 
 func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {

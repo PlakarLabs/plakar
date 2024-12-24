@@ -23,26 +23,30 @@ func (s *InMemoryStore[K, V]) get(ptr int) (*Node[K, int, V], error) {
 	return &s.store[ptr], nil
 }
 
-func (s *InMemoryStore[K, V]) Get(ptr int) (n Node[K, int, V], err error) {
+func (s *InMemoryStore[K, V]) Get(ptr int) (n *Node[K, int, V], err error) {
 	node, err := s.get(ptr)
 	if err != nil {
 		return
 	}
-	return *node, nil
+	return node, nil
 }
 
-func (s *InMemoryStore[K, V]) Update(ptr int, n Node[K, int, V]) error {
+func (s *InMemoryStore[K, V]) Update(ptr int, n *Node[K, int, V]) error {
 	_, err := s.get(ptr)
 	if err != nil {
 		return err
 	}
 
-	s.store[ptr] = n
+	dup := newNodeFrom(n.Keys, n.Pointers, n.Values)
+	dup.Next = n.Next
+	s.store[ptr] = *dup
 	return nil
 }
 
-func (s *InMemoryStore[K, V]) Put(n Node[K, int, V]) (int, error) {
-	s.store = append(s.store, n)
+func (s *InMemoryStore[K, V]) Put(n *Node[K, int, V]) (int, error) {
+	dup := newNodeFrom(n.Keys, n.Pointers, n.Values)
+	dup.Next = n.Next
+	s.store = append(s.store, *dup)
 	return len(s.store) - 1, nil
 }
 
@@ -58,7 +62,7 @@ func cmp(a, b rune) int {
 
 func printtree[K any, P any, V any](b *BTree[K, P, V]) {
 	n := -1
-	b.VisitLevelOrder(func(ptr P, node Node[K, P, V]) bool {
+	b.VisitLevelOrder(func(ptr P, node *Node[K, P, V]) bool {
 		n++
 		log.Printf("%v keys: %+v (ptrs: %+v)", n, node.Keys, node.Pointers)
 		return true

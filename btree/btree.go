@@ -12,11 +12,11 @@ var (
 type Storer[K any, P any, V any] interface {
 	// Get returns the node pointed by P.  The pointer is one
 	// previously returned by the Put method.
-	Get(P) (Node[K, P, V], error)
+	Get(P) (*Node[K, P, V], error)
 	// Updates in-place the node pointed by P.
-	Update(P, Node[K, P, V]) error
+	Update(P, *Node[K, P, V]) error
 	// Put saves a new node and returns its address, or an error.
-	Put(Node[K, P, V]) (P, error)
+	Put(*Node[K, P, V]) (P, error)
 }
 
 type Node[K any, P any, V any] struct {
@@ -45,7 +45,7 @@ type BTree[K any, P any, V any] struct {
 // New returns a new, empty tree.
 func New[K any, P any, V any](store Storer[K, P, V], compare func(K, K) int, order int) (*BTree[K, P, V], error) {
 	root := Node[K, P, V]{}
-	ptr, err := store.Put(root)
+	ptr, err := store.Put(&root)
 	if err != nil {
 		return nil, err
 	}
@@ -70,11 +70,23 @@ func FromStorage[K any, P any, V any](root P, store Storer[K, P, V], compare fun
 	}
 }
 
+func newNodeFrom[K, P, V any](keys []K, pointers []P, values []V) *Node[K, P, V] {
+	node := &Node[K, P, V]{
+		Keys:     make([]K, len(keys)),
+		Pointers: make([]P, len(pointers)),
+		Values:   make([]V, len(values)),
+	}
+	copy(node.Keys, keys)
+	copy(node.Pointers, pointers)
+	copy(node.Values, values)
+	return node
+}
+
 func (n *Node[K, P, V]) isleaf() bool {
 	return len(n.Pointers) == 0
 }
 
-func (b *BTree[K, P, V]) findleaf(key K) (node Node[K, P, V], path []P, err error) {
+func (b *BTree[K, P, V]) findleaf(key K) (node *Node[K, P, V], path []P, err error) {
 	ptr := b.Root
 
 	for {
@@ -134,27 +146,28 @@ func (n *Node[K, P, V]) insertInternal(idx int, key K, ptr P) {
 	}
 
 	n.Keys = slices.Insert(n.Keys, idx, key)
-	n.Pointers = slices.Insert(n.Pointers, idx, ptr)
+	n.Pointers = slices.Insert(n.Pointers, idx+1, ptr)
 }
 
 func (b *BTree[K, P, V]) findsplit(key K, node *Node[K, P, V]) (int, bool) {
 	return slices.BinarySearchFunc(node.Keys, key, b.compare)
 }
 
-func (n *Node[K, P, V]) split() (new Node[K, P, V]) {
-	cutoff := (len(n.Keys) + 1) / 2
-	new.Keys = n.Keys[cutoff:]
-	n.Keys = n.Keys[:cutoff]
+func (n *Node[K, P, V]) split() (new *Node[K, P, V]) {
+	cutoff := (len(n.Keys)+1)/2 - 1
+	if cutoff == 0 {
+		cutoff = 1
+	}
 
 	if n.isleaf() {
-		new.Values = n.Values[cutoff:]
+		new = newNodeFrom(n.Keys[cutoff:], []P{}, n.Values[cutoff:])
 		n.Values = n.Values[:cutoff]
 	} else {
-		cutoff++
-		new.Pointers = n.Pointers[cutoff:]
-		n.Pointers = n.Pointers[:cutoff]
+		new = newNodeFrom(n.Keys[cutoff:], n.Pointers[cutoff+1:], []V{})
+		n.Pointers = n.Pointers[:cutoff+1]
 	}
-	return
+	n.Keys = n.Keys[:cutoff]
+	return new
 }
 
 func (b *BTree[K, P, V]) Insert(key K, val V) error {
@@ -163,26 +176,21 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 		return err
 	}
 
-	idx, found := b.findsplit(key, &node)
+	idx, found := b.findsplit(key, node)
 	if found {
 		return ErrExists
 	}
 
 	ptr := path[len(path)-1]
-	if len(node.Keys) < b.Order-1 {
-		node.insertAt(idx, key, val)
+	path = path[:len(path)-1]
+
+	node.insertAt(idx, key, val)
+	if len(node.Keys) < b.Order {
 		return b.store.Update(ptr, node)
 	}
 
 	new := node.split()
-	if idx < len(node.Keys) {
-		idx = 0
-	} else {
-		idx -= len(node.Keys)
-	}
-	new.insertAt(idx, key, val)
 	new.Next = node.Next
-
 	newptr, err := b.store.Put(new)
 	if err != nil {
 		return err
@@ -193,7 +201,7 @@ func (b *BTree[K, P, V]) Insert(key K, val V) error {
 	}
 
 	key = new.Keys[0]
-	return b.insertUpwards(key, newptr, path[:len(path)-1])
+	return b.insertUpwards(key, newptr, path)
 }
 
 func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
@@ -203,23 +211,17 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 			return err
 		}
 
-		idx, found := b.findsplit(key, &node)
+		idx, found := b.findsplit(key, node)
 		if found {
 			panic("broken invariant: duplicate key in intermediate node")
 		}
 
-		if len(node.Keys) < b.Order-1 {
-			node.insertInternal(idx, key, ptr)
+		node.insertInternal(idx, key, ptr)
+		if len(node.Keys) < b.Order {
 			return b.store.Update(path[i], node)
 		}
 
 		new := node.split()
-		if idx < len(node.Keys) {
-			idx = 0
-		} else {
-			idx -= len(node.Keys)
-		}
-		new.insertInternal(idx, key, ptr)
 		key = new.Keys[0]
 		new.Keys = new.Keys[1:]
 		ptr, err = b.store.Put(new)
@@ -232,7 +234,7 @@ func (b *BTree[K, P, V]) insertUpwards(key K, ptr P, path []P) error {
 	}
 
 	// reached the root, growing the tree
-	newroot := Node[K, P, V]{
+	newroot := &Node[K, P, V]{
 		Keys:     []K{key},
 		Pointers: []P{b.Root, ptr},
 	}

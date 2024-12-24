@@ -20,25 +20,26 @@ type SnapshotStore[K any, V any] struct {
 	snap     *Snapshot
 }
 
-func (s *SnapshotStore[K, V]) Get(sum objects.Checksum) (node btree.Node[K, objects.Checksum, V], err error) {
+func (s *SnapshotStore[K, V]) Get(sum objects.Checksum) (*btree.Node[K, objects.Checksum, V], error) {
 	bytes, err := s.snap.GetBlob(s.blobtype, sum)
 	if err != nil {
-		return
+		return nil, err
 	}
-	err = msgpack.Unmarshal(bytes, &node)
-	return
+	node := &btree.Node[K, objects.Checksum, V]{}
+	err = msgpack.Unmarshal(bytes, node)
+	return node, err
 }
 
-func (s *SnapshotStore[K, V]) Update(sum objects.Checksum, node btree.Node[K, objects.Checksum, V]) error {
+func (s *SnapshotStore[K, V]) Update(sum objects.Checksum, node *btree.Node[K, objects.Checksum, V]) error {
 	return ErrReadOnly
 }
 
-func (s *SnapshotStore[K, V]) Put(node btree.Node[K, objects.Checksum, V]) (objects.Checksum, error) {
+func (s *SnapshotStore[K, V]) Put(node *btree.Node[K, objects.Checksum, V]) (objects.Checksum, error) {
 	if s.readonly {
 		return objects.Checksum{}, ErrReadOnly
 	}
 
-	bytes, err := msgpack.Marshal(&node)
+	bytes, err := msgpack.Marshal(node)
 	if err != nil {
 		return objects.Checksum{}, err
 	}

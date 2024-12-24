@@ -5,13 +5,12 @@ func persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 	var zero PB
 
 	for i := len(node.Pointers) - 1; i >= 0; i-- {
-		var child Node[K, PA, V]
 		child, err := b.store.Get(node.Pointers[i])
 		if err != nil {
 			return zero, err
 		}
 
-		ptr, err := persist(b, store, &child, lastptr)
+		ptr, err := persist(b, store, child, lastptr)
 		if err != nil {
 			return zero, err
 		}
@@ -28,7 +27,7 @@ func persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 		ptrs[i], ptrs[opp] = ptrs[opp], ptrs[i]
 	}
 
-	newnode := Node[K, PB, V]{
+	newnode := &Node[K, PB, V]{
 		Keys:     node.Keys,
 		Values:   node.Values,
 		Pointers: ptrs,
@@ -51,5 +50,5 @@ func Persist[K any, PA any, PB any, V any](b *BTree[K, PA, V], store Storer[K, P
 	}
 
 	var lastptr *PB
-	return persist(b, store, &root, &lastptr)
+	return persist(b, store, root, &lastptr)
 }

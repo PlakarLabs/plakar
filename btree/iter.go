@@ -37,7 +37,7 @@ func (fit *forwardIter[K, P, V]) Next() bool {
 	}
 
 	fit.ptr = nextptr
-	fit.current = &next
+	fit.current = next
 	fit.idx = 0
 	return true
 }
@@ -67,7 +67,7 @@ func (b *BTree[K, P, V]) ScanAll() (Iterator[K, P, V], error) {
 		}
 
 		if node.isleaf() {
-			n = &node
+			n = node
 			break
 		}
 		ptr = node.Pointers[0]
@@ -119,12 +119,12 @@ func (b *BTree[K, P, V]) ScanFrom(key K) (Iterator[K, P, V], error) {
 	return &forwardIter[K, P, V]{
 		b:       b,
 		ptr:     ptr,
-		current: &node,
+		current: node,
 		idx:     idx,
 	}, nil
 }
 
-func (b *BTree[K, P, V]) VisitLevelOrder(cb func(P, Node[K, P, V]) bool) error {
+func (b *BTree[K, P, V]) VisitLevelOrder(cb func(P, *Node[K, P, V]) bool) error {
 	stack := []P{b.Root}
 
 	for {

@@ -3,7 +3,6 @@ package snapshot
 import (
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"mime"
 	"path/filepath"
@@ -424,7 +423,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 		if !dirEntry.Stat().IsDir() {
 			continue
 		}
-		log.Println("considering directory", dirPath)
 
 		prefix := dirPath
 		if prefix != "/" {
@@ -445,8 +443,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 				break
 			}
 
-			log.Println("considering child of", dirPath, "named", childPath)
-
 			if childEntry.Stat().Mode().IsDir() {
 				data, err := sc2.GetSummary(childPath)
 				if err != nil {
@@ -458,7 +454,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					continue
 				}
 
-				log.Println("updating", dirPath, "with", childPath, "child summary", childSummary)
 				dirEntry.Summary.UpdateBelow(childSummary)
 			} else {
 				data, err := vfsCache.GetFileSummary(childPath)
@@ -471,7 +466,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 					continue
 				}
 
-				log.Println("updating", dirPath, "with", childPath,"summary", fileSummary)
 				dirEntry.Summary.UpdateWithFileSummary(fileSummary)
 			}
 
@@ -524,7 +518,6 @@ func (snap *Snapshot) Backup(scanDir string, options *BackupOptions) error {
 			rootSummary = dirEntry.Summary
 		}
 
-		log.Println("updating", dirPath)
 		if err := backupCtx.fileidx.Update(dirPath, dirEntry); err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package vfs
 import (
 	"io"
 	"io/fs"
-	"log"
 	"path"
 	"strings"
 
@@ -83,12 +82,6 @@ func NewFilesystem(repo *repository.Repository, root objects.Checksum) (*Filesys
 		repo: repo,
 	}
 
-	iter, _ := fs.tree.ScanAll()
-	for iter.Next() {
-		path, _ := iter.Current()
-		log.Println("tree:", path)
-	}
-
 	return fs, nil
 }
 
@@ -104,14 +97,11 @@ func (fsc *Filesystem) lookup(entrypath string) (*Entry, error) {
 
 	entry, found, err := fsc.tree.Find(entrypath)
 	if err != nil {
-		log.Println("error looking up", entrypath, ":", err)
 		return nil, err
 	}
 	if !found {
-		log.Println("path not found", entrypath)
 		return nil, fs.ErrNotExist
 	}
-	//log.Println("found", path, ":", entry)
 	return &entry, nil
 }
 

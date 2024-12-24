@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"os/user"
@@ -28,8 +29,8 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/subcommands"
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
+	"github.com/PlakarKorp/plakar/objects"
 	"github.com/PlakarKorp/plakar/repository"
-	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/dustin/go-humanize"
 )
 
@@ -53,7 +54,10 @@ func cmd_ls(ctx *context.Context, repo *repository.Repository, args []string) in
 		return 0
 	}
 
-	list_snapshot(repo, flags.Arg(0), opt_recursive)
+	if err := list_snapshot(repo, flags.Arg(0), opt_recursive); err != nil {
+		log.Println("error:", err)
+		return 1
+	}
 	return 0
 }
 
@@ -95,70 +99,6 @@ func list_snapshots(repo *repository.Repository, useUuid bool, tag string) {
 	}
 }
 
-func _list_snapshot(pvfs *vfs.Filesystem, pathname string, recursive bool) error {
-	entry, err := pvfs.Stat(pathname)
-	if err != nil {
-		log.Fatalf("%s: could not fetch vfs list: %s", flag.CommandLine.Name(), err)
-	}
-
-	switch entry := entry.(type) {
-	case *vfs.DirEntry:
-		children, err := pvfs.ChildrenIter(entry)
-		if err != nil {
-			return err
-		}
-		for child := range children {
-			fi := child.Stat()
-			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
-			username := fmt.Sprintf("%d", fi.Uid())
-			if err == nil {
-				username = pwUserLookup.Username
-			}
-
-			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
-			groupname := fmt.Sprintf("%d", fi.Gid())
-			if err == nil {
-				groupname = grGroupLookup.Name
-			}
-			fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-				fi.ModTime().UTC().Format(time.RFC3339),
-				fi.Mode(),
-				username,
-				groupname,
-				humanize.Bytes(uint64(fi.Size())),
-				fi.Name())
-			if recursive {
-				err := _list_snapshot(pvfs, pathname+"/"+fi.Name(), recursive)
-				if err != nil {
-					log.Println(err)
-				}
-			}
-		}
-
-	case *vfs.FileEntry:
-		fi := entry.Stat()
-		pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", fi.Uid()))
-		username := fmt.Sprintf("%d", fi.Uid())
-		if err == nil {
-			username = pwUserLookup.Username
-		}
-
-		grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", fi.Gid()))
-		groupname := fmt.Sprintf("%d", fi.Gid())
-		if err == nil {
-			groupname = grGroupLookup.Name
-		}
-		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
-			fi.ModTime().UTC().Format(time.RFC3339),
-			fi.Mode(),
-			username,
-			groupname,
-			humanize.Bytes(uint64(fi.Size())),
-			fi.Name())
-	}
-	return nil
-}
-
 func list_snapshot(repo *repository.Repository, snapshotPath string, recursive bool) error {
 	prefix, pathname := utils.ParseSnapshotID(snapshotPath)
 
@@ -171,5 +111,44 @@ func list_snapshot(repo *repository.Repository, snapshotPath string, recursive b
 	if err != nil {
 		log.Fatal(err)
 	}
-	return _list_snapshot(pvfs, pathname, recursive)
+
+	return fs.WalkDir(pvfs, pathname, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			log.Println("error at", path, ":", err)
+			return err
+		}
+
+		sb, err := d.Info()
+		if err != nil {
+			return err
+		}
+
+		var username, groupname string
+		if finfo, ok := sb.Sys().(objects.FileInfo); ok {
+			pwUserLookup, err := user.LookupId(fmt.Sprintf("%d", finfo.Uid()))
+			username = fmt.Sprintf("%d", finfo.Uid())
+			if err == nil {
+				username = pwUserLookup.Username
+			}
+
+			grGroupLookup, err := user.LookupGroupId(fmt.Sprintf("%d", finfo.Gid()))
+			groupname = fmt.Sprintf("%d", finfo.Gid())
+			if err == nil {
+				groupname = grGroupLookup.Name
+			}
+		}
+
+		fmt.Fprintf(os.Stdout, "%s %s % 8s % 8s % 8s %s\n",
+			sb.ModTime().UTC().Format(time.RFC3339),
+			sb.Mode(),
+			username,
+			groupname,
+			humanize.Bytes(uint64(sb.Size())),
+			path)
+
+		if !recursive {
+			return fs.SkipAll
+		}
+		return nil
+	})
 }

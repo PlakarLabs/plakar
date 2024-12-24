@@ -30,7 +30,7 @@ type Result interface {
 type FileEntry struct {
 	Repository string           `json:"repository"`
 	Snapshot   objects.Checksum `json:"snapshot"`
-	FileEntry  vfs.FileEntry    `json:"fileentry"`
+	FileEntry  *vfs.Entry        `json:"fileentry"`
 }
 
 func (FileEntry) isSearchResult() {}

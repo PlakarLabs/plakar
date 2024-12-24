@@ -38,11 +38,11 @@ func (p *Processor) Name() string {
 	return NAME
 }
 
-func (p *Processor) Directory(dirEntry *vfs.DirEntry) []string {
+func (p *Processor) Directory(dirEntry *vfs.Entry) []string {
 	return []string{}
 }
 
-func (p *Processor) File(fileEntry *vfs.FileEntry) []string {
+func (p *Processor) File(fileEntry *vfs.Entry) []string {
 	return []string{}
 }
 

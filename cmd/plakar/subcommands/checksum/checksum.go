@@ -75,31 +75,28 @@ func cmd_checksum(ctx *context.Context, repo *repository.Repository, args []stri
 }
 
 func displayChecksums(fs *vfs.Filesystem, repo *repository.Repository, snap *snapshot.Snapshot, pathname string, fastcheck bool) error {
-	fsinfo, err := fs.Stat(pathname)
+	fsinfo, err := fs.GetEntry(pathname)
 	if err != nil {
 		return err
 	}
 
-	if dirEntry, isDir := fsinfo.(*vfs.DirEntry); isDir {
-		children, err := fs.ChildrenIter(dirEntry)
+	if fsinfo.Stat().Mode().IsDir() {
+		iter, err := fsinfo.Getdents(fs)
 		if err != nil {
 			return err
 		}
-		for child := range children {
+		for child := range iter {
 			if err := displayChecksums(fs, repo, snap, path.Join(pathname, child.Stat().Name()), fastcheck); err != nil {
 				return err
 			}
 		}
+		return nil
+	}
+	if !fsinfo.Stat().Mode().IsRegular() {
+		return nil
 	}
 
-	if fsinfo, isRegular := fsinfo.(*vfs.FileEntry); !isRegular {
-		return err
-	} else if !fsinfo.Stat().Mode().IsRegular() {
-		return err
-	}
-
-	info := fsinfo.(*vfs.FileEntry)
-	object, err := snap.LookupObject(info.Object.Checksum)
+	object, err := snap.LookupObject(fsinfo.Object.Checksum)
 	if err != nil {
 		return err
 	}

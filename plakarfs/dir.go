@@ -71,23 +71,23 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 
 		d.fullpath = filepath.Clean(d.fullpath)
 
-		fi, err := d.vfs.Stat(d.fullpath)
+		fi, err := d.vfs.GetEntry(d.fullpath)
 		if err != nil {
 			return syscall.ENOENT
 		}
 
-		if fi, ok := fi.(*vfs.DirEntry); !ok {
+		if !fi.Stat().IsDir() {
 			panic(fmt.Sprintf("unexpected type %T", fi))
-		} else {
-			a.Rdev = uint32(fi.Stat().Dev())
-			a.Inode = fi.Stat().Ino()
-			a.Mode = fi.Stat().Mode()
-			a.Uid = uint32(fi.Stat().Uid())
-			a.Gid = uint32(fi.Stat().Gid())
-			a.Ctime = fi.Stat().ModTime()
-			a.Mtime = fi.Stat().ModTime()
-			a.Size = uint64(fi.Stat().Size())
 		}
+
+		a.Rdev = uint32(fi.Stat().Dev())
+		a.Inode = fi.Stat().Ino()
+		a.Mode = fi.Stat().Mode()
+		a.Uid = uint32(fi.Stat().Uid())
+		a.Gid = uint32(fi.Stat().Gid())
+		a.Ctime = fi.Stat().ModTime()
+		a.Mtime = fi.Stat().ModTime()
+		a.Size = uint64(fi.Stat().Size())
 	}
 	return nil
 }
@@ -99,17 +99,15 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return &Dir{parent: d, name: name}, nil
 	} else {
 		cleanpath := filepath.Clean(d.fullpath + "/" + name)
-		fi, err := d.vfs.Stat(cleanpath)
+		entry, err := d.vfs.GetEntry(cleanpath)
 		if err != nil {
 			return nil, err
 		}
-		if _, isDir := fi.(*vfs.DirEntry); isDir {
+
+		if entry.Stat().IsDir() {
 			return &Dir{parent: d, name: name}, nil
-		} else if _, isFile := fi.(*vfs.FileEntry); isFile {
-			return &File{parent: d, name: name}, nil
-		} else {
-			return nil, fmt.Errorf("unknown file type")
 		}
+		return &File{parent: d, name: name}, nil
 	}
 }
 
@@ -141,24 +139,19 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	dirDirs := make([]fuse.Dirent, 0)
 	for child := range children {
 		cleanpath := filepath.Clean(d.fullpath + "/" + child)
-		fi, err := d.vfs.Stat(cleanpath)
+		entry, err := d.vfs.GetEntry(cleanpath)
 		if err != nil {
 			fmt.Println(err)
 			return nil, err
 		}
 
-		var dirEnt fuse.Dirent
-		switch fi := fi.(type) {
-		case *vfs.DirEntry:
-			dirEnt.Inode = fi.Stat().Ino()
-			dirEnt.Name = child
+		dirEnt := fuse.Dirent{
+			Inode: entry.Stat().Ino(),
+			Name: child,
+			Type: fuse.DT_File,
+		}
+		if entry.Stat().IsDir() {
 			dirEnt.Type = fuse.DT_Dir
-		case *vfs.FileEntry:
-			dirEnt.Inode = fi.Stat().Ino()
-			dirEnt.Name = child
-			dirEnt.Type = fuse.DT_File
-		default:
-			return nil, fmt.Errorf("unknown file type")
 		}
 
 		dirDirs = append(dirDirs, dirEnt)

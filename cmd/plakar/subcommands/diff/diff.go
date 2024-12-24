@@ -103,12 +103,15 @@ func diff_filesystems(snap1 *snapshot.Snapshot, snap2 *snapshot.Snapshot) (strin
 		return "", err
 	}
 
-	stat1, err1 := vfs1.Stat("/")
-	stat2, err2 := vfs2.Stat("/")
-	if err1 != nil && err2 != nil {
-		return "", fmt.Errorf("root not found in both snapshots")
+	var f1, f2 *vfs.Entry
+	if f1, err = vfs1.GetEntry("/"); err != nil {
+		return "", err
 	}
-	return diff_directories(stat1.(*vfs.DirEntry), stat2.(*vfs.DirEntry))
+	if f2, err = vfs2.GetEntry("/"); err != nil {
+		return "", err
+	}
+
+	return diff_directories(f1, f2)
 }
 
 func diff_pathnames(snap1 *snapshot.Snapshot, pathname1 string, snap2 *snapshot.Snapshot, pathname2 string) (string, error) {
@@ -122,37 +125,30 @@ func diff_pathnames(snap1 *snapshot.Snapshot, pathname1 string, snap2 *snapshot.
 		return "", err
 	}
 
-	stat1, err1 := vfs1.Stat(pathname1)
-	stat2, err2 := vfs2.Stat(pathname2)
-	if err1 != nil && err2 != nil {
-		return "", fmt.Errorf("file not found in both snapshots")
+	var f1, f2 *vfs.Entry
+	if f1, err = vfs1.GetEntry(pathname1); err != nil {
+		return "", err
+	}
+	if f2, err = vfs2.GetEntry(pathname2); err != nil {
+		return "", err
 	}
 
-	dirEntry1, isDir1 := stat1.(*vfs.DirEntry)
-	dirEntry2, isDir2 := stat2.(*vfs.DirEntry)
-	if isDir1 && isDir2 {
-		return diff_directories(dirEntry1, dirEntry2)
+	if f1.Stat().IsDir() && f2.Stat().IsDir() {
+		return diff_directories(f1, f2)
 	}
 
-	fileEntry1, isFile1 := stat1.(*vfs.FileEntry)
-	fileEntry2, isFile2 := stat2.(*vfs.FileEntry)
-	if isFile1 && isFile2 {
-		return diff_files(snap1, fileEntry1, snap2, fileEntry2)
+	if f1.Stat().IsDir() || f2.Stat().IsDir() {
+		return "", fmt.Errorf("can't diff different file types")
 	}
 
+	return diff_files(snap1, f1, snap2, f2)
+}
+
+func diff_directories(dirEntry1 *vfs.Entry, dirEntry2 *vfs.Entry) (string, error) {
 	return "", fmt.Errorf("not implemented yet")
 }
 
-func diff_directories(dirEntry1 *vfs.DirEntry, dirEntry2 *vfs.DirEntry) (string, error) {
-	_ = dirEntry1
-	_ = dirEntry2
-	return "", fmt.Errorf("not implemented yet")
-}
-
-func diff_files(snap1 *snapshot.Snapshot, fileEntry1 *vfs.FileEntry, snap2 *snapshot.Snapshot, fileEntry2 *vfs.FileEntry) (string, error) {
-	_ = fileEntry1
-	_ = fileEntry2
-
+func diff_files(snap1 *snapshot.Snapshot, fileEntry1 *vfs.Entry, snap2 *snapshot.Snapshot, fileEntry2 *vfs.Entry) (string, error) {
 	if fileEntry1.Object.Checksum == fileEntry2.Object.Checksum {
 		fmt.Printf("%s:%s and %s:%s are identical\n",
 			fmt.Sprintf("%x", snap1.Header.GetIndexShortID()), path.Join(fileEntry1.ParentPath, fileEntry1.Stat().Name()),

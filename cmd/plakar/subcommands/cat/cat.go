@@ -27,7 +27,6 @@ import (
 	"github.com/PlakarKorp/plakar/cmd/plakar/utils"
 	"github.com/PlakarKorp/plakar/context"
 	"github.com/PlakarKorp/plakar/repository"
-	"github.com/PlakarKorp/plakar/snapshot/vfs"
 	"github.com/alecthomas/chroma/formatters"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
@@ -74,45 +73,39 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 			continue
 		}
 
-		st, err := fs.Stat(pathname)
+		entry, err := fs.GetEntry(pathname)
 		if err != nil {
 			ctx.GetLogger().Error("%s: %s: no such file", flags.Name(), pathname)
 			errors++
 			continue
 		}
 
-		if !st.Stat().Mode().IsRegular() {
+		if !entry.Stat().Mode().IsRegular() {
 			ctx.GetLogger().Error("%s: %s: not a regular file", flags.Name(), pathname)
 			errors++
 			continue
 		}
-		fileEntry := st.(*vfs.FileEntry)
 
-		rd, err := snap.NewReader(pathname)
-		if err != nil {
-			ctx.GetLogger().Error("%s: %s: failed to open: %s", flags.Name(), pathname, err)
-			errors++
-			continue
-		}
-
-		var outRd io.ReadCloser = rd
+		file := entry.Open(fs, pathname)
+		var rd io.ReadCloser = file
 
 		if !opt_nodecompress {
-			if fileEntry.Object.ContentType == "application/gzip" && !opt_nodecompress {
-				gzRd, err := gzip.NewReader(outRd)
+			if entry.Object.ContentType == "application/gzip" && !opt_nodecompress {
+				gzRd, err := gzip.NewReader(rd)
 				if err != nil {
 					ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
 					errors++
+					file.Close()
 					continue
 				}
-				outRd = gzRd
+				rd = gzRd
 			}
 		}
 
 		if opt_highlight {
 			lexer := lexers.Match(pathname)
 			if lexer == nil {
-				lexer = lexers.Get(fileEntry.Object.ContentType)
+				lexer = lexers.Get(entry.Object.ContentType)
 			}
 			if lexer == nil {
 				lexer = lexers.Fallback // Fallback if no lexer is found
@@ -152,10 +145,10 @@ func cmd_cat(ctx *context.Context, repo *repository.Repository, args []string) i
 					break
 				}
 			}
-
 		} else {
-			_, err = io.Copy(os.Stdout, outRd)
+			_, err = io.Copy(os.Stdout, rd)
 		}
+		file.Close()
 		if err != nil {
 			ctx.GetLogger().Error("%s: %s: %s", flags.Name(), pathname, err)
 			errors++

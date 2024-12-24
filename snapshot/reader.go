@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"io"
+	"io/fs"
 	"os"
 	"path"
 
@@ -15,16 +16,19 @@ func (snapshot *Snapshot) NewReader(pathname string) (io.ReadCloser, error) {
 func NewReader(snap *Snapshot, pathname string) (io.ReadCloser, error) {
 	pathname = path.Clean(pathname)
 
-	fs, err := vfs.NewFilesystem(snap.Repository(), snap.Header.Root)
+	fsc, err := vfs.NewFilesystem(snap.Repository(), snap.Header.Root)
 	if err != nil {
 		return nil, err
 	}
 
-	st, err := fs.Stat(pathname)
+	file, err := fsc.Open(pathname)
 	if err != nil {
 		return nil, err
-	} else if _, isDir := st.(*vfs.DirEntry); isDir {
+	}
+
+	if _, isdir := file.(fs.ReadDirFile); isdir {
+		file.Close()
 		return nil, os.ErrInvalid
 	}
-	return fs.Open(pathname)
+	return file, nil
 }
